@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, Lock, User, Eye, EyeOff, Palmtree, 
   TrendingUp, Award, Headphones, ChevronRight, ChevronDown, ShieldAlert 
 } from 'lucide-react';
+import { lockScroll, unlockScroll } from '../utils/scrollLock';
 
 export default function LoginModal({ isOpen, onClose, onLogin }) {
   const [username, setUsername] = useState('');
@@ -10,6 +12,15 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
   const [showPass, setShowPass] = useState(false);
   const [showQuickDemo, setShowQuickDemo] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      lockScroll('login-modal');
+      return () => {
+        unlockScroll('login-modal');
+      };
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -46,8 +57,8 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
     }
   };
 
-  return (
-    <div className="modal-backdrop-custom d-flex align-items-center justify-content-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(11, 25, 44, 0.5)', backdropFilter: 'blur(8px)', zIndex: 1050 }} onClick={onClose}>
+  return createPortal(
+    <div className="modal-backdrop-custom d-flex align-items-center justify-content-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(11, 25, 44, 0.6)', backdropFilter: 'blur(8px)', zIndex: 99999 }} onClick={onClose}>
       <div className="login-split-card animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
         
         {/* LEFT COLUMN: BRANDING & FEATURES */}
@@ -323,6 +334,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

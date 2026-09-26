@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, CheckCircle, Clock, ShieldCheck, MapPin, Phone, Mail, Calendar, User, FileText, Compass, AlertCircle } from 'lucide-react';
+import { lockScroll, unlockScroll } from '../../utils/scrollLock';
 
 /**
  * BookingVoucher — Autonomous, Professional A4 Corporate Travel & Rental Voucher
@@ -24,8 +25,7 @@ export default function BookingVoucher({
   useEffect(() => {
     if (!isModal) return;
     document.body.classList.add('voucher-modal-active');
-    const origOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockScroll('booking-voucher');
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && onClose) {
@@ -36,7 +36,7 @@ export default function BookingVoucher({
 
     return () => {
       document.body.classList.remove('voucher-modal-active');
-      document.body.style.overflow = origOverflow;
+      unlockScroll('booking-voucher');
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isModal, onClose]);

@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CheckCircle, ShieldCheck, Compass, Calendar, Clock, MapPin, Cake, Award, Sparkles, Gift, Wallet, Users, Crown, Car, Bike } from 'lucide-react';
 import { getTodayDateStr, addDays, validateVehicleBookingEligibility } from '../utils/dateUtils';
 import * as api from '../services/api';
@@ -6,6 +7,7 @@ import { checkCustomerDob } from '../services/api';
 import UnifiedGalleryViewer from './UnifiedGalleryViewer';
 import DobPicker from './common/DobPicker';
 import BookingConfirmationCard from './common/BookingConfirmationCard';
+import { lockScroll, unlockScroll } from '../utils/scrollLock';
 
 // Helper to normalize time strings (e.g. '10:00' -> '10:00 AM') so dropdown options match cleanly
 function normalizeTimeStr(t) {
@@ -69,6 +71,17 @@ export default function BookingModal({
   const [useWalletCashback, setUseWalletCashback] = useState(false);
   const [loyaltyInfo, setLoyaltyInfo] = useState(null);
   const [platinumPerkChoice, setPlatinumPerkChoice] = useState('discount');
+
+  const modalBodyRef = useRef(null);
+
+  // Global background scroll lock with exact scroll position preservation
+  useEffect(() => {
+    lockScroll('booking-modal');
+    return () => {
+      unlockScroll('booking-modal');
+    };
+  }, []);
+
 
   useEffect(() => {
     if (pickupDate) setModalPickupDate(pickupDate);
@@ -584,8 +597,16 @@ export default function BookingModal({
     });
   };
 
-  return (
-    <div className="checkout-modal-backdrop" onClick={() => setSelectedBookingItem(null)}>
+  return createPortal(
+    <div 
+      className="checkout-modal-backdrop" 
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }} 
+      onClick={() => setSelectedBookingItem(null)}
+    >
       <div className="checkout-modal-content animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
         <div className="checkout-header">
           <h4 className="m-0 font-heading text-white">
@@ -600,7 +621,7 @@ export default function BookingModal({
           </button>
         </div>
         
-        <div className="checkout-body text-start">
+        <div ref={modalBodyRef} className="checkout-body text-start" data-scrollable="true">
           {showSuccess ? (
             <div className="py-2 animate-fade-in">
               <BookingConfirmationCard
@@ -1637,6 +1658,7 @@ export default function BookingModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

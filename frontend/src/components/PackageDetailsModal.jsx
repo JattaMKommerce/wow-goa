@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, Star, MapPin, Clock, CheckCircle, XCircle, 
   Car, Hotel, Compass, Info, Plane, Utensils, Shield, 
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 import ImageCarousel from './common/ImageCarousel';
 import { getTodayDateStr, addDays, formatDisplayDate } from '../utils/dateUtils';
+import { lockScroll, unlockScroll } from '../utils/scrollLock';
 
 export default function PackageDetailsModal({ pkg, isOpen, onClose, onBook }) {
   if (!isOpen || !pkg) return null;
@@ -284,6 +286,16 @@ export default function PackageDetailsModal({ pkg, isOpen, onClose, onBook }) {
     return 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80';
   };
 
+  // Background scroll lock lifecycle
+  useEffect(() => {
+    if (isOpen) {
+      lockScroll('package-details-modal');
+      return () => {
+        unlockScroll('package-details-modal');
+      };
+    }
+  }, [isOpen]);
+
   // Handle escape key
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -310,7 +322,7 @@ export default function PackageDetailsModal({ pkg, isOpen, onClose, onBook }) {
     });
   };
 
-  return (
+  return createPortal(
     <div 
       className="modal-backdrop-custom d-flex align-items-center justify-content-center"
       style={{
@@ -324,7 +336,14 @@ export default function PackageDetailsModal({ pkg, isOpen, onClose, onBook }) {
         backgroundColor: 'rgba(15, 23, 42, 0.75)',
         backdropFilter: 'blur(8px)',
         zIndex: 9999,
-        padding: '20px'
+        padding: '20px',
+        overscrollBehavior: 'contain',
+        touchAction: 'none'
+      }}
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
       }}
       onClick={onClose}
     >
@@ -360,7 +379,7 @@ export default function PackageDetailsModal({ pkg, isOpen, onClose, onBook }) {
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-4 overflow-y-auto" style={{ flexGrow: 1 }}>
+        <div className="p-4 overflow-y-auto" data-scrollable="true" style={{ flexGrow: 1, overscrollBehavior: 'contain', touchAction: 'pan-y' }}>
           
           {/* ─── IMAGE CAROUSEL & TOP INFO ────────────────────────────────────────── */}
           <div className="row g-4 mb-4">
@@ -778,6 +797,7 @@ export default function PackageDetailsModal({ pkg, isOpen, onClose, onBook }) {
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

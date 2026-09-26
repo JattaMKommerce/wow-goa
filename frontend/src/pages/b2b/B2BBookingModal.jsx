@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, CheckCircle2, ShieldCheck, User, Phone, Mail, Calendar, Clock, DollarSign, Gift, Tag, Building2, Cake, AlertCircle, FileText, Download } from 'lucide-react';
 import * as api from '../../services/api';
 import { validateBookingDates } from '../../utils/dateUtils';
+import { lockScroll, unlockScroll } from '../../utils/scrollLock';
 
 export default function B2BBookingModal({
   selectedItem,
@@ -12,6 +13,13 @@ export default function B2BBookingModal({
   onBookingSuccess
 }) {
   if (!selectedItem) return null;
+
+  useEffect(() => {
+    lockScroll('b2b-booking-modal');
+    return () => {
+      unlockScroll('b2b-booking-modal');
+    };
+  }, []);
 
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');

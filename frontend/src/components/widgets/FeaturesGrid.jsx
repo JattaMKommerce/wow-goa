@@ -12,7 +12,15 @@ export default function FeaturesGrid({ config }) {
   ];
 
   return (
-    <div className="py-5" style={{ background: '#0D1B2E', color: '#fff' }}>
+    <div 
+      className="py-5 my-4 rounded-4 shadow-sm overflow-hidden" 
+      style={{ 
+        background: '#0D1B2E', 
+        color: '#fff',
+        width: '100%',
+        boxSizing: 'border-box'
+      }}
+    >
       <div className="container">
         <div className="section-header text-center mb-5">
           <div className="section-tagline text-warning fw-bold text-uppercase d-block mb-2" style={{ letterSpacing: '2px', fontSize: '0.85rem' }}>

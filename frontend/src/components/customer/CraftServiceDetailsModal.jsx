@@ -6,6 +6,7 @@ import {
   Award, Sparkles, Car, Bike, Hotel, Compass, Info, CheckCircle2
 } from 'lucide-react';
 import ImageCarousel from '../common/ImageCarousel';
+import { lockScroll, unlockScroll } from '../../utils/scrollLock';
 
 /**
  * CraftServiceDetailsModal
@@ -30,10 +31,9 @@ export default function CraftServiceDetailsModal({
   // Prevent background scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
+      lockScroll('craft-service-details');
       return () => {
-        document.body.style.overflow = originalOverflow;
+        unlockScroll('craft-service-details');
       };
     }
   }, [isOpen]);
@@ -193,7 +193,13 @@ export default function CraftServiceDetailsModal({
         zIndex: 99999,
         background: 'rgba(15, 23, 42, 0.75)',
         backdropFilter: 'blur(6px)',
-        padding: '16px'
+        padding: '16px',
+        overscrollBehavior: 'contain'
+      }}
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
       }}
       onClick={onClose}
     >
@@ -245,7 +251,15 @@ export default function CraftServiceDetailsModal({
         </div>
 
         {/* ─── Modal Scrollable Body ─── */}
-        <div className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(92vh - 140px)' }}>
+        <div 
+          className="p-4 overflow-y-auto" 
+          data-scrollable="true" 
+          style={{ 
+            maxHeight: 'calc(92vh - 140px)', 
+            overscrollBehavior: 'contain',
+            touchAction: 'pan-y'
+          }}
+        >
           {/* 1. Image Carousel & Gallery */}
           <div className="mb-4">
             <ImageCarousel

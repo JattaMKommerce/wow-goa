@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CheckCircle, ShieldCheck, User, Users, BedDouble, Calendar, ArrowRight, ArrowLeft, Download, MessageCircle, Info, Compass, Cake, Gift, Wallet, Clock, Crown } from 'lucide-react';
 import * as api from '../services/api';
 import { validateBookingDates, getTodayDateStr, addDays, formatDisplayDate } from '../utils/dateUtils';
@@ -6,6 +7,7 @@ import ImageCarousel from './common/ImageCarousel';
 import UnifiedGalleryViewer from './UnifiedGalleryViewer';
 import DobPicker from './common/DobPicker';
 import BookingConfirmationCard from './common/BookingConfirmationCard';
+import { lockScroll, unlockScroll } from '../utils/scrollLock';
 
 const TIME_SLOTS = [
   '06:00 AM', '07:00 AM', '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM',
@@ -42,6 +44,17 @@ export default function HotelBookingModal({
   const [modalCheckOutDate, setModalCheckOutDate] = useState(initialCheckOut);
   const [checkInTime, setCheckInTime] = useState('02:00 PM');
   const [checkOutTime, setCheckOutTime] = useState('11:00 AM');
+
+  const modalBodyRef = useRef(null);
+
+  // Global background scroll lock with exact scroll position preservation
+  useEffect(() => {
+    lockScroll('hotel-booking-modal');
+    return () => {
+      unlockScroll('hotel-booking-modal');
+    };
+  }, []);
+
 
   // Synchronize step and preselected room if selectedBookingItem changes while mounted
   useEffect(() => {
@@ -1238,8 +1251,16 @@ export default function HotelBookingModal({
 
   if (!selectedBookingItem) return null;
 
-  return (
-    <div className="checkout-modal-backdrop" onClick={() => setSelectedBookingItem(null)}>
+  return createPortal(
+    <div 
+      className="checkout-modal-backdrop" 
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }} 
+      onClick={() => setSelectedBookingItem(null)}
+    >
       <div className="checkout-modal-content animate-fade-in-up" style={{ maxWidth: step === 4 ? '600px' : '900px' }} onClick={(e) => e.stopPropagation()}>
         <div className="checkout-header bg-dark text-white">
           <h4 className="m-0 fw-bold">
@@ -1250,19 +1271,44 @@ export default function HotelBookingModal({
           </button>
         </div>
         
-        <div className="checkout-body p-0">
+        <div 
+          className="checkout-body p-0 hotel-modal-body" 
+          data-scrollable="true"
+          style={{ 
+            overflowY: step === 4 ? 'auto' : 'hidden', 
+            height: '100%', 
+            display: 'flex', 
+            flexDirection: 'column' 
+          }}
+        >
             {step === 4 ? (
-                <div className="p-4">
+                <div className="p-4" data-scrollable="true" style={{ overflowY: 'auto' }}>
                     {renderStep4()}
                 </div>
             ) : (
-                <div className="row g-0 h-100">
-                    <div className="col-lg-7 p-4 border-end overflow-auto" style={{ maxHeight: '75vh' }}>
+                <div className="row g-0 flex-grow-1" style={{ minHeight: 0, height: '100%' }}>
+                    <div 
+                      className="col-lg-7 p-4 border-end overflow-auto custom-scrollbar" 
+                      data-scrollable="true"
+                      style={{ 
+                        maxHeight: 'calc(90vh - 75px)', 
+                        overscrollBehavior: 'contain',
+                        touchAction: 'pan-y'
+                      }}
+                    >
                         {step === 1 && renderStep1()}
                         {step === 2 && renderStep2()}
                         {step === 3 && renderStep3()}
                     </div>
-                    <div className="col-lg-5 p-4 bg-light overflow-auto" style={{ maxHeight: '75vh' }}>
+                    <div 
+                      className="col-lg-5 p-4 bg-light overflow-auto custom-scrollbar" 
+                      data-scrollable="true"
+                      style={{ 
+                        maxHeight: 'calc(90vh - 75px)', 
+                        overscrollBehavior: 'contain',
+                        touchAction: 'pan-y'
+                      }}
+                    >
                         <h5 className="fw-bold mb-3 border-bottom pb-2">Booking Summary</h5>
                         
                         <div className="card shadow-sm border mb-4 overflow-hidden">
@@ -1495,6 +1541,7 @@ export default function HotelBookingModal({
             )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

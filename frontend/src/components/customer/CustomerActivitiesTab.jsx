@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Compass, MapPin, Clock, Users, Calendar, CheckCircle2,
   Search, Sparkles, Filter, ChevronRight, AlertCircle, Eye,
@@ -11,6 +12,7 @@ import DobPicker from '../common/DobPicker';
 import TourDatePicker from '../common/TourDatePicker';
 import BookingVoucher from '../common/BookingVoucher';
 import BookingConfirmationCard from '../common/BookingConfirmationCard';
+import { lockScroll, unlockScroll } from '../../utils/scrollLock';
 
 const filterActiveActivities = (items) => (Array.isArray(items) ? items : [])
   .filter(item => item.is_active !== 0 && item.is_active !== '0' && item.is_active !== false);
@@ -35,6 +37,7 @@ export default function CustomerActivitiesTab({
   const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'sightseeing' | 'activity'
   const [searchQuery, setSearchQuery] = useState(parentSearchQuery || '');
   const [bookingModalItem, setBookingModalItem] = useState(null);
+
 
   // Sync parent search query when changed
   useEffect(() => {
@@ -90,6 +93,16 @@ export default function CustomerActivitiesTab({
       return [];
     }
   });
+
+  // Global background scroll lock with exact scroll position preservation
+  useEffect(() => {
+    if (bookingModalItem || selectedVoucherBooking) {
+      lockScroll('activities-booking-modal');
+      return () => {
+        unlockScroll('activities-booking-modal');
+      };
+    }
+  }, [bookingModalItem, selectedVoucherBooking]);
 
   // Repeat customer lookup for Date of Birth & Wallet Balance & Loyalty Tier
   useEffect(() => {
@@ -847,25 +860,61 @@ export default function CustomerActivitiesTab({
           (Array.isArray(bookingModalItem.images) && bookingModalItem.images[0]) ||
           (Array.isArray(bookingModalItem.mediaList) && bookingModalItem.mediaList[0]?.url);
 
-        return (
+        return createPortal(
           <div
-            className="modal show d-block animate-fade-in"
+            className="activity-booking-backdrop animate-fade-in"
             tabIndex="-1"
-            style={{ backgroundColor: 'rgba(11, 25, 44, 0.72)', zIndex: 1060, backdropFilter: 'blur(4px)' }}
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: 'rgba(11, 25, 44, 0.75)',
+              zIndex: 99999,
+              backdropFilter: 'blur(6px)',
+              WebkitBackdropFilter: 'blur(6px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+              overscrollBehavior: 'contain'
+            }}
+            onWheel={(e) => {
+              if (e.target === e.currentTarget) {
+                e.preventDefault();
+              }
+            }}
             onClick={() => setBookingModalItem(null)}
           >
             <div
-              className="modal-dialog modal-dialog-centered"
-              style={{ maxWidth: '880px', width: '95%' }}
+              className="modal-dialog m-0 animate-scale-up"
+              style={{
+                maxWidth: '880px',
+                width: '100%',
+                maxHeight: '92vh',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               <div
                 className="modal-content border-0 shadow-2xl rounded-4"
-                style={{ background: '#ffffff', overflow: 'visible' }}
+                style={{
+                  background: '#ffffff',
+                  maxHeight: '92vh',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden'
+                }}
               >
                 {/* Modal Header */}
                 <div
-                  className="modal-header border-0 py-3 px-4 d-flex align-items-center justify-content-between"
+                  className="modal-header border-0 py-3 px-4 d-flex align-items-center justify-content-between flex-shrink-0"
                   style={{
                     background: 'linear-gradient(135deg, #0B192C 0%, #1E3E62 100%)',
                     borderTopLeftRadius: '1rem',
@@ -900,7 +949,16 @@ export default function CustomerActivitiesTab({
                 </div>
 
                 {/* Modal Body */}
-                <div className="modal-body p-3 p-md-4" style={{ overflow: 'visible' }}>
+                <div
+                  className="modal-body p-3 p-md-4 activity-modal-body"
+                  data-scrollable="true"
+                  style={{
+                    overflowY: 'auto',
+                    overscrollBehavior: 'contain',
+                    WebkitOverflowScrolling: 'touch',
+                    flex: '1 1 auto'
+                  }}
+                >
                   {bookingSuccess ? (
                     <div className="py-2 px-1 animate-fade-in" style={{ maxWidth: '540px', margin: '0 auto' }}>
                       <BookingConfirmationCard 
@@ -1618,7 +1676,8 @@ export default function CustomerActivitiesTab({
 
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
 

@@ -66,6 +66,23 @@ body {
   position: relative;
 }
 
+/* Modal active body & html scroll lock */
+html.tg-scroll-locked {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  height: 100% !important;
+}
+
+body.tg-scroll-locked,
+body.tg-modal-open,
+body.modal-open {
+  position: fixed !important;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
 
 /* Universal scroll containment for horizontal scrollable components:
    If a component needs horizontal scrolling, only that component scrolls,
