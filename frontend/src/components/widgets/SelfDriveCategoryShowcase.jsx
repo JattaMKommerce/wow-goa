@@ -1,5 +1,6 @@
 import React, { useRef, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Bike, Car, Crown, Sparkles, Star, Camera } from 'lucide-react';
+import { getMarkupPrice } from '../../utils/pricingHelper';
 
 // ─── CURATED VEHICLE FLEET DATA (Matching Reference Layout & Fallbacks) ────────
 const DEFAULT_TWO_WHEELERS = [
@@ -671,6 +672,7 @@ function matchesVehicleFilters(vehicle, appliedFilters, vehicleCategoryType) {
 export default function SelfDriveCategoryShowcase({
   cars = [],
   bikes = [],
+  markups = [],
   onBookVehicle,
   onViewVehicle,
   setActiveTab,
@@ -680,8 +682,16 @@ export default function SelfDriveCategoryShowcase({
 }) {
   // 1. Process Two Wheelers (incoming live bikes + curated defaults)
   const twoWheelers = useMemo(() => {
-    const liveBikes = (bikes || []).map(b => ({ ...b, type: 'bike' }));
-    const extraBikesFromCars = (cars || []).filter(c => isBike(c)).map(c => ({ ...c, type: 'bike' }));
+    const liveBikes = (bikes || []).map(b => ({ 
+      ...b, 
+      type: 'bike',
+      price: getMarkupPrice(b.price, b.vendor_id || 'global', 'bikes', b.id, markups, 'b2c')
+    }));
+    const extraBikesFromCars = (cars || []).filter(c => isBike(c)).map(c => ({ 
+      ...c, 
+      type: 'bike',
+      price: getMarkupPrice(c.price, c.vendor_id || 'global', 'bikes', c.id, markups, 'b2c')
+    }));
     const combinedLive = [...liveBikes, ...extraBikesFromCars];
     
     // Merge live with defaults, ensuring no exact name duplicates
@@ -708,11 +718,15 @@ export default function SelfDriveCategoryShowcase({
       filtered = filtered.filter(v => v.name.toLowerCase().includes(q) || (v.category || '').toLowerCase().includes(q));
     }
     return filtered.filter(v => matchesVehicleFilters(v, appliedFilters, 'Two Wheelers'));
-  }, [bikes, cars, searchQuery, appliedFilters]);
+  }, [bikes, cars, markups, searchQuery, appliedFilters]);
 
   // 2. Process Four Wheelers (Standard non-luxury cars + curated defaults)
   const fourWheelers = useMemo(() => {
-    const liveStandardCars = (cars || []).filter(c => !isBike(c) && !isLuxuryCar(c)).map(c => ({ ...c, type: 'car' }));
+    const liveStandardCars = (cars || []).filter(c => !isBike(c) && !isLuxuryCar(c)).map(c => ({ 
+      ...c, 
+      type: 'car',
+      price: getMarkupPrice(c.price, c.vendor_id || 'global', 'cars', c.id, markups, 'b2c')
+    }));
     
     const namesSeen = new Set();
     const result = [];
@@ -737,11 +751,15 @@ export default function SelfDriveCategoryShowcase({
       filtered = filtered.filter(v => v.name.toLowerCase().includes(q) || (v.category || '').toLowerCase().includes(q));
     }
     return filtered.filter(v => matchesVehicleFilters(v, appliedFilters, 'Four Wheelers'));
-  }, [cars, searchQuery, appliedFilters]);
+  }, [cars, markups, searchQuery, appliedFilters]);
 
   // 3. Process Luxury Cars (Luxury cars + curated defaults)
   const luxuryCars = useMemo(() => {
-    const liveLuxuryCars = (cars || []).filter(c => isLuxuryCar(c)).map(c => ({ ...c, type: 'car' }));
+    const liveLuxuryCars = (cars || []).filter(c => isLuxuryCar(c)).map(c => ({ 
+      ...c, 
+      type: 'car',
+      price: getMarkupPrice(c.price, c.vendor_id || 'global', 'cars', c.id, markups, 'b2c')
+    }));
     
     const namesSeen = new Set();
     const result = [];
@@ -766,7 +784,7 @@ export default function SelfDriveCategoryShowcase({
       filtered = filtered.filter(v => v.name.toLowerCase().includes(q) || (v.category || '').toLowerCase().includes(q));
     }
     return filtered.filter(v => matchesVehicleFilters(v, appliedFilters, 'Luxury Cars'));
-  }, [cars, searchQuery, appliedFilters]);
+  }, [cars, markups, searchQuery, appliedFilters]);
 
   const handleViewAllBikes = () => {
     if (setActiveTab) setActiveTab('bikes');

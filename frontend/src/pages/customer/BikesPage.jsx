@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Star, TrendingUp, ShieldCheck, Award, Clock, Filter, AlertCircle, RotateCcw, ChevronRight } from 'lucide-react';
+import { Star, TrendingUp, ShieldCheck, Award, Clock, Filter, AlertCircle, RotateCcw, ChevronRight, Camera } from 'lucide-react';
+import { getMarkupPrice } from '../../utils/pricingHelper';
 
 export default function BikesPage({
   bikeFilterType = 'All',
@@ -12,36 +13,10 @@ export default function BikesPage({
   appliedFilters = {},
   setAppliedFilters
 }) {
-  const getMarkupPrice = (basePrice, vendorId, entityType, itemId = 'all') => {
-    if (!markups) return basePrice;
-    
-    // 1. Item-specific markup for this vendor
-    let applicableMarkup = markups.find(m => m.entity_type === entityType && m.vendor_id == vendorId && m.item_id == itemId);
-    
-    // 2. Global markup for this vendor (item_id = 'all')
-    if (!applicableMarkup) {
-      applicableMarkup = markups.find(m => m.entity_type === entityType && m.vendor_id == vendorId && (m.item_id === 'all' || !m.item_id));
-    }
-
-    // 3. Global markup for all vendors
-    if (!applicableMarkup) {
-      applicableMarkup = markups.find(m => m.entity_type === entityType && m.vendor_id === 'global');
-    }
-    if (applicableMarkup) {
-      const val = parseFloat(applicableMarkup.markup_value);
-      if (applicableMarkup.markup_type === 'flat') {
-        return basePrice + val;
-      } else if (applicableMarkup.markup_type === 'percentage') {
-        return basePrice + (basePrice * (val / 100));
-      }
-    }
-    return basePrice;
-  };
-
   const displayBikes = useMemo(() => {
     return (bikes || []).map(bike => ({
       ...bike,
-      price: getMarkupPrice(parseFloat(bike.price || 0), bike.vendor_id || 'global', 'bikes', bike.id)
+      price: getMarkupPrice(parseFloat(bike.price || 0), bike.vendor_id || 'global', 'bikes', bike.id, markups, 'b2c')
     }));
   }, [bikes, markups]);
 
@@ -183,7 +158,7 @@ export default function BikesPage({
 
             const mediaList = Array.from(new Set(parsedImages.filter(Boolean)));
             const activeIdx = activeMediaIndexes[bike.id] || 0;
-            const currentImg = mediaList[activeIdx] || bike.image || 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=400&q=80';
+            const currentImg = mediaList[activeIdx] || bike.image || '';
 
             return (
               <div key={bike.id} className="col-md-6 col-lg-4">
@@ -195,13 +170,28 @@ export default function BikesPage({
                     if (onViewDetails) onViewDetails({ ...bike, type: 'bike' });
                   }}
                 >
-                  <div className="position-relative bg-dark" style={{ height: '200px' }}>
-                    <img 
-                      src={currentImg} 
-                      alt={bike.name} 
-                      className="w-100 h-100 object-fit-cover"
-                      onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=400&q=80'; }}
-                    />
+                  <div className="position-relative" style={{ height: '200px', background: '#f8fafc' }}>
+                    {currentImg ? (
+                      <img 
+                        src={currentImg} 
+                        alt={bike.name} 
+                        className="w-100 h-100 object-fit-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          const fallbackEl = e.target.parentElement.querySelector('.no-photo-fallback');
+                          if (fallbackEl) fallbackEl.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className="no-photo-fallback flex-column align-items-center justify-content-center w-100 h-100 text-muted" 
+                      style={{ display: currentImg ? 'none' : 'flex', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}
+                    >
+                      <div className="rounded-circle d-flex align-items-center justify-content-center mb-2 shadow-xs" style={{ width: '44px', height: '44px', background: 'rgba(100,116,139,0.1)', border: '1px dashed rgba(100,116,139,0.25)' }}>
+                        <Camera size={20} className="text-secondary opacity-75" />
+                      </div>
+                      <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#475569', letterSpacing: '0.2px' }}>No Photo Uploaded</span>
+                    </div>
                     <span className="badge bg-dark bg-opacity-75 text-white position-absolute top-0 start-0 m-3 px-2 py-1 rounded-pill small" style={{ zIndex: 2 }}>
                       {bike.category || 'Scooter'}
                     </span>

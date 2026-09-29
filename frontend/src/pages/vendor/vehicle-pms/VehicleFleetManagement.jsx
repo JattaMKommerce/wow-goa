@@ -807,11 +807,9 @@ export default function VehicleFleetManagement({ currentUser, cars = [], bikes =
                     value={addForm.name}
                     onChange={e => {
                       const val = e.target.value;
-                      const suggestions = getSuggestedCategories(val, addType);
                       setAddForm(f => ({
                         ...f,
-                        name: val,
-                        category: suggestions[0] || f.category
+                        name: val
                       }));
                     }}
                     placeholder={addType === 'car' ? 'e.g. Swift Dzire' : 'e.g. Royal Enfield Classic'}

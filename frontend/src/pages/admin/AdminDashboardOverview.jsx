@@ -353,6 +353,16 @@ export default function AdminDashboardOverview({
                       <td className="px-3 py-2">
                         <div className="fw-bold">{bk.name || bk.customer_name || 'Guest'}</div>
                         <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>#{bk.id}</div>
+                        {(bk.customer_payment_utr || bk.payment_reference) && (
+                          <div className="mt-1 d-inline-block px-1 rounded font-monospace" style={{ fontSize: '0.65rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+                            Cust UTR: {bk.customer_payment_utr || bk.payment_reference}
+                          </div>
+                        )}
+                        {(bk.vendor_payout_utr || bk.vendor_payout_reference) && (
+                          <div className="mt-0.5 d-inline-block px-1 rounded font-monospace" style={{ fontSize: '0.62rem', background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
+                            Vendor UTR: {bk.vendor_payout_utr || bk.vendor_payout_reference}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2" style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {bk.vehicle_name || bk.hotel_name || bk.item_name || '—'}
@@ -372,6 +382,11 @@ export default function AdminDashboardOverview({
                         }}>
                           {bk.status || 'Pending'}
                         </span>
+                        {bk.payment_verification_status === 'Pending Verification' && (
+                          <div className="text-warning fw-semibold mt-1" style={{ fontSize: '0.65rem' }}>
+                            ⏳ Needs UTR Verification
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

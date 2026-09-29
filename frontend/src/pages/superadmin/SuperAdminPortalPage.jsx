@@ -4,9 +4,10 @@ import {
   Building, Car, Hotel, Plane, CalendarDays, Wallet, CreditCard,
   Percent, BarChart2, Globe, ChevronDown, ChevronRight,
   Bell, Menu, X, UserCog, CheckCircle, Map as MapIcon,
-  Briefcase, Clock, Gift, Tag, AlertCircle, FileText
+  Briefcase, Clock, Gift, Tag, AlertCircle, FileText, Star
 } from 'lucide-react';
 import SuperAdminDashboard from './SuperAdminDashboard';
+import AdminReviewsManagement from '../admin/AdminReviewsManagement';
 import * as api from '../../services/api';
 import { 
   aiLeadsData as defaultAiLeads, 
@@ -64,9 +65,10 @@ const SIDEBAR_GROUPS = [
   {
     label: 'Operations',
     items: [
-      { id: 'hotel_bookings', label: 'Hotel Booking', icon: <Hotel size={15} /> },
-      { id: 'trip_bookings', label: 'Trip Booking', icon: <CalendarDays size={15} /> },
       { id: 'vehicle_bookings', label: 'Vehicle Booking', icon: <Car size={15} /> },
+      { id: 'hotel_bookings', label: 'Hotel Booking', icon: <Hotel size={15} /> },
+      { id: 'flight_bookings', label: 'Flight Booking', icon: <Plane size={15} /> },
+      { id: 'trip_bookings', label: 'Trip Booking', icon: <CalendarDays size={15} /> },
       { id: 'activity_bookings', label: 'Sightseeing & Activity Booking', icon: <MapIcon size={15} /> },
     ]
   },
@@ -83,6 +85,7 @@ const SIDEBAR_GROUPS = [
     label: 'Intelligence',
     items: [
       { id: 'reports', label: 'Reports & Analytics', icon: <BarChart2 size={15} /> },
+      { id: 'reviews', label: 'Customer Reviews', icon: <Star size={15} /> },
     ]
   },
   {
@@ -98,6 +101,7 @@ const PAGE_TITLES = {
   dashboard: 'ERP Dashboard',
   admin_management: 'Admin Management',
   user_management: 'Global User Management',
+  reviews: 'Customer Reviews & Ratings Management',
   b2b_dashboard: 'B2B Dashboard',
   b2b_applications: 'B2B Partner Applications',
   b2b_all_partners: 'B2B All Partners',
@@ -115,7 +119,10 @@ const PAGE_TITLES = {
   hotel_bookings: 'Hotel Booking',
   trip_bookings: 'Trip Booking',
   vehicle_bookings: 'Vehicle Booking',
+  flight_bookings: 'Flight Booking',
   activity_bookings: 'Sightseeing & Activity Bookings',
+  all_bookings: 'Booking Management',
+  bookings: 'Vehicle Booking',
   wallet: 'Wallet & Approvals',
   payment_gateway: 'Payment Gateways',
   subscription_plans: 'Subscription Plans',
@@ -1114,27 +1121,31 @@ export default function SuperAdminPortalPage({
 
         {/* Content */}
         <div className="flex-grow-1 overflow-auto" style={{ background: '#f0f2f5' }}>
-          <SuperAdminDashboard
-            activeTab={activeTab}
-            onNavigate={handleTabChange}
-            usersList={Array.isArray(liveUsers) ? liveUsers : []}
-            vendors={Array.isArray(liveVendors) ? liveVendors : []}
-            cars={cars || []}
-            bikes={bikes || []}
-            hotels={hotels || []}
-            bookings={Array.isArray(liveBookings) ? liveBookings : []}
-            aiLeads={Array.isArray(aiLeads) ? aiLeads : []}
-            customEnquiries={Array.isArray(customEnquiries) ? customEnquiries : []}
-            b2bPartners={Array.isArray(liveB2BPartners) ? liveB2BPartners : []}
-            b2bBookings={Array.isArray(liveB2BBookings) ? liveB2BBookings : []}
-            drivers={Array.isArray(liveDrivers) ? liveDrivers : []}
-            currentUser={currentUser}
-            onRefreshLeads={loadAllPortalData}
-            onAddUser={handlePortalAddUser}
-            onUpdateUser={handlePortalUpdateUser}
-            onDeleteUser={handlePortalDeleteUser}
-            onApproveVendor={handlePortalApproveVendor}
-          />
+          {activeTab === 'reviews' ? (
+            <AdminReviewsManagement portalTitle="Super Admin Portal" onSelectTab={handleTabChange} />
+          ) : (
+            <SuperAdminDashboard
+              activeTab={activeTab}
+              onNavigate={handleTabChange}
+              usersList={Array.isArray(liveUsers) ? liveUsers : []}
+              vendors={Array.isArray(liveVendors) ? liveVendors : []}
+              cars={cars || []}
+              bikes={bikes || []}
+              hotels={hotels || []}
+              bookings={Array.isArray(liveBookings) ? liveBookings : []}
+              aiLeads={Array.isArray(aiLeads) ? aiLeads : []}
+              customEnquiries={Array.isArray(customEnquiries) ? customEnquiries : []}
+              b2bPartners={Array.isArray(liveB2BPartners) ? liveB2BPartners : []}
+              b2bBookings={Array.isArray(liveB2BBookings) ? liveB2BBookings : []}
+              drivers={Array.isArray(liveDrivers) ? liveDrivers : []}
+              currentUser={currentUser}
+              onRefreshLeads={loadAllPortalData}
+              onAddUser={handlePortalAddUser}
+              onUpdateUser={handlePortalUpdateUser}
+              onDeleteUser={handlePortalDeleteUser}
+              onApproveVendor={handlePortalApproveVendor}
+            />
+          )}
         </div>
       </div>
 

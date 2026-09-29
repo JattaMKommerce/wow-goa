@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   X, Send, Mic, Volume2, VolumeX, Sparkles, AlertCircle,
-  Compass, Hotel, Car, Users, Calendar, ArrowRight, CheckCircle2
+  Compass, Hotel, Car, Users, Calendar, ArrowRight, CheckCircle2, ShieldCheck
 } from 'lucide-react';
 import chatbotAvatar from '../assets/aichatbot.webp';
 import chatbotAnimationVideo from '../assets/chatbot-animation.mp4';
@@ -135,24 +135,71 @@ export default function AIChatbot() {
     return () => window.removeEventListener('open_ai_chat', handleOpenAIChat);
   }, [handleOpenChat]);
 
-  // Listen to sophia_nav event - navigates to a specific tab (bikes, cars, hotels) when user clicks a booking link in chat
+  // Global navigation helper & listener for Luzia chatbot buttons & links
   useEffect(() => {
     const handleSophiaNav = (e) => {
       const tab = e?.detail?.tab;
       const itemId = e?.detail?.itemId;
       const itemType = e?.detail?.itemType;
       const itemName = e?.detail?.itemName ? decodeURIComponent(e.detail.itemName) : '';
-      if (tab) {
+      const explicitUrl = e?.detail?.targetUrl;
+
+      if (tab || explicitUrl) {
         // Close chatbot
         setIsOpen(false);
+
+        const tabMap = {
+          bikes: 'bikes',
+          cars: 'cars',
+          hotels: 'hotels',
+          activities: 'activities',
+          packages: 'packages',
+          flights: 'flights',
+          selfdrive: 'selfdrive',
+          'self-drive': 'selfdrive',
+          craft: 'craftmytrip',
+          craftmytrip: 'craftmytrip',
+          'custom-trip': 'custom-trip'
+        };
+        const resolvedTab = tabMap[tab] || tab || 'cars';
+        const targetPath = '/' + (resolvedTab === 'craftmytrip' ? 'craft' : (resolvedTab === 'self-drive' ? 'selfdrive' : resolvedTab));
+        const finalUrl = explicitUrl || (targetPath + (itemId ? `?id=${encodeURIComponent(itemId)}` : ''));
+
+        const curPath = window.location.pathname.toLowerCase();
+        const isPortal = curPath.startsWith('/superadmin') || curPath.startsWith('/super-admin') ||
+                         curPath.startsWith('/admin') || curPath.startsWith('/vendor') ||
+                         curPath.startsWith('/hotel-vendor') || curPath.startsWith('/flight-vendor') ||
+                         curPath.startsWith('/subadmin') || curPath.startsWith('/sub-admin') ||
+                         curPath.startsWith('/customer') || curPath.startsWith('/b2b') ||
+                         curPath.startsWith('/driver') || curPath.startsWith('/portal');
+
+        if (isPortal) {
+          window.location.href = finalUrl;
+          return;
+        }
+
         // Fire navigation event to App.jsx to switch tab and open the requested item
         window.dispatchEvent(new CustomEvent('sophia_switch_tab', {
-          detail: { tab, itemId, itemType, itemName }
+          detail: { tab: resolvedTab, itemId, itemType, itemName, targetUrl: finalUrl }
         }));
+
+        try {
+          window.history.pushState({}, '', finalUrl);
+        } catch (_) {}
       }
     };
+
+    window.sophiaNavigate = (tab, itemId, itemType, encodedName, targetUrl) => {
+      let itemName = '';
+      try { itemName = encodedName ? decodeURIComponent(encodedName) : ''; } catch (_) {}
+      handleSophiaNav({ detail: { tab, itemId, itemType, itemName, targetUrl } });
+    };
+
     window.addEventListener('sophia_nav', handleSophiaNav);
-    return () => window.removeEventListener('sophia_nav', handleSophiaNav);
+    return () => {
+      window.removeEventListener('sophia_nav', handleSophiaNav);
+      delete window.sophiaNavigate;
+    };
   }, []);
 
   // Listen to sophia_send_msg event - fired when customer clicks in-chat action buttons like [Get Price for My Dates]
@@ -822,15 +869,13 @@ export default function AIChatbot() {
       const activeItName = activeContext?.booking_preview?.item_name || activeContext?.active_item_name;
       if (activeItId || activeItName) {
         const tab = activeItType === 'car' ? 'cars' : (activeItType === 'hotel' ? 'hotels' : (activeItType === 'activity' ? 'activities' : (activeItType === 'package' ? 'packages' : 'bikes')));
-        setIsOpen(false);
-        window.dispatchEvent(new CustomEvent('sophia_switch_tab', {
-          detail: {
-            tab,
-            itemId: String(activeItId || ''),
-            itemType: activeItType,
-            itemName: activeItName || textToSend.replace(/^(?:Book|Confirm & Book|View)\s+/, '').replace(/\s*→$/, '').trim()
-          }
-        }));
+        const targetUrl = `/${tab}?id=${encodeURIComponent(activeItId || '')}`;
+        if (typeof window !== 'undefined' && window.sophiaNavigate) {
+          window.sophiaNavigate(tab, String(activeItId || ''), activeItType, activeItName, targetUrl);
+        } else {
+          setIsOpen(false);
+          window.location.href = targetUrl;
+        }
         return;
       }
     }
@@ -988,8 +1033,11 @@ export default function AIChatbot() {
     setIsOpen(false);
     setShowConfirmReplace(false);
 
-    // If not already on /craft route, navigate smoothly
-    if (!window.location.pathname.startsWith('/craft')) {
+    // If on portal or not on /craft route, navigate smoothly
+    const curP = window.location.pathname.toLowerCase();
+    if (curP.startsWith('/superadmin') || curP.startsWith('/super-admin') || curP.startsWith('/admin') || curP.startsWith('/vendor') || curP.startsWith('/portal')) {
+      window.location.href = '/craft';
+    } else if (!curP.startsWith('/craft')) {
       window.history.pushState(null, '', '/craft');
       window.dispatchEvent(new PopStateEvent('popstate'));
     }
@@ -998,7 +1046,10 @@ export default function AIChatbot() {
   const handleKeepCurrentTrip = () => {
     setShowConfirmReplace(false);
     setIsOpen(false);
-    if (!window.location.pathname.startsWith('/craft')) {
+    const curP = window.location.pathname.toLowerCase();
+    if (curP.startsWith('/superadmin') || curP.startsWith('/super-admin') || curP.startsWith('/admin') || curP.startsWith('/vendor') || curP.startsWith('/portal')) {
+      window.location.href = '/craft';
+    } else if (!curP.startsWith('/craft')) {
       window.history.pushState(null, '', '/craft');
       window.dispatchEvent(new PopStateEvent('popstate'));
     }
@@ -1307,18 +1358,77 @@ export default function AIChatbot() {
           -webkit-overflow-scrolling: touch;
         }
 
-        /* Mobile Responsiveness */
+        /* Luzia Custom Input Styling & Subtle Focus States (Requirement 4) */
+        .luzia-form-control {
+          border: 1.5px solid #e2e8f0 !important;
+          color: #1e293b !important;
+          background-color: #ffffff !important;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .luzia-form-control:focus {
+          border-color: #FF6B35 !important;
+          box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.18) !important;
+          outline: none !important;
+        }
+        .luzia-input-group {
+          border: 1.5px solid #e2e8f0;
+          background-color: #ffffff;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .luzia-input-group:focus-within {
+          border-color: #FF6B35 !important;
+          box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.18) !important;
+        }
+        .luzia-input-group input:focus {
+          outline: none !important;
+          box-shadow: none !important;
+        }
+        .luzia-cta-btn {
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .luzia-cta-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px rgba(255, 107, 53, 0.35) !important;
+        }
+        .luzia-cta-btn:active {
+          transform: translateY(0);
+        }
+        .luzia-hdr-btn:hover {
+          background: rgba(255, 255, 255, 0.35) !important;
+        }
+
+        /* Desktop & Tablet Chatbot Window (min-width: 601px) */
+        @media (min-width: 601px) {
+          .ai-chatbot-window {
+            width: 395px !important;
+            max-width: calc(100vw - 32px) !important;
+            height: min(605px, calc(100dvh - 36px), calc(100vh - 36px)) !important;
+            max-height: calc(100dvh - 36px) !important;
+            right: 24px !important;
+            border-radius: 22px !important;
+          }
+          .ai-chatbot-window.is-open {
+            bottom: 24px !important;
+          }
+        }
+
+        /* Mobile Chatbot Window (max-width: 600px) */
         @media (max-width: 600px) {
           .ai-chatbot-window {
-            bottom: 0 !important;
+            bottom: -720px !important;
             right: 0 !important;
             left: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
-            height: 90vh !important;
-            max-height: 90vh !important;
+            height: min(620px, 92dvh, 92vh) !important;
+            max-height: 94dvh !important;
+            border-top-left-radius: 20px !important;
+            border-top-right-radius: 20px !important;
             border-bottom-left-radius: 0 !important;
             border-bottom-right-radius: 0 !important;
+          }
+          .ai-chatbot-window.is-open {
+            bottom: 0 !important;
           }
           .sophia-floating-trigger,
           .ai-floating-trigger {
@@ -1349,19 +1459,19 @@ export default function AIChatbot() {
       {/* ─── CHATBOT WINDOW ───────────────────────────────────────────── */}
       <div
         ref={chatWindowRef}
-        className="ai-chatbot-window position-fixed shadow-2xl rounded-4 overflow-hidden transition-all bg-white d-flex flex-column"
+        className={`ai-chatbot-window position-fixed shadow-2xl rounded-4 overflow-hidden transition-all bg-white d-flex flex-column ${isOpen ? 'is-open' : 'is-closed'}`}
         style={{
           bottom: isOpen ? '24px' : '-660px',
           right: '24px',
-          width: '400px',
-          height: '630px',
+          width: '395px',
+          height: 'min(605px, calc(100dvh - 36px), calc(100vh - 36px))',
           maxWidth: 'calc(100vw - 32px)',
-          maxHeight: 'calc(100vh - 48px)',
+          maxHeight: 'calc(100dvh - 36px)',
           zIndex: 1050,
           opacity: isOpen ? 1 : 0,
           pointerEvents: isOpen ? 'all' : 'none',
           boxShadow: '0 20px 40px -15px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.08)',
-          borderRadius: '24px',
+          borderRadius: '22px',
           overscrollBehavior: 'contain',
           touchAction: 'pan-y',
           isolation: 'isolate'
@@ -1369,35 +1479,37 @@ export default function AIChatbot() {
       >
         {/* Header */}
         <div
-          className="d-flex align-items-center justify-content-between p-3"
+          className="d-flex align-items-center justify-content-between px-3 py-2.5"
           style={{
             background: 'linear-gradient(135deg, #FF6B35, #FF9F1C)',
             color: 'white',
-            borderTopLeftRadius: '24px',
-            borderTopRightRadius: '24px'
+            borderTopLeftRadius: '22px',
+            borderTopRightRadius: '22px',
+            flexShrink: 0
           }}
         >
-          <div className="d-flex align-items-center gap-2.5">
-            <div className="rounded-circle bg-white d-flex align-items-center justify-content-center shadow-sm overflow-hidden" style={{ width: '40px', height: '40px' }}>
+          <div className="d-flex align-items-center gap-2.5" style={{ minWidth: 0 }}>
+            <div className="rounded-circle bg-white d-flex align-items-center justify-content-center shadow-sm overflow-hidden flex-shrink-0" style={{ width: '38px', height: '38px' }}>
               <img src={chatbotAvatar} alt="Luzia AI" style={{ width: '92%', height: '92%', objectFit: 'contain' }} />
             </div>
-            <div>
-              <div className="d-flex align-items-center gap-1.5">
-                <h6 className="mb-0 fw-bold text-white" style={{ fontSize: '15px' }}>Luzia</h6>
-                <span className="badge bg-white text-dark rounded-pill px-2 py-0.5" style={{ fontSize: '10px', fontWeight: 700 }}>AI Travel Expert</span>
+            <div style={{ minWidth: 0 }}>
+              <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                <h6 className="mb-0 fw-bold text-white text-truncate" style={{ fontSize: '15px', lineHeight: '1.2' }}>Luzia</h6>
+                <span className="badge bg-white text-dark rounded-pill px-2 py-0.5 shadow-xs" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2px' }}>AI Travel Expert</span>
               </div>
-              <small style={{ opacity: 0.95, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80' }}></span>
-                Online | WOW GOA Assistant
+              <small style={{ opacity: 0.95, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', flexShrink: 0 }}></span>
+                <span className="text-truncate">Online | WOW GOA Assistant</span>
               </small>
             </div>
           </div>
-          <div className="d-flex align-items-center gap-1.5">
+          <div className="d-flex align-items-center gap-1.5 flex-shrink-0 ms-2">
             <button
               type="button"
               onClick={toggleMute}
               title={isMuted ? "Unmute Luzia's Voice" : "Mute Luzia's Voice"}
-              className="btn btn-sm p-0 rounded-circle d-flex align-items-center justify-content-center"
+              aria-label={isMuted ? "Unmute Luzia's Voice" : "Mute Luzia's Voice"}
+              className="btn btn-sm p-0 rounded-circle d-flex align-items-center justify-content-center luzia-hdr-btn"
               style={{ width: '32px', height: '32px', background: isMuted ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)', color: 'white', border: 'none', backdropFilter: 'blur(4px)', cursor: 'pointer', transition: 'all 0.2s' }}
             >
               {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
@@ -1406,7 +1518,7 @@ export default function AIChatbot() {
               type="button"
               onClick={() => setIsOpen(false)}
               aria-label="Close Chat"
-              className="btn btn-sm p-0 rounded-circle d-flex align-items-center justify-content-center"
+              className="btn btn-sm p-0 rounded-circle d-flex align-items-center justify-content-center luzia-hdr-btn"
               style={{ width: '32px', height: '32px', background: 'rgba(255,255,255,0.25)', color: 'white', border: 'none', backdropFilter: 'blur(4px)', cursor: 'pointer', transition: 'all 0.2s' }}
             >
               <X size={18} />
@@ -1430,17 +1542,35 @@ export default function AIChatbot() {
             }}
           >
             {showLeadForm ? (
-              <div
-                className="d-flex align-items-center justify-content-center h-100 position-absolute top-0 start-0 w-100 px-3"
-                style={{
-                  background: 'rgba(248, 250, 252, 0.98)',
-                  backdropFilter: 'blur(8px)',
-                  zIndex: 20
-                }}
-              >
+              <div className="d-flex flex-column gap-3 w-100 py-1">
+                {/* 1. Friendly Luzia Greeting Message Bubble */}
+                <div className="d-flex align-items-start gap-2.5">
+                  <div className="rounded-circle bg-white d-flex align-items-center justify-content-center shadow-xs flex-shrink-0 border" style={{ width: '34px', height: '34px', overflow: 'hidden' }}>
+                    <img src={chatbotAvatar} alt="Luzia AI" style={{ width: '92%', height: '92%', objectFit: 'contain' }} />
+                  </div>
+                  <div
+                    className="p-3 bg-white text-dark border rounded-4 shadow-xs"
+                    style={{
+                      borderBottomLeftRadius: '4px',
+                      fontSize: '13px',
+                      lineHeight: '1.5',
+                      maxWidth: '88%',
+                      color: '#1e293b'
+                    }}
+                  >
+                    <div className="fw-semibold mb-1">Hi there! 👋</div>
+                    <div>I'm <strong>Luzia</strong>, your AI Travel Expert.</div>
+                    <div>Let's plan your perfect Goa trip! 🌴</div>
+                  </div>
+                </div>
+
+                {/* 2. Lead Capture Form Card */}
                 <div
-                  className="bg-white p-3.5 rounded-4 shadow-lg w-100 border text-center"
-                  style={{ maxWidth: '330px', borderColor: '#e2e8f0' }}
+                  className="bg-white p-3.5 rounded-4 shadow-sm w-100 border text-center"
+                  style={{
+                    borderColor: '#e2e8f0',
+                    boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05)'
+                  }}
                 >
                   <div
                     className="d-inline-flex align-items-center justify-content-center rounded-circle mb-2"
@@ -1449,37 +1579,38 @@ export default function AIChatbot() {
                     <Sparkles size={20} style={{ color: '#FF6B35' }} />
                   </div>
                   <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '15px' }}>Let's Plan Your Goa Trip! 🌴</h6>
-                  <p className="text-muted mb-2.5" style={{ fontSize: '11.5px', lineHeight: '1.45' }}>
-                    Enter your details to unlock instant live recommendations, dates & booking access.
+                  <p className="text-muted mb-3" style={{ fontSize: '12px', lineHeight: '1.45' }}>
+                    Enter your details to unlock instant live recommendations, dates &amp; booking access.
                   </p>
-                  {pendingQueryRef.current && (
-                    <div className="badge bg-light text-dark border px-2.5 py-1 mb-2.5 text-truncate d-inline-block" style={{ maxWidth: '95%', fontSize: '11px', fontWeight: 600 }}>
-                      🔍 "{pendingQueryRef.current}"
-                    </div>
-                  )}
 
                   <form onSubmit={handleLeadSubmit}>
-                    <div className="mb-2 text-start">
-                      <label className="form-label text-muted fw-semibold mb-1" style={{ fontSize: '11px' }}>Your Name</label>
+                    <div className="mb-2.5 text-start">
+                      <label htmlFor="luzia-lead-name" className="form-label text-secondary fw-semibold mb-1" style={{ fontSize: '11.5px' }}>
+                        Your Name
+                      </label>
                       <input
+                        id="luzia-lead-name"
                         type="text"
-                        className="form-control rounded-3 py-1.5 px-2.5"
+                        className="form-control luzia-form-control rounded-3 px-3"
                         placeholder="e.g. Rahul Sharma"
                         value={leadName}
                         onChange={e => { setLeadName(e.target.value); if (leadError) setLeadError(''); }}
-                        style={{ fontSize: '12.5px', borderColor: '#e2e8f0' }}
+                        style={{ height: '42px', fontSize: '13px' }}
                         required
                         autoFocus
                       />
                     </div>
 
-                    <div className="mb-2.5 text-start">
-                      <label className="form-label text-muted fw-semibold mb-1" style={{ fontSize: '11px' }}>Mobile / WhatsApp Number</label>
-                      <div className="input-group">
-                        <span className="input-group-text bg-light text-muted border-end-0 py-1.5 px-2 fw-bold" style={{ fontSize: '12px' }}>+91</span>
+                    <div className="mb-3 text-start">
+                      <label htmlFor="luzia-lead-phone" className="form-label text-secondary fw-semibold mb-1" style={{ fontSize: '11.5px' }}>
+                        Mobile / WhatsApp Number
+                      </label>
+                      <div className="input-group luzia-input-group rounded-3 overflow-hidden" style={{ height: '42px' }}>
+                        <span className="input-group-text bg-light text-muted border-0 fw-bold px-3" style={{ fontSize: '12.5px' }}>+91</span>
                         <input
+                          id="luzia-lead-phone"
                           type="tel"
-                          className="form-control border-start-0 py-1.5 px-2 rounded-end-3"
+                          className="form-control border-0 shadow-none px-2.5"
                           placeholder="10-digit number"
                           maxLength={10}
                           value={leadPhone}
@@ -1487,35 +1618,40 @@ export default function AIChatbot() {
                             setLeadPhone(e.target.value.replace(/\D/g, '').slice(0, 10));
                             if (leadError) setLeadError('');
                           }}
-                          style={{ fontSize: '12.5px', borderColor: '#e2e8f0' }}
+                          style={{ fontSize: '13px', height: '100%' }}
                           required
                         />
                       </div>
                     </div>
 
                     {leadError && (
-                      <div className="alert alert-danger py-1 px-2 mb-2 d-flex align-items-center gap-1.5 border-0 rounded-3 text-start" style={{ fontSize: '11px', background: '#fef2f2', color: '#b91c1c' }}>
-                        <AlertCircle size={13} className="flex-shrink-0" />
+                      <div className="alert alert-danger py-1.5 px-2.5 mb-2.5 d-flex align-items-center gap-1.5 border-0 rounded-3 text-start" style={{ fontSize: '11.5px', background: '#fef2f2', color: '#b91c1c' }}>
+                        <AlertCircle size={14} className="flex-shrink-0" />
                         <span>{leadError}</span>
                       </div>
                     )}
 
                     <button
                       type="submit"
-                      className="btn w-100 rounded-pill fw-bold text-white shadow-sm py-2 d-flex align-items-center justify-content-center gap-1.5"
+                      id="btn-luzia-get-recommendations"
+                      className="btn w-100 rounded-pill fw-bold text-white shadow-sm d-flex align-items-center justify-content-center gap-2 luzia-cta-btn"
                       style={{
-                        background: 'linear-gradient(135deg, #FF6B35, #FF9F1C)',
+                        height: '44px',
+                        background: 'linear-gradient(135deg, #FF6B35 0%, #FF9F1C 100%)',
                         border: 'none',
-                        fontSize: '13px',
-                        boxShadow: '0 4px 12px rgba(255, 107, 53, 0.25)'
+                        fontSize: '13.5px',
+                        boxShadow: '0 4px 14px rgba(255, 107, 53, 0.3)',
+                        cursor: 'pointer'
                       }}
                     >
                       <span>Get Recommendations</span>
-                      <ArrowRight size={15} />
+                      <ArrowRight size={16} />
                     </button>
                   </form>
-                  <div className="mt-2 text-muted" style={{ fontSize: '10px' }}>
-                    🔒 Privacy guaranteed. Zero spam.
+
+                  <div className="mt-2.5 text-muted d-flex align-items-center justify-content-center gap-1.5" style={{ fontSize: '11px' }}>
+                    <ShieldCheck size={13} className="text-muted" />
+                    <span>Privacy guaranteed. Zero spam.</span>
                   </div>
                 </div>
               </div>
@@ -1544,7 +1680,7 @@ export default function AIChatbot() {
                             .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>')
                             // Markdown links: [text](/path?id=...&type=...) → styled clickable buttons with item metadata
                             .replace(
-                              /\[([^\]]+)\]\(\/(bikes|cars|hotels|activities|packages)([^\)]*)\)/g,
+                              /\[([^\]]+)\]\(\/(bikes|cars|hotels|activities|packages|flights|selfdrive|self-drive|craft|custom-trip)([^\)]*)\)/g,
                               (match, text, tab, query) => {
                                 let itemId = '';
                                 let itemType = '';
@@ -1557,17 +1693,27 @@ export default function AIChatbot() {
                                 if (!itemId && activeContext?.active_item_id) itemId = String(activeContext.active_item_id);
                                 if (!itemType && activeContext?.active_item_type) itemType = String(activeContext.active_item_type);
                                 const itemName = activeContext?.active_item_name || '';
-                                return `<a href="#" onclick="window.dispatchEvent(new CustomEvent('sophia_nav',{detail:{tab:'${tab}',itemId:'${itemId}',itemType:'${itemType}',itemName:'${encodeURIComponent(itemName)}'}}));return false;" style="display:inline-block;margin-top:6px;padding:6px 14px;background:linear-gradient(135deg,#FF6B35,#FF9F1C);color:#fff;border-radius:20px;text-decoration:none;font-weight:700;font-size:12.5px;">${text}</a>`;
+                                const safeEncodedName = encodeURIComponent(itemName || '').replace(/'/g, '%27');
+                                const targetUrl = `/${tab}${query || (itemId ? `?id=${encodeURIComponent(itemId)}` : '')}`;
+                                return `<a href="${targetUrl}" onclick="window.sophiaNavigate('${tab}','${itemId}','${itemType}','${safeEncodedName}','${targetUrl}');return false;" style="display:inline-block;margin-top:6px;padding:7px 16px;background:linear-gradient(135deg,#FF6B35,#FF9F1C);color:#fff;border-radius:20px;text-decoration:none;font-weight:700;font-size:12.5px;box-shadow:0 3px 10px rgba(255,107,53,0.3);cursor:pointer;">${text}</a>`;
                               }
                             )
                             // Action link: [Get Price for My Dates](#get-price)
                             .replace(
                               /\[([^\]]+)\]\(#get-price\)/g,
                               (match, text) => {
-                                return `<a href="#" onclick="window.dispatchEvent(new CustomEvent('sophia_send_msg',{detail:{text:'Get Price for My Dates'}}));return false;" style="display:inline-block;margin-top:6px;padding:6px 14px;background:#ffffff;color:#FF6B35;border:1.5px solid #FF6B35;border-radius:20px;text-decoration:none;font-weight:700;font-size:12.5px;cursor:pointer;transition:all 0.2s;">${text}</a>`;
+                                return `<a href="#" onclick="window.dispatchEvent(new CustomEvent('sophia_send_msg',{detail:{text:'Get Price for My Dates'}}));return false;" style="display:inline-block;margin-top:6px;padding:7px 16px;background:#ffffff;color:#FF6B35;border:1.5px solid #FF6B35;border-radius:20px;text-decoration:none;font-weight:700;font-size:12.5px;cursor:pointer;transition:all 0.2s;">${text}</a>`;
                               }
                             )
-                            // Generic markdown links
+                            // Generic internal markdown links [Text](/some-path) -> styled redirect button
+                            .replace(
+                              /\[([^\]]+)\]\((\/[^)]+)\)/g,
+                              (match, text, url) => {
+                                const cleanUrl = url.trim();
+                                return `<a href="${cleanUrl}" onclick="window.location.href='${cleanUrl}';return false;" style="display:inline-block;margin-top:6px;padding:7px 16px;background:linear-gradient(135deg,#FF6B35,#FF9F1C);color:#fff;border-radius:20px;text-decoration:none;font-weight:700;font-size:12.5px;box-shadow:0 3px 10px rgba(255,107,53,0.3);cursor:pointer;">${text}</a>`;
+                              }
+                            )
+                            // Generic external markdown links
                             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:#FF6B35;font-weight:600;text-decoration:underline;">$1</a>')
                           : msg.content
                       }}
@@ -1633,15 +1779,13 @@ export default function AIChatbot() {
                         onClick={() => {
                           const bp = activeContext.booking_preview;
                           const tab = bp.item_type === 'bike' ? 'bikes' : (bp.item_type === 'car' ? 'cars' : (bp.item_type === 'hotel' ? 'hotels' : 'activities'));
-                          setIsOpen(false);
-                          window.dispatchEvent(new CustomEvent('sophia_switch_tab', {
-                            detail: {
-                              tab,
-                              itemId: String(bp.item_id),
-                              itemType: bp.item_type,
-                              itemName: bp.item_name
-                            }
-                          }));
+                          const targetUrl = `/${tab}?id=${encodeURIComponent(bp.item_id || '')}`;
+                          if (typeof window !== 'undefined' && window.sophiaNavigate) {
+                            window.sophiaNavigate(tab, String(bp.item_id || ''), bp.item_type, bp.item_name, targetUrl);
+                          } else {
+                            setIsOpen(false);
+                            window.location.href = targetUrl;
+                          }
                         }}
                         className="btn w-100 fw-bold text-white shadow-sm py-2.5 rounded-pill d-flex align-items-center justify-content-center gap-2 hover-scale transition-all"
                         style={{

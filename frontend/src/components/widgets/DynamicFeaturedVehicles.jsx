@@ -5,6 +5,7 @@ export default function DynamicFeaturedVehicles({
   config, 
   cars = [], 
   bikes = [], 
+  markups = [],
   onBook, 
   onBookVehicle, 
   onViewVehicle, 
@@ -19,6 +20,7 @@ export default function DynamicFeaturedVehicles({
       <SelfDriveCategoryShowcase
         cars={cars}
         bikes={bikes}
+        markups={markups}
         onBookVehicle={onBookVehicle || onBook}
         onViewVehicle={onViewVehicle || onViewDetails}
         setActiveTab={setActiveTab}

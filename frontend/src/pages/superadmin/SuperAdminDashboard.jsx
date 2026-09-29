@@ -1375,13 +1375,26 @@ export const isTripPackageBookingItem = (b) => {
 
 // ─── BOOKINGS TAB (Hotel, Vehicle, Activity & Flight Bookings) ───────────────
 function BookingsTab({ bookings = [], type, vendors = [], onRefresh }) {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const q = urlParams.get('search') || sessionStorage.getItem('tg_booking_search') || '';
+      if (sessionStorage.getItem('tg_booking_search')) {
+        sessionStorage.removeItem('tg_booking_search');
+      }
+      return q;
+    } catch (_) {
+      return '';
+    }
+  });
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewBooking, setViewBooking] = useState(null);
 
   const filtered = bookings.filter(b => {
     let matchType = false;
-    if (type === 'hotel') {
+    if (!type || type === 'all') {
+      matchType = true;
+    } else if (type === 'hotel') {
       matchType = isHotelBookingItem(b);
     } else if (type === 'vehicle') {
       matchType = isVehicleBookingItem(b);
@@ -1389,6 +1402,8 @@ function BookingsTab({ bookings = [], type, vendors = [], onRefresh }) {
       matchType = isFlightBookingItem(b);
     } else if (type === 'activity') {
       matchType = isActivityBookingItem(b);
+    } else if (type === 'trip' || type === 'package') {
+      matchType = isTripPackageBookingItem(b);
     }
 
     const matchStatus = statusFilter === 'all' || b.status?.toLowerCase() === statusFilter?.toLowerCase();
@@ -1627,7 +1642,18 @@ function BookingsTab({ bookings = [], type, vendors = [], onRefresh }) {
 // ─── TRIP BOOKINGS TAB (Under Operations) ──────────────────────────────────────
 function TripBookingsTab({ bookings = [], customEnquiries = [], vendors = [], onRefresh }) {
   const [activeCategory, setActiveCategory] = useState('all');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const q = urlParams.get('search') || sessionStorage.getItem('tg_booking_search') || '';
+      if (sessionStorage.getItem('tg_booking_search')) {
+        sessionStorage.removeItem('tg_booking_search');
+      }
+      return q;
+    } catch (_) {
+      return '';
+    }
+  });
   const [viewBooking, setViewBooking] = useState(null);
   const [viewEnquiry, setViewEnquiry] = useState(null);
 
@@ -2461,7 +2487,10 @@ export default function SuperAdminDashboard({
     case 'hotel_bookings':
       return <BookingsTab bookings={bookings} type="hotel" vendors={vendors} onRefresh={onRefreshLeads} />;
     case 'vehicle_bookings':
+    case 'bookings':
       return <BookingsTab bookings={bookings} type="vehicle" vendors={vendors} onRefresh={onRefreshLeads} />;
+    case 'all_bookings':
+      return <BookingsTab bookings={bookings} type="all" vendors={vendors} onRefresh={onRefreshLeads} />;
     case 'activity_bookings':
       return <BookingsTab bookings={bookings} type="activity" vendors={vendors} onRefresh={onRefreshLeads} />;
     case 'flight_bookings':

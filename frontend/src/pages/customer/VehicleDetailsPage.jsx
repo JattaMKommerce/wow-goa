@@ -42,22 +42,7 @@ export default function VehicleDetailsPage({ vehicle, type, onBack, onBook }) {
       } catch (e) {}
     }
 
-    if (list.length === 0) {
-      if (isBike) {
-        list.push(
-          'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=1000&q=80',
-          'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=1000&q=80',
-          'https://images.unsplash.com/photo-1558980664-769d59546b3d?auto=format&fit=crop&w=1000&q=80'
-        );
-      } else {
-        list.push(
-          'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1000&q=80',
-          'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1000&q=80',
-          'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=1000&q=80'
-        );
-      }
-    }
-
+    // DO NOT INJECT UNRELATED UNSPLASH PHOTOS OF BIKES/CARS
     return list;
   }, [vehicle, isBike]);
 
@@ -107,12 +92,25 @@ export default function VehicleDetailsPage({ vehicle, type, onBack, onBook }) {
             {/* Left Col: Interactive Multi-Image Carousel & Specs */}
             <div className="col-12 col-lg-8">
               <div className="mb-4">
-                <ImageCarousel 
-                  images={vehicleImages}
-                  alt={vehicle.name}
-                  height="420px"
-                  rounded="20px"
-                />
+                {vehicleImages.length > 0 ? (
+                  <ImageCarousel 
+                    images={vehicleImages}
+                    alt={vehicle.name}
+                    height="420px"
+                    rounded="20px"
+                  />
+                ) : (
+                  <div 
+                    className="d-flex flex-column align-items-center justify-content-center text-muted rounded-4 border p-5 shadow-sm"
+                    style={{ height: '360px', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}
+                  >
+                    <div className="rounded-circle d-flex align-items-center justify-content-center mb-3 shadow-xs" style={{ width: '64px', height: '64px', background: 'rgba(100,116,139,0.1)', border: '1px dashed rgba(100,116,139,0.3)' }}>
+                      <Camera size={30} className="text-secondary opacity-75" />
+                    </div>
+                    <h6 className="fw-bold text-dark mb-1">No Photos Uploaded</h6>
+                    <p className="text-muted small mb-0">The vehicle vendor has not uploaded photographs for this listing yet.</p>
+                  </div>
+                )}
               </div>
 
               <h4 className="fw-bold mb-3">Vehicle Specifications</h4>

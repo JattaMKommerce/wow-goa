@@ -3,40 +3,83 @@
  * Provides consistent package and vehicle pricing calculation across Listing, Details, Customization, and Checkout.
  */
 
-export function getMarkupPrice(basePrice, vendorId, entityType, itemId = 'all', markups = []) {
+export function getMarkupPrice(basePrice, vendorId, entityType, itemId = 'all', markups = [], targetChannel = 'b2c') {
   if (!markups || !Array.isArray(markups) || markups.length === 0) {
     return Number(basePrice) || 0;
   }
   const numBase = Number(basePrice) || 0;
+  if (numBase <= 0) return 0;
   
-  // Support both singular ('package', 'car') and plural ('packages', 'cars') forms
-  const matchType = (mType) => {
-    if (!mType) return false;
-    const a = String(mType).toLowerCase().trim();
-    const b = String(entityType).toLowerCase().trim();
-    return a === b || a.replace(/s$/, '') === b.replace(/s$/, '');
+  const isRuleActive = (r) => {
+    if (!r) return false;
+    if (r.is_active === 0 || r.is_active === false || r.status === 'Inactive') return false;
+    return true;
   };
 
+  const matchChannel = (r) => {
+    if (!r) return false;
+    const ch = String(r.target_channel || 'all').toLowerCase().trim();
+    if (!ch || ch === 'all') return true;
+    const reqCh = String(targetChannel || 'b2c').toLowerCase().trim();
+    return ch === reqCh;
+  };
+
+  // Support vehicle umbrella ('vehicle' covers car, cars, bike, bikes, scooter, etc.)
+  const matchType = (r) => {
+    if (!r) return false;
+    const ruleType = String(r.service_type || r.entity_type || '').toLowerCase().trim();
+    const reqType = String(entityType || '').toLowerCase().trim();
+    if (!ruleType || ruleType === 'all') return true;
+    
+    // Direct match (ignoring trailing 's')
+    if (ruleType === reqType || ruleType.replace(/s$/, '') === reqType.replace(/s$/, '')) return true;
+
+    // Vehicle umbrella: covers cars, bikes, vehicles, scooters
+    const isVehicleReq = ['car', 'cars', 'bike', 'bikes', 'vehicle', 'vehicles', 'scooter', 'scooters'].includes(reqType);
+    const isVehicleRule = ['vehicle', 'vehicles', 'car', 'cars', 'bike', 'bikes'].includes(ruleType);
+    if (isVehicleReq && isVehicleRule) return true;
+
+    // Activity umbrella
+    const isActReq = ['activity', 'activities', 'sightseeing'].includes(reqType);
+    const isActRule = ['activity', 'activities', 'sightseeing'].includes(ruleType);
+    if (isActReq && isActRule) return true;
+
+    return false;
+  };
+
+  const vIdStr = String(vendorId || '').trim();
+
   // 1. Item-specific markup for this vendor
-  let applicable = markups.find(m => matchType(m.entity_type) && String(m.vendor_id) === String(vendorId) && String(m.item_id) === String(itemId));
+  let applicable = markups.find(m => isRuleActive(m) && matchChannel(m) && matchType(m) && String(m.vendor_id) === vIdStr && String(m.item_id) === String(itemId) && m.item_id !== 'all');
   
-  // 2. Global markup for this vendor (item_id = 'all' or empty)
+  // 2. Specific service markup for this vendor (item_id = 'all' or empty)
   if (!applicable) {
-    applicable = markups.find(m => matchType(m.entity_type) && String(m.vendor_id) === String(vendorId) && (m.item_id === 'all' || !m.item_id));
+    applicable = markups.find(m => isRuleActive(m) && matchChannel(m) && matchType(m) && String(m.vendor_id) === vIdStr && (m.item_id === 'all' || !m.item_id) && m.service_type !== 'all' && m.entity_type !== 'all');
+  }
+
+  // 3. Global service ('all') markup for this vendor
+  if (!applicable) {
+    applicable = markups.find(m => isRuleActive(m) && matchChannel(m) && String(m.vendor_id) === vIdStr && (m.service_type === 'all' || m.entity_type === 'all' || !m.service_type));
   }
   
-  // 3. Global markup for all vendors
+  // 4. Global markup for all vendors on this specific service
   if (!applicable) {
-    applicable = markups.find(m => matchType(m.entity_type) && (m.vendor_id === 'all' || !m.vendor_id || m.vendor_id === 'global') && (m.item_id === 'all' || !m.item_id));
+    applicable = markups.find(m => isRuleActive(m) && matchChannel(m) && matchType(m) && (m.vendor_id === 'all' || !m.vendor_id || m.vendor_id === 'global') && (m.item_id === 'all' || !m.item_id) && m.service_type !== 'all' && m.entity_type !== 'all');
+  }
+
+  // 5. Global markup for all vendors on all services
+  if (!applicable) {
+    applicable = markups.find(m => isRuleActive(m) && matchChannel(m) && (m.vendor_id === 'all' || !m.vendor_id || m.vendor_id === 'global') && (m.service_type === 'all' || m.entity_type === 'all' || !m.service_type));
   }
 
   if (applicable) {
-    const val = parseFloat(applicable.markup_value);
-    if (!isNaN(val)) {
-      if (applicable.markup_type === 'flat' || applicable.markup_type === 'fixed') {
-        return numBase + val;
-      } else if (applicable.markup_type === 'percentage') {
-        return numBase + (numBase * (val / 100));
+    const mType = applicable.markup_type || (applicable.amount > 0 ? 'fixed' : 'percentage');
+    const val = parseFloat(applicable.markup_value !== undefined ? applicable.markup_value : (mType === 'percentage' ? applicable.percentage : applicable.amount));
+    if (!isNaN(val) && val > 0) {
+      if (mType === 'flat' || mType === 'fixed') {
+        return Math.round(numBase + val);
+      } else if (mType === 'percentage') {
+        return Math.round(numBase + (numBase * (val / 100)));
       }
     }
   }

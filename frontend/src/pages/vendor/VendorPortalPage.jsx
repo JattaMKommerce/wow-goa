@@ -16,6 +16,7 @@ import VehicleReports from './vehicle-pms/VehicleReports';
 import VehicleVendorProfileSettings from './vehicle-pms/VehicleVendorProfileSettings';
 import VendorDashboard from './VendorDashboard';
 import VendorNotificationBell from '../../components/vendor/VendorNotificationBell';
+import VendorCancellationPolicyManager from '../../components/vendor/VendorCancellationPolicyManager';
 
 const SIDEBAR_GROUPS = [
   {
@@ -42,6 +43,7 @@ const SIDEBAR_GROUPS = [
     items: [
       { id: 'wallet', label: 'Wallet', icon: <Wallet size={15} /> },
       { id: 'payment_settings', label: 'Payment Settings', icon: <CreditCard size={15} /> },
+      { id: 'cancellation_policy', label: 'Cancellation Policy', icon: <Shield size={15} /> },
     ]
   },
   {
@@ -106,11 +108,6 @@ export default function VendorPortalPage({
     if (onRefreshVehicles) {
       onRefreshVehicles();
     }
-    const handleSync = () => {
-      if (onRefreshVehicles) onRefreshVehicles();
-    };
-    window.addEventListener('tripgalileo-booking-sync', handleSync);
-    return () => window.removeEventListener('tripgalileo-booking-sync', handleSync);
   }, [onRefreshVehicles]);
 
   const handleNavigate = (tab, params = {}) => {
@@ -198,6 +195,8 @@ export default function VendorPortalPage({
         return <VendorWallet currentUser={currentUser} />;
       case 'payment_settings':
         return <PMSPaymentSettings currentUser={currentUser} />;
+      case 'cancellation_policy':
+        return <VendorCancellationPolicyManager currentUser={currentUser} serviceType="vehicle" />;
       case 'reports':
         return <VehicleReports cars={vendorCars} bikes={vendorBikes} bookings={bookings} onNavigate={handleNavigate} />;
       case 'settings':

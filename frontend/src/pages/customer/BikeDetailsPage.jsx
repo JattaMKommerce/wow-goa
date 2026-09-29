@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { 
   ArrowLeft, Star, MapPin, Fuel, Settings, ShieldCheck, 
   CheckCircle, ChevronRight, AlertCircle, PhoneCall, FileText, 
-  Clock, Award, Sparkles, X, Zap, Shield
+  Clock, Award, Sparkles, X, Zap, Shield, Camera
 } from 'lucide-react';
 import ImageCarousel from '../../components/common/ImageCarousel';
 
@@ -77,13 +77,6 @@ export default function BikeDetailsPage({
     if (Array.isArray(bike.additional_images)) add(bike.additional_images);
     if (Array.isArray(bike.images)) add(bike.images);
 
-    if (list.length === 0) {
-      list.push(
-        'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&w=1200&q=80'
-      );
-    }
     return list;
   }, [bike]);
 
@@ -268,16 +261,31 @@ export default function BikeDetailsPage({
 
         {/* ─── 3. INTERACTIVE BIKE IMAGE GALLERY ─── */}
         <div className="bg-white rounded-4 shadow-sm p-3 mb-4 border" style={{ borderColor: '#E2E8F0' }}>
-          <ImageCarousel
-            images={bikeImages}
-            alt={bike.name}
-            height="440px"
-            rounded="16px"
-          />
-          <div className="d-flex justify-content-between align-items-center mt-2 px-1 text-muted text-xs">
-            <span>📸 Showing all real vehicle photos ({bikeImages.length} total)</span>
-            <span className="text-muted">Click photo to zoom fullscreen</span>
-          </div>
+          {bikeImages.length > 0 ? (
+            <>
+              <ImageCarousel
+                images={bikeImages}
+                alt={bike.name}
+                height="440px"
+                rounded="16px"
+              />
+              <div className="d-flex justify-content-between align-items-center mt-2 px-1 text-muted text-xs">
+                <span>📸 Showing all real vehicle photos ({bikeImages.length} total)</span>
+                <span className="text-muted">Click photo to zoom fullscreen</span>
+              </div>
+            </>
+          ) : (
+            <div 
+              className="d-flex flex-column align-items-center justify-content-center text-muted rounded-3 p-5"
+              style={{ height: '360px', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}
+            >
+              <div className="rounded-circle d-flex align-items-center justify-content-center mb-3 shadow-xs" style={{ width: '64px', height: '64px', background: 'rgba(100,116,139,0.1)', border: '1px dashed rgba(100,116,139,0.3)' }}>
+                <Camera size={30} className="text-secondary opacity-75" />
+              </div>
+              <h6 className="fw-bold text-dark mb-1">No Photos Uploaded</h6>
+              <p className="text-muted small mb-0">The vehicle vendor has not uploaded photographs for this listing yet.</p>
+            </div>
+          )}
         </div>
 
         {/* ─── 4. MAIN CONTENT ROW (SPECS & SIDEBAR) ─── */}

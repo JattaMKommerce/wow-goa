@@ -31,6 +31,8 @@ import * as api from '../../services/api';
 import { getTodayDateStr, addDays } from '../../utils/dateUtils';
 import NotificationSoundToggle from '../../components/common/NotificationSoundToggle';
 import { handleIncomingNotifications, registerSeenNotifications, getRelativeTimeString, parseNotificationTitleAndStatus } from '../../utils/notificationSound';
+import CustomerReviewModal from '../../components/customer/CustomerReviewModal';
+import ReviewReminderBanner from '../../components/customer/ReviewReminderBanner';
 
 const SIDEBAR_GROUPS = [
   {
@@ -74,6 +76,7 @@ export default function CustomerPortalPage({
   hotels = [],
   flights = [],
   activities = [],
+  markups = [],
   onNavigateHome,
   onViewDetails
 }) {
@@ -546,6 +549,86 @@ export default function CustomerPortalPage({
     setActiveDetailItem(item);
     setActiveDetailType(resolvedType);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ─── WOW GOA REVIEW & RATING POPUP & REMINDER SYSTEM ───────────────────────
+  const [reviewModalBooking, setReviewModalBooking] = useState(null);
+  const [reminderBooking, setReminderBooking] = useState(null);
+
+  useEffect(() => {
+    if (!customerUser || !Array.isArray(customerBookings) || customerBookings.length === 0) return;
+
+    // Find completed bookings only
+    const completedList = customerBookings.filter(b => {
+      const st = String(b.status || '').toLowerCase().trim();
+      return st === 'completed';
+    });
+
+    if (completedList.length === 0) return;
+
+    // Find the first completed booking that has NOT been reviewed yet
+    const unreviewed = completedList.find(b => {
+      const bId = String(b.id || b.booking_id);
+      return localStorage.getItem(`tg_review_submitted_${bId}`) !== 'true';
+    });
+
+    if (!unreviewed) {
+      setReminderBooking(null);
+      setReviewModalBooking(null);
+      return;
+    }
+
+    const bId = String(unreviewed.id || unreviewed.booking_id);
+    const popupShown = localStorage.getItem(`tg_review_popup_shown_${bId}`) === 'true';
+    const reminderDismissed = localStorage.getItem(`tg_review_reminder_dismissed_${bId}`) === 'true';
+
+    // 1. Initial Popup: show if not shown yet and not currently reviewing
+    if (!popupShown) {
+      const timer = setTimeout(() => {
+        setReviewModalBooking(unreviewed);
+        localStorage.setItem(`tg_review_popup_shown_${bId}`, 'true');
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+
+    // 2. Reminder — ONLY ONCE: If popup was shown, but review not yet submitted, and reminder not dismissed
+    if (!reminderDismissed) {
+      setReminderBooking(unreviewed);
+    } else {
+      setReminderBooking(null);
+    }
+  }, [customerUser, customerBookings]);
+
+  const handleCloseReviewModal = (reason = '') => {
+    if (reviewModalBooking) {
+      const bId = String(reviewModalBooking.id || reviewModalBooking.booking_id);
+      const alreadyDismissed = localStorage.getItem(`tg_review_reminder_dismissed_${bId}`) === 'true';
+      const alreadySubmitted = localStorage.getItem(`tg_review_submitted_${bId}`) === 'true';
+      if (!alreadyDismissed && !alreadySubmitted) {
+        setReminderBooking(reviewModalBooking);
+      }
+    }
+    setReviewModalBooking(null);
+  };
+
+  const handleReviewSuccess = (bId, submittedRating) => {
+    const cleanId = String(bId);
+    localStorage.setItem(`tg_review_submitted_${cleanId}`, 'true');
+    setReminderBooking(null);
+    setReviewModalBooking(null);
+    if (typeof refreshCustomerData === 'function') {
+      refreshCustomerData();
+    }
+  };
+
+  const handleDismissReminder = (bId) => {
+    const cleanId = String(bId);
+    localStorage.setItem(`tg_review_reminder_dismissed_${cleanId}`, 'true');
+    setReminderBooking(null);
+  };
+
+  const handleTriggerReview = (booking) => {
+    setReviewModalBooking(booking);
   };
 
   // Keep customer identity pre-filled in booking checkout
@@ -1473,6 +1556,14 @@ export default function CustomerPortalPage({
               </div>
             ) : (
               <>
+                {reminderBooking && (
+                  <ReviewReminderBanner
+                    booking={reminderBooking}
+                    onRateNow={handleTriggerReview}
+                    onDismiss={handleDismissReminder}
+                  />
+                )}
+
                 {activeTab === 'overview' && (
                   <CustomerOverviewTab 
                     currentUser={customerUser}
@@ -1483,6 +1574,7 @@ export default function CustomerPortalPage({
                     hotels={hotels}
                     flights={flights}
                     activities={activities}
+                    markups={markups}
                     exploreFocus={bookingsCategoryFilter}
                     onNavigateTab={(tab, optCat) => handleNavClick(tab, optCat)}
                     onSelectBooking={handleOpenBookingDetails}
@@ -1684,6 +1776,16 @@ export default function CustomerPortalPage({
             );
           })}
         </div>
+      )}
+
+      {reviewModalBooking && (
+        <CustomerReviewModal
+          booking={reviewModalBooking}
+          customerUser={customerUser}
+          isOpen={!!reviewModalBooking}
+          onClose={handleCloseReviewModal}
+          onSuccess={handleReviewSuccess}
+        />
       )}
 
     </div>

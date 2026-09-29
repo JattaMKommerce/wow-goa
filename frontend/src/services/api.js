@@ -2330,9 +2330,58 @@ export async function searchFlights(from, to, date, adults = 1, children = 0, in
       };
     });
 
-    // Fallback: If Duffel returns 0 results (common in test mode for regional routes)
-    // we generate realistic flight data so the user gets a working experience.
-    if (mappedOffers.length === 0) {
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Fetch and include active database routes added by Flight Vendors & Admins
+    // ─────────────────────────────────────────────────────────────────────────────
+    let dbFlights = [];
+    try {
+      dbFlights = await fetchFlights();
+    } catch (dbErr) {
+      console.warn("Database flights fetch fallback:", dbErr);
+    }
+
+    const matchingDbFlights = (Array.isArray(dbFlights) ? dbFlights : [])
+      .filter(f => {
+        if (!fromIata && !toIata) return true;
+        const fFrom = (f.from_loc || '').toUpperCase();
+        const fTo = (f.to_loc || '').toUpperCase();
+        const matchesDirect = (!fromIata || fFrom === fromIata) && (!toIata || fTo === toIata);
+        const matchesCorridor = (!fromIata || fTo === fromIata) && (!toIata || fFrom === toIata);
+        return matchesDirect || matchesCorridor;
+      })
+      .map(f => {
+        const depTimeStr = f.departure_time || '10:00';
+        const arrTimeStr = f.arrival_time || '12:00';
+        const depIso = date ? `${date}T${depTimeStr.length === 5 ? depTimeStr + ':00' : depTimeStr}` : new Date().toISOString();
+        const arrIso = date ? `${date}T${arrTimeStr.length === 5 ? arrTimeStr + ':00' : arrTimeStr}` : new Date().toISOString();
+
+        return {
+          id: `flight-${f.id}`,
+          flight_id: f.id,
+          flight_number: f.flight_number || '',
+          flight: { iata: f.flight_number || `FL-${f.id}` },
+          airline: f.airline || 'Commercial Airline',
+          logo: f.logo || 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=50&q=80',
+          from: (f.from_loc || fromIata || 'GOI').toUpperCase(),
+          to: (f.to_loc || toIata || 'DEL').toUpperCase(),
+          departure: depIso,
+          arrival: arrIso,
+          departure_time: f.departure_time,
+          arrival_time: f.arrival_time,
+          duration: f.duration || '2h 00m',
+          stops: 'Non-stop',
+          price: parseFloat(f.price || 0),
+          seats: f.seats || 180,
+          vendor_id: f.vendor_id || 'admin',
+          is_vendor_inventory: true
+        };
+      });
+
+    // Merge database flights first so vendor inventory appears at the top
+    let combinedOffers = [...matchingDbFlights, ...mappedOffers];
+
+    // Fallback: If both Duffel and DB return 0 results, generate mock flights
+    if (combinedOffers.length === 0) {
       const generateMockTime = (baseHour) => {
         const d = new Date(date || new Date());
         d.setHours(baseHour, Math.floor(Math.random() * 60), 0);
@@ -2349,13 +2398,13 @@ export async function searchFlights(from, to, date, adults = 1, children = 0, in
       const t3 = generateMockTime(14);
       const t4 = generateMockTime(19);
 
-      mappedOffers = [
+      combinedOffers = [
         {
           id: `fl-${Math.floor(Math.random()*1000)}`,
           airline: 'IndiGo',
           logo: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=50&q=80',
-          from: fromIata,
-          to: toIata,
+          from: fromIata || 'DEL',
+          to: toIata || 'GOI',
           departure: t1,
           arrival: arrTime(t1, 2),
           duration: '2h 15m',
@@ -2366,8 +2415,8 @@ export async function searchFlights(from, to, date, adults = 1, children = 0, in
           id: `fl-${Math.floor(Math.random()*1000)}`,
           airline: 'Air India',
           logo: 'https://images.unsplash.com/photo-1542296332-2e4473faf563?auto=format&fit=crop&w=50&q=80',
-          from: fromIata,
-          to: toIata,
+          from: fromIata || 'DEL',
+          to: toIata || 'GOI',
           departure: t2,
           arrival: arrTime(t2, 2),
           duration: '2h 45m',
@@ -2378,8 +2427,8 @@ export async function searchFlights(from, to, date, adults = 1, children = 0, in
           id: `fl-${Math.floor(Math.random()*1000)}`,
           airline: 'Vistara',
           logo: 'https://images.unsplash.com/photo-1464037866556-6812c9d1c72e?auto=format&fit=crop&w=50&q=80',
-          from: fromIata,
-          to: toIata,
+          from: fromIata || 'DEL',
+          to: toIata || 'GOI',
           departure: t3,
           arrival: arrTime(t3, 4),
           duration: '4h 25m',
@@ -2390,8 +2439,8 @@ export async function searchFlights(from, to, date, adults = 1, children = 0, in
           id: `fl-${Math.floor(Math.random()*1000)}`,
           airline: 'Akasa Air',
           logo: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=50&q=80',
-          from: fromIata,
-          to: toIata,
+          from: fromIata || 'DEL',
+          to: toIata || 'GOI',
           departure: t4,
           arrival: arrTime(t4, 2),
           duration: '2h 05m',
@@ -2401,7 +2450,7 @@ export async function searchFlights(from, to, date, adults = 1, children = 0, in
       ];
     }
 
-    return mappedOffers;
+    return combinedOffers;
   } catch (error) {
     console.error("Flight Search Error:", error);
     throw error;
@@ -3487,7 +3536,236 @@ export async function updateB2BBookingMarkup(bookingId, markupAmount) {
   });
   const data = await res.json();
   if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Failed to update booking markup.');
+    throw new Error(data.error || data.message || 'Failed to update booking markup.');
   }
   return data;
 }
+
+// ─── Vendor-Controlled Cancellation Policy & Static QR Payment APIs ─────────
+
+export async function fetchVendorCancellationPolicies(vendorId = '') {
+  const url = vendorId 
+    ? `${API_BASE}?resource=vendor_cancellation_policies&vendor_id=${encodeURIComponent(vendorId)}` 
+    : `${API_BASE}?resource=vendor_cancellation_policies`;
+  const res = await apiFetch(url);
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchVendorCancellationPolicy(vendorId = '', serviceType = 'all') {
+  const url = `${API_BASE}?resource=vendor_cancellation_policy&vendor_id=${encodeURIComponent(vendorId)}&service_type=${encodeURIComponent(serviceType)}`;
+  const res = await apiFetch(url);
+  const data = await res.json();
+  return data || null;
+}
+
+export async function saveVendorCancellationPolicy(policyData) {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'save_vendor_cancellation_policy',
+      ...policyData
+    })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to save cancellation policy.');
+  }
+  return data;
+}
+
+export async function deleteVendorCancellationPolicy(policyId, vendorId) {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'delete_vendor_cancellation_policy',
+      id: policyId,
+      vendor_id: vendorId
+    })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to delete cancellation policy.');
+  }
+  return data;
+}
+
+export async function adminVerifyPayment(bookingId, verificationStatus, rejectionReason = '') {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'admin_verify_payment',
+      booking_id: bookingId,
+      verification_status: verificationStatus,
+      rejection_reason: rejectionReason
+    })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to update payment verification.');
+  }
+  return data;
+}
+
+export async function adminSettleVendorPayout(bookingId, payoutReference, payoutNotes = '', payoutAmount = null) {
+  // Support both (bookingId, payoutReference, payoutNotes, payoutAmount) AND (bookingId, payoutReference, payoutAmount, payoutNotes)
+  let notes = payoutNotes;
+  let amount = payoutAmount;
+  if (typeof payoutNotes === 'number' && (typeof payoutAmount === 'string' || payoutAmount === null || payoutAmount === undefined)) {
+    amount = payoutNotes;
+    notes = payoutAmount || '';
+  }
+
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'admin_settle_vendor_payout',
+      booking_id: bookingId,
+      payout_reference: payoutReference,
+      vendor_payout_utr: payoutReference,
+      payout_notes: notes,
+      payout_amount: amount
+    })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || data.message || 'Vendor payout failed: Could not record vendor payout.');
+  }
+  return data;
+}
+
+export async function calculateCancellationRefund(bookingId, cancellationDatetime = '') {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'calculate_cancellation_refund',
+      booking_id: bookingId,
+      cancellation_datetime: cancellationDatetime
+    })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to calculate cancellation refund.');
+  }
+  return data.calculation;
+}
+
+export async function customerCancelBooking(bookingId, reason = '') {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'customer_cancel_booking',
+      booking_id: bookingId,
+      reason: reason
+    })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to cancel booking.');
+  }
+  return data;
+}
+
+// ─── WOW GOA CUSTOMER REVIEWS & RATINGS API ─────────────────────────────────
+
+/**
+ * Submit a customer review for a genuinely completed booking
+ * @param {Object} reviewData { booking_id, rating, review_text, customer_phone, customer_email, customer_name }
+ */
+export async function submitCustomerReview(reviewData) {
+  const res = await apiFetch(`${API_BASE}?action=submit_customer_review`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'submit_customer_review',
+      ...reviewData
+    })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to submit review.');
+  }
+  return data;
+}
+
+/**
+ * Fetch eligible completed bookings that have not yet been reviewed by the customer
+ * @param {string|Object} query phone number string or object with phone/email/customer_id
+ */
+export async function fetchEligibleReviewBookings(query) {
+  const phone = typeof query === 'string' ? query : (query?.phone || query?.mobile || '');
+  const email = typeof query === 'object' ? (query?.email || '') : '';
+  const customerId = typeof query === 'object' ? (query?.customer_id || query?.id || '') : '';
+
+  const params = new URLSearchParams();
+  params.set('resource', 'eligible_review_bookings');
+  if (phone) params.set('phone', phone);
+  if (email) params.set('email', email);
+  if (customerId) params.set('customer_id', customerId);
+
+  try {
+    const res = await apiFetch(`${API_BASE}?${params.toString()}`);
+    if (res.ok) {
+      const data = await res.json();
+      return Array.isArray(data.bookings) ? data.bookings : [];
+    }
+  } catch (err) {
+    console.warn('[API] fetchEligibleReviewBookings error:', err.message);
+  }
+  return [];
+}
+
+/**
+ * Fetch published reviews for public customer view
+ * Strictly ordered by backend: 5-Star first down to 1-Star
+ */
+export async function fetchPublicReviews() {
+  try {
+    const res = await apiFetch(`${API_BASE}?resource=public_reviews`);
+    if (res.ok) {
+      const data = await res.json();
+      return Array.isArray(data.reviews) ? data.reviews : [];
+    }
+  } catch (err) {
+    console.warn('[API] fetchPublicReviews error:', err.message);
+  }
+  return [];
+}
+
+/**
+ * Fetch dynamic review statistics and list for Admin / Super Admin dashboard
+ */
+export async function fetchAdminReviewStats() {
+  try {
+    const res = await apiFetch(`${API_BASE}?resource=admin_reviews`);
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        stats: data.stats || {
+          total_reviews: 0,
+          average_rating: 5.0,
+          star_5: 0,
+          star_4: 0,
+          star_3: 0,
+          star_2: 0,
+          star_1: 0
+        },
+        reviews: Array.isArray(data.reviews) ? data.reviews : []
+      };
+    }
+  } catch (err) {
+    console.warn('[API] fetchAdminReviewStats error:', err.message);
+  }
+  return {
+    stats: { total_reviews: 0, average_rating: 5.0, star_5: 0, star_4: 0, star_3: 0, star_2: 0, star_1: 0 },
+    reviews: []
+  };
+}
+
+

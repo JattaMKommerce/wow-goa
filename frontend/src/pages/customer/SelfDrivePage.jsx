@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Filter, Car, Hotel, Plane, Utensils, MapPin, Check, ChevronDown, ChevronRight, ChevronLeft, AlertCircle, RotateCcw, X, Sparkles, SlidersHorizontal } from 'lucide-react';
 
 import { getMarkupPrice, resolvePackagePrices } from '../../utils/pricingHelper';
+import CustomerReviewsSection from '../../components/reviews/CustomerReviewsSection';
 
 export default function SelfDrivePage({
   handleOpenBooking,
@@ -620,6 +621,9 @@ export default function SelfDrivePage({
           })
         )}
       </div>
+
+      {/* Published Customer Reviews (Strictly 5★ to 1★) */}
+      <CustomerReviewsSection className="mt-5 rounded-4 overflow-hidden shadow-sm" />
     </div>
   );
 }

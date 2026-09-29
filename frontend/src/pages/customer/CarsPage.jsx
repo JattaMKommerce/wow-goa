@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Star, Users, TrendingUp, ShieldCheck, Award, Filter, AlertCircle, RotateCcw, ChevronRight, Camera } from 'lucide-react';
+import { getMarkupPrice } from '../../utils/pricingHelper';
 
 const BIKE_CATEGORIES = new Set([
   'scooter', 'scooter / moped', 'sports bike', 'cruiser', 'tourer / adventure',
@@ -29,36 +30,10 @@ export default function CarsPage({
   appliedFilters = {},
   setAppliedFilters
 }) {
-  const getMarkupPrice = (basePrice, vendorId, entityType, itemId = 'all') => {
-    if (!markups) return basePrice;
-    
-    // 1. Item-specific markup for this vendor
-    let applicableMarkup = markups.find(m => m.entity_type === entityType && m.vendor_id == vendorId && m.item_id == itemId);
-    
-    // 2. Global markup for this vendor (item_id = 'all')
-    if (!applicableMarkup) {
-      applicableMarkup = markups.find(m => m.entity_type === entityType && m.vendor_id == vendorId && (m.item_id === 'all' || !m.item_id));
-    }
-
-    // 3. Global markup for all vendors
-    if (!applicableMarkup) {
-      applicableMarkup = markups.find(m => m.entity_type === entityType && m.vendor_id === 'global');
-    }
-    if (applicableMarkup) {
-      const val = parseFloat(applicableMarkup.markup_value);
-      if (applicableMarkup.markup_type === 'flat') {
-        return basePrice + val;
-      } else if (applicableMarkup.markup_type === 'percentage') {
-        return basePrice + (basePrice * (val / 100));
-      }
-    }
-    return basePrice;
-  };
-
   const displayCars = useMemo(() => {
     return (cars || []).filter(c => !isBikeItem(c)).map(car => ({
       ...car,
-      price: getMarkupPrice(parseFloat(car.price || 0), car.vendor_id || 'global', 'cars', car.id)
+      price: getMarkupPrice(parseFloat(car.price || 0), car.vendor_id || 'global', 'cars', car.id, markups, 'b2c')
     }));
   }, [cars, markups]);
 

@@ -213,6 +213,7 @@ export default function CustomerOverviewTab({
   hotels = [],
   flights = [],
   activities = [],
+  markups = [],
   exploreFocus = '',
   onViewDetails,
   onNavigateTab,
@@ -1100,6 +1101,7 @@ export default function CustomerOverviewTab({
               <SelfDriveCategoryShowcase
                 cars={cars}
                 bikes={bikes}
+                markups={markups}
                 onBookVehicle={(v) => handleTriggerDetails(v, isBikeVehicle(v) ? 'bike' : 'car')}
                 onViewVehicle={(v) => handleTriggerDetails(v, isBikeVehicle(v) ? 'bike' : 'car')}
                 setActiveTab={onNavigateTab}

@@ -3,7 +3,7 @@ import {
   Calendar, Search, Filter, Plus, Edit2, Trash2, Eye, CheckCircle2,
   XCircle, Clock, AlertCircle, RefreshCw, DollarSign, User, Phone,
   MapPin, ChevronRight, X, Shield, FileText, Download, RotateCcw,
-  Layers, Radio, SlidersHorizontal
+  Layers, Radio, SlidersHorizontal, CreditCard
 } from 'lucide-react';
 import * as api from '../../services/api';
 import { validateVehicleBookingEligibility } from '../../utils/dateUtils';
@@ -271,6 +271,7 @@ export default function AdminBookingManagement({
   bookings: initialBookings = [],
   onRefreshBookings,
   onNavigateToCalendar,
+  onNavigateToPayments,
   currentUser,
   hotels = [],
   cars = [],
@@ -278,7 +279,18 @@ export default function AdminBookingManagement({
 }) {
   const [bookingsList, setBookingsList] = useState(initialBookings);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const q = urlParams.get('search') || sessionStorage.getItem('tg_booking_search') || '';
+      if (sessionStorage.getItem('tg_booking_search')) {
+        sessionStorage.removeItem('tg_booking_search');
+      }
+      return q;
+    } catch (_) {
+      return '';
+    }
+  });
   const [statusFilter, setStatusFilter] = useState('all');
   const [serviceFilter, setServiceFilter] = useState('ALL');
   const [channelFilter, setChannelFilter] = useState('ALL');
@@ -460,9 +472,13 @@ export default function AdminBookingManagement({
 
     // 4. Status filter
     const s = (b.status || 'pending').toLowerCase();
-    if (statusFilter !== 'all' && s !== statusFilter.toLowerCase()) return false;
+    if (statusFilter === 'pending_utr') {
+      if (b.payment_verification_status !== 'Pending Verification') return false;
+    } else if (statusFilter !== 'all' && s !== statusFilter.toLowerCase()) {
+      return false;
+    }
 
-    // 5. Search query
+    // 5. Search query (includes UTR and Payment Reference)
     if (search.trim()) {
       const query = search.toLowerCase();
       const matchSearch =
@@ -471,12 +487,22 @@ export default function AdminBookingManagement({
         String(b.phone || '').toLowerCase().includes(query) ||
         String(b.item_name || '').toLowerCase().includes(query) ||
         String(b.b2b_partner_name || '').toLowerCase().includes(query) ||
-        String(b.email || '').toLowerCase().includes(query);
+        String(b.email || '').toLowerCase().includes(query) ||
+        String(b.payment_reference || '').toLowerCase().includes(query) ||
+        String(b.customer_payment_utr || '').toLowerCase().includes(query) ||
+        String(b.vendor_payout_reference || '').toLowerCase().includes(query) ||
+        String(b.vendor_payout_utr || '').toLowerCase().includes(query) ||
+        String(b.payment_verification_status || '').toLowerCase().includes(query) ||
+        String(b.vendor_id || '').toLowerCase().includes(query);
       if (!matchSearch) return false;
     }
 
     return true;
   });
+
+  const pendingUtrCount = useMemo(() => {
+    return (bookingsList || []).filter(b => b.payment_verification_status === 'Pending Verification' && (b.status || '').toLowerCase() !== 'cancelled').length;
+  }, [bookingsList]);
 
   // Dynamic counts calculated from current bookingsList (NEVER hardcoded)
   const serviceCounts = useMemo(() => ({
@@ -680,6 +706,22 @@ export default function AdminBookingManagement({
               Availability Calendar
             </button>
           )}
+          {onNavigateToPayments && (
+            <button
+              type="button"
+              className="btn btn-outline-primary btn-sm px-3 py-2 rounded-3 d-flex align-items-center gap-1.5 bg-white shadow-sm fw-bold"
+              onClick={onNavigateToPayments}
+              title="Open full Static QR payment verification and vendor settlement console"
+            >
+              <CreditCard size={14} />
+              <span>Payment &amp; UTR Console</span>
+              {pendingUtrCount > 0 && (
+                <span className="badge bg-danger text-white rounded-pill px-1.5 py-0.5" style={{ fontSize: '10px' }}>
+                  {pendingUtrCount}
+                </span>
+              )}
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3 d-flex align-items-center gap-1.5 bg-white shadow-sm"
@@ -802,19 +844,53 @@ export default function AdminBookingManagement({
               <SlidersHorizontal size={13} className="text-muted" /> Status:
             </span>
             <div className="d-flex align-items-center gap-2 flex-wrap">
-              {['all', 'confirmed', 'pending', 'completed', 'cancelled'].map(tab => (
+              {['all', 'confirmed', 'pending', 'pending_utr', 'completed', 'cancelled'].map(tab => (
                 <button
                   key={tab}
                   type="button"
-                  className={`admin-filter-pill text-capitalize ${statusFilter === tab ? 'active-navy' : ''}`}
+                  className={`admin-filter-pill ${statusFilter === tab ? 'active-navy' : ''}`}
                   onClick={() => setStatusFilter(tab)}
                 >
-                  {tab}
+                  {tab === 'pending_utr' ? (
+                    <span className="d-flex align-items-center gap-1 text-warning fw-bold">
+                      ⚡ UTR Pending ({pendingUtrCount})
+                    </span>
+                  ) : tab}
                 </button>
               ))}
             </div>
           </div>
         </div>
+
+        {/* Pending UTR Verification Alert Banner */}
+        {pendingUtrCount > 0 && (
+          <div className="alert alert-warning py-2 px-3 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 shadow-xs border border-warning" style={{ background: '#fffbeb' }}>
+            <div className="d-flex align-items-center gap-2">
+              <AlertCircle size={16} className="text-warning flex-shrink-0" />
+              <span className="text-xs fw-bold text-dark">
+                {pendingUtrCount} customer booking{pendingUtrCount === 1 ? '' : 's'} with submitted Static QR UPI UTR awaiting verification!
+              </span>
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                className={`btn btn-xs rounded-pill px-3 py-1 text-xxs fw-bold ${statusFilter === 'pending_utr' ? 'btn-warning text-dark' : 'btn-dark text-white'}`}
+                onClick={() => setStatusFilter(statusFilter === 'pending_utr' ? 'all' : 'pending_utr')}
+              >
+                {statusFilter === 'pending_utr' ? 'Showing Pending UTRs ✓' : 'Filter Pending UTRs'}
+              </button>
+              {onNavigateToPayments && (
+                <button
+                  type="button"
+                  className="btn btn-xs btn-outline-primary rounded-pill px-3 py-1 text-xxs fw-bold bg-white"
+                  onClick={onNavigateToPayments}
+                >
+                  Go to Payment Console →
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Filter Rows (Service, Channel, Date) */}
         <div className="d-flex flex-column gap-3 py-1">
@@ -1233,33 +1309,85 @@ export default function AdminBookingManagement({
                       </td>
                       <td>
                         <PaymentBadge status={b.payment_status} />
+                        {(b.customer_payment_utr || b.payment_reference) ? (
+                          <div className="mt-1" title="Customer Payment UTR (Customer → WOW GOA)">
+                            <span className="badge font-monospace text-primary bg-primary bg-opacity-10 border border-primary border-opacity-25 px-1.5 py-0.5" style={{ fontSize: '0.70rem', letterSpacing: '0.3px' }}>
+                              Cust UTR: {b.customer_payment_utr || b.payment_reference}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="text-muted text-xxs mt-0.5">{b.payment_method || 'Cash / Offline'}</div>
+                        )}
+                        {(b.vendor_payout_utr || b.vendor_payout_reference) && (
+                          <div className="mt-0.5" title="Vendor Payout UTR (WOW GOA → Vendor)">
+                            <span className="badge font-monospace bg-light text-secondary border px-1.5 py-0.5" style={{ fontSize: '0.65rem' }}>
+                              Vendor UTR: {b.vendor_payout_utr || b.vendor_payout_reference}
+                            </span>
+                          </div>
+                        )}
+                        {b.payment_verification_status && (
+                          <div className="mt-1">
+                            <span className={`badge rounded-pill text-xxs ${
+                              b.payment_verification_status === 'Approved' ? 'bg-success bg-opacity-10 text-success border border-success border-opacity-25' :
+                              b.payment_verification_status === 'Rejected' ? 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25' :
+                              'bg-warning bg-opacity-20 text-warning-emphasis border border-warning'
+                            }`}>
+                              {b.payment_verification_status === 'Pending Verification' ? '⏳ UTR Pending Verification' : b.payment_verification_status}
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td className="pe-3 text-end">
-                        <div className="btn-group btn-group-sm">
-                          <button
-                            type="button"
-                            className="btn btn-light btn-sm text-secondary"
-                            title="View Details"
-                            onClick={() => setViewBooking(b)}
-                          >
-                            <Eye size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-light btn-sm text-primary"
-                            title="Edit Booking"
-                            onClick={() => setEditBooking({ ...b })}
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-light btn-sm text-danger"
-                            title="Delete Booking"
-                            onClick={() => handleDeleteBooking(bId)}
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                        <div className="d-flex align-items-center justify-content-end gap-1 flex-wrap">
+                          {b.payment_verification_status === 'Pending Verification' && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-success text-white fw-bold px-2 py-0.5 rounded-pill shadow-xs"
+                              style={{ fontSize: '0.68rem' }}
+                              title={`Approve Customer Payment UTR ${b.customer_payment_utr || b.payment_reference} & confirm booking`}
+                              onClick={async () => {
+                                try {
+                                  const res = await api.adminVerifyPayment(bId, 'Approved', 'Verified from Bookings table');
+                                  if (res && (res.success || res.status === 'success')) {
+                                    await fetchLatestBookings();
+                                    alert(`Booking #${bId} payment verified & booking confirmed!`);
+                                  } else {
+                                    alert(res?.error || res?.message || 'Failed to verify payment');
+                                  }
+                                } catch(e) {
+                                  alert(e.message || 'Failed to verify payment');
+                                }
+                              }}
+                            >
+                              ✓ Approve UTR
+                            </button>
+                          )}
+                          <div className="btn-group btn-group-sm">
+                            <button
+                              type="button"
+                              className="btn btn-light btn-sm text-secondary"
+                              title="View Details"
+                              onClick={() => setViewBooking(b)}
+                            >
+                              <Eye size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-light btn-sm text-primary"
+                              title="Edit Booking"
+                              onClick={() => setEditBooking({ ...b })}
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-light btn-sm text-danger"
+                              title="Delete Booking"
+                              onClick={() => handleDeleteBooking(bId)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -1637,6 +1765,93 @@ export default function AdminBookingManagement({
                     <div className="small fw-semibold">{viewBooking.payment_method || 'Cash / Offline'}</div>
                   </div>
                 </div>
+
+                {/* Financial Split & Two-UTR Breakdown */}
+                <div className="rounded-3 mb-3 p-3 border" style={{ background: '#f8fafc' }}>
+                  <div className="fw-bold text-dark text-xs mb-2 pb-1 border-bottom d-flex justify-content-between">
+                    <span>Payment &amp; Vendor Settlement Breakdown</span>
+                    <span className="text-muted text-xxs">Static QR Flow</span>
+                  </div>
+
+                  {/* 1. Customer Payment Box */}
+                  <div className="p-2.5 rounded-3 mb-2 bg-white border">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="fw-bold text-dark text-xs">Customer Payment (Customer → WOW GOA)</span>
+                      <span className={`badge rounded-pill text-xxs ${viewBooking.payment_verification_status === 'Approved' ? 'bg-success text-white' : 'bg-warning text-dark'}`}>
+                        {viewBooking.payment_verification_status || 'Pending Verification'}
+                      </span>
+                    </div>
+                    <div className="d-flex justify-content-between text-xs">
+                      <span className="text-muted">Amount:</span>
+                      <strong className="text-dark">₹{Number(viewBooking.customer_payment || viewBooking.total_amount || 0).toLocaleString()}</strong>
+                    </div>
+                    <div className="d-flex justify-content-between text-xs mt-1">
+                      <span className="text-muted">Customer UTR:</span>
+                      <span className="badge font-monospace text-primary bg-primary bg-opacity-10 border border-primary border-opacity-25 px-2 py-0.5 text-xs">
+                        {viewBooking.customer_payment_utr || viewBooking.payment_reference || 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* WOW GOA Platform Fee */}
+                  <div className="d-flex justify-content-between text-xs py-1 px-1 text-success mb-2">
+                    <span>WOW GOA Platform Fee (10% Retained):</span>
+                    <strong>₹{Number(viewBooking.wow_goa_platform_fee || (Number(viewBooking.customer_payment || viewBooking.total_amount || 0) * 0.10)).toLocaleString()} (Non-Refundable)</strong>
+                  </div>
+
+                  {/* 2. Vendor Settlement Box */}
+                  <div className="p-2.5 rounded-3 border" style={{ background: '#fff7ed', borderColor: '#fed7aa' }}>
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="fw-bold text-dark text-xs">Vendor Settlement (WOW GOA → Vendor)</span>
+                      <span className={`badge rounded-pill text-xxs ${viewBooking.vendor_payout_status === 'Settled' ? 'bg-success text-white' : 'bg-secondary text-white'}`}>
+                        Status: {viewBooking.vendor_payout_status || 'Pending'}
+                      </span>
+                    </div>
+                    <div className="d-flex justify-content-between text-xs">
+                      <span className="text-muted">Vendor Amount:</span>
+                      <strong className="text-primary font-heading fs-6">
+                        ₹{Number(viewBooking.vendor_service_amount || (Number(viewBooking.customer_payment || viewBooking.total_amount || 0) * 0.90)).toLocaleString()}
+                      </strong>
+                    </div>
+                    <div className="d-flex justify-content-between text-xs mt-1">
+                      <span className="text-muted">Vendor Payout UTR:</span>
+                      {(viewBooking.vendor_payout_utr || viewBooking.vendor_payout_reference) ? (
+                        <span className="badge font-monospace bg-secondary bg-opacity-10 text-dark border px-2 py-0.5 text-xs">
+                          {viewBooking.vendor_payout_utr || viewBooking.vendor_payout_reference}
+                        </span>
+                      ) : (
+                        <span className="text-muted text-xxs fst-italic">Pending Payout Transfer</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cancellation Audit (If Cancelled) */}
+                {(viewBooking.status || '').toLowerCase() === 'cancelled' && (
+                  <div className="p-3 rounded-3 mb-2" style={{ background: '#fef2f2', border: '1px solid #fee2e2' }}>
+                    <div className="fw-bold text-danger text-xs mb-1">Cancellation Audit Record</div>
+                    <div className="row g-2 text-xxs text-dark">
+                      <div className="col-6">
+                        <strong>Requested At:</strong> {viewBooking.cancellation_requested_at || '—'}
+                      </div>
+                      <div className="col-6">
+                        <strong>Applied Rule:</strong> {viewBooking.cancellation_rule_applied || '—'}
+                      </div>
+                      <div className="col-6">
+                        <strong>Refund %:</strong> {viewBooking.cancellation_refund_percentage}%
+                      </div>
+                      <div className="col-6">
+                        <strong>Refund to Customer:</strong> ₹{viewBooking.cancellation_refund_amount}
+                      </div>
+                      <div className="col-6">
+                        <strong>Retained Platform Fee:</strong> ₹{viewBooking.cancellation_platform_fee}
+                      </div>
+                      <div className="col-12">
+                        <strong>Reason:</strong> {viewBooking.cancellation_reason || '—'}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Driver Requirement Info */}
                 <div className="p-3 rounded-3 bg-light border mt-2">

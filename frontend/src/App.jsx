@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import './App.css';
 import { useSiteConfig } from './context/SiteConfigContext';
 import { unlockAudio } from './utils/notificationSound';
@@ -978,11 +978,44 @@ export default function App() {
       const itemId = e?.detail?.itemId;
       const itemType = e?.detail?.itemType;
       const itemName = e?.detail?.itemName;
-      if (!tab) return;
+      const explicitUrl = e?.detail?.targetUrl;
+      if (!tab && !explicitUrl) return;
 
       // Map short names to actual activeTab keys used in App.jsx
-      const tabMap = { bikes: 'bikes', cars: 'cars', hotels: 'hotels', activities: 'activities', packages: 'packages' };
-      const resolved = tabMap[tab] || tab;
+      const tabMap = {
+        bikes: 'bikes',
+        cars: 'cars',
+        hotels: 'hotels',
+        activities: 'activities',
+        packages: 'packages',
+        flights: 'flights',
+        selfdrive: 'selfdrive',
+        'self-drive': 'selfdrive',
+        craft: 'craftmytrip',
+        craftmytrip: 'craftmytrip',
+        'custom-trip': 'custom-trip'
+      };
+      const resolved = tabMap[tab] || tab || 'cars';
+      const targetPath = '/' + (resolved === 'craftmytrip' ? 'craft' : (resolved === 'self-drive' ? 'selfdrive' : resolved));
+      const finalUrl = explicitUrl || (targetPath + (itemId ? `?id=${encodeURIComponent(itemId)}` : ''));
+
+      // If user is currently on an admin or portal page (like /superadmin, /admin, /vendor, /customer, /b2b), redirect immediately
+      const curPath = window.location.pathname.toLowerCase();
+      if (curPath.startsWith('/superadmin') || curPath.startsWith('/super-admin') ||
+          curPath.startsWith('/admin') || curPath.startsWith('/vendor') ||
+          curPath.startsWith('/hotel-vendor') || curPath.startsWith('/flight-vendor') ||
+          curPath.startsWith('/subadmin') || curPath.startsWith('/sub-admin') ||
+          curPath.startsWith('/customer') || curPath.startsWith('/b2b') ||
+          curPath.startsWith('/driver') || curPath.startsWith('/portal')) {
+        window.location.href = finalUrl;
+        return;
+      }
+
+      // Update currentPath & history URL so the address bar reflects the destination
+      setCurrentPath(targetPath);
+      try {
+        window.history.pushState({}, '', finalUrl);
+      } catch (_) {}
 
       // 1. Try to find the exact item customer requested
       let matchedItem = null;
@@ -1043,6 +1076,9 @@ export default function App() {
           setSearchQuery(itemName);
         }
         try { sessionStorage.setItem('tg_activeTab', resolved); } catch (_) {}
+        setTimeout(() => {
+          document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
+        }, 80);
       }
 
       // Scroll to top
@@ -1243,7 +1279,7 @@ export default function App() {
     setHotels(fresh);
   };
 
-  const refreshVehicleInventory = async () => {
+  const refreshVehicleInventory = useCallback(async () => {
     try {
       const [freshCars, freshBikes, freshUnits] = await Promise.all([
         api.fetchCars().catch(() => []),
@@ -1253,15 +1289,15 @@ export default function App() {
       if (Array.isArray(freshCars)) setCars(freshCars);
       if (Array.isArray(freshBikes)) setBikes(freshBikes);
       if (Array.isArray(freshUnits)) setVehicleUnits(freshUnits);
-      window.dispatchEvent(new CustomEvent('tripgalileo-booking-sync'));
     } catch (e) {
       console.warn('[Sync] Vehicle refresh failed:', e);
     }
-  };
+  }, []);
 
   const handleAddCar = async (carData) => {
-    await api.addCar(carData);
+    const res = await api.addCar(carData);
     await refreshVehicleInventory();
+    return res;
   };
 
   const handleUpdateCar = async (carData) => {
@@ -1275,8 +1311,9 @@ export default function App() {
   };
 
   const handleAddBike = async (bikeData) => {
-    await api.addBike(bikeData);
+    const res = await api.addBike(bikeData);
     await refreshVehicleInventory();
+    return res;
   };
 
   const handleUpdateBike = async (bikeData) => {
@@ -1503,7 +1540,15 @@ export default function App() {
         driver_fullday_end: extraDetails.driver_fullday_end || '',
         driver_fullday_days: extraDetails.driver_fullday_days || 0,
         driver_details: extraDetails.driver_details ? JSON.stringify(extraDetails.driver_details) : '',
-        status: 'Confirmed'
+        customer_payment: typeof extraDetails.customer_payment === 'number' ? extraDetails.customer_payment : totalCost,
+        wow_goa_platform_fee: typeof extraDetails.wow_goa_platform_fee === 'number' ? extraDetails.wow_goa_platform_fee : Math.round(totalCost * 0.10),
+        vendor_service_amount: typeof extraDetails.vendor_service_amount === 'number' ? extraDetails.vendor_service_amount : Math.round(totalCost * 0.90),
+        payment_reference: extraDetails.payment_reference || '',
+        payment_verification_status: extraDetails.payment_verification_status || (extraDetails.payment_reference ? 'Pending Verification' : 'Pending Verification'),
+        vendor_payout_status: extraDetails.vendor_payout_status || 'Pending',
+        cancellation_acknowledged: extraDetails.cancellation_acknowledged ? 1 : 0,
+        vendor_id: extraDetails.vendor_id || selectedBookingItem.vendor_id || selectedBookingItem.vendorId || selectedBookingItem.admin_id || null,
+        status: extraDetails.status || 'Pending'
       };
 
       const res = await api.createBooking(payload);
@@ -1611,6 +1656,7 @@ export default function App() {
         hotels={hotels}
         flights={flights}
         activities={activities}
+        markups={markups}
         onNavigateHome={() => {
           handleTabChange('selfdrive');
         }}
@@ -1620,7 +1666,7 @@ export default function App() {
   }
 
   // ─── ADMIN / SUPERADMIN / VENDOR / SUBADMIN PORTALS ───────────────────────
-  if (activeTab === 'portal' || path.startsWith('/admin') || path === '/portal' || path.startsWith('/sub-admin') || path.startsWith('/subadmin') || path.startsWith('/superadmin') || path.startsWith('/super-admin') || path === '/vendor' || path === '/hotel-vendor' || path === '/flight-vendor' || path === '/vehicle/login' || path === '/hotel/login' || path === '/flight/login' || currentUser?.role === 'subadmin' || currentUser?.role === 'sub_admin') {
+  if (activeTab === 'portal' || path.startsWith('/admin') || path === '/portal' || path.startsWith('/sub-admin') || path.startsWith('/subadmin') || path.startsWith('/superadmin') || path.startsWith('/super-admin') || path === '/vendor' || path === '/hotel-vendor' || path === '/flight-vendor' || path === '/vehicle/login' || path === '/hotel/login' || path === '/flight/login' || ((currentUser?.role === 'subadmin' || currentUser?.role === 'sub_admin') && (path === '/portal' || activeTab === 'portal'))) {
     // ── Dedicated Vendor Login Routes ─────────────────────────────────────────
     if (path === '/vehicle/login') {
       if (currentUser && (currentUser.role === 'vendor' || currentUser.role === 'vehicle_vendor')) {
@@ -1683,7 +1729,7 @@ export default function App() {
     }
 
     // Superadmin route guard
-    if (path.startsWith('/superadmin') || path.startsWith('/super-admin') || currentUser?.role === 'superadmin') {
+    if (path.startsWith('/superadmin') || path.startsWith('/super-admin') || (currentUser?.role === 'superadmin' && (path === '/portal' || activeTab === 'portal'))) {
       if (!currentUser || currentUser.role !== 'superadmin') {
         return (
           <>
@@ -1713,7 +1759,7 @@ export default function App() {
       );
     }
     // SubAdmin route guard
-    if (path.startsWith('/sub-admin') || path.startsWith('/subadmin') || currentUser?.role === 'subadmin' || currentUser?.role === 'sub_admin') {
+    if (path.startsWith('/sub-admin') || path.startsWith('/subadmin') || ((currentUser?.role === 'subadmin' || currentUser?.role === 'sub_admin') && (path === '/portal' || activeTab === 'portal'))) {
       return (
         <>
           <SubAdminPortalPage
@@ -2080,6 +2126,7 @@ export default function App() {
               <DynamicFeaturedVehicles
                 cars={cars}
                 bikes={bikes}
+                markups={markups}
                 onBookVehicle={handleOpenBooking}
                 onViewVehicle={(veh) => handleOpenDetails(veh, normalizeVehicleType(veh))}
                 onBook={handleOpenBooking}
@@ -2095,6 +2142,7 @@ export default function App() {
               <SelfDriveCategoryShowcase
                 cars={cars}
                 bikes={bikes}
+                markups={markups}
                 onBookVehicle={handleOpenBooking}
                 onViewVehicle={(veh) => {
                   const vType = normalizeVehicleType(veh);

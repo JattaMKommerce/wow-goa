@@ -17,6 +17,18 @@ import B2BProfileTab from './B2BProfileTab';
 import B2BWalletTab from './B2BWalletTab';
 import B2BNotificationBell from '../../components/b2b/B2BNotificationBell';
 
+const TAB_TITLES = {
+  dashboard: 'B2B Dashboard',
+  commission_services: 'Commission Inventory',
+  commission_bookings: 'Commission Bookings',
+  commission_reports: 'Commission Earnings',
+  non_commission_services: 'Net Wholesale Inventory',
+  non_commission_bookings: 'Net Wholesale Bookings',
+  customers: 'Guest Directory',
+  wallet: 'Agent Wallet',
+  profile: 'Partner Profile & Modes'
+};
+
 export default function B2BPortalPage({
   onNavigateHome,
   activities = [],
@@ -167,37 +179,256 @@ export default function B2BPortalPage({
   };
 
   return (
-    <div className="min-vh-100 d-flex flex-column" style={{ background: '#f8fafc' }}>
-      {/* Top Navbar */}
-      <header className="sticky-top bg-white border-bottom shadow-xs" style={{ zIndex: 1040 }}>
-        <div className="container-fluid px-3 px-lg-4 py-2.5 d-flex align-items-center justify-content-between">
-          <div className="d-flex align-items-center gap-3">
-            {/* Mobile Sidebar Toggle */}
-            <button 
-              className="btn btn-sm btn-light d-lg-none p-1.5 rounded-3 border"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+    <div className="b2b-portal-shell">
+      {/* Mobile / Tablet Backdrop */}
+      {sidebarOpen && (
+        <div 
+          className="b2b-sidebar-backdrop position-fixed top-0 start-0 w-100 h-100 d-lg-none"
+          style={{ zIndex: 1045, backgroundColor: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(2px)' }}
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close sidebar backdrop"
+        />
+      )}
+
+      {/* ─── 1. B2B LEFT SIDEBAR (Desktop: 264px fixed-width column, Mobile: Drawer) ─── */}
+      <aside 
+        className={`b2b-sidebar ${sidebarOpen ? 'b2b-sidebar-open' : ''}`}
+        aria-label="B2B Portal Navigation"
+      >
+        {/* Brand Header */}
+        <div className="p-3 border-bottom d-flex align-items-center justify-content-between flex-shrink-0" style={{ height: '58px' }}>
+          <div 
+            className="d-flex align-items-center gap-2" 
+            onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="rounded-3 p-1.5 bg-warning text-dark fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '32px', height: '32px' }}>
+              <Building2 size={18} />
+            </div>
+            <div>
+              <span className="fw-black fs-6 tracking-wider text-dark font-heading">WOW GOA</span>
+              <span className="badge bg-dark text-warning text-xxs ms-1.5 px-2 py-0.5 rounded-pill">B2B PORTAL</span>
+            </div>
+          </div>
+
+          {/* Close button for Mobile / Tablet drawer */}
+          <button 
+            type="button"
+            className="btn btn-sm btn-light d-lg-none p-1 rounded-circle border d-flex align-items-center justify-content-center"
+            style={{ width: '28px', height: '28px' }}
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close navigation"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Scrollable Navigation List */}
+        <div className="p-3 overflow-y-auto flex-grow-1 custom-sidebar-scroll">
+          {/* Dashboard Link */}
+          <nav className="nav flex-column gap-1 mb-3">
+            <button
+              onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }}
+              className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                activeTab === 'dashboard' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
+              }`}
             >
-              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+              <LayoutDashboard size={16} />
+              <span>B2B Dashboard</span>
+            </button>
+          </nav>
+
+          {/* COMMISSION MODE SECTION (Case 1 & Case 3) */}
+          {hasCommission && (
+            <div className="mb-3">
+              <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5 d-flex align-items-center justify-content-between">
+                <span>💰 Commission Channel</span>
+                <span className="badge bg-warning text-dark text-3xs font-monospace">ACTIVE</span>
+              </div>
+              <nav className="nav flex-column gap-1">
+                <button
+                  onClick={() => { setActiveTab('commission_services'); setSidebarOpen(false); }}
+                  className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                    activeTab === 'commission_services' ? 'bg-warning text-dark fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
+                  }`}
+                >
+                  <Compass size={15} />
+                  <span>Commission Inventory</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('commission_bookings'); setSidebarOpen(false); }}
+                  className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                    activeTab === 'commission_bookings' ? 'bg-warning text-dark fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
+                  }`}
+                >
+                  <FileText size={15} />
+                  <span>Commission Bookings</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('commission_reports'); setSidebarOpen(false); }}
+                  className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                    activeTab === 'commission_reports' ? 'bg-warning text-dark fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
+                  }`}
+                >
+                  <TrendingUp size={15} />
+                  <span>Commission Earnings</span>
+                </button>
+              </nav>
+            </div>
+          )}
+
+          {/* NON-COMMISSION (NET) SECTION (Case 2 & Case 3) */}
+          {hasNonCommission && (
+            <div className="mb-3">
+              <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5 d-flex align-items-center justify-content-between">
+                <span>🏷️ Non-Commission Channel</span>
+                <span className="badge bg-primary text-white text-3xs font-monospace">ACTIVE</span>
+              </div>
+              <nav className="nav flex-column gap-1">
+                <button
+                  onClick={() => { setActiveTab('non_commission_services'); setSidebarOpen(false); }}
+                  className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                    activeTab === 'non_commission_services' ? 'bg-primary text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
+                  }`}
+                >
+                  <Compass size={15} />
+                  <span>Net Wholesale Inventory</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('non_commission_bookings'); setSidebarOpen(false); }}
+                  className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                    activeTab === 'non_commission_bookings' ? 'bg-primary text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
+                  }`}
+                >
+                  <FileText size={15} />
+                  <span>Net Wholesale Bookings</span>
+                </button>
+              </nav>
+            </div>
+          )}
+
+          {/* CASE 4: ONE APPROVED, SECOND MODE PENDING REVIEW */}
+          {!hasNonCommission && isPendingMode && requestedMode === 'NON_COMMISSION' && (
+            <div className="mb-3">
+              <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5">
+                <span>🏷️ Non-Commission Channel</span>
+              </div>
+              <button
+                onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
+                className="nav-link text-start rounded-3 px-3 py-2 text-xs text-muted border border-dashed border-warning bg-warning bg-opacity-10 d-flex align-items-center gap-2 w-100"
+                title="Non-Commission Mode is pending admin review"
+              >
+                <Clock size={14} className="text-warning flex-shrink-0" />
+                <span className="text-truncate">Pending Admin Review</span>
+              </button>
+            </div>
+          )}
+
+          {!hasCommission && isPendingMode && requestedMode === 'COMMISSION' && (
+            <div className="mb-3">
+              <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5">
+                <span>💰 Commission Channel</span>
+              </div>
+              <button
+                onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
+                className="nav-link text-start rounded-3 px-3 py-2 text-xs text-muted border border-dashed border-warning bg-warning bg-opacity-10 d-flex align-items-center gap-2 w-100"
+                title="Commission Mode is pending admin review"
+              >
+                <Clock size={14} className="text-warning flex-shrink-0" />
+                <span className="text-truncate">Pending Admin Review</span>
+              </button>
+            </div>
+          )}
+
+          {/* COMMON OPERATIONS */}
+          <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5">Agency Management</div>
+          <nav className="nav flex-column gap-1">
+            <button
+              onClick={() => { setActiveTab('customers'); setSidebarOpen(false); }}
+              className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                activeTab === 'customers' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
+              }`}
+            >
+              <Users size={15} />
+              <span>Guest Directory</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('wallet'); setSidebarOpen(false); }}
+              className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center justify-content-between ${
+                activeTab === 'wallet' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
+              }`}
+            >
+              <div className="d-flex align-items-center gap-2.5">
+                <Wallet size={15} className="text-warning" />
+                <span>Agent Wallet</span>
+              </div>
+              <span className="badge bg-warning text-dark text-3xs font-monospace">
+                ₹{parseFloat(partnerUser?.wallet_balance || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
+              className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                activeTab === 'profile' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
+              }`}
+            >
+              <User size={15} />
+              <span>Partner Profile & Modes</span>
+            </button>
+          </nav>
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="p-3 border-top flex-shrink-0 bg-light bg-opacity-50">
+          <div className="d-flex align-items-center justify-content-between">
+            <span className="text-xxs text-muted font-monospace">WOW GOA B2B v2.6</span>
+            <button 
+              onClick={handleLogout}
+              className="btn btn-xs btn-outline-danger rounded-pill px-2.5 py-1 d-inline-flex align-items-center gap-1 border-0"
+              style={{ fontSize: '11px', background: 'rgba(220, 38, 38, 0.08)', color: '#dc2626' }}
+              title="Logout Agency"
+            >
+              <LogOut size={12} />
+              <span className="fw-semibold">Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ─── 2. RIGHT WORKSPACE CONTAINER (Header + Main Page Content) ─── */}
+      <div className="b2b-workspace">
+        {/* Top Navbar */}
+        <header className="b2b-topbar px-3 px-lg-4 d-flex align-items-center justify-content-between">
+          <div className="d-flex align-items-center gap-2.5">
+            {/* Mobile Sidebar Toggle Button */}
+            <button 
+              type="button"
+              className="btn btn-sm btn-light d-lg-none p-1.5 rounded-3 border d-flex align-items-center justify-content-center"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label="Toggle navigation menu"
+            >
+              <Menu size={19} />
             </button>
 
-            {/* Logo */}
-            <div 
-              className="d-flex align-items-center gap-2" 
-              style={{ cursor: 'pointer' }}
-              onClick={() => setActiveTab('dashboard')}
-            >
-              <div className="rounded-3 p-1.5 bg-warning text-dark fw-bold d-flex align-items-center justify-content-center" style={{ width: '34px', height: '34px' }}>
-                <Building2 size={19} />
-              </div>
-              <div>
-                <span className="fw-black fs-6 tracking-wider text-dark font-heading">WOW GOA</span>
-                <span className="badge bg-dark text-warning text-xxs ms-1.5 px-2 py-0.5 rounded-pill">B2B PORTAL</span>
-              </div>
+            {/* Mobile Brand Title (shown only when sidebar is off-canvas) */}
+            <div className="d-flex align-items-center gap-2 d-lg-none">
+              <span className="fw-bold text-dark text-xs text-truncate" style={{ maxWidth: '160px' }}>
+                {TAB_TITLES[activeTab] || 'B2B Portal'}
+              </span>
+            </div>
+
+            {/* Desktop Active Tab Title / Breadcrumb */}
+            <div className="d-none d-lg-flex align-items-center gap-2 text-xs">
+              <span className="text-muted fw-semibold">Agency Portal</span>
+              <span className="text-muted opacity-50">/</span>
+              <span className="fw-bold text-dark font-heading">
+                {TAB_TITLES[activeTab] || activeTab.replace(/_/g, ' ')}
+              </span>
             </div>
           </div>
 
           {/* Right Header: Approved Mode Indicator + Notification Bell + Agency Profile */}
-          <div className="d-flex align-items-center gap-2.5">
+          <div className="d-flex align-items-center gap-2 gap-sm-2.5">
             {/* Database Approved Mode Indicator (No free switching) */}
             <div className="d-none d-md-flex align-items-center gap-1.5">
               {hasCommission && hasNonCommission ? (
@@ -287,198 +518,10 @@ export default function B2BPortalPage({
               <LogOut size={16} />
             </button>
           </div>
-        </div>
-      </header>
-
-      {/* Main Layout: Dynamic Sidebar + Workspace */}
-      <div className="container-fluid px-0 flex-grow-1 d-flex position-relative">
-        {/* Mobile Backdrop */}
-        {sidebarOpen && (
-          <div 
-            className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-lg-none"
-            style={{ zIndex: 1025 }}
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* Dynamic Sidebar according to Requirements 4 & 27 */}
-        <aside 
-          className={`bg-white border-end d-flex flex-column justify-content-between p-3 ${
-            sidebarOpen ? 'd-flex position-fixed shadow-lg' : 'd-none d-lg-flex position-sticky'
-          }`}
-          style={{ 
-            width: '260px', 
-            minWidth: '260px',
-            maxWidth: '260px',
-            flexShrink: 0,
-            zIndex: 1030, 
-            height: 'calc(100vh - 58px)', 
-            top: '58px',
-            left: 0
-          }}
-        >
-          <div className="overflow-y-auto">
-            {/* Dashboard Link */}
-            <nav className="nav flex-column gap-1 mb-3">
-              <button
-                onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }}
-                className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
-                  activeTab === 'dashboard' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
-                }`}
-              >
-                <LayoutDashboard size={16} />
-                <span>B2B Dashboard</span>
-              </button>
-            </nav>
-
-            {/* COMMISSION MODE SECTION (Case 1 & Case 3) */}
-            {hasCommission && (
-              <div className="mb-3">
-                <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5 d-flex align-items-center justify-content-between">
-                  <span>💰 Commission Channel</span>
-                  <span className="badge bg-warning text-dark text-3xs font-monospace">ACTIVE</span>
-                </div>
-                <nav className="nav flex-column gap-1">
-                  <button
-                    onClick={() => { setActiveTab('commission_services'); setSidebarOpen(false); }}
-                    className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
-                      activeTab === 'commission_services' ? 'bg-warning text-dark fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
-                    }`}
-                  >
-                    <Compass size={15} />
-                    <span>Commission Inventory</span>
-                  </button>
-                  <button
-                    onClick={() => { setActiveTab('commission_bookings'); setSidebarOpen(false); }}
-                    className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
-                      activeTab === 'commission_bookings' ? 'bg-warning text-dark fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
-                    }`}
-                  >
-                    <FileText size={15} />
-                    <span>Commission Bookings</span>
-                  </button>
-                  <button
-                    onClick={() => { setActiveTab('commission_reports'); setSidebarOpen(false); }}
-                    className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
-                      activeTab === 'commission_reports' ? 'bg-warning text-dark fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
-                    }`}
-                  >
-                    <TrendingUp size={15} />
-                    <span>Commission Earnings</span>
-                  </button>
-                </nav>
-              </div>
-            )}
-
-            {/* NON-COMMISSION (NET) SECTION (Case 2 & Case 3) */}
-            {hasNonCommission && (
-              <div className="mb-3">
-                <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5 d-flex align-items-center justify-content-between">
-                  <span>🏷️ Non-Commission Channel</span>
-                  <span className="badge bg-primary text-white text-3xs font-monospace">ACTIVE</span>
-                </div>
-                <nav className="nav flex-column gap-1">
-                  <button
-                    onClick={() => { setActiveTab('non_commission_services'); setSidebarOpen(false); }}
-                    className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
-                      activeTab === 'non_commission_services' ? 'bg-primary text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
-                    }`}
-                  >
-                    <Compass size={15} />
-                    <span>Net Wholesale Inventory</span>
-                  </button>
-                  <button
-                    onClick={() => { setActiveTab('non_commission_bookings'); setSidebarOpen(false); }}
-                    className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
-                      activeTab === 'non_commission_bookings' ? 'bg-primary text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
-                    }`}
-                  >
-                    <FileText size={15} />
-                    <span>Net Wholesale Bookings</span>
-                  </button>
-                </nav>
-              </div>
-            )}
-
-            {/* CASE 4: ONE APPROVED, SECOND MODE PENDING REVIEW */}
-            {!hasNonCommission && isPendingMode && requestedMode === 'NON_COMMISSION' && (
-              <div className="mb-3">
-                <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5">
-                  <span>🏷️ Non-Commission Channel</span>
-                </div>
-                <button
-                  onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
-                  className="nav-link text-start rounded-3 px-3 py-2 text-xs text-muted border border-dashed border-warning bg-warning bg-opacity-10 d-flex align-items-center gap-2 w-100"
-                  title="Non-Commission Mode is pending admin review"
-                >
-                  <Clock size={14} className="text-warning flex-shrink-0" />
-                  <span className="text-truncate">Pending Admin Review</span>
-                </button>
-              </div>
-            )}
-
-            {!hasCommission && isPendingMode && requestedMode === 'COMMISSION' && (
-              <div className="mb-3">
-                <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5">
-                  <span>💰 Commission Channel</span>
-                </div>
-                <button
-                  onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
-                  className="nav-link text-start rounded-3 px-3 py-2 text-xs text-muted border border-dashed border-warning bg-warning bg-opacity-10 d-flex align-items-center gap-2 w-100"
-                  title="Commission Mode is pending admin review"
-                >
-                  <Clock size={14} className="text-warning flex-shrink-0" />
-                  <span className="text-truncate">Pending Admin Review</span>
-                </button>
-              </div>
-            )}
-
-            {/* COMMON OPERATIONS */}
-            <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5">Agency Management</div>
-            <nav className="nav flex-column gap-1">
-              <button
-                onClick={() => { setActiveTab('customers'); setSidebarOpen(false); }}
-                className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
-                  activeTab === 'customers' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
-                }`}
-              >
-                <Users size={15} />
-                <span>Guest Directory</span>
-              </button>
-              <button
-                onClick={() => { setActiveTab('wallet'); setSidebarOpen(false); }}
-                className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center justify-content-between ${
-                  activeTab === 'wallet' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
-                }`}
-              >
-                <div className="d-flex align-items-center gap-2.5">
-                  <Wallet size={15} className="text-warning" />
-                  <span>Agent Wallet</span>
-                </div>
-                <span className="badge bg-warning text-dark text-3xs font-monospace">
-                  ₹{parseFloat(partnerUser?.wallet_balance || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </span>
-              </button>
-              <button
-                onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
-                className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
-                  activeTab === 'profile' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
-                }`}
-              >
-                <User size={15} />
-                <span>Partner Profile & Modes</span>
-              </button>
-            </nav>
-          </div>
-
-          {/* Sidebar Footer */}
-          <div className="pt-3 border-top text-xxs text-muted text-center">
-            <span>WOW GOA B2B Engine v2.6</span>
-          </div>
-        </aside>
+        </header>
 
         {/* Main Content Workspace */}
-        <main className="flex-grow-1 p-3 p-lg-4 overflow-y-auto" style={{ minWidth: 0 }}>
+        <main className="b2b-main-content p-3 p-lg-4">
           {activeTab === 'dashboard' && (
             <B2BDashboardTab 
               dashboardData={dashboardData}

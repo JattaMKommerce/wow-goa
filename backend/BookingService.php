@@ -300,11 +300,34 @@ class BookingService {
                         // Curated platform hotel partner
                         $authoritativeVendorId = 'vendor-3';
                     }
+                } elseif ($serviceType === 'package') {
+                    $stmtP = $pdo->prepare("SELECT vendor_id FROM packages WHERE id = ?");
+                    $stmtP->execute([$itemId]);
+                    $pRow = $stmtP->fetch(PDO::FETCH_ASSOC);
+                    if ($pRow && !empty($pRow['vendor_id'])) {
+                        $authoritativeVendorId = $pRow['vendor_id'];
+                    } else {
+                        $authoritativeVendorId = 'vendor-1';
+                    }
                 } elseif ($serviceType === 'flight') {
-                    $authoritativeVendorId = 'vendor-4';
+                    $cleanFId = preg_replace('/^(flight|fl)-?/i', '', $itemId);
+                    $stmtF = $pdo->prepare("SELECT vendor_id FROM flights WHERE id = ? OR flight_number = ?");
+                    $stmtF->execute([$cleanFId, $itemId]);
+                    $fRow = $stmtF->fetch(PDO::FETCH_ASSOC);
+                    if ($fRow && !empty($fRow['vendor_id'])) {
+                        $authoritativeVendorId = $fRow['vendor_id'];
+                    } elseif (!empty($payload['vendor_id'])) {
+                        $authoritativeVendorId = $payload['vendor_id'];
+                    } else {
+                        $authoritativeVendorId = 'vendor-4';
+                    }
                 } elseif ($serviceType === 'activity' || $serviceType === 'sightseeing') {
                     $authoritativeVendorId = null;
                 }
+            }
+
+            if (empty($authoritativeVendorId) && !empty($payload['vendor_id'])) {
+                $authoritativeVendorId = $payload['vendor_id'];
             }
 
             // 6. Authoritative Pricing Calculation (Phase 5)
@@ -629,7 +652,10 @@ class BookingService {
                 vendor_id, physical_unit_id, driver_service_type, hotel_name, package_type, package_name,
                 vendor_base_price, wow_markup_type, wow_markup_value, wow_markup_amount,
                 b2b_price, b2b_markup_type, b2b_markup_value, b2b_markup_amount,
-                customer_price, pricing_snapshot_json
+                customer_price, pricing_snapshot_json,
+                customer_payment, wow_goa_platform_fee, vendor_service_amount,
+                payment_reference, customer_payment_utr, payment_screenshot, payment_verification_status,
+                vendor_payout_status, cancellation_policy_snapshot
             ) VALUES (
                 ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?,
@@ -645,7 +671,10 @@ class BookingService {
                 ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?,
                 ?, ?, ?, ?,
-                ?, ?
+                ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?
             )";
 
             $isGenuineB2B = $isB2B && !empty($actor) && in_array(strtolower($actor['role'] ?? ''), ['b2b', 'agent']);
@@ -682,6 +711,28 @@ class BookingService {
                     'channel' => 'D2C'
                 ]);
             }
+
+            // Compute Static QR financial split & payment verification status
+            $snapCustPayment = floatval($totalAmount);
+            $snapWowFee = round($snapCustPayment * 0.10, 2);
+            $snapVendorServiceAmt = round($snapCustPayment * 0.90, 2);
+            $paymentRef = $payload['payment_reference'] ?? ($payload['utr'] ?? ($payload['payment_utr'] ?? null));
+            $paymentProof = $payload['payment_screenshot'] ?? ($payload['payment_proof'] ?? null);
+
+            $isStaticQr = (stripos($paymentMethod, 'qr') !== false || stripos($paymentMethod, 'upi') !== false || stripos($paymentMethod, 'static') !== false);
+            $paymentVerifStatus = $payload['payment_verification_status'] ?? ($isStaticQr ? 'Pending Verification' : 'Approved');
+            if ($isStaticQr && empty($payload['status'])) {
+                $initStatus = 'Pending';
+                $paymentStatus = 'Pending Verification';
+            }
+            $vendorPayoutStatus = $payload['vendor_payout_status'] ?? 'Pending';
+
+            // Vendor cancellation policy snapshot at booking time
+            $policySnapshot = self::getVendorCancellationPolicy($pdo, $authoritativeVendorId, $serviceType);
+            if (!$policySnapshot && !empty($authoritativeVendorId)) {
+                $policySnapshot = self::ensureVendorDefaultPolicy($pdo, $authoritativeVendorId, $serviceType);
+            }
+            $cancellationPolicySnapshotJson = $policySnapshot ? json_encode($policySnapshot) : null;
 
             $stmtMaster = $pdo->prepare($sqlMaster);
             $stmtMaster->execute([
@@ -757,7 +808,17 @@ class BookingService {
                 $snapB2BVal,
                 $snapB2BAmt,
                 $snapCustPrice,
-                $snapJson
+                $snapJson,
+                // Static QR & financial split fields
+                $snapCustPayment,
+                $snapWowFee,
+                $snapVendorServiceAmt,
+                $paymentRef,
+                $paymentRef,
+                $paymentProof,
+                $paymentVerifStatus,
+                $vendorPayoutStatus,
+                $cancellationPolicySnapshotJson
             ]);
 
             // 11. Master-Child Booking Creation for Package Bookings (Phase 6)
@@ -1299,6 +1360,204 @@ class BookingService {
             'wallet_amount_used' => $appliedWallet,
             'max_wallet_benefit' => $maxAllowedWallet,
             'final_payable' => $finalPayable
+        ];
+    }
+
+    /**
+     * Get vendor's active cancellation policy and rules.
+     */
+    public static function getVendorCancellationPolicy(PDO $pdo, ?string $vendorId, string $serviceType = 'all'): ?array {
+        if (empty($vendorId)) {
+            return null;
+        }
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM vendor_cancellation_policies WHERE vendor_id = ? AND (service_type = ? OR service_type = 'all') AND status = 'Active' ORDER BY CASE WHEN service_type = ? THEN 1 ELSE 2 END, created_at DESC LIMIT 1");
+            $stmt->execute([$vendorId, $serviceType, $serviceType]);
+            $policy = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$policy) {
+                return null;
+            }
+            $stmtRules = $pdo->prepare("SELECT * FROM vendor_cancellation_rules WHERE policy_id = ? ORDER BY minimum_hours_before DESC");
+            $stmtRules->execute([$policy['id']]);
+            $rules = $stmtRules->fetchAll(PDO::FETCH_ASSOC);
+            $policy['rules'] = $rules ?: [];
+            return $policy;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Ensure a default standard cancellation policy exists for a vendor if unconfigured.
+     */
+    public static function ensureVendorDefaultPolicy(PDO $pdo, string $vendorId, string $serviceType = 'all'): array {
+        $policyId = 'vpol_' . substr(md5($vendorId . '_auto'), 0, 12);
+        try {
+            $ins = $pdo->prepare("INSERT INTO vendor_cancellation_policies (id, vendor_id, service_type, policy_name, allow_after_service_starts, status, created_at, updated_at) VALUES (?, ?, 'all', 'Standard Cancellation Policy', 0, 'Active', datetime('now'), datetime('now'))");
+            $ins->execute([$policyId, $vendorId]);
+
+            $rules = [
+                ['id' => 'vrule_' . uniqid(), 'policy_id' => $policyId, 'minimum_hours_before' => 168, 'maximum_hours_before' => null, 'refund_percentage' => 90.00, 'cancellation_charge_percentage' => 10.00, 'rule_description' => 'More than 7 days before service: 90% refund'],
+                ['id' => 'vrule_' . uniqid(), 'policy_id' => $policyId, 'minimum_hours_before' => 72, 'maximum_hours_before' => 168, 'refund_percentage' => 75.00, 'cancellation_charge_percentage' => 25.00, 'rule_description' => '3–7 days before service: 75% refund'],
+                ['id' => 'vrule_' . uniqid(), 'policy_id' => $policyId, 'minimum_hours_before' => 24, 'maximum_hours_before' => 72, 'refund_percentage' => 50.00, 'cancellation_charge_percentage' => 50.00, 'rule_description' => '1–3 days before service: 50% refund'],
+                ['id' => 'vrule_' . uniqid(), 'policy_id' => $policyId, 'minimum_hours_before' => 0, 'maximum_hours_before' => 24, 'refund_percentage' => 25.00, 'cancellation_charge_percentage' => 75.00, 'rule_description' => 'Less than 24 hours before service: 25% refund'],
+                ['id' => 'vrule_' . uniqid(), 'policy_id' => $policyId, 'minimum_hours_before' => -999999, 'maximum_hours_before' => 0, 'refund_percentage' => 0.00, 'cancellation_charge_percentage' => 100.00, 'rule_description' => 'After service starts: No refund']
+            ];
+
+            $insRule = $pdo->prepare("INSERT INTO vendor_cancellation_rules (id, policy_id, minimum_hours_before, maximum_hours_before, refund_percentage, cancellation_charge_percentage, rule_description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))");
+            foreach ($rules as $r) {
+                $insRule->execute([$r['id'], $policyId, $r['minimum_hours_before'], $r['maximum_hours_before'], $r['refund_percentage'], $r['cancellation_charge_percentage'], $r['rule_description']]);
+            }
+
+            return [
+                'id' => $policyId,
+                'vendor_id' => $vendorId,
+                'service_type' => 'all',
+                'policy_name' => 'Standard Cancellation Policy',
+                'allow_after_service_starts' => 0,
+                'status' => 'Active',
+                'rules' => $rules
+            ];
+        } catch (Exception $e) {
+            return [
+                'id' => $policyId,
+                'vendor_id' => $vendorId,
+                'service_type' => 'all',
+                'policy_name' => 'Standard Cancellation Policy',
+                'allow_after_service_starts' => 0,
+                'status' => 'Active',
+                'rules' => []
+            ];
+        }
+    }
+
+    /**
+     * Authoritative calculation of cancellation refund strictly based on Vendor Service Amount.
+     * WOW GOA Platform Fee (10%) is NON-REFUNDABLE.
+     */
+    public static function calculateCancellationRefund(PDO $pdo, array $booking, ?string $cancelTime = null): array {
+        // 1. Retrieve snapshot or fallback
+        $snapshot = null;
+        if (!empty($booking['cancellation_policy_snapshot'])) {
+            $snapshot = is_array($booking['cancellation_policy_snapshot']) 
+                ? $booking['cancellation_policy_snapshot'] 
+                : json_decode($booking['cancellation_policy_snapshot'], true);
+        }
+        if (!$snapshot || empty($snapshot['rules'])) {
+            $vendorId = $booking['vendor_id'] ?? null;
+            $serviceType = $booking['type'] ?? 'all';
+            $snapshot = self::getVendorCancellationPolicy($pdo, $vendorId, $serviceType);
+            if (!$snapshot && !empty($vendorId)) {
+                $snapshot = self::ensureVendorDefaultPolicy($pdo, $vendorId, $serviceType);
+            }
+        }
+
+        $rules = $snapshot['rules'] ?? [];
+        $allowAfterStart = !empty($snapshot['allow_after_service_starts']);
+
+        // 2. Determine Service Start Date/Time
+        $startDate = $booking['pickup_date'] 
+            ?? ($booking['check_in_date'] 
+            ?? ($booking['departure_date'] 
+            ?? ($booking['start_date'] ?? date('Y-m-d'))));
+        
+        $startTime = $booking['pickup_time'] 
+            ?? ($booking['check_in_time'] 
+            ?? '10:00:00');
+        
+        // Clean start time
+        $startDateTimeStr = trim($startDate . ' ' . $startTime);
+        $serviceStartTs = strtotime($startDateTimeStr);
+        if (!$serviceStartTs) {
+            $serviceStartTs = strtotime($startDate . ' 10:00:00');
+        }
+
+        $cancelTs = $cancelTime ? strtotime($cancelTime) : time();
+        $diffSeconds = $serviceStartTs - $cancelTs;
+        $diffHours = $diffSeconds / 3600.0;
+
+        // 3. Find matching rule deterministically
+        $appliedRule = null;
+        $matchedRefundPct = 0.00;
+        $matchedChargePct = 100.00;
+        $matchedRuleDesc = 'Standard Cancellation Policy';
+
+        if ($diffHours < 0 && !$allowAfterStart) {
+            // Service already started and policy forbids refund after start
+            $matchedRefundPct = 0.00;
+            $matchedChargePct = 100.00;
+            $matchedRuleDesc = 'After service starts: No refund allowed.';
+        } else {
+            // Sort rules descending by minimum_hours_before
+            usort($rules, function($a, $b) {
+                return floatval($b['minimum_hours_before']) <=> floatval($a['minimum_hours_before']);
+            });
+
+            foreach ($rules as $rule) {
+                $minH = floatval($rule['minimum_hours_before']);
+                $maxH = ($rule['maximum_hours_before'] !== null && $rule['maximum_hours_before'] !== '') 
+                    ? floatval($rule['maximum_hours_before']) 
+                    : null;
+
+                if ($maxH === null) {
+                    // Unbounded upper window (e.g. > 7 days / 168+ hours)
+                    if ($diffHours >= $minH) {
+                        $appliedRule = $rule;
+                        break;
+                    }
+                } else {
+                    // Bounded window [min, max) e.g. [72, 168), [24, 72), [0, 24)
+                    if ($diffHours >= $minH && $diffHours < $maxH) {
+                        $appliedRule = $rule;
+                        break;
+                    }
+                }
+            }
+
+            if (!$appliedRule && !empty($rules)) {
+                if ($diffHours < 0) {
+                    $matchedRefundPct = 0.00;
+                    $matchedChargePct = 100.00;
+                    $matchedRuleDesc = 'After service starts: No refund.';
+                } else {
+                    $appliedRule = end($rules);
+                }
+            }
+
+            if ($appliedRule) {
+                $matchedRefundPct = floatval($appliedRule['refund_percentage']);
+                $matchedChargePct = floatval($appliedRule['cancellation_charge_percentage'] ?? (100 - $matchedRefundPct));
+                $matchedRuleDesc = $appliedRule['rule_description'] ?? ("{$matchedRefundPct}% refund policy applied");
+            }
+        }
+
+        // 4. Financial Calculations based strictly on Vendor Service Amount
+        $customerPayment = floatval($booking['customer_payment'] ?: ($booking['total_amount'] ?: 0));
+        $wowPlatformFee = floatval($booking['wow_goa_platform_fee'] ?: round($customerPayment * 0.10, 2));
+        $vendorServiceAmt = floatval($booking['vendor_service_amount'] ?: round($customerPayment * 0.90, 2));
+
+        $refundAmount = round($vendorServiceAmt * ($matchedRefundPct / 100.0), 2);
+        $vendorRetainedAmt = round($vendorServiceAmt - $refundAmount, 2);
+
+        return [
+            'booking_id' => $booking['id'],
+            'customer_name' => $booking['name'] ?? '',
+            'service_name' => $booking['item_name'] ?? '',
+            'vendor_id' => $booking['vendor_id'] ?? '',
+            'service_start_datetime' => date('Y-m-d H:i:s', $serviceStartTs),
+            'cancellation_datetime' => date('Y-m-d H:i:s', $cancelTs),
+            'hours_before_service' => round($diffHours, 2),
+            'customer_payment' => $customerPayment,
+            'wow_goa_platform_fee' => $wowPlatformFee,
+            'vendor_service_amount' => $vendorServiceAmt,
+            'applied_rule' => $appliedRule,
+            'rule_description' => $matchedRuleDesc,
+            'refund_percentage' => $matchedRefundPct,
+            'cancellation_charge_percentage' => $matchedChargePct,
+            'refund_amount' => $refundAmount,
+            'vendor_retained_amount' => $vendorRetainedAmt,
+            'is_platform_fee_refundable' => false,
+            'policy_name' => $snapshot['policy_name'] ?? 'Vendor Cancellation Policy'
         ];
     }
 }

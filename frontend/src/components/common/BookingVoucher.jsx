@@ -627,8 +627,11 @@ export default function BookingVoucher({
           <li className="mb-0.5">
             <strong>Permitted Usage:</strong> Commercial subleasing, driving under the influence, and off-road driving on beaches are strictly prohibited by law.
           </li>
+          <li className="mb-0.5">
+            <strong>Cancellation &amp; Policy:</strong> Cancellations are governed by the vendor's saved policy snapshot. Refunds apply strictly to the vendor service amount (90%).
+          </li>
           <li>
-            <strong>Cancellation &amp; Policy:</strong> Changes and cancellations are governed by platform cancellation terms and advance notice windows.
+            <strong>Platform Fee (Non-Refundable):</strong> WOW GOA platform fee (10%) is strictly non-refundable upon booking/payment.
           </li>
         </ol>
       </div>

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Sparkles, AlertCircle, Edit2, Plane, MapPin, Calendar, Clock, CreditCard, ChevronDown, Check, Tag, Info, AlertTriangle, Play, Settings, X, PlusCircle } from 'lucide-react';
+import { Sparkles, AlertCircle } from 'lucide-react';
 import VendorPaymentSettings from './VendorPaymentSettings';
 import { updateBookingStatus } from '../../services/api';
+import { calculateFlightDuration } from '../../utils/flightHelper';
 
 export default function FlightVendorDashboard({
   activeTab,
@@ -22,9 +23,24 @@ export default function FlightVendorDashboard({
   const [duration, setDuration] = useState('');
   
   const [submitting, setSubmitting] = useState(false);
-  const [showBillingModal, setShowBillingModal] = useState(false);
   const [editingFlightId, setEditingFlightId] = useState(null);
   const vendorFlights = flights || [];
+
+  const handleDepartureChange = (val) => {
+    setDepartureTime(val);
+    if (val && arrivalTime) {
+      const autoDur = calculateFlightDuration(val, arrivalTime);
+      if (autoDur) setDuration(autoDur);
+    }
+  };
+
+  const handleArrivalChange = (val) => {
+    setArrivalTime(val);
+    if (departureTime && val) {
+      const autoDur = calculateFlightDuration(departureTime, val);
+      if (autoDur) setDuration(autoDur);
+    }
+  };
 
   const handleEditClick = (f) => {
     setEditingFlightId(f.id);
@@ -39,14 +55,19 @@ export default function FlightVendorDashboard({
   };
 
   const isMyFlightBooking = (b) => {
-    if (vendorFlights.some(f => f.id === b.item_id)) return true;
-    if (b.item_id && b.item_id.startsWith('craft-')) {
+    if (!b) return false;
+    if (vendorFlights.some(f => String(f.id) === String(b.item_id) || (f.flight_number && (f.flight_number === b.flight_number || f.flight_number === b.item_id)))) return true;
+    if (b.vendor_id && (String(b.vendor_id) === String(currentUser?.id) || b.vendor_id === currentUser?.username || b.vendor_id === 'vendor-4')) return true;
+    if (b.item_id && typeof b.item_id === 'string' && b.item_id.startsWith('craft-')) {
       try {
-        const cust = JSON.parse(b.customizations || '{}');
-        if (cust.flight && vendorFlights.some(f => f.id === cust.flight.id)) {
+        const cust = typeof b.customizations === 'string' ? JSON.parse(b.customizations || '{}') : (b.customizations || {});
+        if (cust.flight && vendorFlights.some(f => String(f.id) === String(cust.flight.id) || f.flight_number === cust.flight.flight_number)) {
           return true;
         }
-      } catch (e) {}
+      } catch {}
+    }
+    if ((currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (b.type === 'flight' || (b.package_type && String(b.package_type).toLowerCase().includes('flight')) || Boolean(b.flight_number))) {
+      return true;
     }
     return false;
   };
@@ -151,11 +172,11 @@ export default function FlightVendorDashboard({
 
                 <div className="col-6 mb-2">
                   <label className="form-label small fw-bold text-secondary">Departure Time</label>
-                  <input type="time" className="form-control premium-input-field" value={departureTime} onChange={e => setDepartureTime(e.target.value)} required />
+                  <input type="time" className="form-control premium-input-field" value={departureTime} onChange={e => handleDepartureChange(e.target.value)} required />
                 </div>
                 <div className="col-6 mb-2">
                   <label className="form-label small fw-bold text-secondary">Arrival Time</label>
-                  <input type="time" className="form-control premium-input-field" value={arrivalTime} onChange={e => setArrivalTime(e.target.value)} required />
+                  <input type="time" className="form-control premium-input-field" value={arrivalTime} onChange={e => handleArrivalChange(e.target.value)} required />
                 </div>
 
                 <div className="col-6 mb-2">
@@ -163,7 +184,14 @@ export default function FlightVendorDashboard({
                   <input type="number" className="form-control premium-input-field" value={price} onChange={e => setPrice(e.target.value)} placeholder="e.g. 4500" required />
                 </div>
                 <div className="col-6 mb-2">
-                  <label className="form-label small fw-bold text-secondary">Duration</label>
+                  <div className="d-flex align-items-center justify-content-between mb-1">
+                    <label className="form-label small fw-bold text-secondary mb-0">Duration</label>
+                    {duration && departureTime && arrivalTime && (
+                      <span className="badge bg-light text-primary border" style={{ fontSize: '0.65rem', fontWeight: 600 }}>
+                        Auto
+                      </span>
+                    )}
+                  </div>
                   <input type="text" className="form-control premium-input-field" value={duration} onChange={e => setDuration(e.target.value)} placeholder="e.g. 2h 15m" required />
                 </div>
               </div>
@@ -197,8 +225,8 @@ export default function FlightVendorDashboard({
             {(!flights || flights.length === 0) ? (
               <p className="text-muted text-center py-5">No flights submitted yet.</p>
             ) : (
-              <div className="table-responsive">
-                <table className="table align-middle table-hover small">
+              <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table className="table align-middle table-hover small mb-0" style={{ minWidth: '620px' }}>
                   <thead className="table-light">
                     <tr>
                       <th>Airline</th>
@@ -253,8 +281,8 @@ export default function FlightVendorDashboard({
             <p className="mb-0 text-secondary" style={{ fontSize: '0.9rem' }}>Recent reservations for your flights.</p>
           </div>
           <div className="card luxury-card p-4">
-              <div className="table-responsive">
-                <table className="table align-middle table-hover small">
+              <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table className="table align-middle table-hover small mb-0" style={{ minWidth: '650px' }}>
                   <thead className="table-light">
                     <tr>
                       <th>Booking ID</th>

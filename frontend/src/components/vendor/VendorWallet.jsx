@@ -287,9 +287,9 @@ export default function VendorWallet({ currentUser }) {
             </div>
           )}
 
-          <div className="d-flex gap-2">
+          <div className="d-flex flex-wrap gap-2">
             <button className="btn btn-light fw-bold px-4" onClick={() => setShowRecharge(false)}>Cancel</button>
-            <button className="btn fw-bold px-5 text-white rounded-3" style={{ background: `linear-gradient(90deg,${COLORS.primary},#FF8A00)` }} onClick={handleRechargeSubmit} disabled={submitting}>
+            <button className="btn fw-bold px-4 px-sm-5 text-white rounded-3" style={{ background: `linear-gradient(90deg,${COLORS.primary},#FF8A00)` }} onClick={handleRechargeSubmit} disabled={submitting}>
               {submitting ? 'Submitting...' : 'Submit Recharge Request'}
             </button>
           </div>
@@ -301,36 +301,38 @@ export default function VendorWallet({ currentUser }) {
         <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', background: '#fdfdfd' }}>
           <div className="fw-bold" style={{ color: COLORS.dark, fontSize: '13px' }}>Transaction History</div>
         </div>
-        <table className="table align-middle mb-0" style={{ fontSize: '0.82rem' }}>
-          <thead style={{ background: '#f8fafc' }}>
-            <tr>
-              {['Txn ID', 'Description', 'Amount', 'Type', 'Status', 'Date'].map(h => (
-                <th key={h} className="px-3 py-3 fw-bold" style={{ color: '#475569', fontSize: '0.65rem', textTransform: 'uppercase', border: 'none', borderBottom: '1px solid rgba(0,0,0,0.07)' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.map(t => (
-              <tr key={t.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-                <td className="px-3 py-2 fw-bold" style={{ color: '#2563eb', fontSize: '0.72rem' }}>#{t.id}</td>
-                <td className="px-3 py-2" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</td>
-                <td className="px-3 py-2 fw-bold" style={{ color: t.type === 'credit' ? COLORS.success : COLORS.danger }}>
-                  {t.type === 'credit' ? '+' : '-'}₹{Number(t.amount).toLocaleString()}
-                </td>
-                <td className="px-3 py-2">
-                  <span className="px-2 py-1 rounded-pill fw-bold" style={{ background: t.type === 'credit' ? '#dcfce7' : '#fee2e2', color: t.type === 'credit' ? '#16a34a' : '#dc2626', fontSize: '0.65rem', textTransform: 'uppercase' }}>
-                    {t.type === 'credit' ? <ArrowUpRight size={9} className="me-1" /> : <ArrowDownRight size={9} className="me-1" />}{t.type}
-                  </span>
-                </td>
-                <td className="px-3 py-2"><StatusBadge status={t.status || 'Completed'} /></td>
-                <td className="px-3 py-2 text-muted" style={{ fontSize: '0.72rem' }}>{new Date(t.created_at).toLocaleString()}</td>
+        <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table className="table align-middle mb-0" style={{ fontSize: '0.82rem', minWidth: '580px' }}>
+            <thead style={{ background: '#f8fafc' }}>
+              <tr>
+                {['Txn ID', 'Description', 'Amount', 'Type', 'Status', 'Date'].map(h => (
+                  <th key={h} className="px-3 py-3 fw-bold" style={{ color: '#475569', fontSize: '0.65rem', textTransform: 'uppercase', border: 'none', borderBottom: '1px solid rgba(0,0,0,0.07)' }}>{h}</th>
+                ))}
               </tr>
-            ))}
-            {transactions.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-5 text-muted">No transactions yet. Recharge your wallet to get started.</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {transactions.map(t => (
+                <tr key={t.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                  <td className="px-3 py-2 fw-bold" style={{ color: '#2563eb', fontSize: '0.72rem' }}>#{t.id}</td>
+                  <td className="px-3 py-2" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</td>
+                  <td className="px-3 py-2 fw-bold" style={{ color: t.type === 'credit' ? COLORS.success : COLORS.danger }}>
+                    {t.type === 'credit' ? '+' : '-'}₹{Number(t.amount).toLocaleString()}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="px-2 py-1 rounded-pill fw-bold" style={{ background: t.type === 'credit' ? '#dcfce7' : '#fee2e2', color: t.type === 'credit' ? '#16a34a' : '#dc2626', fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                      {t.type === 'credit' ? <ArrowUpRight size={9} className="me-1" /> : <ArrowDownRight size={9} className="me-1" />}{t.type}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2"><StatusBadge status={t.status || 'Completed'} /></td>
+                  <td className="px-3 py-2 text-muted" style={{ fontSize: '0.72rem' }}>{new Date(t.created_at).toLocaleString()}</td>
+                </tr>
+              ))}
+              {transactions.length === 0 && (
+                <tr><td colSpan={6} className="text-center py-5 text-muted">No transactions yet. Recharge your wallet to get started.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

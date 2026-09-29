@@ -7,6 +7,8 @@ import ImageCarousel from './common/ImageCarousel';
 import UnifiedGalleryViewer from './UnifiedGalleryViewer';
 import DobPicker from './common/DobPicker';
 import BookingConfirmationCard from './common/BookingConfirmationCard';
+import StaticQRPaymentCard from './common/StaticQRPaymentCard';
+import VendorCancellationPolicyCard from './common/VendorCancellationPolicyCard';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
 
 const TIME_SLOTS = [
@@ -238,8 +240,12 @@ export default function HotelBookingModal({
   
   // Payment State
   const [paymentSettings, setPaymentSettings] = useState([]);
-  const [paymentOption, setPaymentOption] = useState('pay_at_hotel');
+  const [paymentOption, setPaymentOption] = useState('static_qr');
   const [transactionId, setTransactionId] = useState('');
+
+  // Vendor Cancellation Policy State
+  const [vendorCancellationPolicy, setVendorCancellationPolicy] = useState(null);
+  const [policyAgreed, setPolicyAgreed] = useState(false);
   
   // Confirmation State
   const [bookingId, setBookingId] = useState(null);
@@ -276,6 +282,14 @@ export default function HotelBookingModal({
         setPaymentSettings(activeMethods);
       }).catch(console.error);
     }
+
+    // Fetch Vendor Cancellation Policy for Hotel
+    const hotelVendorId = selectedBookingItem?.vendor_id || selectedBookingItem?.admin_id || 'u-5';
+    api.fetchVendorCancellationPolicy(hotelVendorId, 'hotel').then(res => {
+      if (res && res.policy) {
+        setVendorCancellationPolicy(res.policy);
+      }
+    }).catch(console.error);
 
     // Connect customer storefront to real room inventory (Phase 1, Item 2)
     setLoadingRooms(true);
@@ -410,6 +424,14 @@ export default function HotelBookingModal({
     if (!dateVal.valid) {
       return alert(dateVal.error);
     }
+
+    if (!policyAgreed) {
+      return alert("Please review and agree to the vendor cancellation policy to continue.");
+    }
+
+    if (paymentOption === 'static_qr' && (!transactionId || transactionId.trim().length < 6)) {
+      return alert("Please enter the 12-digit UPI Transaction Reference ID (UTR) after completing your payment via Static QR.");
+    }
     
     setIsProcessing(true);
     
@@ -509,9 +531,16 @@ export default function HotelBookingModal({
         driver_service_type: driverRequired ? driverServiceType : '',
         status: isPayAtHotel ? 'Confirmed' : 'Pending',
         payment_status: isPayAtHotel ? 'Pay at Hotel (Pending)' : (payableNow > 0 ? 'Submitted' : 'Pending'),
-        payment_verification_status: isPayAtHotel ? 'Not Required' : 'Pending',
+        payment_verification_status: isPayAtHotel ? 'Not Required' : 'Pending Verification',
         payment_method: paymentMethodName,
+        payment_reference: isPayAtHotel ? 'PAY-AT-HOTEL' : (transactionId || `TXN-${Date.now()}`),
         transaction_id: isPayAtHotel ? 'PAY-AT-HOTEL' : (transactionId || `TXN-${Date.now()}`),
+        customer_payment: payableNow,
+        wow_goa_platform_fee: Math.round(payableNow * 0.10),
+        vendor_service_amount: Math.round(payableNow * 0.90),
+        vendor_payout_status: 'Pending',
+        cancellation_acknowledged: 1,
+        vendor_id: selectedBookingItem.vendor_id || selectedBookingItem.admin_id || 'u-5',
         traveller_details_json: JSON.stringify(travellerDetails),
         price_breakdown_json: JSON.stringify(priceBreakdown),
         customizations: JSON.stringify({
@@ -1082,6 +1111,26 @@ export default function HotelBookingModal({
         <div className="mb-4">
           <h6 className="fw-bold mb-3">Select Payment Option</h6>
 
+          {/* Static QR Payment Option */}
+          <div
+            className={`card mb-2 cursor-pointer shadow-sm ${paymentOption === 'static_qr' ? 'border-primary bg-primary bg-opacity-10' : 'border'}`}
+            style={{ borderRadius: '10px', transition: 'all 0.2s' }}
+            onClick={() => setPaymentOption('static_qr')}
+          >
+            <div className="card-body p-3 d-flex align-items-start gap-3">
+              <input type="radio" className="form-check-input mt-1" checked={paymentOption === 'static_qr'} readOnly />
+              <div className="flex-grow-1">
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <span className="fw-bold text-dark fs-6">📱 WOW GOA Static QR Payment (UPI)</span>
+                  <span className="badge bg-primary text-white">Recommended</span>
+                </div>
+                <div className="text-muted small">
+                  Scan the WOW GOA static QR with Google Pay, PhonePe, Paytm or BHIM to pay <strong>₹{totalAmount.toLocaleString('en-IN')}</strong>.
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Pay at Hotel Option */}
           <div
             className={`card mb-2 cursor-pointer shadow-sm ${isPayAtHotel ? 'border-primary bg-primary bg-opacity-10' : 'border'}`}
@@ -1092,117 +1141,43 @@ export default function HotelBookingModal({
               <input type="radio" className="form-check-input mt-1" checked={isPayAtHotel} readOnly />
               <div className="flex-grow-1">
                 <div className="d-flex justify-content-between align-items-center mb-1">
-                  <span className="fw-bold text-dark fs-6">🏨 Pay at Hotel</span>
-                  <span className="badge bg-success text-white">Recommended</span>
+                  <span className="fw-bold text-dark fs-6">🏨 Pay at Hotel Front Desk</span>
+                  <span className="badge bg-light text-dark border">Check-in Pay</span>
                 </div>
                 <div className="text-muted small">
-                  Pay <strong>₹{totalAmount.toLocaleString('en-IN')}</strong> directly at the hotel reception during check-in. (Cash, UPI or Card accepted).
+                  Pay <strong>₹{totalAmount.toLocaleString('en-IN')}</strong> directly at the hotel reception during check-in.
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Online UPI Option */}
-          <div
-            className={`card mb-2 cursor-pointer shadow-sm ${isUpi ? 'border-primary bg-primary bg-opacity-10' : 'border'}`}
-            style={{ borderRadius: '10px', transition: 'all 0.2s' }}
-            onClick={() => setPaymentOption('upi_direct')}
-          >
-            <div className="card-body p-3 d-flex align-items-start gap-3">
-              <input type="radio" className="form-check-input mt-1" checked={isUpi} readOnly />
-              <div className="flex-grow-1">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <span className="fw-bold text-dark fs-6">📱 UPI / QR Code Instant Transfer</span>
-                  <span className="badge bg-light text-dark border">Pre-Paid</span>
-                </div>
-                <div className="text-muted small">
-                  Pay online via Google Pay, PhonePe, Paytm or BHIM UPI.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Custom Vendor Payment Methods if configured */}
-          {paymentSettings.map(method => (
-            <div
-              key={method.id}
-              className={`card mb-2 cursor-pointer shadow-sm ${paymentOption === method.id.toString() ? 'border-primary bg-primary bg-opacity-10' : 'border'}`}
-              style={{ borderRadius: '10px', transition: 'all 0.2s' }}
-              onClick={() => setPaymentOption(method.id.toString())}
-            >
-              <div className="card-body p-3 d-flex align-items-center gap-3">
-                <input type="radio" className="form-check-input mt-0" checked={paymentOption === method.id.toString()} readOnly />
-                <div>
-                  <div className="fw-bold">{method.method_type}</div>
-                  <div className="text-muted small">{method.account_name || 'Hotel Gateway'}</div>
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
 
-        {/* UPI Details Box */}
-        {isUpi && (
-          <div className="p-3 border border-primary rounded bg-white text-center shadow-sm mb-4 animate-fade-in">
-            <h6 className="fw-bold text-primary mb-2">Pay via UPI</h6>
-            <p className="small text-muted mb-2">Send <strong>₹{totalAmount.toLocaleString('en-IN')}</strong> to UPI ID:</p>
-            <div className="fw-bold text-dark border p-2 bg-light rounded d-inline-block user-select-all mb-3">
-              tripgalileo@upi
-            </div>
-            <div className="text-start">
-              <label className="form-label small fw-bold">Transaction Reference ID *</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Enter 12-digit UPI UTR / Ref Number"
-                value={transactionId}
-                onChange={e => setTransactionId(e.target.value)}
-                required
-              />
-            </div>
-          </div>
+        {/* Static QR Details Card */}
+        {paymentOption === 'static_qr' && (
+          <StaticQRPaymentCard
+            amount={totalAmount}
+            upiId="wowgoa@upi"
+            accountName="WOW GOA Tourism / TripGalileo"
+            paymentReference={transactionId}
+            onReferenceChange={setTransactionId}
+            serviceTitle={selectedBookingItem.name}
+          />
         )}
 
-        {/* Custom Method Boxes */}
-        {selectedMethod?.method_type === 'UPI' && (
-          <div className="p-3 border border-primary rounded bg-white text-center shadow-sm mb-4 animate-fade-in">
-            <h6 className="fw-bold text-primary mb-2">Pay via UPI directly to Hotel</h6>
-            <p className="small text-muted mb-2">Pay <strong>₹{totalAmount.toLocaleString('en-IN')}</strong> to:</p>
-            {selectedMethod.qr_image_url && (
-              <img src={selectedMethod.qr_image_url} alt="UPI QR Code" className="img-fluid border rounded mb-2 shadow-sm" style={{maxHeight: '150px'}} />
-            )}
-            <div className="fw-bold text-dark border p-2 bg-light rounded d-inline-block user-select-all mb-3">
-              {selectedMethod.upi_id} ({selectedMethod.account_name})
-            </div>
-            <div className="text-start">
-              <label className="form-label small fw-bold">Transaction Reference ID *</label>
-              <input type="text" className="form-control" placeholder="Enter UPI Transaction ID" value={transactionId} onChange={e => setTransactionId(e.target.value)} required />
-            </div>
-          </div>
-        )}
-
-        {selectedMethod?.method_type === 'Bank Transfer' && (
-          <div className="p-3 border border-primary rounded bg-white text-start shadow-sm mb-4 animate-fade-in">
-            <h6 className="fw-bold text-primary mb-2">Pay via Bank Transfer directly to Hotel</h6>
-            <div className="bg-light p-2 rounded mb-3 small">
-              <div><strong>Account Name:</strong> {selectedMethod.account_name}</div>
-              <div><strong>Account Number:</strong> {selectedMethod.account_number}</div>
-              <div><strong>IFSC:</strong> {selectedMethod.ifsc_code}</div>
-              <div><strong>Bank:</strong> {selectedMethod.bank_name}</div>
-            </div>
-            <div className="text-start">
-              <label className="form-label small fw-bold">Transaction Reference ID *</label>
-              <input type="text" className="form-control" placeholder="Enter Bank Transfer Reference" value={transactionId} onChange={e => setTransactionId(e.target.value)} required />
-            </div>
-          </div>
-        )}
+        {/* Vendor Cancellation Policy Card */}
+        <VendorCancellationPolicyCard
+          policy={vendorCancellationPolicy}
+          agreed={policyAgreed}
+          onAgreementChange={setPolicyAgreed}
+          customerPayment={totalAmount}
+        />
 
         <div className="mt-4 text-end">
           <button 
             className="btn btn-warning px-5 py-2.5 fw-bold w-100 shadow-sm rounded-3" 
             onClick={handleConfirmBooking}
-            disabled={isProcessing || (isUpi && !transactionId) || (selectedMethod && (selectedMethod.method_type === 'UPI' || selectedMethod.method_type === 'Bank Transfer') && !transactionId)}
-            style={{ fontSize: '0.95rem' }}
+            disabled={isProcessing || !policyAgreed || (paymentOption === 'static_qr' && !transactionId)}
+            style={{ fontSize: '0.95rem', opacity: (!policyAgreed || (paymentOption === 'static_qr' && !transactionId)) ? 0.75 : 1 }}
           >
             {isProcessing ? 'Confirming Booking...' : (isPayAtHotel ? `Confirm Booking (Pay ₹${totalAmount.toLocaleString('en-IN')} at Hotel)` : `Submit Payment of ₹${totalAmount.toLocaleString('en-IN')}`)}
           </button>

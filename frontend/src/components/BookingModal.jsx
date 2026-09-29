@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle, ShieldCheck, Compass, Calendar, Clock, MapPin, Cake, Award, Sparkles, Gift, Wallet, Users, Crown, Car, Bike } from 'lucide-react';
+import { X, CheckCircle, ShieldCheck, Compass, Calendar, Clock, MapPin, Cake, Award, Sparkles, Gift, Wallet, Users, Crown, Car, Bike, Camera } from 'lucide-react';
 import { getTodayDateStr, addDays, validateVehicleBookingEligibility } from '../utils/dateUtils';
 import * as api from '../services/api';
 import { checkCustomerDob } from '../services/api';
 import UnifiedGalleryViewer from './UnifiedGalleryViewer';
 import DobPicker from './common/DobPicker';
 import BookingConfirmationCard from './common/BookingConfirmationCard';
+import StaticQRPaymentCard from './common/StaticQRPaymentCard';
+import VendorCancellationPolicyCard from './common/VendorCancellationPolicyCard';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
 
 // Helper to normalize time strings (e.g. '10:00' -> '10:00 AM') so dropdown options match cleanly
@@ -71,6 +73,11 @@ export default function BookingModal({
   const [useWalletCashback, setUseWalletCashback] = useState(false);
   const [loyaltyInfo, setLoyaltyInfo] = useState(null);
   const [platinumPerkChoice, setPlatinumPerkChoice] = useState('discount');
+
+  // Vendor Cancellation Policy & Static QR Payment State
+  const [vendorCancellationPolicy, setVendorCancellationPolicy] = useState(null);
+  const [policyAgreed, setPolicyAgreed] = useState(false);
+  const [staticQrReference, setStaticQrReference] = useState('');
 
   const modalBodyRef = useRef(null);
 
@@ -168,7 +175,7 @@ export default function BookingModal({
       list.push(selectedBookingItem.image_url);
     }
     const unique = Array.from(new Set(list.filter(u => typeof u === 'string' && u.trim().length > 0)));
-    return unique.length > 0 ? unique : [selectedBookingItem.image || 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80'];
+    return unique;
   }, [selectedBookingItem]);
 
   const [activeImageIdx, setActiveImageIdx] = useState(0);
@@ -310,6 +317,14 @@ export default function BookingModal({
            setRoomTypes(hotelRooms);
          }).catch(console.error);
       }
+
+      // Fetch Vendor Cancellation Policy
+      const sType = isHotelItem ? 'hotel' : 'vehicle';
+      api.fetchVendorCancellationPolicy(vendorId || 'vendor-1', sType).then(res => {
+        if (res && res.policy) {
+          setVendorCancellationPolicy(res.policy);
+        }
+      }).catch(console.error);
     });
   }, [selectedBookingItem]);
 
@@ -431,6 +446,18 @@ export default function BookingModal({
       }
     }
 
+    // Cancellation Policy Agreement Validation
+    if (!policyAgreed) {
+      alert("Please review and acknowledge the vendor cancellation policy checkbox before confirming your booking.");
+      return;
+    }
+
+    // Static QR UTR Validation
+    if (!staticQrReference || staticQrReference.trim().length < 6) {
+      alert("Please enter the 12-digit UPI UTR / Transaction Reference ID after completing payment via the WOW GOA Static QR.");
+      return;
+    }
+
     // Validation for driver services when enabled
     if (driverRequired) {
       if (!driverServiceType) {
@@ -549,7 +576,7 @@ export default function BookingModal({
       totalCharge: driverTotalCharge
     };
 
-    handleConfirmBooking(e, selectedPaymentMethod, {
+    handleConfirmBooking(e, 'Static QR (UPI)', {
       pickupDate: modalPickupDate,
       dropDate: modalDropDate,
       pickupTime: modalPickupTime,
@@ -593,7 +620,15 @@ export default function BookingModal({
       fee,
       total,
       amount_paid: finalPayable,
-      total_amount: total
+      total_amount: total,
+      customer_payment: finalPayable,
+      payment_method: 'Static QR (UPI)',
+      payment_reference: staticQrReference,
+      payment_verification_status: 'Pending Verification',
+      status: 'Pending',
+      vendor_payout_status: 'Pending',
+      cancellation_acknowledged: 1,
+      vendor_id: selectedBookingItem.vendor_id || selectedBookingItem.vendorId || null
     });
   };
 
@@ -1340,59 +1375,31 @@ export default function BookingModal({
                     </div>
                   )}
 
-                  {paymentSettings && Array.isArray(paymentSettings) && paymentSettings.length > 0 && (
-                    <div className="mb-4">
-                      <h6 className="fw-bold mb-3">Select Payment Method</h6>
-                      <div className="d-flex flex-wrap gap-2 mb-3">
-                        {paymentSettings.map(pm => (
-                          <div key={pm.id || pm.method_type} className="form-check p-0 mb-0">
-                            <input type="radio" className="btn-check" name="payMethod" id={`pay_${pm.id || pm.method_type}`} autoComplete="off" 
-                                   checked={selectedPaymentMethod === (pm.id?.toString() || 'global_upi')} onChange={() => setSelectedPaymentMethod(pm.id?.toString() || 'global_upi')} />
-                            <label className="btn btn-outline-primary fw-bold" htmlFor={`pay_${pm.id || pm.method_type}`}>
-                              {pm.display_name || pm.method_type}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
+                  {/* Static QR Payment Section */}
+                  <StaticQRPaymentCard
+                    amount={finalPayable}
+                    upiId="wowgoa@upi"
+                    accountName="WOW GOA Tourism / TripGalileo"
+                    paymentReference={staticQrReference}
+                    onReferenceChange={setStaticQrReference}
+                    serviceTitle={selectedBookingItem.name}
+                  />
 
-                      {paymentSettings.filter(pm => selectedPaymentMethod === (pm.id?.toString() || 'global_upi')).map(pm => (
-                        <div key={pm.id || 'global'} className="p-3 border border-primary rounded bg-white shadow-sm">
-                          {pm.method_type === 'UPI' && (
-                            <div className="text-center">
-                              <h6 className="fw-bold text-primary mb-2">Pay via UPI</h6>
-                              <p className="small text-muted mb-2">Scan the QR code or use the UPI ID below to make your payment of <strong>₹{total}</strong>.</p>
-                              {pm.qr_image_url && (
-                                <img src={pm.qr_image_url} alt="UPI QR Code" className="img-fluid border rounded mb-2 shadow-sm" style={{maxHeight: '150px'}} />
-                              )}
-                              <div className="fw-bold text-dark border p-2 bg-light rounded d-inline-block user-select-all">
-                                {pm.upi_id || 'merchant@upi'}
-                              </div>
-                            </div>
-                          )}
-                          {pm.method_type === 'Bank Transfer' && (
-                            <div>
-                              <h6 className="fw-bold text-primary mb-2">Bank Transfer Details</h6>
-                              <div className="small bg-light p-2 rounded">
-                                <div><strong>Bank:</strong> {pm.bank_name}</div>
-                                <div><strong>Account Name:</strong> {pm.account_name}</div>
-                                <div><strong>Account Number:</strong> {pm.account_number}</div>
-                                <div><strong>IFSC:</strong> {pm.ifsc_code}</div>
-                              </div>
-                            </div>
-                          )}
-                          {pm.method_type === 'Razorpay' && (
-                            <div>
-                              <h6 className="fw-bold text-primary mb-2">Pay via Razorpay</h6>
-                              <p className="small text-muted mb-0">You will be redirected to the secure Razorpay checkout page when you confirm the booking.</p>
-                            </div>
-                          )}
-                          <p className="text-xxs text-muted mt-2 text-center">After making the payment, click confirm to reserve your booking.</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {/* Vendor Cancellation Policy Card with Mandatory Agreement */}
+                  <VendorCancellationPolicyCard
+                    policy={vendorCancellationPolicy}
+                    agreed={policyAgreed}
+                    onAgreementChange={setPolicyAgreed}
+                    customerPayment={finalPayable}
+                  />
 
-                  <button type={(!isPackage || !selectedBookingItem.traveller_details) ? "submit" : "button"} onClick={(e) => { if (isPackage && selectedBookingItem.traveller_details) handleFormSubmit(e) }} form="booking-form" className="btn w-100 py-2.5 fw-bold text-white shadow-sm mt-3" style={{ background: '#FFC107' }}>
+                  <button 
+                    type={(!isPackage || !selectedBookingItem.traveller_details) ? "submit" : "button"} 
+                    onClick={(e) => { if (isPackage && selectedBookingItem.traveller_details) handleFormSubmit(e) }} 
+                    form="booking-form" 
+                    className="btn w-100 py-2.5 fw-bold text-white shadow-sm mt-3" 
+                    style={{ background: '#FFC107', opacity: (!policyAgreed || !staticQrReference) ? 0.75 : 1 }}
+                  >
                     Confirm & Reserve Booking
                   </button>
                 </form>
@@ -1404,12 +1411,22 @@ export default function BookingModal({
                 
                 <div className="card shadow-sm border mb-3 overflow-hidden">
                   <div className="p-2 bg-light border-bottom">
-                    <UnifiedGalleryViewer
-                      images={allItemImages}
-                      variant="compact"
-                      compactHeight="160px"
-                      alt={selectedBookingItem.name}
-                    />
+                    {allItemImages && allItemImages.length > 0 ? (
+                      <UnifiedGalleryViewer
+                        images={allItemImages}
+                        variant="compact"
+                        compactHeight="160px"
+                        alt={selectedBookingItem.name}
+                      />
+                    ) : (
+                      <div 
+                        className="d-flex flex-column align-items-center justify-content-center text-muted p-3" 
+                        style={{ height: '160px', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}
+                      >
+                        <Camera size={26} className="text-secondary opacity-50 mb-1" />
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>No Photo Uploaded</span>
+                      </div>
+                    )}
                   </div>
                   <div className="card-body p-3">
                     <h6 className="fw-bold mb-1" style={{ fontSize: '14px' }}>{selectedBookingItem.name}</h6>

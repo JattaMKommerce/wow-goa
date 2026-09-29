@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import BookingVoucher from '../common/BookingVoucher';
+import CustomerCancellationModal from './CustomerCancellationModal';
 import {
   Calendar, Car, Hotel, Compass, Plane, Package, Search,
   Filter, Download, Eye, CheckCircle2, Clock, XCircle,
@@ -18,6 +19,13 @@ export default function CustomerBookingsTab({
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVoucherBooking, setSelectedVoucherBooking] = useState(null);
+  const [cancellingBooking, setCancellingBooking] = useState(null);
+
+  const canCancel = (b) => {
+    if (!b) return false;
+    const st = (b.status || '').toLowerCase();
+    return st !== 'cancelled' && st !== 'completed';
+  };
 
   // Sync initialCategory prop if passed
   React.useEffect(() => {
@@ -506,6 +514,16 @@ export default function CustomerBookingsTab({
                     <Eye size={14} />
                     <span>View & Print Voucher</span>
                   </button>
+                  {canCancel(b) && (
+                    <button
+                      onClick={() => setCancellingBooking(b)}
+                      className="btn btn-sm btn-outline-danger fw-bold rounded-pill py-2 w-100 text-xs d-flex align-items-center justify-content-center gap-1.5 shadow-xs mt-1.5"
+                      title="Cancel Booking"
+                    >
+                      <XCircle size={14} />
+                      <span>Cancel Booking</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -599,6 +617,16 @@ export default function CustomerBookingsTab({
                         <Eye size={13} />
                         <span>View Voucher</span>
                       </button>
+                      {canCancel(b) && (
+                        <button
+                          onClick={() => setCancellingBooking(b)}
+                          className="btn btn-sm btn-outline-danger fw-bold rounded-pill px-2.5 py-1 text-xs d-inline-flex align-items-center gap-1 shadow-xs ms-1.5"
+                          title="Cancel Booking"
+                        >
+                          <XCircle size={13} />
+                          <span>Cancel</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -714,6 +742,18 @@ export default function CustomerBookingsTab({
           currentUser={currentUser}
           onClose={() => setSelectedVoucherBooking(null)}
           isModal={true}
+        />
+      )}
+
+      {/* ─── Customer Cancellation Modal ─── */}
+      {cancellingBooking && (
+        <CustomerCancellationModal
+          booking={cancellingBooking}
+          onClose={() => setCancellingBooking(null)}
+          onCancelled={() => {
+            setCancellingBooking(null);
+            if (typeof window !== 'undefined') window.location.reload();
+          }}
         />
       )}
 

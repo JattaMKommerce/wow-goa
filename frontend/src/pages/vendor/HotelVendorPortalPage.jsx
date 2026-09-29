@@ -33,6 +33,7 @@ import PMSPaymentVerification from './pms/PMSPaymentVerification';
 import VendorWallet from '../../components/vendor/VendorWallet';
 import PMSPaymentSettings from './pms/PMSPaymentSettings';
 import VendorNotificationBell from '../../components/vendor/VendorNotificationBell';
+import VendorCancellationPolicyManager from '../../components/vendor/VendorCancellationPolicyManager';
 
 const SIDEBAR_GROUPS = [
   {
@@ -81,6 +82,7 @@ const SIDEBAR_GROUPS = [
       { id: 'wallet', label: 'Platform Wallet', icon: <Landmark size={16} /> },
       { id: 'payments', label: 'Booking Payments', icon: <CreditCard size={16} /> },
       { id: 'payment_settings', label: 'Payment Settings', icon: <Settings size={16} /> },
+      { id: 'cancellation_policy', label: 'Cancellation Policy', icon: <Shield size={16} /> },
       { id: 'billing', label: 'Subscription & Billing', icon: <FileText size={16} /> }
     ]
   },
@@ -121,6 +123,7 @@ const PAGE_TITLES = {
   wallet: 'Platform Wallet',
   payments: 'Booking Payments',
   payment_settings: 'Payment Settings',
+  cancellation_policy: 'Cancellation Policy',
   settlements: 'Settlements',
   billing: 'Subscription & Billing',
   staff: 'Staff & Permissions',
@@ -364,6 +367,7 @@ export default function HotelVendorPortalPage({
       case 'payment_verification': return <PMSPaymentVerification {...commonProps} />;
       case 'wallet': return <VendorWallet currentUser={currentUser} />;
       case 'payment_settings': return <PMSPaymentSettings {...commonProps} />;
+      case 'cancellation_policy': return <VendorCancellationPolicyManager currentUser={currentUser} serviceType="hotel" />;
       default: return <PMSDashboard {...commonProps} />;
     }
   };

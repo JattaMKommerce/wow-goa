@@ -391,6 +391,51 @@ CREATE TABLE IF NOT EXISTS site_configs (
   booking_fee_deduction INT DEFAULT 10,
   min_wallet_recharge INT DEFAULT 5000
 );
+
+CREATE TABLE IF NOT EXISTS flights (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  airline VARCHAR(100) NOT NULL,
+  flight_number VARCHAR(100) NOT NULL,
+  departure_time VARCHAR(100) DEFAULT '',
+  arrival_time VARCHAR(100) DEFAULT '',
+  price INT DEFAULT 0,
+  from_loc VARCHAR(50) DEFAULT 'GOI',
+  to_loc VARCHAR(50) DEFAULT 'DEL',
+  duration VARCHAR(50) DEFAULT '',
+  seats INT DEFAULT 180,
+  vendor_id VARCHAR(100) DEFAULT 'admin',
+  admin_id VARCHAR(100) DEFAULT 'admin',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS flight_bookings (
+  id VARCHAR(255) PRIMARY KEY,
+  booking_reference VARCHAR(255),
+  pnr VARCHAR(100),
+  total_amount VARCHAR(50),
+  currency VARCHAR(10) DEFAULT 'INR',
+  passengers_json TEXT,
+  slices_json TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS customer_reviews (
+  id VARCHAR(100) PRIMARY KEY,
+  booking_id VARCHAR(100) NOT NULL UNIQUE,
+  customer_id VARCHAR(100) DEFAULT '',
+  customer_name VARCHAR(255) NOT NULL,
+  customer_phone VARCHAR(50) DEFAULT '',
+  customer_email VARCHAR(255) DEFAULT '',
+  service_type VARCHAR(50) DEFAULT '',
+  service_name VARCHAR(255) DEFAULT '',
+  vendor_id VARCHAR(100) DEFAULT '',
+  rating INT NOT NULL CHECK(rating >= 1 AND rating <= 5),
+  review_text TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_cust_rev_booking ON customer_reviews(booking_id);
+CREATE INDEX IF NOT EXISTS idx_cust_rev_rating ON customer_reviews(rating DESC);
+CREATE INDEX IF NOT EXISTS idx_cust_rev_created ON customer_reviews(created_at DESC);
 ");
 
 $alterColumns = [
@@ -574,5 +619,12 @@ $stmt->execute(['rt-3', 'hotel-4star', 'u-5', 'Wonderful Garden Room', 12, 2, 3,
 $stmt->execute(['rt-4', 'hotel-4star', 'u-5', 'Standard AC Resort Room', 15, 2, 3, 7500]);
 $stmt->execute(['rt-5', 'hotel-5star', 'u-5', 'Superior Heritage Room', 10, 2, 3, 6800]);
 
+// Flight Routes
+$stmt = $pdo->prepare("INSERT OR REPLACE INTO flights (id, airline, flight_number, departure_time, arrival_time, price, from_loc, to_loc, duration, seats, vendor_id, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+$stmt->execute([1, 'IndiGo', '6E-204', '06:15', '08:45', 4850, 'GOI', 'DEL', '2h 30m', 180, 'vendor-4', 'admin']);
+$stmt->execute([2, 'Air India', 'AI-840', '09:30', '10:45', 3950, 'GOI', 'BOM', '1h 15m', 160, 'admin', 'admin']);
+$stmt->execute([3, 'Akasa Air', 'QP-1302', '14:20', '16:05', 4200, 'GOX', 'BLR', '1h 45m', 189, 'vendor-4', 'admin']);
+
 echo "3. SQLite database created and populated successfully!\n";
+
 

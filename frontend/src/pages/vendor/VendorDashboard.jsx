@@ -295,6 +295,7 @@ export default function VendorDashboard({
 
   // Fleet form states
   const [vehName, setVehName] = useState('');
+  const [submittingVeh, setSubmittingVeh] = useState(false);
   const [vehType, setVehType] = useState('car-suv');
   const [vehPrice, setVehPrice] = useState('');
   const [vehTransmission, setVehTransmission] = useState('Automatic');
@@ -337,73 +338,73 @@ export default function VendorDashboard({
     if (!selectedVendorId) { alert("No vendor profile selected."); return; }
     if (vehDocs.length === 0) { alert("Please upload RC Book / Permit documentation before listing your vehicle."); return; }
 
+    setSubmittingVeh(true);
     try {
+      const priceNum = parseInt(vehPrice, 10);
+      const isCarType = vehType.startsWith('car-');
+      const mediaList = vehFiles.length > 0 ? vehFiles : (vehImage ? [{ type: 'image', url: vehImage }] : []);
+      const primaryImage = mediaList[0]?.url || vehImage || '';
 
-    const priceNum = parseInt(vehPrice, 10);
-    const isCarType = vehType.startsWith('car-');
-    const mediaList = vehFiles.length > 0 ? vehFiles : (vehImage ? [{ type: 'image', url: vehImage }] : []);
-    const primaryImage = mediaList[0]?.url || vehImage || '';
+      let typeLabel = 'Car';
+      if (vehType === 'car-hatchback') typeLabel = 'Hatchback';
+      else if (vehType === 'car-sedan') typeLabel = 'Sedan';
+      else if (vehType === 'car-suv') typeLabel = 'SUV';
+      else if (vehType === 'car-thar') typeLabel = 'SUV';
+      else if (vehType === 'car-luxury') typeLabel = 'Luxury';
+      else if (vehType === 'bike-scooter') typeLabel = 'Scooter';
+      else if (vehType === 'bike-cruiser') typeLabel = 'Cruiser';
+      else if (vehType === 'bike-sports') typeLabel = 'Sports';
+      else if (vehType === 'bike-adventure') typeLabel = 'Adventure';
 
-    let typeLabel = 'Car';
-    if (vehType === 'car-hatchback') typeLabel = 'Hatchback';
-    else if (vehType === 'car-sedan') typeLabel = 'Sedan';
-    else if (vehType === 'car-suv') typeLabel = 'SUV';
-    else if (vehType === 'car-thar') typeLabel = 'SUV';
-    else if (vehType === 'car-luxury') typeLabel = 'Luxury';
-    else if (vehType === 'bike-scooter') typeLabel = 'Scooter';
-    else if (vehType === 'bike-cruiser') typeLabel = 'Cruiser';
-    else if (vehType === 'bike-sports') typeLabel = 'Sports';
-    else if (vehType === 'bike-adventure') typeLabel = 'Adventure';
+      const targetVendorId = (selectedVendorId && selectedVendorId !== 'all') ? selectedVendorId : (vendors[0]?.id || 'vendor-1');
 
-    const targetVendorId = (selectedVendorId && selectedVendorId !== 'all') ? selectedVendorId : (vendors[0]?.id || 'vendor-1');
+      if (isCarType) {
+        await onAddCar({
+          id: 'car-vendor-' + Date.now(),
+          vendorId: targetVendorId,
+          name: vehName,
+          category: typeLabel,
+          image: primaryImage,
+          mediaList: mediaList,
+          documents: vehDocs,
+          price: priceNum,
+          seating: vehSeating,
+          fuel: vehFuel,
+          transmission: vehTransmission,
+          rating: 4.8,
+          badge: 'Verified Vendor',
+          location: vehLocation
+        });
+      } else {
+        await onAddBike({
+          id: 'bike-vendor-' + Date.now(),
+          vendorId: targetVendorId,
+          name: vehName,
+          category: typeLabel,
+          image: primaryImage,
+          mediaList: mediaList,
+          documents: vehDocs,
+          price: priceNum,
+          engine: vehEngine,
+          fuel: vehFuel,
+          mileage: vehMileage,
+          rating: 4.7,
+          badge: 'Verified Vendor',
+          location: vehLocation
+        });
+      }
 
-    if (isCarType) {
-      await onAddCar({
-        id: 'car-vendor-' + Date.now(),
-        vendorId: targetVendorId,
-        name: vehName,
-        category: typeLabel,
-        image: primaryImage,
-        mediaList: mediaList,
-        documents: vehDocs,
-        price: priceNum,
-        seating: vehSeating,
-        fuel: vehFuel,
-        transmission: vehTransmission,
-        rating: 4.8,
-        badge: 'Verified Vendor',
-        location: vehLocation
-      });
-    } else {
-      await onAddBike({
-        id: 'bike-vendor-' + Date.now(),
-        vendorId: targetVendorId,
-        name: vehName,
-        category: typeLabel,
-        image: primaryImage,
-        mediaList: mediaList,
-        documents: vehDocs,
-        price: priceNum,
-        engine: vehEngine,
-        fuel: vehFuel,
-        mileage: vehMileage,
-        rating: 4.7,
-        badge: 'Verified Vendor',
-        location: vehLocation
-      });
-    }
-
-    setVehName('');
-    setVehPrice('');
-    setVehImage('');
-    setVehFiles([]);
-    setVehDocs([]);
-    setVehLocation('Panaji, Goa');
-    alert(`Vehicle "${vehName}" listed successfully!`);
-    if (setActiveTab) setActiveTab('fleet');
-    
+      setVehName('');
+      setVehPrice('');
+      setVehImage('');
+      setVehFiles([]);
+      setVehDocs([]);
+      setVehLocation('Panaji, Goa');
+      if (setActiveTab) setActiveTab('fleet');
     } catch (err) {
       alert("Failed to list vehicle: " + err.message);
+    } finally {
+      setSubmittingVeh(false);
     }
   };
 
@@ -598,8 +599,15 @@ export default function VendorDashboard({
                     </div>
                   </div>
 
-                  <button type="submit" className="btn btn-amber-gradient w-100 py-2.5 rounded-pill fw-bold text-white shadow-sm mt-2">
-                    Submit Listing
+                  <button type="submit" disabled={submittingVeh} className="btn btn-amber-gradient w-100 py-2.5 rounded-pill fw-bold text-white shadow-sm mt-2">
+                    {submittingVeh ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Listing Vehicle...
+                      </>
+                    ) : (
+                      'Submit Listing'
+                    )}
                   </button>
                 </form>
               </div>

@@ -29,6 +29,8 @@ import AdminEnquiryCRM from './AdminEnquiryCRM';
 import LeadManagement from '../../components/shared/LeadManagement';
 import AdminSubscriptionPanel from '../../components/admin/AdminSubscriptionPanel';
 import AdminDriverManagement from './AdminDriverManagement';
+import AdminPaymentManager from './AdminPaymentManager';
+import AdminReviewsManagement from './AdminReviewsManagement';
 import NotificationSoundToggle from '../../components/common/NotificationSoundToggle';
 import { handleIncomingNotifications, registerSeenNotifications, getRelativeTimeString, parseNotificationTitleAndStatus } from '../../utils/notificationSound';
 
@@ -80,14 +82,17 @@ const SIDEBAR_GROUPS = [
     label: 'Customers',
     items: [
       { id: 'bookings', label: 'Booking Management', icon: <Calendar size={15} /> },
+      { id: 'reviews', label: 'Customer Reviews', icon: <Star size={15} /> },
+      { id: 'payment', label: 'Payment & UTR Verification', icon: <CreditCard size={15} /> },
       { id: 'lead_management', label: 'Lead Management (AI)', icon: <Users size={15} /> },
       { id: 'enquiries', label: 'Custom Enquiries', icon: <FileText size={15} /> },
       { id: 'add_users', label: 'Create Sub-Admin / Add Users', icon: <UserPlus size={15} /> },
     ]
   },
   {
-    label: 'Revenue',
+    label: 'Revenue & Finance',
     items: [
+      { id: 'payment', label: 'Payment & Settlements', icon: <CreditCard size={15} /> },
       { id: 'promotions', label: 'Promotions & Offers', icon: <Tag size={15} /> },
       { id: 'markup_reports', label: 'Markup & Reports', icon: <CreditCard size={15} /> },
       { id: 'analytics', label: 'Analytics', icon: <BarChart2 size={15} /> },
@@ -332,6 +337,7 @@ export default function AdminPortalPage({
     if (currentPath === '/admin/bookings') return 'bookings';
     if (currentPath === '/admin/drivers') return 'drivers';
     if (currentPath === '/admin/activities' || currentPath === '/admin/sightseeing') return 'admin_activities';
+    if (currentPath === '/admin/reviews') return 'reviews';
     return localStorage.getItem('adminActiveTab') || 'overview';
   });
 
@@ -351,6 +357,8 @@ export default function AdminPortalPage({
         window.history.replaceState(null, '', '/admin/bookings');
       } else if (tabId === 'drivers') {
         window.history.replaceState(null, '', '/admin/drivers');
+      } else if (tabId === 'reviews') {
+        window.history.replaceState(null, '', '/admin/reviews');
       } else if (tabId === 'overview') {
         window.history.replaceState(null, '', '/admin');
       }
@@ -736,6 +744,7 @@ export default function AdminPortalPage({
             bikes={bikes}
             onRefreshBookings={loadAllAdminData}
             onNavigateToCalendar={() => handleTabChange('availability')}
+            onNavigateToPayments={() => handleTabChange('payment')}
           />
         );
       case 'leads':
@@ -800,63 +809,15 @@ export default function AdminPortalPage({
         return <AdminWalletRecharges vendors={liveVendors} />;
       case 'payment':
         return (
-          <div className="p-4">
-            <div className="rounded-3 p-4" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.07)' }}>
-              <h5 className="fw-bold mb-1" style={{ color: '#0D1B2E' }}>Payment Management</h5>
-              <p className="text-muted mb-4" style={{ fontSize: '0.85rem' }}>Customer booking payments and submitted proof images.</p>
-              {liveBookings.filter(b => b.payment_proof || b.payment_screenshot).length === 0 ? (
-                <div className="text-center py-5 text-muted">
-                  <CreditCard size={40} className="mb-3 opacity-25" />
-                  <p className="mb-0">No payment proofs submitted yet.</p>
-                </div>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table align-middle" style={{ fontSize: '0.85rem' }}>
-                    <thead style={{ background: '#f8fafc' }}>
-                      <tr>
-                        <th className="py-3 px-3 fw-bold" style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#475569' }}>Booking ID</th>
-                        <th className="py-3 px-3 fw-bold" style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#475569' }}>Customer</th>
-                        <th className="py-3 px-3 fw-bold" style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#475569' }}>Item</th>
-                        <th className="py-3 px-3 fw-bold" style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#475569' }}>Amount</th>
-                        <th className="py-3 px-3 fw-bold" style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#475569' }}>Status</th>
-                        <th className="py-3 px-3 fw-bold" style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#475569' }}>Proof</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {liveBookings.filter(b => b.payment_proof || b.payment_screenshot).map((b, i) => (
-                        <tr key={i}>
-                          <td className="px-3 py-2 fw-bold" style={{ color: '#0D1B2E' }}>#{b.id}</td>
-                          <td className="px-3 py-2">
-                            <div className="fw-bold">{b.name}</div>
-                            <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{b.phone}</div>
-                          </td>
-                          <td className="px-3 py-2">{b.item_name || '—'}</td>
-                          <td className="px-3 py-2 fw-bold" style={{ color: '#16a34a' }}>₹{b.total_paid || b.amount_paid || 0}</td>
-                          <td className="px-3 py-2">
-                            <span className="px-2.5 py-1 rounded-pill fw-bold text-capitalize" style={{
-                              background: (b.status || '').toLowerCase() === 'completed' ? '#dcfce7' : (b.status || '').toLowerCase() === 'confirmed' ? '#dbeafe' : ((b.status || '').toLowerCase() === 'cancelled' || (b.status || '').toLowerCase() === 'rejected') ? '#fee2e2' : '#fef9c3',
-                              color: (b.status || '').toLowerCase() === 'completed' ? '#059669' : (b.status || '').toLowerCase() === 'confirmed' ? '#1d4ed8' : ((b.status || '').toLowerCase() === 'cancelled' || (b.status || '').toLowerCase() === 'rejected') ? '#991b1b' : '#ca8a04',
-                              fontSize: '0.7rem'
-                            }}>{b.status || 'Pending'}</span>
-                          </td>
-                          <td className="px-3 py-2">
-                            {(b.payment_proof || b.payment_screenshot) ? (
-                              <a href={b.payment_proof || b.payment_screenshot} target="_blank" rel="noopener noreferrer"
-                                className="btn btn-sm fw-bold d-inline-flex align-items-center gap-1"
-                                style={{ background: '#dbeafe', color: '#2563eb', fontSize: '0.72rem', borderRadius: '6px' }}>
-                                <CreditCard size={12} /> View Proof
-                              </a>
-                            ) : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
+          <AdminPaymentManager
+            liveBookings={liveBookings}
+            currentUser={currentUser}
+            onRefreshBookings={loadAllAdminData}
+          />
         );
+      case 'reviews':
+      case 'customer_reviews':
+        return <AdminReviewsManagement portalTitle="Admin Portal" onSelectTab={handleTabChange} />;
       default:
         return (
           <div className="p-4">
