@@ -416,3 +416,100 @@ body.voucher-modal-active header {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   B2B MODAL-OPEN ISOLATION: HIDE BACKGROUND B2B NAVIGATION & SHELL WHILE MODAL IS OPEN
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 1. When a B2B modal is open, completely hide the B2B sidebar and top header */
+body.b2b-modal-active .b2b-sidebar,
+body.invoice-modal-active .b2b-sidebar,
+body.voucher-modal-active .b2b-sidebar,
+.b2b-portal-shell.b2b-shell-inert .b2b-sidebar {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.b2b-modal-active .b2b-topbar,
+body.invoice-modal-active .b2b-topbar,
+body.voucher-modal-active .b2b-topbar,
+.b2b-portal-shell.b2b-shell-inert .b2b-topbar {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.b2b-modal-active .b2b-sidebar-backdrop,
+body.invoice-modal-active .b2b-sidebar-backdrop,
+body.voucher-modal-active .b2b-sidebar-backdrop,
+.b2b-portal-shell.b2b-shell-inert .b2b-sidebar-backdrop {
+  display: none !important;
+}
+
+/* 2. Hide and inactivate the entire B2B portal shell behind the modal */
+body.b2b-modal-active .b2b-portal-shell,
+body.invoice-modal-active .b2b-portal-shell,
+body.voucher-modal-active .b2b-portal-shell,
+.b2b-portal-shell.b2b-shell-inert {
+  visibility: hidden !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+body.b2b-modal-active .b2b-main-content,
+body.invoice-modal-active .b2b-main-content,
+body.voucher-modal-active .b2b-main-content,
+.b2b-portal-shell.b2b-shell-inert .b2b-main-content {
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+/* 3. Lock background scrolling on html & body */
+body.b2b-modal-active,
+body.invoice-modal-active,
+body.voucher-modal-active {
+  overflow: hidden !important;
+  touch-action: none !important;
+}
+
+/* 4. Fullscreen Modal Portal Overlay attached to document.body */
+.b2b-modal-portal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  z-index: 99999 !important;
+  background: rgba(13, 27, 46, 0.88) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+}
+
+.b2b-modal-portal-overlay.b2b-modal-fullscreen {
+  padding: 0 !important;
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  display: block !important;
+  overflow-y: auto !important;
+}
+
+@media (max-width: 576px) {
+  .b2b-modal-portal-overlay {
+    padding: 0.5rem !important;
+  }
+}
+
+

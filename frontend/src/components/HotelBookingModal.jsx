@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle, ShieldCheck, User, Users, BedDouble, Calendar, ArrowRight, ArrowLeft, Download, MessageCircle, Info, Compass, Cake, Gift, Wallet, Clock, Crown } from 'lucide-react';
+import { X, CheckCircle, ShieldCheck, User, Users, BedDouble, Calendar, ArrowRight, ArrowLeft, Download, MessageCircle, Info, Compass, Cake, Gift, Wallet, Clock, Crown, AlertCircle } from 'lucide-react';
 import * as api from '../services/api';
 import { validateBookingDates, getTodayDateStr, addDays, formatDisplayDate } from '../utils/dateUtils';
 import ImageCarousel from './common/ImageCarousel';
@@ -22,7 +22,8 @@ export default function HotelBookingModal({
   setSelectedBookingItem,
   pickupDate,
   dropDate,
-  bookingDays
+  bookingDays,
+  isCustomerPortal = false
 }) {
   // Track if booking was opened with a preselected room from HotelDetailsPage
   const [step, setStep] = useState(() => (selectedBookingItem?.preselected_room ? 2 : 1));
@@ -233,10 +234,71 @@ export default function HotelBookingModal({
   }, [guestPhone]);
 
   // Driver / Chauffeur Service States
+  const [driverOptionEnabled, setDriverOptionEnabled] = useState(true);
   const [driverRequired, setDriverRequired] = useState(false);
   const [driverServiceType, setDriverServiceType] = useState('airport_transfer');
   const [driverPickupLoc, setDriverPickupLoc] = useState('Goa Airport (Dabolim / Mopa)');
   const [driverPickupTime, setDriverPickupTime] = useState('14:00');
+
+  // Load Driver Option Enable / Disable setting from backend
+  useEffect(() => {
+    if (isCustomerPortal) {
+      setDriverOptionEnabled(true);
+      return;
+    }
+
+    let isMounted = true;
+    api.fetchHotelBookingSettings()
+      .then(res => {
+        if (isMounted && res && typeof res.hotel_booking_driver_enabled !== 'undefined') {
+          const isEnabled = Boolean(res.hotel_booking_driver_enabled);
+          setDriverOptionEnabled(isEnabled);
+          if (!isEnabled) {
+            setDriverRequired(false);
+          }
+        }
+      })
+      .catch(err => {
+        console.warn('[HotelBookingModal] Could not fetch driver setting:', err);
+      });
+
+    const handleSettingsSync = (e) => {
+      if (e.detail && typeof e.detail.hotel_booking_driver_enabled !== 'undefined') {
+        const isEnabled = Boolean(e.detail.hotel_booking_driver_enabled);
+        setDriverOptionEnabled(isEnabled);
+        if (!isEnabled) {
+          setDriverRequired(false);
+        }
+      }
+    };
+    window.addEventListener('hotel-booking-settings-updated', handleSettingsSync);
+    window.addEventListener('tripgalileo-setting-sync', handleSettingsSync);
+
+    let bc;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('tripgalileo-hotel-settings');
+        bc.onmessage = (msg) => {
+          if (msg.data && typeof msg.data.hotel_booking_driver_enabled !== 'undefined') {
+            const isEnabled = Boolean(msg.data.hotel_booking_driver_enabled);
+            setDriverOptionEnabled(isEnabled);
+            if (!isEnabled) {
+              setDriverRequired(false);
+            }
+          }
+        };
+      }
+    } catch (e) {}
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('hotel-booking-settings-updated', handleSettingsSync);
+      window.removeEventListener('tripgalileo-setting-sync', handleSettingsSync);
+      if (bc) {
+        try { bc.close(); } catch (e) {}
+      }
+    };
+  }, [isCustomerPortal]);
   
   // Payment State
   const [paymentSettings, setPaymentSettings] = useState([]);
@@ -270,17 +332,20 @@ export default function HotelBookingModal({
 
   useEffect(() => {
     if (!selectedBookingItem?.id) return;
-    // Fetch Payment Settings
-    if (selectedBookingItem.vendor_id && selectedBookingItem.vendor_id !== 'admin') {
-      api.getVendorPaymentMethods(selectedBookingItem.vendor_id).then(res => {
+    // Fetch Payment Settings for the specific Hotel Vendor
+    const rawTargetVendorId = selectedBookingItem.vendor_id || selectedBookingItem.admin_id;
+    const targetVendorId = (rawTargetVendorId && rawTargetVendorId !== 'admin') ? rawTargetVendorId : 'u-5';
+    if (targetVendorId) {
+      api.getVendorPaymentMethods(targetVendorId).then(res => {
         const activeMethods = (res || []).filter(m => m.status === 'Active');
         setPaymentSettings(activeMethods);
-      }).catch(console.error);
+      }).catch(err => {
+        console.error('Error fetching vendor payment methods:', err);
+        setPaymentSettings([]);
+      });
     } else {
-      api.getAdminPaymentMethods().then(res => {
-        const activeMethods = (res || []).filter(m => m.status === 'Active');
-        setPaymentSettings(activeMethods);
-      }).catch(console.error);
+      // NEVER silently fall back to Admin/WOW GOA payment methods for customer booking
+      setPaymentSettings([]);
     }
 
     // Fetch Vendor Cancellation Policy for Hotel
@@ -367,7 +432,7 @@ export default function HotelBookingModal({
 
   // Driver Pricing Logic
   let driverCharge = 0;
-  if (driverRequired) {
+  if (driverOptionEnabled && driverRequired) {
     if (driverServiceType === 'airport_transfer') driverCharge = 800;
     else if (driverServiceType === 'full_day') driverCharge = 1800;
     else if (driverServiceType === 'entire_stay') driverCharge = 1500 * nights;
@@ -437,6 +502,8 @@ export default function HotelBookingModal({
     
     try {
       const numGuests = (parseInt(adults) || 2) + (parseInt(children) || 0);
+      const isDriverActive = Boolean(driverOptionEnabled && driverRequired);
+
       const travellerDetails = {
           name: guestName,
           phone: cleanGuestPhone,
@@ -447,8 +514,8 @@ export default function HotelBookingModal({
           arrival_time: arrivalTime,
           special_requests: specialRequests,
           num_rooms: numRooms,
-          driver_required: driverRequired,
-          driver_service_type: driverServiceType
+          driver_required: isDriverActive,
+          driver_service_type: isDriverActive ? driverServiceType : null
       };
       
       const priceBreakdown = {
@@ -461,7 +528,7 @@ export default function HotelBookingModal({
           extra_adult_total: extraAdultTotal,
           extra_child_total: extraChildTotal,
           room_total: roomTotal,
-          driver_charge: driverCharge,
+          driver_charge: isDriverActive ? driverCharge : 0,
           gst: gst,
           platform_fee: platformFee,
           raw_total_price: rawTotalAmount,
@@ -488,10 +555,10 @@ export default function HotelBookingModal({
         customer_id: customerId,
         date_of_birth: guestDob,
         dob: guestDob,
-        pickup_loc: driverRequired ? driverPickupLoc : (selectedBookingItem.area || selectedBookingItem.location || 'Goa'),
-        pickup_location: driverRequired ? driverPickupLoc : (selectedBookingItem.area || selectedBookingItem.location || 'Goa'),
+        pickup_loc: isDriverActive ? driverPickupLoc : (selectedBookingItem.area || selectedBookingItem.location || 'Goa'),
+        pickup_location: isDriverActive ? driverPickupLoc : (selectedBookingItem.area || selectedBookingItem.location || 'Goa'),
         pickup_date: modalCheckInDate,
-        pickup_time: driverRequired ? driverPickupTime : checkInTime,
+        pickup_time: isDriverActive ? driverPickupTime : checkInTime,
         drop_date: modalCheckOutDate,
         drop_location: selectedBookingItem.area || selectedBookingItem.location || 'Goa',
         drop_time: checkOutTime,
@@ -511,7 +578,7 @@ export default function HotelBookingModal({
         num_rooms: numRooms,
         adults: adults,
         children: children,
-        package_type: driverRequired ? 'Hotel Booking (with Chauffeur)' : 'Hotel Booking',
+        package_type: isDriverActive ? 'Hotel Booking (with Chauffeur)' : 'Hotel Booking',
         type: 'hotel',
         image: selectedBookingItem.image || selectedBookingItem.image_url || '',
         vehicle_image: selectedBookingItem.image || selectedBookingItem.image_url || '',
@@ -526,9 +593,9 @@ export default function HotelBookingModal({
         paid_amount: payableNow,
         remaining_amount: isPayAtHotel ? finalTotalPayable : Math.max(0, finalTotalPayable - payableNow),
         pending_amount: isPayAtHotel ? finalTotalPayable : Math.max(0, finalTotalPayable - payableNow),
-        driver_required: driverRequired ? 1 : 0,
-        driver_charge: driverCharge,
-        driver_service_type: driverRequired ? driverServiceType : '',
+        driver_required: isDriverActive ? 1 : 0,
+        driver_charge: isDriverActive ? driverCharge : 0,
+        driver_service_type: isDriverActive ? driverServiceType : '',
         status: isPayAtHotel ? 'Confirmed' : 'Pending',
         payment_status: isPayAtHotel ? 'Pay at Hotel (Pending)' : (payableNow > 0 ? 'Submitted' : 'Pending'),
         payment_verification_status: isPayAtHotel ? 'Not Required' : 'Pending Verification',
@@ -560,9 +627,9 @@ export default function HotelBookingModal({
             check_in_time: checkInTime,
             check_out_time: checkOutTime,
             nights: nights,
-            driver_required: driverRequired,
-            driver_service: driverRequired ? driverServiceType : null,
-            driver_charge: driverCharge,
+            driver_required: isDriverActive,
+            driver_service: isDriverActive ? driverServiceType : null,
+            driver_charge: isDriverActive ? driverCharge : 0,
             hotel_location: selectedBookingItem.area || selectedBookingItem.location || 'Goa'
         })
       };
@@ -985,80 +1052,82 @@ export default function HotelBookingModal({
         </div>
 
         {/* ─── Dedicated Goa Chauffeur & Driver Service Option ─── */}
-        <div className="p-3 rounded-3 mb-4" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
-          <div className="form-check d-flex align-items-center gap-2 mb-2">
-            <input
-              type="checkbox"
-              className="form-check-input mt-0"
-              id="hotel_driver_req"
-              checked={driverRequired}
-              onChange={(e) => setDriverRequired(e.target.checked)}
-              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-            />
-            <label className="form-check-label fw-bold text-dark mb-0 font-heading" htmlFor="hotel_driver_req" style={{ cursor: 'pointer' }}>
-              🚗 Need a Dedicated Goa Chauffeur / Private Cab Service?
-            </label>
-          </div>
-          <p className="text-muted text-xs ps-4 mb-2">
-            Add a verified local chauffeur for airport transfers, beach sightseeing, and effortless travel during your stay at {selectedBookingItem.name}.
-          </p>
+        {driverOptionEnabled && (
+          <div className="p-3 rounded-3 mb-4" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+            <div className="form-check d-flex align-items-center gap-2 mb-2">
+              <input
+                type="checkbox"
+                className="form-check-input mt-0"
+                id="hotel_driver_req"
+                checked={driverRequired}
+                onChange={(e) => setDriverRequired(e.target.checked)}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <label className="form-check-label fw-bold text-dark mb-0 font-heading" htmlFor="hotel_driver_req" style={{ cursor: 'pointer' }}>
+                🚗 Need a Dedicated Goa Chauffeur / Private Cab Service?
+              </label>
+            </div>
+            <p className="text-muted text-xs ps-4 mb-2">
+              Add a verified local chauffeur for airport transfers, beach sightseeing, and effortless travel during your stay at {selectedBookingItem.name}.
+            </p>
 
-          {driverRequired && (
-            <div className="mt-3 pt-3 border-top border-warning border-opacity-40 ps-4 animate-fade-in">
-              <div className="row g-2 mb-3">
-                {[
-                  { id: 'airport_transfer', label: '✈️ Airport / Railway Station Pickup & Drop', price: 800, desc: 'Dedicated AC cab for airport / train station transfer to hotel' },
-                  { id: 'full_day', label: '🌴 1-Day Goa Sightseeing Chauffeur', price: 1800, desc: '8 Hours / 80 KM sightseeing across North or South Goa' },
-                  { id: 'entire_stay', label: `⭐ Dedicated Chauffeur for Entire Stay (${nights} Nights)`, price: 1500 * nights, desc: `Exclusive AC chauffeur on standby for all ${nights} nights` }
-                ].map(opt => (
-                  <div key={opt.id} className="col-12">
-                    <div 
-                      className={`p-2.5 rounded-3 border cursor-pointer transition ${driverServiceType === opt.id ? 'bg-warning bg-opacity-20 border-warning fw-bold' : 'bg-white border-light-subtle'}`}
-                      onClick={() => setDriverServiceType(opt.id)}
-                    >
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div>
-                          <span className="text-xs text-dark">{opt.label}</span>
-                          <small className="text-muted d-block text-xxs">{opt.desc}</small>
+            {driverRequired && (
+              <div className="mt-3 pt-3 border-top border-warning border-opacity-40 ps-4 animate-fade-in">
+                <div className="row g-2 mb-3">
+                  {[
+                    { id: 'airport_transfer', label: '✈️ Airport / Railway Station Pickup & Drop', price: 800, desc: 'Dedicated AC cab for airport / train station transfer to hotel' },
+                    { id: 'full_day', label: '🌴 1-Day Goa Sightseeing Chauffeur', price: 1800, desc: '8 Hours / 80 KM sightseeing across North or South Goa' },
+                    { id: 'entire_stay', label: `⭐ Dedicated Chauffeur for Entire Stay (${nights} Nights)`, price: 1500 * nights, desc: `Exclusive AC chauffeur on standby for all ${nights} nights` }
+                  ].map(opt => (
+                    <div key={opt.id} className="col-12">
+                      <div 
+                        className={`p-2.5 rounded-3 border cursor-pointer transition ${driverServiceType === opt.id ? 'bg-warning bg-opacity-20 border-warning fw-bold' : 'bg-white border-light-subtle'}`}
+                        onClick={() => setDriverServiceType(opt.id)}
+                      >
+                        <div className="d-flex justify-content-between align-items-center">
+                          <div>
+                            <span className="text-xs text-dark">{opt.label}</span>
+                            <small className="text-muted d-block text-xxs">{opt.desc}</small>
+                          </div>
+                          <span className="badge bg-dark text-warning fw-bold px-2 py-1 text-xs">
+                            +₹{opt.price.toLocaleString('en-IN')}
+                          </span>
                         </div>
-                        <span className="badge bg-dark text-warning fw-bold px-2 py-1 text-xs">
-                          +₹{opt.price.toLocaleString('en-IN')}
-                        </span>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
 
-              <div className="row g-2">
-                <div className="col-sm-7">
-                  <label className="form-label text-xxs text-muted fw-bold mb-1">Driver Pickup Point</label>
-                  <select 
-                    className="form-select form-select-sm text-xs"
-                    value={driverPickupLoc}
-                    onChange={e => setDriverPickupLoc(e.target.value)}
-                  >
-                    <option value="Goa Airport (Dabolim / Mopa)">✈️ Goa Airport (Dabolim / Mopa)</option>
-                    <option value="Dabolim Airport (GOI)">✈️ Dabolim Airport (GOI)</option>
-                    <option value="Mopa Airport (GOX)">✈️ Manohar International Airport (Mopa / GOX)</option>
-                    <option value="Madgaon Railway Station">🚆 Madgaon Railway Station</option>
-                    <option value="Thivim Railway Station">🚆 Thivim Railway Station</option>
-                    <option value="Hotel Direct Pickup">🏨 Hotel Direct Pickup</option>
-                  </select>
-                </div>
-                <div className="col-sm-5">
-                  <label className="form-label text-xxs text-muted fw-bold mb-1">Pickup Time</label>
-                  <input 
-                    type="time" 
-                    className="form-control form-control-sm text-xs" 
-                    value={driverPickupTime} 
-                    onChange={e => setDriverPickupTime(e.target.value)} 
-                  />
+                <div className="row g-2">
+                  <div className="col-sm-7">
+                    <label className="form-label text-xxs text-muted fw-bold mb-1">Driver Pickup Point</label>
+                    <select 
+                      className="form-select form-select-sm text-xs"
+                      value={driverPickupLoc}
+                      onChange={e => setDriverPickupLoc(e.target.value)}
+                    >
+                      <option value="Goa Airport (Dabolim / Mopa)">✈️ Goa Airport (Dabolim / Mopa)</option>
+                      <option value="Dabolim Airport (GOI)">✈️ Dabolim Airport (GOI)</option>
+                      <option value="Mopa Airport (GOX)">✈️ Manohar International Airport (Mopa / GOX)</option>
+                      <option value="Madgaon Railway Station">🚆 Madgaon Railway Station</option>
+                      <option value="Thivim Railway Station">🚆 Thivim Railway Station</option>
+                      <option value="Hotel Direct Pickup">🏨 Hotel Direct Pickup</option>
+                    </select>
+                  </div>
+                  <div className="col-sm-5">
+                    <label className="form-label text-xxs text-muted fw-bold mb-1">Pickup Time</label>
+                    <input 
+                      type="time" 
+                      className="form-control form-control-sm text-xs" 
+                      value={driverPickupTime} 
+                      onChange={e => setDriverPickupTime(e.target.value)} 
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         <div className="row g-3 mb-4">
             <div className="col-md-6">
@@ -1076,7 +1145,7 @@ export default function HotelBookingModal({
           <div>
             <span className="text-muted text-xs d-block">Total Stay &amp; Services ({nights} Night{nights>1?'s':''})</span>
             <strong className="text-dark fs-5 font-heading">₹{totalAmount.toLocaleString('en-IN')}</strong>
-            {driverRequired && <span className="badge bg-warning text-dark text-xxs ms-2">✓ Chauffeur Included (+₹{driverCharge.toLocaleString('en-IN')})</span>}
+            {driverOptionEnabled && driverRequired && <span className="badge bg-warning text-dark text-xxs ms-2">✓ Chauffeur Included (+₹{driverCharge.toLocaleString('en-IN')})</span>}
           </div>
           <button 
               className="btn btn-primary px-4 py-2 fw-bold" 
@@ -1152,17 +1221,41 @@ export default function HotelBookingModal({
           </div>
         </div>
 
-        {/* Static QR Details Card */}
-        {paymentOption === 'static_qr' && (
-          <StaticQRPaymentCard
-            amount={totalAmount}
-            upiId="wowgoa@upi"
-            accountName="WOW GOA Tourism / TripGalileo"
-            paymentReference={transactionId}
-            onReferenceChange={setTransactionId}
-            serviceTitle={selectedBookingItem.name}
-          />
-        )}
+        {/* Static QR Details Card - Direct to Vendor */}
+        {paymentOption === 'static_qr' && (() => {
+          const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
+            paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
+          ) : null;
+          const isVendorPaymentConfigured = Boolean(
+            activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
+          );
+
+          return isVendorPaymentConfigured ? (
+            <StaticQRPaymentCard
+              amount={totalAmount}
+              upiId={activeVendorPayment.upi_id || ''}
+              accountName={activeVendorPayment.account_name || activeVendorPayment.display_name || selectedBookingItem.name}
+              qrImageUrl={activeVendorPayment.qr_image_url || ''}
+              vendorName={activeVendorPayment.display_name || selectedBookingItem.vendor_name || 'Hotel Vendor'}
+              paymentReference={transactionId}
+              onReferenceChange={setTransactionId}
+              serviceTitle={selectedBookingItem.name}
+              instructions={activeVendorPayment.instructions || ''}
+            />
+          ) : (
+            <div className="card shadow-sm border border-warning rounded-4 overflow-hidden mb-3" style={{ background: '#fffbeb' }}>
+              <div className="card-body p-4 text-center">
+                <div className="d-inline-flex p-3 rounded-circle bg-warning bg-opacity-25 text-warning mb-2">
+                  <AlertCircle size={28} />
+                </div>
+                <h6 className="fw-bold text-dark mb-1">Vendor Payment Notice</h6>
+                <div className="alert alert-warning border border-warning d-inline-block text-start mb-0 py-2 px-3" style={{ fontSize: '0.88rem' }}>
+                  <strong>Vendor payment QR is not configured. Please contact support.</strong>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Vendor Cancellation Policy Card */}
         <VendorCancellationPolicyCard
@@ -1172,16 +1265,28 @@ export default function HotelBookingModal({
           customerPayment={totalAmount}
         />
 
-        <div className="mt-4 text-end">
-          <button 
-            className="btn btn-warning px-5 py-2.5 fw-bold w-100 shadow-sm rounded-3" 
-            onClick={handleConfirmBooking}
-            disabled={isProcessing || !policyAgreed || (paymentOption === 'static_qr' && !transactionId)}
-            style={{ fontSize: '0.95rem', opacity: (!policyAgreed || (paymentOption === 'static_qr' && !transactionId)) ? 0.75 : 1 }}
-          >
-            {isProcessing ? 'Confirming Booking...' : (isPayAtHotel ? `Confirm Booking (Pay ₹${totalAmount.toLocaleString('en-IN')} at Hotel)` : `Submit Payment of ₹${totalAmount.toLocaleString('en-IN')}`)}
-          </button>
-        </div>
+        {(() => {
+          const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
+            paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
+          ) : null;
+          const isVendorPaymentConfigured = Boolean(
+            activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
+          );
+          const isSubmitDisabled = isProcessing || !policyAgreed || (paymentOption === 'static_qr' && (!isVendorPaymentConfigured || !transactionId));
+
+          return (
+            <div className="mt-4 text-end">
+              <button 
+                className="btn btn-warning px-5 py-2.5 fw-bold w-100 shadow-sm rounded-3" 
+                onClick={handleConfirmBooking}
+                disabled={isSubmitDisabled}
+                style={{ fontSize: '0.95rem', opacity: isSubmitDisabled ? 0.65 : 1 }}
+              >
+                {isProcessing ? 'Confirming Booking...' : (isPayAtHotel ? `Confirm Booking (Pay ₹${totalAmount.toLocaleString('en-IN')} at Hotel)` : `Submit Payment of ₹${totalAmount.toLocaleString('en-IN')}`)}
+              </button>
+            </div>
+          );
+        })()}
       </div>
     );
   };
@@ -1207,7 +1312,7 @@ export default function HotelBookingModal({
             { label: 'Room Category', value: selectedRoom?.name || 'Standard Resort Room', icon: <BedDouble size={14} /> },
             { label: 'Guests & Rooms', value: `${totalGuestsCount} Guests (${roomsCount} Room${roomsCount > 1 ? 's' : ''})`, icon: <Users size={14} /> },
             ...(appliedWalletAmount > 0 ? [{ label: 'Wallet Cashback Used', value: `-₹${appliedWalletAmount.toLocaleString('en-IN')}`, isSuccess: true }] : []),
-            ...(driverRequired ? [{
+            ...(driverOptionEnabled && driverRequired ? [{
               label: 'Chauffeur Service',
               value: driverServiceType === 'full_day' ? 'Full-Day Sightseeing Chauffeur' : (driverServiceType === 'entire_stay' ? `Dedicated Chauffeur (${nights} Nights)` : 'Airport / Railway Transfer'),
               isHighlight: true
@@ -1403,7 +1508,7 @@ export default function HotelBookingModal({
                                 <span>Platform Fee:</span>
                                 <span>₹{platformFee.toLocaleString('en-IN')}</span>
                             </div>
-                            {driverRequired && driverCharge > 0 && (
+                            {driverOptionEnabled && driverRequired && driverCharge > 0 && (
                               <div className="d-flex justify-content-between mb-1.5 text-muted">
                                   <span>Chauffeur Service ({driverServiceType}):</span>
                                   <span>₹{driverCharge.toLocaleString('en-IN')}</span>

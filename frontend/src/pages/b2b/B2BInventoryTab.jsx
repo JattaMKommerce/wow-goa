@@ -10,11 +10,12 @@ import * as api from '../../services/api';
 import B2BSelfDriveFlow from './B2BSelfDriveFlow';
 import B2BCraftMyTripFlow from './B2BCraftMyTripFlow';
 import ImageCarousel from '../../components/common/ImageCarousel';
-import { resolveItemImages } from '../../utils/bookingImageHelper';
+import { resolveItemImages, getFlightDefaultImage, isFlightItem, isUnrelatedInventoryImage } from '../../utils/bookingImageHelper';
 import HotelDetailsPage from '../customer/HotelDetailsPage';
 import ActivityDetailsPage from '../customer/ActivityDetailsPage';
 import PackageDetailsPage from '../customer/PackageDetailsPage';
 import FlightDetailsPage from '../customer/FlightDetailsPage';
+import B2BModalPortal from '../../components/b2b/B2BModalPortal';
 
 // Helper to parse day-wise itinerary in any format (JSON string, array, or object)
 const parseItinerary = (raw) => {
@@ -128,6 +129,9 @@ export default function B2BInventoryTab({
 
   // Load Inventory for non-selfdrive and non-craft services
   useEffect(() => {
+    setDetailItem(null);
+    setBookingItem(null);
+    setSearchQuery('');
     if (activeService === 'selfdrive' || activeService === 'craft') {
       setItems([]);
       setLoading(false);
@@ -286,8 +290,8 @@ export default function B2BInventoryTab({
   };
 
   const filteredItems = items.filter(it => {
-    const nameMatch = (it.name || it.title || it.airline || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const locMatch = (it.location || it.area || it.destination || it.from_city || it.to_city || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const nameMatch = (it.name || it.title || it.airline || it.flight_number || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const locMatch = (it.location || it.area || it.destination || it.from_city || it.to_city || it.from_loc || it.to_loc || '').toLowerCase().includes(searchQuery.toLowerCase());
     return nameMatch || locMatch;
   });
 
@@ -444,25 +448,49 @@ export default function B2BInventoryTab({
         <div className="row g-3">
           {filteredItems.map((item) => {
             const pricing = getItemPricing(item);
+            const isFlight = activeService === 'flights' || isFlightItem(item);
             const title = item.name || item.title || (item.airline ? `${item.airline} Flight (${item.flight_number || ''})` : 'Service Item');
-            const image = item.image || item.thumbnail || (item.gallery && item.gallery[0]) || 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=600&q=80';
-            const location = item.location || item.city || item.destination || (item.from_city && item.to_city ? `${item.from_city} → ${item.to_city}` : 'Goa, India');
+            
+            // Resolve image strictly by type — NEVER leak hotel/car images to flights
+            let image;
+            let fallbackImage;
+            if (isFlight) {
+              fallbackImage = getFlightDefaultImage(item.airline || item.name);
+              const genuineCandidate = item.logo || item.airline_logo || item.airline_image || item.flight_image || item.image || item.image_url;
+              if (genuineCandidate && typeof genuineCandidate === 'string' && !isUnrelatedInventoryImage(genuineCandidate)) {
+                image = genuineCandidate;
+              } else {
+                image = fallbackImage;
+              }
+            } else {
+              fallbackImage = 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=600&q=80';
+              image = item.image || item.thumbnail || (item.gallery && item.gallery[0]) || fallbackImage;
+            }
+
+            const fromCity = item.from_city || item.from_loc || (item.from ? (typeof item.from === 'object' ? item.from.iata : item.from) : '');
+            const toCity = item.to_city || item.to_loc || (item.to ? (typeof item.to === 'object' ? item.to.iata : item.to) : '');
+            const location = item.location || item.city || item.destination || (fromCity && toCity ? `${fromCity} → ${toCity}` : 'Goa, India');
 
             return (
-              <div key={item.id} className="col-12 col-md-6 col-xl-4">
+              <div key={isFlight ? `flight-card-${item.id || item.flight_number}` : `item-${item.id}`} className="col-12 col-md-6 col-xl-4">
                 <div className="card h-100 border-0 shadow-sm rounded-4 overflow-hidden d-flex flex-column transition-all hover-shadow-lg bg-white">
                   {/* Item Image */}
-                  <div className="position-relative" style={{ height: '190px', background: '#F8F9FA', cursor: 'pointer' }} onClick={() => setDetailItem(item)}>
+                  <div className="position-relative" style={{ height: '190px', background: isFlight ? '#0B132B' : '#F8F9FA', cursor: 'pointer' }} onClick={() => setDetailItem(item)}>
                     <img 
                       src={image} 
                       alt={title}
                       className="w-100 h-100 object-fit-cover"
-                      onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=600&q=80'; }}
+                      onError={(e) => { e.target.src = fallbackImage; }}
                     />
                     <div className="position-absolute top-0 start-0 m-2.5 d-flex gap-1.5 flex-wrap">
                       <span className="badge bg-dark bg-opacity-75 backdrop-blur text-white text-xxs px-2 py-1 rounded-pill">
                         {activeService === 'activities' ? (item.type || 'EXPERIENCE').toUpperCase() : activeService.toUpperCase()}
                       </span>
+                      {isFlight && item.flight_number && (
+                        <span className="badge bg-primary text-white text-xxs px-2 py-1 rounded-pill fw-bold font-monospace">
+                          ✈️ {item.flight_number}
+                        </span>
+                      )}
                       {item.tag && (
                         <span className="badge bg-warning text-dark text-xxs px-2 py-1 rounded-pill fw-bold">
                           {item.tag}
@@ -474,6 +502,12 @@ export default function B2BInventoryTab({
                         </span>
                       )}
                     </div>
+                    {isFlight && (
+                      <div className="position-absolute bottom-0 start-0 end-0 p-2.5 bg-dark bg-opacity-75 backdrop-blur d-flex justify-content-between align-items-center text-white text-xxs">
+                        <span className="fw-bold">{item.airline || 'Commercial Airline'}</span>
+                        <span>{item.departure_time || '10:00'} → {item.arrival_time || '12:30'}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Body Content */}
@@ -584,95 +618,107 @@ export default function B2BInventoryTab({
       )}
 
       {/* ── AUTHORITATIVE D2C DETAILS PAGES IN B2B (REUSING D2C DETAILS DIRECTLY) ── */}
-      {detailItem && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100 bg-white"
-          style={{ zIndex: 1060, overflowY: 'auto' }}
-        >
-          {activeService === 'hotels' ? (
-            <HotelDetailsPage
-              hotel={detailItem}
-              pickupDate={guestDetails.checkInDate}
-              dropDate={guestDetails.checkOutDate}
-              nights={calculateHotelNights()}
-              actionLabel="Book for Guest"
-              backLabel="Back to B2B Hotels"
-              breadcrumbPrefix="B2B Portal / Hotels"
-              onBack={() => setDetailItem(null)}
-              onBook={(hotel, selectedRoom, selectedRatePlan) => {
-                const enrichedHotel = {
-                  ...hotel,
-                  preselected_room: selectedRoom,
-                  preselected_rate_plan: selectedRatePlan,
-                  price: (selectedRatePlan?.price || selectedRoom?.price_per_night || hotel.price)
-                };
-                setDetailItem(null);
-                handleOpenBooking(enrichedHotel);
-              }}
-            />
-          ) : activeService === 'activities' ? (
-            <ActivityDetailsPage
-              activity={detailItem}
-              actionLabel="Book for Guest"
-              backLabel="Back to B2B Activities"
-              breadcrumbPrefix="B2B Portal / Sightseeing & Activities"
-              onBack={() => setDetailItem(null)}
-              onBook={(activityData) => {
-                const enrichedActivity = {
-                  ...detailItem,
-                  ...(activityData || {}),
-                  date: activityData?.pickup_date || activityData?.date || guestDetails.date,
-                  daysOrQty: activityData?.guests || activityData?.adults || 1
-                };
-                setDetailItem(null);
-                handleOpenBooking(enrichedActivity);
-              }}
-            />
-          ) : activeService === 'flights' ? (
-            <FlightDetailsPage
-              flight={detailItem}
-              actionLabel="Book for Guest"
-              backLabel="Back to B2B Flights"
-              breadcrumbPrefix="B2B Portal / Flights & Airport Transfers"
-              onBack={() => setDetailItem(null)}
-              onBook={(flightData) => {
-                const enrichedFlight = {
-                  ...detailItem,
-                  ...(flightData || {})
-                };
-                setDetailItem(null);
-                handleOpenBooking(enrichedFlight);
-              }}
-            />
-          ) : (
-            <PackageDetailsPage
-              pkg={detailItem}
-              actionLabel="Book for Guest"
-              backLabel="Back to B2B Packages"
-              breadcrumbPrefix="B2B Portal / Tour Packages"
-              onBack={() => setDetailItem(null)}
-              onBook={(pkgData) => {
-                const enrichedPkg = {
-                  ...detailItem,
-                  ...(pkgData || {})
-                };
-                setDetailItem(null);
-                handleOpenBooking(enrichedPkg);
-              }}
-            />
-          )}
-        </div>
-      )}
+      <B2BModalPortal
+        isOpen={Boolean(detailItem)}
+        onClose={() => setDetailItem(null)}
+        isFullScreen={true}
+        ariaLabel="B2B Details View"
+      >
+        {detailItem && (
+          <div className="w-100 min-vh-100 bg-white" style={{ overflowY: 'auto' }}>
+            {activeService === 'hotels' ? (
+              <HotelDetailsPage
+                hotel={detailItem}
+                pickupDate={guestDetails.checkInDate}
+                dropDate={guestDetails.checkOutDate}
+                nights={calculateHotelNights()}
+                actionLabel="Book for Guest"
+                backLabel="Back to B2B Hotels"
+                breadcrumbPrefix="B2B Portal / Hotels"
+                onBack={() => setDetailItem(null)}
+                onBook={(hotel, selectedRoom, selectedRatePlan) => {
+                  const enrichedHotel = {
+                    ...hotel,
+                    preselected_room: selectedRoom,
+                    preselected_rate_plan: selectedRatePlan,
+                    price: (selectedRatePlan?.price || selectedRoom?.price_per_night || hotel.price)
+                  };
+                  setDetailItem(null);
+                  handleOpenBooking(enrichedHotel);
+                }}
+              />
+            ) : activeService === 'activities' ? (
+              <ActivityDetailsPage
+                activity={detailItem}
+                actionLabel="Book for Guest"
+                backLabel="Back to B2B Activities"
+                breadcrumbPrefix="B2B Portal / Sightseeing & Activities"
+                onBack={() => setDetailItem(null)}
+                onBook={(activityData) => {
+                  const enrichedActivity = {
+                    ...detailItem,
+                    ...(activityData || {}),
+                    date: activityData?.pickup_date || activityData?.date || guestDetails.date,
+                    daysOrQty: activityData?.guests || activityData?.adults || 1
+                  };
+                  setDetailItem(null);
+                  handleOpenBooking(enrichedActivity);
+                }}
+              />
+            ) : activeService === 'flights' ? (
+              <FlightDetailsPage
+                flight={detailItem}
+                actionLabel="Book for Guest"
+                backLabel="Back to B2B Flights"
+                breadcrumbPrefix="B2B Portal / Flights & Airport Transfers"
+                onBack={() => setDetailItem(null)}
+                onBook={(flightData) => {
+                  const enrichedFlight = {
+                    ...detailItem,
+                    ...(flightData || {}),
+                    type: 'flight',
+                    service_type: 'flight'
+                  };
+                  setDetailItem(null);
+                  handleOpenBooking(enrichedFlight);
+                }}
+              />
+            ) : (
+              <PackageDetailsPage
+                pkg={detailItem}
+                actionLabel="Book for Guest"
+                backLabel="Back to B2B Packages"
+                breadcrumbPrefix="B2B Portal / Tour Packages"
+                onBack={() => setDetailItem(null)}
+                onBook={(pkgData) => {
+                  const enrichedPkg = {
+                    ...detailItem,
+                    ...(pkgData || {})
+                  };
+                  setDetailItem(null);
+                  handleOpenBooking(enrichedPkg);
+                }}
+              />
+            )}
+          </div>
+        )}
+      </B2BModalPortal>
 
       {/* BOOKING MODAL */}
-      {bookingItem && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3"
-          style={{ background: 'rgba(13, 27, 46, 0.75)', zIndex: 1050, backdropFilter: 'blur(4px)' }}
-        >
+      <B2BModalPortal
+        isOpen={Boolean(bookingItem)}
+        onClose={() => {
+          setBookingItem(null);
+          setBookingSuccess(null);
+        }}
+        ariaLabel="B2B Booking Confirmation Modal"
+      >
+        {bookingItem && (
           <div 
+            key={`b2b-modal-${activeService}-${bookingItem?.id || bookingItem?.flight_number}`}
             className="card border-0 shadow-2xl rounded-4 overflow-hidden animate-fade-in"
             style={{ maxWidth: '680px', width: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: '#ffffff' }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="p-3.5 text-white d-flex align-items-center justify-content-between" style={{ background: '#0D1B2E' }}>
               <div>
@@ -680,7 +726,7 @@ export default function B2BInventoryTab({
                   CONFIRM B2B RESERVATION
                 </span>
                 <h5 className="fw-bold mb-0 text-white font-heading">
-                  {bookingItem.name || bookingItem.title || 'Selected Service'}
+                  {bookingItem.name || bookingItem.title || (bookingItem.airline ? `${bookingItem.airline} Flight (${bookingItem.flight_number || ''})` : 'Selected Service')}
                 </h5>
               </div>
               <button 
@@ -728,10 +774,11 @@ export default function B2BInventoryTab({
                   )}
 
                   {/* Multi-Image Preview Carousel */}
-                  <div className="mb-3">
+                  <div className="mb-3" key={`carousel-${activeService}-${bookingItem?.id || bookingItem?.flight_number}`}>
                     <ImageCarousel
                       images={resolveItemImages(bookingItem, activeService)}
-                      alt={bookingItem.name || 'Booking Service'}
+                      fallbackImage={activeService === 'flights' || isFlightItem(bookingItem) ? getFlightDefaultImage(bookingItem?.airline || bookingItem?.name) : undefined}
+                      alt={bookingItem.name || bookingItem.airline || 'Booking Service'}
                       height="220px"
                       rounded="12px"
                     />
@@ -1072,8 +1119,8 @@ export default function B2BInventoryTab({
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </B2BModalPortal>
     </div>
   );
 }

@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, CheckCircle, XCircle, Search, AlertCircle, Eye } from 'lucide-react';
 import * as api from '../../../services/api';
+import WalletRechargeRequiredModal from '../../../components/vendor/WalletRechargeRequiredModal';
 
-export default function PMSPaymentVerification({ currentUser, vendorHotels }) {
+export default function PMSPaymentVerification({ currentUser, vendorHotels, onNavigate }) {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [verificationType, setVerificationType] = useState(null);
+  const [blockedModal, setBlockedModal] = useState({ open: false, balance: 0 });
   
   // Wallet info for displaying commission before confirmation
   const [wallet, setWallet] = useState(null);
@@ -24,9 +26,8 @@ export default function PMSPaymentVerification({ currentUser, vendorHotels }) {
       );
       setBookings(pendingBookings);
       
-      const wRes = await api.makeApiCall('/api.php?resource=vendor_wallets');
-      const myWallet = wRes.find(w => w.vendor_id === currentUser.id);
-      setWallet(myWallet || { balance: 0 });
+      const wRes = await api.makeApiCall(`/api.php?resource=vendor_wallet_info&vendor_id=${currentUser.id}`);
+      setWallet(wRes || { balance: 0 });
     } catch (e) {
       console.error(e);
     } finally {
@@ -43,7 +44,7 @@ export default function PMSPaymentVerification({ currentUser, vendorHotels }) {
     
     try {
       const action = verificationType === 'approve' ? 'verify_booking_payment' : 'reject_booking_payment';
-      await api.makeApiCall('/api.php', {
+      const res = await api.makeApiCall('/api.php', {
         method: 'POST',
         body: JSON.stringify({
           action: action,
@@ -51,11 +52,25 @@ export default function PMSPaymentVerification({ currentUser, vendorHotels }) {
           vendor_id: currentUser.id
         })
       });
+      if (res && res.success === false) {
+        if (res.code === 'WALLET_BLOCKED') {
+          setShowModal(false);
+          setBlockedModal({ open: true, balance: res.balance ?? wallet?.balance ?? 0 });
+          return;
+        }
+        alert('Error: ' + (res.error || 'Failed to process payment'));
+        return;
+      }
       alert(`Payment ${verificationType === 'approve' ? 'Verified' : 'Rejected'} successfully.`);
       setShowModal(false);
       setSelectedBooking(null);
       fetchData();
     } catch (e) {
+      if (e.code === 'WALLET_BLOCKED' || e.data?.code === 'WALLET_BLOCKED') {
+        setShowModal(false);
+        setBlockedModal({ open: true, balance: e.balance ?? e.data?.balance ?? wallet?.balance ?? 0 });
+        return;
+      }
       alert('Error: ' + e.message);
     }
   };
@@ -165,11 +180,18 @@ export default function PMSPaymentVerification({ currentUser, vendorHotels }) {
                         <hr className="my-2 border-secondary border-opacity-25" />
                         <div className="d-flex justify-content-between mb-1 small">
                           <span className="text-muted">Your Current Wallet Balance</span>
-                          <span className="fw-bold">₹{wallet?.balance?.toLocaleString()}</span>
+                          <span className={`fw-bold ${Number(wallet?.balance || 0) < 0 ? 'text-danger' : ''}`}>
+                            {Number(wallet?.balance || 0) < 0 ? `-₹${Math.abs(Number(wallet?.balance)).toLocaleString()}` : `₹${Number(wallet?.balance || 0).toLocaleString()}`}
+                          </span>
                         </div>
                         <div className="d-flex justify-content-between mb-0 small">
-                          <span className="text-muted">Wallet Balance After Deduction</span>
-                          <span className="fw-bold">₹{(wallet?.balance - calculateCommission(selectedBooking.total_amount)).toLocaleString()}</span>
+                          <span className="text-muted">Estimated Balance After Platform Fee</span>
+                          <span className="fw-bold">
+                            {(() => {
+                              const after = Number(wallet?.balance || 0) - calculateCommission(selectedBooking.total_amount);
+                              return after < 0 ? `-₹${Math.abs(after).toLocaleString()}` : `₹${after.toLocaleString()}`;
+                            })()}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -180,12 +202,12 @@ export default function PMSPaymentVerification({ currentUser, vendorHotels }) {
                         I have checked the payment account and the amount is correct.
                       </label>
                     </div>
-                    
-                    {wallet?.balance < calculateCommission(selectedBooking.total_amount) && (
-                        <div className="alert alert-danger mt-3 mb-0 small py-2 fw-bold text-center">
-                          <AlertCircle size={16} className="me-1 mb-1"/> 
-                          Insufficient Wallet Balance to pay the Platform Commission. Please top up your wallet first.
-                        </div>
+
+                    {wallet?.is_blocked && (
+                      <div className="alert alert-danger mt-3 mb-0 small py-2 fw-bold text-center">
+                        <AlertCircle size={16} className="me-1 mb-1"/> 
+                        Wallet recharge required. You have reached the negative booking limit.
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -203,7 +225,7 @@ export default function PMSPaymentVerification({ currentUser, vendorHotels }) {
                   type="button" 
                   className={`btn rounded-pill fw-bold px-4 text-white btn-${verificationType === 'approve' ? 'success' : 'danger'}`}
                   onClick={handleVerifyAction}
-                  disabled={verificationType === 'approve' && wallet?.balance < calculateCommission(selectedBooking.total_amount)}
+                  disabled={verificationType === 'approve' && wallet?.is_blocked}
                 >
                   {verificationType === 'approve' ? 'Verify & Confirm Booking' : 'Reject Payment'}
                 </button>
@@ -212,6 +234,20 @@ export default function PMSPaymentVerification({ currentUser, vendorHotels }) {
           </div>
         </div>
       )}
+
+      {/* Wallet Recharge Required Modal when negative booking limit is reached */}
+      <WalletRechargeRequiredModal
+        isOpen={blockedModal.open}
+        onClose={() => setBlockedModal({ open: false, balance: 0 })}
+        balance={blockedModal.balance}
+        onAddMoney={() => {
+          if (onNavigate) {
+            onNavigate('wallet');
+          } else {
+            window.location.hash = '#/wallet';
+          }
+        }}
+      />
     </div>
   );
 }

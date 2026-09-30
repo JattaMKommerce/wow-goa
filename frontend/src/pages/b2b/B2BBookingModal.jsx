@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CheckCircle2, ShieldCheck, User, Phone, Mail, Calendar, Clock, DollarSign, Gift, Tag, Building2, Cake, AlertCircle, FileText, Download } from 'lucide-react';
 import * as api from '../../services/api';
 import { validateBookingDates } from '../../utils/dateUtils';
@@ -15,8 +16,22 @@ export default function B2BBookingModal({
   if (!selectedItem) return null;
 
   useEffect(() => {
+    document.body.classList.add('b2b-modal-active');
+    const shell = document.querySelector('.b2b-portal-shell');
+    if (shell) {
+      shell.classList.add('b2b-shell-inert');
+      shell.setAttribute('inert', '');
+      shell.setAttribute('aria-hidden', 'true');
+    }
     lockScroll('b2b-booking-modal');
     return () => {
+      document.body.classList.remove('b2b-modal-active');
+      const shellEl = document.querySelector('.b2b-portal-shell');
+      if (shellEl) {
+        shellEl.classList.remove('b2b-shell-inert');
+        shellEl.removeAttribute('inert');
+        shellEl.removeAttribute('aria-hidden');
+      }
       unlockScroll('b2b-booking-modal');
     };
   }, []);
@@ -132,8 +147,8 @@ export default function B2BBookingModal({
     }
   };
 
-  return (
-    <div className="checkout-modal-backdrop animate-fade-in" onClick={onClose} style={{ zIndex: 1060 }}>
+  return createPortal(
+    <div className="checkout-modal-backdrop animate-fade-in" onClick={onClose} style={{ zIndex: 99999 }}>
       <div className="checkout-modal-content rounded-4 overflow-hidden shadow-2xl" style={{ maxWidth: confirmedBooking ? '560px' : '880px', width: '95%' }} onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
         <div className="px-4 py-3 text-white d-flex justify-content-between align-items-center" style={{ background: '#0D1B2E' }}>
@@ -498,6 +513,7 @@ export default function B2BBookingModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,67 +1,27 @@
 <?php
-        if ($action === 'verify_booking_payment') {
-            $booking_id = $payload['booking_id'];
-            $vendor_id = $payload['vendor_id'];
-            $stmt = $pdo->prepare("UPDATE bookings SET payment_status = 'Verified' WHERE id = ? AND vendor_id = ?");
-            $stmt->execute([$booking_id, $vendor_id]);
-            echo json_encode(["success" => true, "message" => "Payment verified successfully."]);
+        if ($action === 'verify_booking_payment' || $action === 'confirm_booking') {
+            $booking_id = $payload['booking_id'] ?? null;
+            $vendor_id = $payload['vendor_id'] ?? null;
+            if (!$booking_id) {
+                http_response_code(400);
+                echo json_encode(["success" => false, "error" => "Missing booking ID."]);
+                exit;
+            }
+            $res = BookingService::confirmBookingAndDeductPlatformFee($pdo, $booking_id, $vendor_id);
+            if (!$res['success']) {
+                http_response_code(400);
+                echo json_encode($res);
+                exit;
+            }
+            echo json_encode($res);
             exit;
 
         } elseif ($action === 'reject_booking_payment') {
             $booking_id = $payload['booking_id'];
             $vendor_id = $payload['vendor_id'];
-            $stmt = $pdo->prepare("UPDATE bookings SET payment_status = 'Rejected' WHERE id = ? AND vendor_id = ?");
-            $stmt->execute([$booking_id, $vendor_id]);
+            $stmt = $pdo->prepare("UPDATE bookings SET status = 'Payment Rejected', payment_verification_status = 'Rejected', payment_status = 'Rejected' WHERE id = ?");
+            $stmt->execute([$booking_id]);
             echo json_encode(["success" => true, "message" => "Payment rejected successfully."]);
-            exit;
-
-        } elseif ($action === 'confirm_booking') {
-            $booking_id = $payload['booking_id'];
-            $vendor_id = $payload['vendor_id'];
-            
-            // 1. Get Booking details
-            $stmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ? AND vendor_id = ?");
-            $stmt->execute([$booking_id, $vendor_id]);
-            $booking = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$booking) {
-                throw new Exception("Booking not found.");
-            }
-            if ($booking['booking_status'] === 'Confirmed') {
-                throw new Exception("Booking already confirmed.");
-            }
-            
-            // 2. Calculate Commission (using 10% as default placeholder if not set)
-            $total_amount = $booking['total_amount'] ?? 0;
-            $commission_amount = $total_amount * 0.10; // 10%
-            
-            // 3. Update Booking
-            $stmt = $pdo->prepare("UPDATE bookings SET booking_status = 'Confirmed', commission_amount = ? WHERE id = ?");
-            $stmt->execute([$commission_amount, $booking_id]);
-            
-            // 4. Deduct from Vendor Wallet
-            $stmt = $pdo->prepare("SELECT * FROM wallets WHERE vendor_id = ?");
-            $stmt->execute([$vendor_id]);
-            $wallet = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$wallet) {
-                // Auto-create wallet if missing
-                $wallet_id = uniqid('wall_');
-                $stmt = $pdo->prepare("INSERT INTO wallets (id, vendor_id, admin_id, balance, updated_at) VALUES (?, ?, ?, 0.00, NOW())");
-                $stmt->execute([$wallet_id, $vendor_id, $booking['admin_id']]);
-                $wallet = ['id' => $wallet_id, 'balance' => 0.00];
-            }
-            
-            $new_balance = $wallet['balance'] - $commission_amount;
-            $stmt = $pdo->prepare("UPDATE wallets SET balance = ?, updated_at = NOW() WHERE vendor_id = ?");
-            $stmt->execute([$new_balance, $vendor_id]);
-            
-            // 5. Log Transaction
-            $trans_id = uniqid('txn_');
-            $stmt = $pdo->prepare("INSERT INTO wallet_transactions (id, wallet_id, admin_id, amount, type, description, reference_id, created_at) VALUES (?, ?, ?, ?, 'debit', 'Commission deducted for booking', ?, NOW())");
-            $stmt->execute([$trans_id, $wallet['id'], $booking['admin_id'], $commission_amount, $booking_id]);
-            
-            echo json_encode(["success" => true, "message" => "Booking confirmed and commission deducted."]);
             exit;
 
         } elseif ($action === 'request_settlement') {

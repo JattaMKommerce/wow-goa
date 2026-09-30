@@ -4,6 +4,7 @@ import {
   Luggage, Info, Check, Calendar
 } from 'lucide-react';
 import { formatDisplayDate } from '../../utils/dateUtils';
+import { getFlightDefaultImage, isUnrelatedInventoryImage } from '../../utils/bookingImageHelper';
 
 // Airport metadata dictionary for friendly city and airport names
 const AIRPORT_DIRECTORY = {
@@ -51,13 +52,23 @@ export default function FlightDetailsPage({
 
   // 2. Resolve basic flight information
   const airlineName = flight.airline?.name || flight.airline || 'Commercial Airline';
-  const airlineLogo = flight.logo || flight.image || `https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=120&q=80`;
-  const flightCode = flight.flight?.iata || flight.id || 'FL-Schedule';
+  const defaultFlightLogo = getFlightDefaultImage(airlineName);
+
+  let resolvedLogo = defaultFlightLogo;
+  const candidateLogos = [flight.logo, flight.airline_logo, flight.airline_image, flight.flight_image, flight.image];
+  for (const cand of candidateLogos) {
+    if (cand && typeof cand === 'string' && !isUnrelatedInventoryImage(cand)) {
+      resolvedLogo = cand;
+      break;
+    }
+  }
+  const airlineLogo = resolvedLogo;
+  const flightCode = flight.flight?.iata || flight.flight_number || flight.id || 'FL-Schedule';
   const stops = flight.stops || 'Non-stop';
   const isNonStop = String(stops).toLowerCase().includes('non') || String(stops) === '0';
   
-  const fromCode = (flight.from || flight.departure?.iata || 'DEL').toUpperCase();
-  const toCode = (flight.to || flight.arrival?.iata || 'GOI').toUpperCase();
+  const fromCode = (flight.from || flight.departure?.iata || flight.from_loc || 'DEL').toUpperCase();
+  const toCode = (flight.to || flight.arrival?.iata || flight.to_loc || 'GOI').toUpperCase();
 
   const originInfo = AIRPORT_DIRECTORY[fromCode] || { name: `${fromCode} Airport`, city: flight.from_city || fromCode, terminal: 'Domestic Terminal' };
   const destinationInfo = AIRPORT_DIRECTORY[toCode] || { name: `${toCode} Airport`, city: flight.to_city || toCode, terminal: 'Domestic Terminal' };
@@ -226,7 +237,7 @@ export default function FlightDetailsPage({
                     alt={airlineName} 
                     className="rounded-3 bg-white border p-1" 
                     style={{ width: '52px', height: '52px', objectFit: 'contain' }}
-                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=120&q=80'; }}
+                    onError={(e) => { e.target.src = defaultFlightLogo; }}
                   />
                   <div>
                     <h5 className="fw-bold mb-0 text-dark">{airlineName}</h5>

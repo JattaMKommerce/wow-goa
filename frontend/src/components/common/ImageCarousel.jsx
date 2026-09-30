@@ -11,7 +11,8 @@ export default function ImageCarousel({
   alt = 'Preview',
   height = '380px',
   rounded = '16px',
-  className = ''
+  className = '',
+  fallbackImage = ''
 }) {
   // 1. Normalize image input (handles Array, JSON string, comma-separated, or single URL)
   const normalizedImages = useMemo(() => {
@@ -39,8 +40,8 @@ export default function ImageCarousel({
 
     return cleaned.length > 0
       ? Array.from(new Set(cleaned))
-      : ['https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=1200&q=80'];
-  }, [images]);
+      : [fallbackImage || 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=1200&q=80'];
+  }, [images, fallbackImage]);
 
   const [activeIdx, setActiveIdx] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -132,7 +133,7 @@ export default function ImageCarousel({
             transition: 'opacity 0.25s ease, transform 0.3s ease'
           }}
           onError={(e) => {
-            e.currentTarget.src = 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=1200&q=80';
+            e.currentTarget.src = fallbackImage || 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=1200&q=80';
           }}
         />
 
@@ -311,7 +312,7 @@ export default function ImageCarousel({
                   alt=""
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   onError={(e) => {
-                    e.currentTarget.src = 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=400&q=80';
+                    e.currentTarget.src = fallbackImage || 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=400&q=80';
                   }}
                 />
               </button>
@@ -433,7 +434,7 @@ export default function ImageCarousel({
                   userSelect: 'none'
                 }}
                 onError={(e) => {
-                  e.currentTarget.src = 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=1200&q=80';
+                  e.currentTarget.src = fallbackImage || 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=1200&q=80';
                 }}
               />
 
@@ -561,7 +562,7 @@ export default function ImageCarousel({
                         alt=""
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         onError={(e) => {
-                          e.currentTarget.src = 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=400&q=80';
+                          e.currentTarget.src = fallbackImage || 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=400&q=80';
                         }}
                       />
                     </button>

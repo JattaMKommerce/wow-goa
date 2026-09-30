@@ -49,6 +49,13 @@ export default function B2BCustomerInvoiceModal({
   // Body scroll locking
   useEffect(() => {
     document.body.classList.add('invoice-modal-active');
+    document.body.classList.add('b2b-modal-active');
+    const shell = document.querySelector('.b2b-portal-shell');
+    if (shell) {
+      shell.classList.add('b2b-shell-inert');
+      shell.setAttribute('inert', '');
+      shell.setAttribute('aria-hidden', 'true');
+    }
     const origOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -61,6 +68,13 @@ export default function B2BCustomerInvoiceModal({
 
     return () => {
       document.body.classList.remove('invoice-modal-active');
+      document.body.classList.remove('b2b-modal-active');
+      const shellEl = document.querySelector('.b2b-portal-shell');
+      if (shellEl) {
+        shellEl.classList.remove('b2b-shell-inert');
+        shellEl.removeAttribute('inert');
+        shellEl.removeAttribute('aria-hidden');
+      }
       document.body.style.overflow = origOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };

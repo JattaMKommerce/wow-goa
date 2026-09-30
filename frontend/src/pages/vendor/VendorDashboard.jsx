@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, AlertCircle, X, Check, XCircle, MapPin, Edit2, Save } from 'lucide-react';
 import { toggleVehicleAvailability, updateVehicle, uploadImage, updateBookingStatus } from '../../services/api';
+import WalletRechargeRequiredModal from '../../components/vendor/WalletRechargeRequiredModal';
 
 // ─── GOA LOCATIONS ──────────────────────────────────────────────────────────
 const GOA_LOCATIONS = [
@@ -249,6 +250,7 @@ export default function VendorDashboard({
   const initialVendorId = isVendorRole ? (currentUser.vendor_id || currentUser.id) : 'all';
   const [selectedVendorId, setSelectedVendorId] = useState(initialVendorId);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [blockedModal, setBlockedModal] = useState({ show: false, balance: 0 });
   const [editVehicle, setEditVehicle] = useState(null); // { vehicle, type }
   const activeVendor = (!selectedVendorId || selectedVendorId === 'all')
     ? { id: 'all', name: 'All Vendors', role: 'admin' }
@@ -951,7 +953,11 @@ export default function VendorDashboard({
                                 window.dispatchEvent(new CustomEvent('tripgalileo-booking-sync', { detail: { bookingId: selectedBooking.id, status: 'Confirmed' } }));
                                 alert(`Booking #${selectedBooking.id} Confirmed!`);
                               } catch (e) {
-                                alert('Error: ' + e.message);
+                                if (e.code === 'WALLET_BLOCKED' || (e.message && e.message.includes('WALLET_BLOCKED'))) {
+                                  setBlockedModal({ show: true, balance: e.balance !== undefined ? e.balance : -800 });
+                                } else {
+                                  alert('Error: ' + e.message);
+                                }
                               }
                             }}
                           >
@@ -1022,6 +1028,11 @@ export default function VendorDashboard({
           </div>
         </div>
       )}
+      <WalletRechargeRequiredModal
+        show={blockedModal.show}
+        balance={blockedModal.balance}
+        onClose={() => setBlockedModal({ show: false, balance: 0 })}
+      />
     </div>
   );
 }

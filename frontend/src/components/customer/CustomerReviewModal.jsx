@@ -25,12 +25,39 @@ export default function CustomerReviewModal({
   const [error, setError] = useState('');
   const [submittedRating, setSubmittedRating] = useState(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(Boolean(booking?.has_reviewed));
+  const [existingRating, setExistingRating] = useState(booking?.review_rating || null);
+
+  const bookingId = booking ? (booking.id || booking.booking_id) : null;
+  const serviceName = booking ? (booking.item_name || booking.vehicle_name || booking.package_name || booking.hotel_name || 'WOW GOA Experience') : '';
+
+  // Authoritatively verify review status with backend on modal mount
+  React.useEffect(() => {
+    if (!bookingId) return;
+
+    if (booking?.has_reviewed) {
+      setAlreadyReviewed(true);
+      setExistingRating(booking.review_rating || 5);
+      if (onSuccess) onSuccess(bookingId, booking.review_rating);
+      return;
+    }
+
+    let isMounted = true;
+    api.checkBookingReviewStatus(bookingId).then((res) => {
+      if (isMounted && res && res.has_reviewed) {
+        setAlreadyReviewed(true);
+        const rVal = res.review?.rating || 5;
+        setExistingRating(rVal);
+        if (onSuccess) onSuccess(bookingId, rVal);
+      }
+    }).catch(() => {});
+
+    return () => { isMounted = false; };
+  }, [bookingId, booking?.has_reviewed, onSuccess]);
 
   if (!isOpen || !booking) return null;
 
   const currentActiveRating = hoverRating || rating;
-  const bookingId = booking.id || booking.booking_id;
-  const serviceName = booking.item_name || booking.vehicle_name || booking.package_name || booking.hotel_name || 'WOW GOA Experience';
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -56,11 +83,29 @@ export default function CustomerReviewModal({
       if (res && res.success) {
         setSubmittedRating(rating);
         setIsSuccess(true);
+        // Authoritatively notify parent that review was successfully submitted
+        if (onSuccess) {
+          onSuccess(bookingId, rating);
+        }
       } else {
-        setError(res?.error || 'Failed to submit review.');
+        const errMsg = res?.error || 'Failed to submit review.';
+        setError(errMsg);
+        if (errMsg.toLowerCase().includes('already been submitted') || errMsg.toLowerCase().includes('multiple reviews')) {
+          setAlreadyReviewed(true);
+          if (onSuccess) {
+            onSuccess(bookingId, null);
+          }
+        }
       }
     } catch (err) {
-      setError(err.message || 'Error submitting review. Please try again.');
+      const errStr = err.message || 'Error submitting review. Please try again.';
+      setError(errStr);
+      if (errStr.toLowerCase().includes('already been submitted') || errStr.toLowerCase().includes('multiple reviews')) {
+        setAlreadyReviewed(true);
+        if (onSuccess) {
+          onSuccess(bookingId, null);
+        }
+      }
     } finally {
       setSubmitting(false);
     }
@@ -110,7 +155,7 @@ export default function CustomerReviewModal({
               </div>
               <div>
                 <h6 className="modal-title fw-bold mb-0 text-white" style={{ fontSize: '15px', letterSpacing: '-0.2px' }}>
-                  {isSuccess ? 'Review Submitted' : 'How was your experience?'}
+                  {isSuccess ? 'Review Submitted' : alreadyReviewed ? 'Review Already Submitted' : 'How was your experience?'}
                 </h6>
                 <div className="text-white-50" style={{ fontSize: '11.5px' }}>
                   Booking #{bookingId} • {serviceName}
@@ -181,6 +226,55 @@ export default function CustomerReviewModal({
                     onClick={handleContinueSuccess}
                   >
                     Continue
+                  </button>
+                </div>
+              </div>
+            ) : alreadyReviewed ? (
+              /* Already Reviewed Notice View */
+              <div className="text-center py-2">
+                <div
+                  className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                  style={{ width: '60px', height: '60px', background: 'rgba(255, 184, 0, 0.12)', color: '#D97706' }}
+                >
+                  <Star size={32} fill="#D97706" stroke="#D97706" />
+                </div>
+                
+                <h5 className="fw-bold text-dark mb-1" style={{ fontSize: '17px' }}>
+                  Review Already Submitted
+                </h5>
+                <p className="text-muted small mb-3" style={{ lineHeight: '1.5' }}>
+                  A review for this booking has already been submitted. Multiple reviews are not permitted.
+                </p>
+
+                {existingRating && (
+                  <div
+                    className="p-2.5 rounded-3 mb-4 d-inline-flex flex-column align-items-center justify-content-center"
+                    style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', minWidth: '180px' }}
+                  >
+                    <span className="text-muted text-xs text-uppercase fw-semibold mb-1">
+                      Submitted Rating
+                    </span>
+                    <div className="d-flex align-items-center justify-content-center gap-1 my-0.5">
+                      {[1, 2, 3, 4, 5].map((starIdx) => (
+                        <Star
+                          key={starIdx}
+                          size={18}
+                          fill={starIdx <= existingRating ? '#FFB800' : 'none'}
+                          stroke={starIdx <= existingRating ? '#FFB800' : '#CBD5E1'}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <button
+                    type="button"
+                    className="btn w-100 py-2.5 rounded-3 fw-bold text-white shadow-sm"
+                    style={{ background: '#0D1B2E', border: 'none', fontSize: '14px' }}
+                    onClick={() => onClose && onClose('already_reviewed')}
+                  >
+                    Close
                   </button>
                 </div>
               </div>

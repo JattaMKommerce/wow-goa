@@ -1831,7 +1831,13 @@ export default function AdminDashboard({
           {liveFlights.map(flight => (
             <div key={flight.id} className="bg-white p-4 rounded-4 shadow-sm border d-flex flex-column flex-md-row align-items-center justify-content-between gap-4 transition-all hover-scale">
               <div className="d-flex align-items-center gap-4 min-w-200">
-                <img src={flight.logo} alt={flight.airline} className="rounded-circle border" style={{ width: '56px', height: '56px', objectFit: 'cover' }} />
+                <img 
+                  src={flight.logo || 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=120&q=80'} 
+                  alt={flight.airline} 
+                  className="rounded-circle border" 
+                  style={{ width: '56px', height: '56px', objectFit: 'cover' }} 
+                  onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=120&q=80'; }}
+                />
                 <div>
                   <h5 className="fw-bold text-dark mb-0">{flight.airline}</h5>
                   <span className="text-muted small">{flight.id.toUpperCase()}</span>

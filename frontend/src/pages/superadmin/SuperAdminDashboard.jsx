@@ -16,6 +16,7 @@ import AnalyticsView from '../../components/shared/AnalyticsView';
 import AdminB2BPortal from '../admin/b2b/AdminB2BPortal';
 import AdminDriverManagement from '../admin/AdminDriverManagement';
 import LeadManagement from '../../components/shared/LeadManagement';
+import HotelBookingDriverSetting from '../../components/common/HotelBookingDriverSetting';
 
 // ─── STAT CARD ───────────────────────────────────────────────────────────────
 function StatCard({ label, value, icon, color, trend, sub, onClick }) {
@@ -2220,10 +2221,11 @@ function ReportsTab({ bookings = [], vendors = [], usersList = [] }) {
 }
 
 // ─── GLOBAL SETTINGS TAB ─────────────────────────────────────────────────────
-function GlobalSettingsTab() {
+function GlobalSettingsTab({ currentUser }) {
   const [settings, setSettings] = useState({
     siteName: 'TripGalileo', currency: 'INR', taxRate: 18, supportEmail: 'support@tripgalileo.com',
     whatsappNumber: '', smsProvider: 'none', darkMode: false, maintenanceMode: false,
+    max_negative_bookings: 2,
   });
   const [loading, setLoading] = useState(true);
 
@@ -2241,6 +2243,7 @@ function GlobalSettingsTab() {
             smsProvider: data.smsProvider || 'none',
             darkMode: data.darkMode == 1,
             maintenanceMode: data.maintenanceMode == 1,
+            max_negative_bookings: data.max_negative_bookings !== undefined ? Number(data.max_negative_bookings) : 2,
           });
         }
         setLoading(false);
@@ -2303,6 +2306,23 @@ function GlobalSettingsTab() {
               <label className="form-label fw-bold" style={{ fontSize: '0.78rem', color: '#475569' }}>Default GST Rate (%)</label>
               <input type="number" className="form-control" style={{ fontSize: '0.85rem', borderRadius: '8px' }} value={settings.taxRate} onChange={e => setSettings(s => ({ ...s, taxRate: e.target.value }))} />
             </div>
+            <div className="mb-3">
+              <label className="form-label fw-bold" style={{ fontSize: '0.78rem', color: '#475569' }}>
+                Maximum Negative Bookings Allowed (Vendor Wallet)
+              </label>
+              <input 
+                type="number" 
+                min="1" 
+                max="10" 
+                className="form-control" 
+                style={{ fontSize: '0.85rem', borderRadius: '8px' }} 
+                value={settings.max_negative_bookings ?? 2} 
+                onChange={e => setSettings(s => ({ ...s, max_negative_bookings: parseInt(e.target.value) || 1 }))} 
+              />
+              <small className="text-muted" style={{ fontSize: '0.72rem' }}>
+                Default: 2. Vendors with negative wallet balances are blocked once this limit is reached.
+              </small>
+            </div>
             <div className="d-flex gap-3">
               {[{ label: 'Maintenance Mode', key: 'maintenanceMode' }, { label: 'Dark Mode Default', key: 'darkMode' }].map(f => (
                 <div key={f.key} className="d-flex align-items-center gap-2">
@@ -2312,6 +2332,9 @@ function GlobalSettingsTab() {
               ))}
             </div>
           </div>
+        </div>
+        <div className="col-12">
+          <HotelBookingDriverSetting currentUser={currentUser} />
         </div>
         <div className="col-12">
           <button type="button" className="btn px-5 py-2 fw-bold text-white rounded-3 shadow-sm" style={{ background: 'linear-gradient(90deg,#FF6333,#FF8A00)' }} onClick={handleSave}>Save Global Settings</button>
@@ -2508,7 +2531,17 @@ export default function SuperAdminDashboard({
     case 'reports':
       return <AnalyticsView bookings={bookings} hotels={hotels} cars={cars} bikes={bikes} vendors={vendors} allPackages={[]} />;
     case 'global_settings':
-      return <GlobalSettingsTab />;
+      return <GlobalSettingsTab currentUser={currentUser} />;
+    case 'hotel_booking_settings':
+      return (
+        <Section title="Hotel Booking Settings" subtitle="Global configuration for customer hotel bookings on the main website">
+          <div className="row">
+            <div className="col-lg-8">
+              <HotelBookingDriverSetting currentUser={currentUser} />
+            </div>
+          </div>
+        </Section>
+      );
     case 'notifications':
       return (
         <NotificationsTab

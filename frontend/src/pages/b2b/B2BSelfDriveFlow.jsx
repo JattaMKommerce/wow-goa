@@ -13,6 +13,7 @@ import DobPicker from '../../components/common/DobPicker';
 import CarDetailsPage from '../customer/CarDetailsPage';
 import BikeDetailsPage from '../customer/BikeDetailsPage';
 import { isBikeVehicle } from '../../utils/vehicleHelper';
+import B2BModalPortal from '../../components/b2b/B2BModalPortal';
 
 const GOA_LOCATIONS = [
   { id: 'mopa', name: 'Manohar International Airport (Mopa - GOX)', type: 'Airport' },
@@ -810,14 +811,19 @@ export default function B2BSelfDriveFlow({ partner, activeMode, onBookingSuccess
       )}
 
       {/* Booking Form Modal */}
-      {isBookingModalOpen && selectedVehicle && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3"
-          style={{ background: 'rgba(13, 27, 46, 0.75)', zIndex: 1050, backdropFilter: 'blur(4px)' }}
-        >
+      <B2BModalPortal
+        isOpen={isBookingModalOpen && Boolean(selectedVehicle)}
+        onClose={() => {
+          setIsBookingModalOpen(false);
+          setBookingSuccessData(null);
+        }}
+        ariaLabel="B2B Vehicle Booking Confirmation Modal"
+      >
+        {isBookingModalOpen && selectedVehicle && (
           <div 
             className="card border-0 shadow-2xl rounded-4 overflow-hidden animate-fade-in"
-            style={{ maxWidth: '620px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+            style={{ maxWidth: '620px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: '#ffffff' }}
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div className="p-3.5 text-white d-flex align-items-center justify-content-between" style={{ background: '#0D1B2E' }}>
@@ -1530,49 +1536,53 @@ export default function B2BSelfDriveFlow({ partner, activeMode, onBookingSuccess
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </B2BModalPortal>
       {/* ── AUTHORITATIVE D2C VEHICLE DETAILS PAGE (CARS & BIKES SEPARATED) ── */}
-      {detailVehicle && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100 bg-white"
-          style={{ zIndex: 1060, overflowY: 'auto' }}
-        >
-          {isBikeVehicle(detailVehicle) ? (
-            <BikeDetailsPage
-              bike={detailVehicle}
-              pickupDate={pickupDate}
-              dropDate={dropDate}
-              bookingDays={daysCount}
-              actionLabel="Book for Guest"
-              backLabel="Back to B2B Fleet"
-              breadcrumbPrefix="B2B Portal / Self Drive Bikes"
-              onBack={() => setDetailVehicle(null)}
-              onBook={(veh) => {
-                const targetVeh = veh || detailVehicle;
-                setDetailVehicle(null);
-                handleSelectToBook(targetVeh);
-              }}
-            />
-          ) : (
-            <CarDetailsPage
-              car={detailVehicle}
-              pickupDate={pickupDate}
-              dropDate={dropDate}
-              bookingDays={daysCount}
-              actionLabel="Book for Guest"
-              backLabel="Back to B2B Fleet"
-              breadcrumbPrefix="B2B Portal / Self Drive Cars"
-              onBack={() => setDetailVehicle(null)}
-              onBook={(veh) => {
-                const targetVeh = veh || detailVehicle;
-                setDetailVehicle(null);
-                handleSelectToBook(targetVeh);
-              }}
-            />
-          )}
-        </div>
-      )}
+      <B2BModalPortal
+        isOpen={Boolean(detailVehicle)}
+        onClose={() => setDetailVehicle(null)}
+        isFullScreen={true}
+        ariaLabel="B2B Vehicle Details"
+      >
+        {detailVehicle && (
+          <div className="w-100 min-vh-100 bg-white" style={{ overflowY: 'auto' }}>
+            {isBikeVehicle(detailVehicle) ? (
+              <BikeDetailsPage
+                bike={detailVehicle}
+                pickupDate={pickupDate}
+                dropDate={dropDate}
+                bookingDays={daysCount}
+                actionLabel="Book for Guest"
+                backLabel="Back to B2B Fleet"
+                breadcrumbPrefix="B2B Portal / Self Drive Bikes"
+                onBack={() => setDetailVehicle(null)}
+                onBook={(veh) => {
+                  const targetVeh = veh || detailVehicle;
+                  setDetailVehicle(null);
+                  handleSelectToBook(targetVeh);
+                }}
+              />
+            ) : (
+              <CarDetailsPage
+                car={detailVehicle}
+                pickupDate={pickupDate}
+                dropDate={dropDate}
+                bookingDays={daysCount}
+                actionLabel="Book for Guest"
+                backLabel="Back to B2B Fleet"
+                breadcrumbPrefix="B2B Portal / Self Drive Cars"
+                onBack={() => setDetailVehicle(null)}
+                onBook={(veh) => {
+                  const targetVeh = veh || detailVehicle;
+                  setDetailVehicle(null);
+                  handleSelectToBook(targetVeh);
+                }}
+              />
+            )}
+          </div>
+        )}
+      </B2BModalPortal>
     </div>
   );
 }

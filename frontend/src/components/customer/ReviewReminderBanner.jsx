@@ -41,6 +41,20 @@ export default function ReviewReminderBanner({
       <div className="d-flex align-items-center gap-2 flex-shrink-0 ms-auto ms-sm-0">
         <button
           type="button"
+          className="btn btn-sm px-3 py-1.5 rounded-pill fw-semibold text-secondary"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #CBD5E1',
+            fontSize: '12.5px'
+          }}
+          onClick={() => onDismiss && onDismiss(bookingId, 'maybe_later')}
+          title="Maybe Later"
+        >
+          Maybe Later
+        </button>
+
+        <button
+          type="button"
           className="btn btn-sm px-3.5 py-2 rounded-pill fw-bold text-white shadow-sm d-flex align-items-center gap-1.5"
           style={{
             background: 'linear-gradient(135deg, #FF6333 0%, #FF8A00 100%)',
@@ -56,7 +70,7 @@ export default function ReviewReminderBanner({
         <button
           type="button"
           className="btn btn-sm btn-link text-muted p-1"
-          onClick={() => onDismiss && onDismiss(bookingId)}
+          onClick={() => onDismiss && onDismiss(bookingId, 'close')}
           title="Dismiss reminder"
           aria-label="Dismiss reminder"
         >

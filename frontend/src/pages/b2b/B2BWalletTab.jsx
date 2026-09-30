@@ -5,6 +5,7 @@ import {
   Search, Filter, ExternalLink, ArrowRight, Info, Zap
 } from 'lucide-react';
 import { fetchB2BWallet, rechargeB2BWallet } from '../../services/api';
+import B2BModalPortal from '../../components/b2b/B2BModalPortal';
 
 export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
   const [walletData, setWalletData] = useState(null);
@@ -439,13 +440,13 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
       </div>
 
       {/* Instant Recharge Modal */}
-      {isRechargeModalOpen && (
-        <div 
-          className="modal fade show d-block" 
-          tabIndex="-1" 
-          style={{ backgroundColor: 'rgba(13, 27, 46, 0.75)', zIndex: 1060 }}
-        >
-          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '520px' }}>
+      <B2BModalPortal
+        isOpen={isRechargeModalOpen}
+        onClose={() => setIsRechargeModalOpen(false)}
+        ariaLabel="Recharge Agent Wallet Modal"
+      >
+        {isRechargeModalOpen && (
+          <div className="modal-dialog modal-dialog-centered w-100 my-0" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
               <div className="modal-header border-bottom py-3 px-4 bg-light">
                 <div className="d-flex align-items-center gap-2">
@@ -626,8 +627,8 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
               </form>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </B2BModalPortal>
     </div>
   );
 }

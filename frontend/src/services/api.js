@@ -67,6 +67,13 @@ export async function apiFetch(url, options = {}) {
     }
   }
 
+  if (!headers['X-User-Role']) {
+    try {
+      const curr = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      if (curr?.role) headers['X-User-Role'] = curr.role;
+    } catch (e) {}
+  }
+
   // Ensure fresh real-time responses: cache-busting timestamp and auth_token query param
   let targetUrl = url;
   const method = (options.method || 'GET').toUpperCase();
@@ -2622,17 +2629,6 @@ export async function deleteVendorPaymentMethod(id) {
 export const saveVendorPaymentMethod = addVendorPaymentMethod;
 
 export async function updateBookingStatus(id, status, paymentStatus = null) {
-  // Update local storage bookings first as client-side fallback
-  try {
-    const localBookings = JSON.parse(localStorage.getItem('local_bookings') || '[]');
-    const idx = localBookings.findIndex(b => String(b.id) === String(id));
-    if (idx !== -1) {
-      localBookings[idx].status = status;
-      if (paymentStatus) localBookings[idx].payment_status = paymentStatus;
-      localStorage.setItem('local_bookings', JSON.stringify(localBookings));
-    }
-  } catch (e) {}
-
   let result = { success: true, message: 'Status updated successfully' };
   try {
     const payload = { action: 'update_booking_status', id, status };
@@ -2642,13 +2638,35 @@ export async function updateBookingStatus(id, status, paymentStatus = null) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.success) result = data;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || (data && data.success === false)) {
+      const err = new Error(data.error || 'Failed to update booking status');
+      err.code = data.code;
+      err.balance = data.balance;
+      err.negative_booking_count = data.negative_booking_count;
+      err.max_negative_bookings = data.max_negative_bookings;
+      err.data = data;
+      throw err;
     }
+    if (data && data.success) result = data;
   } catch (err) {
-    console.warn('[API] update_booking_status backend error, using local fallback:', err.message);
+    if (err.code === 'WALLET_BLOCKED') {
+      throw err;
+    }
+    console.warn('[API] update_booking_status error:', err.message);
+    throw err;
   }
+
+  // Update local storage bookings on genuine success
+  try {
+    const localBookings = JSON.parse(localStorage.getItem('local_bookings') || '[]');
+    const idx = localBookings.findIndex(b => String(b.id) === String(id));
+    if (idx !== -1) {
+      localBookings[idx].status = status;
+      if (paymentStatus) localBookings[idx].payment_status = paymentStatus;
+      localStorage.setItem('local_bookings', JSON.stringify(localBookings));
+    }
+  } catch (e) {}
 
   // Fire real-time events across windows and components
   try {
@@ -2849,6 +2867,49 @@ export const createActivity = createAddOn;
 export const updateActivity = updateAddOn;
 export const deleteActivity = deleteAddOn;
 
+// ─── Hotel Booking Settings API ──────────────────────────────────────────
+export async function fetchHotelBookingSettings() {
+  try {
+    const res = await apiFetch(`${API_BASE}?resource=hotel_booking_settings`, { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn('[API] fetchHotelBookingSettings error:', err.message);
+  }
+  return { success: true, hotel_booking_driver_enabled: true, driver_option_enabled: true };
+}
+
+export async function updateHotelBookingSettings(settings) {
+  const payload = typeof settings === 'boolean' 
+    ? { hotel_booking_driver_enabled: settings, driver_enabled: settings } 
+    : settings;
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'update_hotel_booking_settings',
+      ...payload
+    })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || data.message || 'Failed to update hotel booking settings');
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('hotel-booking-settings-updated', { detail: data }));
+    window.dispatchEvent(new CustomEvent('tripgalileo-setting-sync', { detail: data }));
+    try {
+      if ('BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('tripgalileo-hotel-settings');
+        bc.postMessage({ type: 'settings_updated', ...data });
+        bc.close();
+      }
+    } catch (e) {}
+  }
+  return data;
+}
 
 export async function fetchPaymentSettings() {
   try {
@@ -3720,6 +3781,54 @@ export async function fetchEligibleReviewBookings(query) {
   }
   return [];
 }
+
+/**
+ * Authoritatively check if a booking has a submitted review in the backend database
+ * @param {string|number} bookingId
+ * @returns {Promise<{ success: boolean, booking_id: string, has_reviewed: boolean, review: Object|null }>}
+ */
+export async function checkBookingReviewStatus(bookingId) {
+  if (!bookingId) return { success: true, booking_id: bookingId, has_reviewed: false, review: null };
+  try {
+    const res = await apiFetch(`${API_BASE}?resource=booking_review_status&booking_id=${encodeURIComponent(bookingId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn('[API] checkBookingReviewStatus error:', err.message);
+  }
+  return { success: false, booking_id: bookingId, has_reviewed: false, review: null };
+}
+
+/**
+ * Fetch all booking IDs that have already been reviewed by this customer in the backend database
+ * @param {string|Object} query phone number string or object with phone/email/customer_id
+ * @returns {Promise<string[]>}
+ */
+export async function fetchCustomerReviewedBookingIds(query) {
+  const phone = typeof query === 'string' ? query : (query?.phone || query?.mobile || '');
+  const email = typeof query === 'object' ? (query?.email || '') : '';
+  const customerId = typeof query === 'object' ? (query?.customer_id || query?.id || '') : '';
+
+  const params = new URLSearchParams();
+  params.set('resource', 'customer_reviewed_booking_ids');
+  if (phone) params.set('phone', phone);
+  if (email) params.set('email', email);
+  if (customerId) params.set('customer_id', customerId);
+
+  try {
+    const res = await apiFetch(`${API_BASE}?${params.toString()}`);
+    if (res.ok) {
+      const data = await res.json();
+      return Array.isArray(data.reviewed_booking_ids) ? data.reviewed_booking_ids.map(String) : [];
+    }
+  } catch (err) {
+    console.warn('[API] fetchCustomerReviewedBookingIds error:', err.message);
+  }
+  return [];
+}
+
 
 /**
  * Fetch published reviews for public customer view

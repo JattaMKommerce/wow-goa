@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, AlertCircle, Building, MapPin, Calendar, Upload, X } from 'lucide-react';
 import { uploadImage, updateHotelAvailability, updateBookingStatus } from '../../services/api';
+import WalletRechargeRequiredModal from '../../components/vendor/WalletRechargeRequiredModal';
 
 export default function HotelVendorDashboard({
   activeTab,
@@ -23,6 +24,7 @@ export default function HotelVendorDashboard({
   const [badge, setBadge] = useState('Standard');
   const [description, setDescription] = useState('');
   const [editingHotelId, setEditingHotelId] = useState(null);
+  const [blockedModal, setBlockedModal] = useState({ show: false, balance: 0 });
   
   const handleEditHotelClick = (h) => {
     setEditingHotelId(h.id);
@@ -384,7 +386,11 @@ export default function HotelVendorDashboard({
                             window.dispatchEvent(new CustomEvent('tripgalileo-booking-sync', { detail: { bookingId: b.id, status: newSt } }));
                             alert(`Booking #${b.id} updated to ${newSt}`);
                           } catch (err) {
-                            alert('Failed to update: ' + err.message);
+                            if (err.code === 'WALLET_BLOCKED' || (err.message && err.message.includes('WALLET_BLOCKED'))) {
+                              setBlockedModal({ show: true, balance: err.balance !== undefined ? err.balance : -800 });
+                            } else {
+                              alert('Failed to update: ' + err.message);
+                            }
                           }
                         };
 
@@ -501,7 +507,11 @@ export default function HotelVendorDashboard({
           </div>
         </div>
       )}
-
+      <WalletRechargeRequiredModal
+        show={blockedModal.show}
+        balance={blockedModal.balance}
+        onClose={() => setBlockedModal({ show: false, balance: 0 })}
+      />
     </div>
   );
 }

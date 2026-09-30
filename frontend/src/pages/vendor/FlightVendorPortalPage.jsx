@@ -7,6 +7,7 @@ import {
   Luggage, Clock, ShieldCheck, TrendingUp, Phone, Mail
 } from 'lucide-react';
 import VendorWallet from '../../components/vendor/VendorWallet';
+import WalletRechargeRequiredModal from '../../components/vendor/WalletRechargeRequiredModal';
 import * as api from '../../services/api';
 import { calculateFlightDuration } from '../../utils/flightHelper';
 
@@ -774,6 +775,7 @@ function FlightBookings({ bookings, onUpdateStatus }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [updatingId, setUpdatingId] = useState(null);
+  const [blockedModal, setBlockedModal] = useState({ show: false, balance: 0 });
 
   const filtered = useMemo(() => {
     return bookings.filter(b => {
@@ -803,7 +805,11 @@ function FlightBookings({ bookings, onUpdateStatus }) {
       window.dispatchEvent(new CustomEvent('booking-status-updated', { detail: { bookingId, status: newStatus } }));
       window.dispatchEvent(new CustomEvent('tripgalileo-booking-sync', { detail: { bookingId, status: newStatus } }));
     } catch (err) {
-      alert('Failed to update booking status: ' + (err.message || 'Network error'));
+      if (err.code === 'WALLET_BLOCKED' || (err.message && err.message.includes('WALLET_BLOCKED'))) {
+        setBlockedModal({ show: true, balance: err.balance !== undefined ? err.balance : -800 });
+      } else {
+        alert('Failed to update booking status: ' + (err.message || 'Network error'));
+      }
     } finally {
       setUpdatingId(null);
     }
@@ -951,6 +957,11 @@ function FlightBookings({ bookings, onUpdateStatus }) {
           </div>
         )}
       </div>
+      <WalletRechargeRequiredModal
+        show={blockedModal.show}
+        balance={blockedModal.balance}
+        onClose={() => setBlockedModal({ show: false, balance: 0 })}
+      />
     </div>
   );
 }
@@ -1462,11 +1473,12 @@ export default function FlightVendorPortalPage({
   }, [bookings]);
 
   const handleUpdateBookingStatus = async (bookingId, newStatus) => {
-    setLocalBookings(prev => prev.map(b => String(b.id) === String(bookingId) ? { ...b, status: newStatus } : b));
     try {
       await api.updateBookingStatus(bookingId, newStatus);
+      setLocalBookings(prev => prev.map(b => String(b.id) === String(bookingId) ? { ...b, status: newStatus } : b));
     } catch (e) {
       console.warn('Booking status update background sync:', e);
+      throw e;
     }
   };
 

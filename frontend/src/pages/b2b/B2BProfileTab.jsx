@@ -4,6 +4,7 @@ import {
   Wallet, CreditCard, Clock, AlertCircle, CheckCircle2, ArrowRight, Lock, Check
 } from 'lucide-react';
 import * as api from '../../services/api';
+import B2BModalPortal from '../../components/b2b/B2BModalPortal';
 
 export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh }) {
   if (!partnerUser) return null;
@@ -169,9 +170,13 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
       </div>
 
       {/* Edit Company Profile & Branding Modal */}
-      {editProfileOpen && (
-        <div className="modal-backdrop-custom d-flex align-items-center justify-content-center p-3" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', zIndex: 99999 }}>
-          <div className="card border-0 rounded-4 shadow-2xl p-4 bg-white" style={{ maxWidth: '580px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+      <B2BModalPortal
+        isOpen={editProfileOpen}
+        onClose={() => setEditProfileOpen(false)}
+        ariaLabel="Edit Agency Profile & Invoice Branding"
+      >
+        {editProfileOpen && (
+          <div className="card border-0 rounded-4 shadow-2xl p-4 bg-white" style={{ maxWidth: '580px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div className="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
               <h6 className="fw-bold mb-0 font-heading text-dark">Edit Agency Profile &amp; Invoice Branding</h6>
               <button type="button" className="btn btn-link text-muted p-0" onClick={() => setEditProfileOpen(false)}>
@@ -280,8 +285,8 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </B2BModalPortal>
 
       {/* Authorized Pricing Modes & Additional Mode Request Section */}
       <div className="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">

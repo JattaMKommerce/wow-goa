@@ -60,9 +60,12 @@ export default function VendorWallet({ currentUser }) {
   useEffect(() => { if (vendorId) load(); }, [vendorId]);
 
   const balance = Number(wallet?.balance || 0);
+  const maxNegBookings = Number(wallet?.max_negative_bookings || 2);
+  const negBookingCount = Number(wallet?.negative_booking_count || 0);
+  const isBlocked = Boolean(wallet?.is_blocked) || (balance < 0 && negBookingCount >= maxNegBookings);
+  const isNegative = balance < 0;
   const LOW_BALANCE_THRESHOLD = minRecharge;
-  const isLow = balance < LOW_BALANCE_THRESHOLD;
-  const isEmpty = balance <= 0;
+  const isLow = !isNegative && balance < LOW_BALANCE_THRESHOLD;
 
   const totalCredits = transactions.filter(t => t.type === 'credit' && t.status === 'Completed').reduce((s, t) => s + Number(t.amount), 0);
   const totalDebits = transactions.filter(t => t.type === 'debit').reduce((s, t) => s + Number(t.amount), 0);
@@ -79,9 +82,11 @@ export default function VendorWallet({ currentUser }) {
 
   const handleRechargeSubmit = async () => {
     const amt = Number(rechargeAmount);
-    if (!amt || amt < minRecharge) return alert(`Minimum recharge amount is ₹${minRecharge.toLocaleString()}`);
+    if (!amt || amt <= 0) return alert(`Please enter a valid recharge amount.`);
+    if (amt < minRecharge) return alert(`Minimum recharge amount is ₹${minRecharge.toLocaleString()}`);
     if (!activeRechargeMethod) return alert('Select a payment method');
-    if (['bank_transfer', 'upi', 'manual'].includes(activeRechargeMethod.type) && !proofFile) return alert('Please upload payment proof');
+    if (!utrRef.trim()) return alert('Please enter the UTR / Transaction Reference Number');
+    if (!proofFile) return alert('Please upload the payment screenshot proof');
 
     setSubmitting(true);
     try {
@@ -104,7 +109,7 @@ export default function VendorWallet({ currentUser }) {
           amount: amt,
           payment_method: activeRechargeMethod.name,
           payment_proof: proofUrl,
-          reference_id: utrRef,
+          reference_id: utrRef.trim(),
           payment_date: paymentDate,
           notes,
         })
@@ -136,28 +141,50 @@ export default function VendorWallet({ currentUser }) {
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div>
           <h5 className="fw-bold mb-0" style={{ color: COLORS.dark, fontSize: '16px' }}>My Wallet</h5>
-          <p className="mb-0 mt-1" style={{ fontSize: '0.78rem', color: '#64748b' }}>Platform fee wallet — recharge to accept bookings</p>
+          <p className="mb-0 mt-1" style={{ fontSize: '0.78rem', color: '#64748b' }}>Platform fee wallet — recharge to maintain booking confirmation limits</p>
         </div>
         <button className="btn btn-sm" onClick={load} title="Refresh"><RefreshCw size={14} /></button>
       </div>
 
-      {/* Low / Empty Balance Warning */}
-      {isEmpty && (
+      {/* Blocked Balance Warning */}
+      {isBlocked && (
         <div className="rounded-3 p-3 mb-4 d-flex align-items-center gap-3" style={{ background: '#fee2e2', border: '1.5px solid #dc2626' }}>
-          <XCircle size={20} style={{ color: '#dc2626', flexShrink: 0 }} />
+          <XCircle size={24} style={{ color: '#dc2626', flexShrink: 0 }} />
           <div>
-            <div className="fw-bold" style={{ color: '#dc2626' }}>Wallet Empty — Bookings Suspended</div>
-            <div style={{ fontSize: '0.8rem', color: '#7f1d1d' }}>Your wallet is empty. You cannot accept new bookings. Recharge now to resume.</div>
+            <div className="fw-bold" style={{ color: '#dc2626' }}>WALLET RECHARGE REQUIRED — Bookings Suspended</div>
+            <div style={{ fontSize: '0.8rem', color: '#7f1d1d' }}>
+              Your wallet balance is insufficient (-₹{Math.abs(balance).toLocaleString()}) and you have reached the maximum number of bookings allowed with a negative wallet balance ({negBookingCount}/{maxNegBookings}). Recharge now to resume accepting bookings.
+            </div>
           </div>
-          <button className="btn ms-auto fw-bold text-white px-3 py-1" style={{ background: '#dc2626', fontSize: '0.8rem', whiteSpace: 'nowrap' }} onClick={() => setShowRecharge(true)}>Recharge Now</button>
+          <button className="btn ms-auto fw-bold text-white px-3 py-1.5 rounded-pill shadow-sm" style={{ background: '#dc2626', fontSize: '0.8rem', whiteSpace: 'nowrap' }} onClick={() => setShowRecharge(true)}>
+            Recharge Now
+          </button>
         </div>
       )}
-      {isLow && !isEmpty && (
+
+      {/* Negative but Not Blocked Notice */}
+      {isNegative && !isBlocked && (
+        <div className="rounded-3 p-3 mb-4 d-flex align-items-center gap-3" style={{ background: '#fffbeb', border: '1.5px solid #f59e0b' }}>
+          <AlertTriangle size={22} style={{ color: '#d97706', flexShrink: 0 }} />
+          <div>
+            <div className="fw-bold" style={{ color: '#92400e' }}>Negative Wallet Balance (-₹{Math.abs(balance).toLocaleString()})</div>
+            <div style={{ fontSize: '0.8rem', color: '#92400e' }}>
+              You have used {negBookingCount} of {maxNegBookings} allowed bookings while your wallet is negative. Recharge soon to avoid automatic booking suspension.
+            </div>
+          </div>
+          <button className="btn ms-auto fw-bold px-3 py-1.5 rounded-pill shadow-sm" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', fontSize: '0.8rem', whiteSpace: 'nowrap' }} onClick={() => setShowRecharge(true)}>
+            Recharge Wallet
+          </button>
+        </div>
+      )}
+
+      {/* Low Balance Warning */}
+      {isLow && (
         <div className="rounded-3 p-3 mb-4 d-flex align-items-center gap-3" style={{ background: '#fef9c3', border: '1.5px solid #ca8a04' }}>
           <AlertTriangle size={20} style={{ color: '#ca8a04', flexShrink: 0 }} />
           <div>
             <div className="fw-bold" style={{ color: '#92400e' }}>Low Wallet Balance</div>
-            <div style={{ fontSize: '0.8rem', color: '#92400e' }}>Balance is below ₹{LOW_BALANCE_THRESHOLD.toLocaleString()}. Recharge to avoid booking suspension.</div>
+            <div style={{ fontSize: '0.8rem', color: '#92400e' }}>Balance is below ₹{LOW_BALANCE_THRESHOLD.toLocaleString()}. Recharge to maintain sufficient funds for platform fees.</div>
           </div>
           <button className="btn ms-auto fw-bold px-3 py-1" style={{ background: '#fef9c3', color: '#92400e', border: '1px solid #ca8a04', fontSize: '0.8rem', whiteSpace: 'nowrap' }} onClick={() => setShowRecharge(true)}>Recharge</button>
         </div>
@@ -174,11 +201,15 @@ export default function VendorWallet({ currentUser }) {
       {/* Stats */}
       <div className="row g-3 mb-4">
         <div className="col-md-4">
-          <div className="rounded-3 p-4 text-center h-100" style={{ background: `linear-gradient(135deg,${COLORS.dark},#1e3a5f)`, border: '1px solid rgba(255,255,255,0.06)' }}>
-            <Wallet size={28} style={{ color: COLORS.primary }} className="mb-2" />
-            <div className="fw-bold text-white" style={{ fontSize: '2rem' }}>₹{balance.toLocaleString()}</div>
-            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem' }}>Available Balance</div>
-            {pendingCredits > 0 && <div style={{ color: '#FFC107', fontSize: '0.72rem', marginTop: '4px' }}>+₹{pendingCredits.toLocaleString()} pending</div>}
+          <div className="rounded-3 p-4 text-center h-100" style={{ background: isNegative ? 'linear-gradient(135deg, #1f1215, #381219)' : `linear-gradient(135deg,${COLORS.dark},#1e3a5f)`, border: isNegative ? '1px solid rgba(220,38,38,0.3)' : '1px solid rgba(255,255,255,0.06)' }}>
+            <Wallet size={28} style={{ color: isNegative ? '#ef4444' : COLORS.primary }} className="mb-2" />
+            <div className="fw-bold" style={{ fontSize: '2rem', color: isNegative ? '#ef4444' : '#fff' }}>
+              {balance < 0 ? `-₹${Math.abs(balance).toLocaleString()}` : `₹${balance.toLocaleString()}`}
+            </div>
+            <div style={{ color: isNegative ? '#fca5a5' : 'rgba(255,255,255,0.5)', fontSize: '0.78rem' }}>
+              {isNegative ? `Negative Balance (${negBookingCount}/${maxNegBookings} used)` : 'Available Balance'}
+            </div>
+            {pendingCredits > 0 && <div style={{ color: '#FFC107', fontSize: '0.72rem', marginTop: '4px' }}>+₹{pendingCredits.toLocaleString()} pending approval</div>}
           </div>
         </div>
         <div className="col-md-4">
@@ -198,14 +229,14 @@ export default function VendorWallet({ currentUser }) {
               <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>Total Deducted</span>
             </div>
             <div className="fw-bold" style={{ fontSize: '1.5rem', color: COLORS.danger }}>₹{totalDebits.toLocaleString()}</div>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Booking fees & charges</div>
+            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Booking platform fees</div>
           </div>
         </div>
       </div>
 
       {/* Recharge Button */}
       {!showRecharge && (
-        <button className="btn px-5 py-2 fw-bold text-white d-flex align-items-center gap-2 rounded-3 mb-4" style={{ background: `linear-gradient(90deg,${COLORS.primary},#FF8A00)` }} onClick={() => setShowRecharge(true)}>
+        <button className="btn px-5 py-2 fw-bold text-white d-flex align-items-center gap-2 rounded-3 mb-4 shadow-sm" style={{ background: `linear-gradient(90deg,${COLORS.primary},#FF8A00)` }} onClick={() => setShowRecharge(true)}>
           <ArrowUpRight size={16} /> Recharge Wallet
         </button>
       )}
@@ -223,7 +254,7 @@ export default function VendorWallet({ currentUser }) {
             <input type="number" className="form-control" value={rechargeAmount} onChange={e => setRechargeAmount(e.target.value)} min={minRecharge} placeholder={`Min ₹${minRecharge.toLocaleString()}`} style={{ fontSize: '1.1rem', fontWeight: 700 }} />
             {/* Quick amounts */}
             <div className="d-flex gap-2 mt-2">
-              {[5000, 10000, 25000, 50000].map(a => (
+              {[2000, 5000, 10000, 25000].map(a => (
                 <button key={a} type="button" className="btn btn-sm px-2 py-1 rounded-pill fw-bold" style={{ fontSize: '0.72rem', background: rechargeAmount == a ? COLORS.primary : '#f1f5f9', color: rechargeAmount == a ? '#fff' : '#475569' }} onClick={() => setRechargeAmount(String(a))}>₹{a.toLocaleString()}</button>
               ))}
             </div>
@@ -244,14 +275,29 @@ export default function VendorWallet({ currentUser }) {
             </div>
           </div>
 
-          {/* Gateway details */}
+          {/* Gateway details and Super Admin QR Display */}
           {activeRechargeMethod && (
             <div className="rounded-2 p-3 mb-3" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
               {(() => {
-                const cfg = typeof activeRechargeMethod.config_json === 'string' ? JSON.parse(activeRechargeMethod.config_json || '{}') : {};
+                const cfg = typeof activeRechargeMethod.config_json === 'string' ? JSON.parse(activeRechargeMethod.config_json || '{}') : (activeRechargeMethod.config_json || {});
+                const qrUrl = cfg.qr_url || cfg.qr_image || cfg.qrCode || null;
                 return (
                   <>
-                    {Object.entries(cfg).filter(([k]) => !k.includes('secret') && !k.includes('qr')).map(([k, v]) => v && (
+                    {qrUrl && (
+                      <div className="text-center my-2 p-3 bg-white rounded-3 border">
+                        <div className="fw-bold mb-2 text-dark small">Super Admin Payment QR</div>
+                        <img 
+                          src={qrUrl} 
+                          alt="Super Admin Recharge QR" 
+                          style={{ maxWidth: '180px', maxHeight: '180px', objectFit: 'contain' }} 
+                          className="rounded-2 shadow-sm border p-1 bg-white" 
+                        />
+                        <div className="text-muted mt-1 small" style={{ fontSize: '0.72rem' }}>
+                          Scan using PhonePe, Google Pay, Paytm, or any UPI App to recharge
+                        </div>
+                      </div>
+                    )}
+                    {Object.entries(cfg).filter(([k]) => !k.toLowerCase().includes('secret') && !k.toLowerCase().includes('password') && !k.toLowerCase().includes('qr')).map(([k, v]) => v && (
                       <div key={k} style={{ fontSize: '0.78rem', color: '#374151' }}>
                         <span className="fw-bold" style={{ color: '#94a3b8', textTransform: 'uppercase', fontSize: '0.65rem' }}>{k.replace(/_/g, ' ')}: </span>
                         <span className="fw-bold">{v}</span>
@@ -268,13 +314,17 @@ export default function VendorWallet({ currentUser }) {
           {activeRechargeMethod && ['bank_transfer', 'upi', 'manual'].includes(activeRechargeMethod.type) && (
             <div className="row g-2 mb-3">
               <div className="col-12">
-                <label className="form-label fw-bold" style={{ fontSize: '0.78rem', color: '#475569' }}>Payment Screenshot *</label>
-                <input type="file" className="form-control form-control-sm" accept="image/*" onChange={handleFileChange} />
-                {proofPreview && <img src={proofPreview} alt="proof" className="mt-2 rounded-2" style={{ maxHeight: '100px', objectFit: 'cover' }} />}
+                <label className="form-label fw-bold" style={{ fontSize: '0.78rem', color: '#475569' }}>
+                  Payment Screenshot Proof <span className="text-danger">*</span>
+                </label>
+                <input type="file" className="form-control form-control-sm" accept="image/*" onChange={handleFileChange} required />
+                {proofPreview && <img src={proofPreview} alt="proof" className="mt-2 rounded-2 border" style={{ maxHeight: '120px', objectFit: 'cover' }} />}
               </div>
               <div className="col-md-6">
-                <label className="form-label" style={{ fontSize: '0.78rem', color: '#475569' }}>UTR / Reference Number</label>
-                <input className="form-control form-control-sm" value={utrRef} onChange={e => setUtrRef(e.target.value)} placeholder="Transaction ID..." />
+                <label className="form-label fw-bold" style={{ fontSize: '0.78rem', color: '#475569' }}>
+                  UTR / Reference Number <span className="text-danger">*</span>
+                </label>
+                <input className="form-control form-control-sm" value={utrRef} onChange={e => setUtrRef(e.target.value)} placeholder="Transaction / UTR ID..." required />
               </div>
               <div className="col-md-6">
                 <label className="form-label" style={{ fontSize: '0.78rem', color: '#475569' }}>Payment Date</label>
@@ -282,14 +332,14 @@ export default function VendorWallet({ currentUser }) {
               </div>
               <div className="col-12">
                 <label className="form-label" style={{ fontSize: '0.78rem', color: '#475569' }}>Notes (Optional)</label>
-                <textarea className="form-control form-control-sm" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
+                <textarea className="form-control form-control-sm" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add transaction remarks or account reference..." />
               </div>
             </div>
           )}
 
           <div className="d-flex flex-wrap gap-2">
             <button className="btn btn-light fw-bold px-4" onClick={() => setShowRecharge(false)}>Cancel</button>
-            <button className="btn fw-bold px-4 px-sm-5 text-white rounded-3" style={{ background: `linear-gradient(90deg,${COLORS.primary},#FF8A00)` }} onClick={handleRechargeSubmit} disabled={submitting}>
+            <button className="btn fw-bold px-4 px-sm-5 text-white rounded-3 shadow-sm" style={{ background: `linear-gradient(90deg,${COLORS.primary},#FF8A00)` }} onClick={handleRechargeSubmit} disabled={submitting}>
               {submitting ? 'Submitting...' : 'Submit Recharge Request'}
             </button>
           </div>
@@ -314,7 +364,16 @@ export default function VendorWallet({ currentUser }) {
               {transactions.map(t => (
                 <tr key={t.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
                   <td className="px-3 py-2 fw-bold" style={{ color: '#2563eb', fontSize: '0.72rem' }}>#{t.id}</td>
-                  <td className="px-3 py-2" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</td>
+                  <td className="px-3 py-2" style={{ maxWidth: '240px' }}>
+                    <div className="text-truncate">{t.description}</div>
+                    {t.reference_id && <div className="text-muted" style={{ fontSize: '0.68rem' }}>Ref / UTR: <span className="fw-bold">{t.reference_id}</span></div>}
+                    {t.status === 'Rejected' && t.rejection_reason && (
+                      <div className="text-danger fw-bold" style={{ fontSize: '0.68rem' }}>Reason: {t.rejection_reason}</div>
+                    )}
+                    {t.balance_before !== null && t.balance_after !== null && (
+                      <div className="text-muted" style={{ fontSize: '0.65rem' }}>Balance: ₹{Number(t.balance_before).toLocaleString()} → ₹{Number(t.balance_after).toLocaleString()}</div>
+                    )}
+                  </td>
                   <td className="px-3 py-2 fw-bold" style={{ color: t.type === 'credit' ? COLORS.success : COLORS.danger }}>
                     {t.type === 'credit' ? '+' : '-'}₹{Number(t.amount).toLocaleString()}
                   </td>

@@ -481,11 +481,18 @@ if (!$connected) {
             )",
             "CREATE INDEX IF NOT EXISTS idx_cust_rev_booking ON customer_reviews(booking_id)",
             "CREATE INDEX IF NOT EXISTS idx_cust_rev_rating ON customer_reviews(rating DESC)",
-            "CREATE INDEX IF NOT EXISTS idx_cust_rev_created ON customer_reviews(created_at DESC)"
+            "CREATE INDEX IF NOT EXISTS idx_cust_rev_created ON customer_reviews(created_at DESC)",
+            "ALTER TABLE global_settings ADD COLUMN hotel_booking_driver_enabled INT DEFAULT 1"
         ];
         foreach ($drvAlters as $da) {
             try { $pdo->exec($da); } catch (Exception $e) {}
         }
+        try {
+            $gsInitCount = $pdo->query("SELECT COUNT(*) FROM global_settings")->fetchColumn();
+            if (intval($gsInitCount) === 0) {
+                $pdo->exec("INSERT INTO global_settings (id, siteName, hotel_booking_driver_enabled) VALUES (1, 'TripGalileo', 1)");
+            }
+        } catch (Exception $e) {}
         try {
             $pdo->exec("UPDATE bookings SET customer_payment_utr = payment_reference WHERE (customer_payment_utr IS NULL OR customer_payment_utr = '') AND payment_reference IS NOT NULL AND payment_reference != ''");
             $pdo->exec("UPDATE bookings SET vendor_payout_utr = vendor_payout_reference WHERE (vendor_payout_utr IS NULL OR vendor_payout_utr = '') AND vendor_payout_reference IS NOT NULL AND vendor_payout_reference != ''");
@@ -683,7 +690,8 @@ function seedDatabaseIfEmpty($pdo) {
         "ALTER TABLE coupons ADD COLUMN admin_id VARCHAR(100) DEFAULT 'admin'",
         "ALTER TABLE destinations ADD COLUMN admin_id VARCHAR(100) DEFAULT 'admin'",
         "CREATE TABLE IF NOT EXISTS site_configs (id INT PRIMARY KEY AUTO_INCREMENT, admin_id VARCHAR(100) UNIQUE, domain VARCHAR(255) DEFAULT NULL, draft_config LONGTEXT DEFAULT NULL, live_config LONGTEXT DEFAULT NULL)",
-        "CREATE TABLE IF NOT EXISTS global_settings (id INT PRIMARY KEY AUTO_INCREMENT, siteName VARCHAR(255) DEFAULT 'TripGalileo', currency VARCHAR(50) DEFAULT 'INR', taxRate DECIMAL(5,2) DEFAULT 18, supportEmail VARCHAR(255) DEFAULT 'support@tripgalileo.com', whatsappNumber VARCHAR(100) DEFAULT '', smsProvider VARCHAR(100) DEFAULT 'none', darkMode BOOLEAN DEFAULT 0, maintenanceMode BOOLEAN DEFAULT 0)",
+        "CREATE TABLE IF NOT EXISTS global_settings (id INT PRIMARY KEY AUTO_INCREMENT, siteName VARCHAR(255) DEFAULT 'TripGalileo', currency VARCHAR(50) DEFAULT 'INR', taxRate DECIMAL(5,2) DEFAULT 18, supportEmail VARCHAR(255) DEFAULT 'support@tripgalileo.com', whatsappNumber VARCHAR(100) DEFAULT '', smsProvider VARCHAR(100) DEFAULT 'none', darkMode BOOLEAN DEFAULT 0, maintenanceMode BOOLEAN DEFAULT 0, hotel_booking_driver_enabled INT DEFAULT 1)",
+        "ALTER TABLE global_settings ADD COLUMN hotel_booking_driver_enabled INT DEFAULT 1",
         "CREATE TABLE IF NOT EXISTS wallets (id INT PRIMARY KEY AUTO_INCREMENT, vendor_id VARCHAR(100) UNIQUE, balance INT DEFAULT 0, reserved_commission INT DEFAULT 0, minimum_balance INT DEFAULT 0, negative_limit INT DEFAULT -1000, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)",
         "CREATE TABLE IF NOT EXISTS settlements (id INT PRIMARY KEY AUTO_INCREMENT, vendor_id VARCHAR(100), amount INT, bank_details TEXT, method VARCHAR(50), status VARCHAR(50) DEFAULT 'pending', reference VARCHAR(255), remarks TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         "ALTER TABLE wallets ADD COLUMN admin_id VARCHAR(100) DEFAULT 'admin'",
@@ -3947,6 +3955,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $eligible = $stmtE->fetchAll(PDO::FETCH_ASSOC);
 
             echo json_encode(["success" => true, "bookings" => $eligible]);
+            exit;} elseif ($resource === 'booking_review_status' || $action === 'get_booking_review_status' || $action === 'check_booking_review_status') {
+            $bookingId = trim($_GET['booking_id'] ?? ($_GET['id'] ?? ($payload['booking_id'] ?? ($payload['id'] ?? ''))));
+            if (empty($bookingId)) {
+                http_response_code(400);
+                echo json_encode(["success" => false, "error" => "Booking ID is required."]);
+                exit;
+            }
+            $stmtRev = $pdo->prepare("SELECT id, booking_id, customer_name, rating, review_text, created_at FROM customer_reviews WHERE booking_id = ? LIMIT 1");
+            $stmtRev->execute([$bookingId]);
+            $rev = $stmtRev->fetch(PDO::FETCH_ASSOC);
+            if ($rev) {
+                echo json_encode([
+                    "success" => true,
+                    "booking_id" => $bookingId,
+                    "has_reviewed" => true,
+                    "review" => [
+                        "id" => $rev['id'],
+                        "rating" => intval($rev['rating']),
+                        "review_text" => $rev['review_text'],
+                        "created_at" => $rev['created_at']
+                    ]
+                ]);
+            } else {
+                echo json_encode([
+                    "success" => true,
+                    "booking_id" => $bookingId,
+                    "has_reviewed" => false,
+                    "review" => null
+                ]);
+            }
+            exit;} elseif ($resource === 'customer_reviewed_booking_ids' || $action === 'get_customer_reviewed_booking_ids') {
+            $phone = preg_replace('/\D/', '', $_GET['phone'] ?? ($_GET['mobile'] ?? ($payload['phone'] ?? ($payload['mobile'] ?? ''))));
+            $email = strtolower(trim($_GET['email'] ?? ($payload['email'] ?? '')));
+            $customerId = trim($_GET['customer_id'] ?? ($payload['customer_id'] ?? ''));
+            $actor = authenticateRequest($pdo, false);
+            if ($actor) {
+                if (!$phone) $phone = preg_replace('/\D/', '', $actor['phone'] ?? ($actor['username'] ?? ''));
+                if (!$email) $email = strtolower(trim($actor['email'] ?? ''));
+                if (!$customerId) $customerId = trim($actor['id'] ?? '');
+            }
+            $whereClauses = [];
+            $params = [];
+            if (!empty($phone)) {
+                $last10 = strlen($phone) >= 10 ? substr($phone, -10) : $phone;
+                $whereClauses[] = "(customer_phone != '' AND (customer_phone LIKE ? OR customer_phone LIKE ?))";
+                $params[] = "%$last10";
+                $params[] = "%$phone";
+            }
+            if (!empty($email)) {
+                $whereClauses[] = "(customer_email != '' AND LOWER(customer_email) = ?)";
+                $params[] = $email;
+            }
+            if (!empty($customerId)) {
+                $whereClauses[] = "(customer_id = ?)";
+                $params[] = $customerId;
+            }
+            if (empty($whereClauses)) {
+                echo json_encode(["success" => true, "reviewed_booking_ids" => []]);
+                exit;
+            }
+            $sqlRev = "SELECT DISTINCT booking_id FROM customer_reviews WHERE " . implode(' OR ', $whereClauses);
+            $stmtR = $pdo->prepare($sqlRev);
+            $stmtR->execute($params);
+            $ids = $stmtR->fetchAll(PDO::FETCH_COLUMN);
+            echo json_encode(["success" => true, "reviewed_booking_ids" => array_values(array_unique(array_filter($ids ?: [])))]);
             exit;} elseif ($resource === 'destinations') {
             $stmt = $pdo->prepare("SELECT * FROM destinations WHERE (admin_id = ? OR admin_id IS NULL OR admin_id = '' OR admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin')");
             $stmt->execute([$tenant_id, $tenant_id, $tenant_id]);
@@ -5082,21 +5155,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 }
             }
 
-            foreach ($data as &$b) {
-                $depDate = $b['departure_date'] ?? ($b['pickup_date'] ?? '');
-                $retDate = $b['return_date'] ?? ($b['drop_date'] ?? '');
-                $b['departure_date'] = $depDate;
-                $b['pickup_date'] = $depDate;
-                $b['check_in_date'] = $depDate;
-                $b['return_date'] = $retDate;
-                $b['drop_date'] = $retDate;
-                $b['check_out_date'] = $retDate;
-                if (empty($b['duration']) && !empty($b['booking_days'])) {
-                    $b['duration'] = intval($b['booking_days']) . ' Nights / ' . (intval($b['booking_days']) + 1) . ' Days';
+            if (!empty($data)) {
+                $bookingIds = array_filter(array_map(function($b) { return $b['id'] ?? null; }, $data));
+                $reviewedMap = [];
+                if (!empty($bookingIds)) {
+                    $placeholders = implode(',', array_fill(0, count($bookingIds), '?'));
+                    $stmtRev = $pdo->prepare("SELECT booking_id, id as review_id, rating as review_rating, created_at as review_created_at FROM customer_reviews WHERE booking_id IN ($placeholders)");
+                    $stmtRev->execute(array_values($bookingIds));
+                    while ($rRow = $stmtRev->fetch(PDO::FETCH_ASSOC)) {
+                        $reviewedMap[strval($rRow['booking_id'])] = $rRow;
+                    }
                 }
-                // Strip internal B2B wholesale figures for customers
-                if ($isCustomerView) {
-                    unset($b['b2b_commission_amount'], $b['b2b_commission_rate'], $b['b2b_net_price'], $b['vendor_base_rate'], $b['vendor_payout'], $b['internal_notes']);
+                foreach ($data as &$b) {
+                    $bId = strval($b['id'] ?? '');
+                    if (isset($reviewedMap[$bId])) {
+                        $b['has_reviewed'] = true;
+                        $b['review_id'] = $reviewedMap[$bId]['review_id'];
+                        $b['review_rating'] = intval($reviewedMap[$bId]['review_rating']);
+                        $b['review_created_at'] = $reviewedMap[$bId]['review_created_at'];
+                    } else {
+                        $b['has_reviewed'] = false;
+                        $b['review_id'] = null;
+                        $b['review_rating'] = null;
+                        $b['review_created_at'] = null;
+                    }
+
+                    $depDate = $b['departure_date'] ?? ($b['pickup_date'] ?? '');
+                    $retDate = $b['return_date'] ?? ($b['drop_date'] ?? '');
+                    $b['departure_date'] = $depDate;
+                    $b['pickup_date'] = $depDate;
+                    $b['check_in_date'] = $depDate;
+                    $b['return_date'] = $retDate;
+                    $b['drop_date'] = $retDate;
+                    $b['check_out_date'] = $retDate;
+                    if (empty($b['duration']) && !empty($b['booking_days'])) {
+                        $b['duration'] = intval($b['booking_days']) . ' Nights / ' . (intval($b['booking_days']) + 1) . ' Days';
+                    }
+                    // Strip internal B2B wholesale figures for customers
+                    if ($isCustomerView) {
+                        unset($b['b2b_commission_amount'], $b['b2b_commission_rate'], $b['b2b_net_price'], $b['vendor_base_rate'], $b['vendor_payout'], $b['internal_notes']);
+                    }
                 }
             }
             echo json_encode($data ?: []);
@@ -5179,15 +5277,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             echo json_encode($data);
             exit;} elseif ($resource === 'vendor_payment_methods') {
             if (isset($_GET['vendor_id'])) {
-                $stmt = $pdo->prepare("SELECT * FROM vendor_payment_methods WHERE vendor_id = ? ORDER BY created_at DESC");
-                $stmt->execute([$_GET['vendor_id']]);
+                $requestedVendorId = $_GET['vendor_id'];
+                if (in_array($requestedVendorId, ['u-4', 'vendor', 'vendor-1', 'vendor-2'])) {
+                    $stmt = $pdo->query("SELECT * FROM vendor_payment_methods WHERE vendor_id IN ('u-4', 'vendor', 'vendor-1', 'vendor-2') ORDER BY created_at DESC");
+                } elseif (in_array($requestedVendorId, ['u-5', 'hotel_vendor', 'vendor-3'])) {
+                    $stmt = $pdo->query("SELECT * FROM vendor_payment_methods WHERE vendor_id IN ('u-5', 'hotel_vendor', 'vendor-3') ORDER BY created_at DESC");
+                } elseif (in_array($requestedVendorId, ['u-6', 'flight_vendor', 'vendor-4'])) {
+                    $stmt = $pdo->query("SELECT * FROM vendor_payment_methods WHERE vendor_id IN ('u-6', 'flight_vendor', 'vendor-4') ORDER BY created_at DESC");
+                } else {
+                    $stmt = $pdo->prepare("SELECT * FROM vendor_payment_methods WHERE vendor_id = ? ORDER BY created_at DESC");
+                    $stmt->execute([$requestedVendorId]);
+                }
             } else {
                 $stmt = $pdo->query("SELECT * FROM vendor_payment_methods ORDER BY created_at DESC");
             }
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode($data);
-            exit;} elseif ($resource === 'global_settings') { $stmt = $pdo->query("SELECT * FROM global_settings LIMIT 1"); $data = $stmt->fetch(PDO::FETCH_ASSOC); echo json_encode($data ? $data : (object)[]); exit; 
-            exit;} elseif ($resource === 'ai_settings' || $resource === 'chatbot_settings') {
+            exit;} elseif ($resource === 'global_settings') { 
+                $stmt = $pdo->query("SELECT * FROM global_settings LIMIT 1"); 
+                $data = $stmt->fetch(PDO::FETCH_ASSOC); 
+                if ($data && isset($data['hotel_booking_driver_enabled'])) {
+                    $data['hotel_booking_driver_enabled'] = (int)$data['hotel_booking_driver_enabled'] === 1;
+                }
+                echo json_encode($data ? $data : (object)[]); 
+                exit; 
+            } elseif ($resource === 'hotel_booking_settings' || $resource === 'hotel_booking_config') {
+                $stmt = $pdo->query("SELECT hotel_booking_driver_enabled FROM global_settings WHERE id = 1 LIMIT 1");
+                $val = $stmt ? $stmt->fetchColumn() : null;
+                $enabled = ($val !== false && $val !== null) ? ((int)$val === 1) : true;
+                echo json_encode([
+                    "success" => true,
+                    "hotel_booking_driver_enabled" => $enabled,
+                    "driver_option_enabled" => $enabled
+                ]);
+                exit;
+            } elseif ($resource === 'ai_settings' || $resource === 'chatbot_settings') {
                 $stmt = $pdo->query("SELECT * FROM ai_settings WHERE id = 1 LIMIT 1");
                 $data = $stmt->fetch(PDO::FETCH_ASSOC);
                 if (!$data) {
@@ -5240,8 +5364,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             echo json_encode($data);
             exit;} elseif ($resource === 'wallets' || $resource === 'vendor_wallets') {
             try {
-                $stmt = $pdo->query("SELECT * FROM vendor_wallets ORDER BY created_at DESC");
-                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                // Read global max negative bookings limit
+                $maxNeg = 2;
+                try {
+                    $stmtG = $pdo->query("SELECT max_negative_bookings FROM global_settings LIMIT 1");
+                    $gRow = $stmtG->fetch(PDO::FETCH_ASSOC);
+                    if ($gRow && isset($gRow['max_negative_bookings']) && intval($gRow['max_negative_bookings']) > 0) {
+                        $maxNeg = intval($gRow['max_negative_bookings']);
+                    }
+                } catch (Exception $e) {}
+
+                // Auto-initialize wallets for all known vendors in users and vendors if missing
+                try {
+                    $vendorRows = $pdo->query("
+                        SELECT id, role FROM users WHERE role IN ('vendor', 'hotel_vendor', 'flight_vendor')
+                        UNION
+                        SELECT id, role FROM vendors
+                    ")->fetchAll(PDO::FETCH_ASSOC);
+
+                    $insW = $pdo->prepare("INSERT OR IGNORE INTO vendor_wallets (id, vendor_id, balance, negative_booking_count, minimum_balance) VALUES (?, ?, 0, 0, 5000)");
+                    foreach ($vendorRows as $vr) {
+                        if (!empty($vr['id'])) {
+                            $insW->execute(['wall_' . $vr['id'], $vr['id']]);
+                        }
+                    }
+                } catch (Exception $e) {}
+
+                // Join vendor_wallets with users and vendors to provide Vendor Name, Vendor Type, Balance, etc.
+                $stmt = $pdo->query("
+                    SELECT 
+                        w.id,
+                        w.vendor_id,
+                        COALESCE(NULLIF(v.name, ''), NULLIF(u.name, ''), NULLIF(u.username, ''), w.vendor_id) AS vendor_name,
+                        COALESCE(NULLIF(v.role, ''), NULLIF(u.role, ''), 'vendor') AS vendor_type,
+                        w.balance,
+                        w.negative_booking_count,
+                        w.minimum_balance,
+                        w.negative_limit,
+                        w.created_at,
+                        w.updated_at
+                    FROM vendor_wallets w
+                    LEFT JOIN users u ON u.id = w.vendor_id OR u.username = w.vendor_id
+                    LEFT JOIN vendors v ON v.id = w.vendor_id
+                    ORDER BY w.updated_at DESC
+                ");
+                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                $data = array_map(function($r) use ($maxNeg) {
+                    $bal = round(floatval($r['balance'] ?? 0), 2);
+                    $negCount = intval($r['negative_booking_count'] ?? 0);
+                    $isBlocked = ($bal < 0 && $negCount >= $maxNeg);
+                    $rawType = strtolower($r['vendor_type'] ?? 'vendor');
+                    
+                    if (strpos($rawType, 'hotel') !== false) {
+                        $formattedType = 'Hotel Vendor';
+                    } elseif (strpos($rawType, 'flight') !== false) {
+                        $formattedType = 'Flight Vendor';
+                    } elseif (strpos($rawType, 'driver') !== false) {
+                        $formattedType = 'Driver Partner';
+                    } elseif ($rawType === 'b2b') {
+                        $formattedType = 'B2B Partner';
+                    } else {
+                        $formattedType = 'Vehicle Vendor';
+                    }
+
+                    $status = $isBlocked ? 'WALLET RECHARGE REQUIRED' : ($bal < 0 ? 'NEGATIVE (GRACE)' : 'ACTIVE');
+
+                    return [
+                        'id' => $r['id'],
+                        'vendor_id' => $r['vendor_id'],
+                        'vendor_name' => $r['vendor_name'] ?: $r['vendor_id'],
+                        'vendor_type' => $formattedType,
+                        'raw_vendor_type' => $r['vendor_type'],
+                        'balance' => $bal,
+                        'negative_booking_count' => $negCount,
+                        'max_negative_booking_limit' => $maxNeg,
+                        'wallet_status' => $status,
+                        'is_blocked' => $isBlocked,
+                        'minimum_balance' => floatval($r['minimum_balance'] ?? 5000),
+                        'created_at' => $r['created_at'],
+                        'updated_at' => $r['updated_at']
+                    ];
+                }, $rows);
             } catch (Exception $e) {
                 $data = [];
             }
@@ -5249,6 +5453,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;} elseif ($resource === 'settlements' || $resource === 'wallet_settlements') {
             try {
                 $stmt = $pdo->query("SELECT * FROM wallet_transactions WHERE type = 'settlement' OR type = 'payout' ORDER BY created_at DESC");
+                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) {
+                $data = [];
+            }
+            echo json_encode($data ?: []);
+            exit;} elseif ($resource === 'platform_revenue') {
+            try {
+                $stmt = $pdo->query("SELECT * FROM wallet_transactions WHERE type = 'platform_revenue' ORDER BY created_at DESC");
                 $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
             } catch (Exception $e) {
                 $data = [];
@@ -5272,7 +5484,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $data = $stmt->fetch(PDO::FETCH_ASSOC);
             echo json_encode($data ? $data : (object)[]);
             exit;} elseif ($resource === 'vendor_wallet_info' || $action === 'vendor_wallet_info') {
-            $vendor_id = trim($_GET['vendor_id'] ?? '');
+            $vendor_id = trim($_GET['vendor_id'] ?? ($payload['vendor_id'] ?? ''));
             $wallet = null;
             if (!empty($vendor_id)) {
                 $altId = ($vendor_id === 'u-6') ? 'vendor-4' : (($vendor_id === 'vendor-4') ? 'u-6' : null);
@@ -5280,29 +5492,82 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $stmt->execute([$vendor_id, $altId, $altId]);
                 $wallet = $stmt->fetch(PDO::FETCH_ASSOC);
                 if (!$wallet) {
-                    $pdo->prepare("INSERT OR IGNORE INTO vendor_wallets (vendor_id, balance, minimum_balance) VALUES (?, 0, 5000)")->execute([$vendor_id]);
+                    $pdo->prepare("INSERT OR IGNORE INTO vendor_wallets (id, vendor_id, balance, negative_booking_count, minimum_balance) VALUES (?, ?, 0, 0, 5000)")->execute(['wall_' . uniqid(), $vendor_id]);
                     $stmt->execute([$vendor_id, $altId, $altId]);
                     $wallet = $stmt->fetch(PDO::FETCH_ASSOC);
                 }
             }
             if (!$wallet) {
-                $wallet = ['balance' => 0, 'minimum_balance' => 5000];
+                $wallet = ['balance' => 0, 'negative_booking_count' => 0, 'minimum_balance' => 5000];
             }
-            $stmtConf = $pdo->query("SELECT min_wallet_recharge FROM site_configs LIMIT 1");
+            $stmtConf = $pdo->query("SELECT min_wallet_recharge, booking_fee_deduction FROM site_configs LIMIT 1");
             $conf = $stmtConf->fetch(PDO::FETCH_ASSOC);
-            $wallet['config_min_recharge'] = $conf ? $conf['min_wallet_recharge'] : 5000;
+            $wallet['config_min_recharge'] = $conf ? ($conf['min_wallet_recharge'] ?? 2000) : 2000;
+            $wallet['booking_fee_deduction'] = $conf ? ($conf['booking_fee_deduction'] ?? 500) : 500;
+            
+            // Read max negative bookings allowed
+            $maxNeg = 2;
+            try {
+                $stmtG = $pdo->query("SELECT max_negative_bookings FROM global_settings LIMIT 1");
+                $gRow = $stmtG->fetch(PDO::FETCH_ASSOC);
+                if ($gRow && isset($gRow['max_negative_bookings']) && intval($gRow['max_negative_bookings']) > 0) {
+                    $maxNeg = intval($gRow['max_negative_bookings']);
+                }
+            } catch (Exception $e) {}
+            $wallet['max_negative_bookings'] = $maxNeg;
+            $curBal = floatval($wallet['balance'] ?? 0);
+            $curNegCount = intval($wallet['negative_booking_count'] ?? 0);
+            $wallet['is_blocked'] = ($curBal < 0 && $curNegCount >= $maxNeg);
             echo json_encode($wallet);
             exit;} elseif ($resource === 'wallet_transactions') {
             $vendor_id = isset($_GET['vendor_id']) ? trim($_GET['vendor_id']) : null;
+            $status_filter = isset($_GET['status_filter']) ? trim($_GET['status_filter']) : '';
+
+            $sql = "SELECT wt.*, 
+                           COALESCE(NULLIF(v.name, ''), NULLIF(u.name, ''), NULLIF(u.username, ''), wt.vendor_id) AS vendor_name,
+                           COALESCE(NULLIF(v.role, ''), NULLIF(u.role, ''), 'vendor') AS vendor_type
+                    FROM wallet_transactions wt
+                    LEFT JOIN users u ON u.id = wt.vendor_id OR u.username = wt.vendor_id
+                    LEFT JOIN vendors v ON v.id = wt.vendor_id
+                    WHERE 1=1";
+            $params = [];
+
             if ($vendor_id) {
                 $altId = ($vendor_id === 'u-6') ? 'vendor-4' : (($vendor_id === 'vendor-4') ? 'u-6' : null);
-                $stmt = $pdo->prepare("SELECT * FROM wallet_transactions WHERE vendor_id = ? OR (? IS NOT NULL AND vendor_id = ?) ORDER BY created_at DESC");
-                $stmt->execute([$vendor_id, $altId, $altId]);
-            } else {
-                $stmt = $pdo->prepare("SELECT * FROM wallet_transactions WHERE admin_id = ? OR ? = 'superadmin' OR ? = 'admin' ORDER BY created_at DESC");
-                $stmt->execute([$tenant_id, $tenant_id, $tenant_id]);
+                if ($altId) {
+                    $sql .= " AND (wt.vendor_id = ? OR wt.vendor_id = ?)";
+                    $params[] = $vendor_id;
+                    $params[] = $altId;
+                } else {
+                    $sql .= " AND wt.vendor_id = ?";
+                    $params[] = $vendor_id;
+                }
             }
-            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Apply status filter if supplied and not 'all'
+            if (!empty($status_filter) && strtolower($status_filter) !== 'all') {
+                $sf = strtolower($status_filter);
+                if ($sf === 'pending' || $sf === 'pending verification' || $sf === 'pending_verification') {
+                    $sql .= " AND (wt.status = 'Pending Verification' OR wt.status = 'pending')";
+                } elseif ($sf === 'completed' || $sf === 'approved') {
+                    $sql .= " AND (wt.status = 'Completed' OR wt.status = 'approved' OR wt.status = 'Approved')";
+                } elseif ($sf === 'rejected') {
+                    $sql .= " AND (wt.status = 'Rejected' OR wt.status = 'rejected')";
+                } else {
+                    $sql .= " AND wt.status = ?";
+                    $params[] = $status_filter;
+                }
+            }
+
+            $sql .= " ORDER BY wt.created_at DESC";
+
+            try {
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
+                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) {
+                $data = [];
+            }
             echo json_encode($data ?: []);
             exit;} elseif ($resource === 'settlements') {
             $vendor_id = isset($_GET['vendor_id']) ? $_GET['vendor_id'] : null;
@@ -8214,47 +8479,196 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $vendor_id = trim($payload['vendor_id'] ?? '');
             $amount = floatval($payload['amount'] ?? 0);
             $refId = trim($payload['reference_id'] ?? ($payload['utr'] ?? ''));
+            $paymentProof = trim($payload['payment_proof'] ?? ($payload['payment_screenshot'] ?? ''));
+
             if (!$vendor_id || $amount <= 0) {
                 http_response_code(400);
                 echo json_encode(["success" => false, "error" => "Invalid vendor ID or recharge amount."]);
                 exit();
             }
-            // Prevent duplicate UTR submissions
-            if (!empty($refId)) {
-                $stmtDup = $pdo->prepare("SELECT id FROM wallet_transactions WHERE vendor_id = ? AND reference_id = ? AND reference_id != '' AND status != 'Rejected' LIMIT 1");
-                $stmtDup->execute([$vendor_id, $refId]);
-                if ($stmtDup->fetch()) {
-                    http_response_code(400);
-                    echo json_encode(["success" => false, "error" => "A recharge request with this UTR reference ID has already been submitted."]);
-                    exit();
-                }
+            if (empty($refId)) {
+                http_response_code(400);
+                echo json_encode(["success" => false, "error" => "UTR / Transaction Reference number is mandatory."]);
+                exit();
             }
-            $pdo->prepare("INSERT OR IGNORE INTO vendor_wallets (vendor_id, balance, minimum_balance) VALUES (?, 0, 5000)")->execute([$vendor_id]);
+            if (empty($paymentProof)) {
+                http_response_code(400);
+                echo json_encode(["success" => false, "error" => "Payment screenshot is mandatory."]);
+                exit();
+            }
+
+            // Global duplicate UTR protection across all non-rejected transactions
+            $stmtDup = $pdo->prepare("SELECT id, vendor_id, status FROM wallet_transactions WHERE reference_id = ? AND reference_id != '' AND status != 'Rejected' LIMIT 1");
+            $stmtDup->execute([$refId]);
+            $existingTx = $stmtDup->fetch(PDO::FETCH_ASSOC);
+            if ($existingTx) {
+                http_response_code(400);
+                echo json_encode(["success" => false, "error" => "A recharge request with this UTR reference ID has already been submitted."]);
+                exit();
+            }
+
+            // Ensure vendor wallet row exists
+            $pdo->prepare("INSERT OR IGNORE INTO vendor_wallets (id, vendor_id, balance, negative_booking_count, minimum_balance) VALUES (?, ?, 0, 0, 5000)")->execute(['wall_' . uniqid(), $vendor_id]);
+            
+            // All offline payment requests start in 'Pending Verification'
             $status = ($payload['payment_method'] === 'Razorpay' || $payload['payment_method'] === 'Stripe') ? 'Completed' : 'Pending Verification';
             $txId = 'tx_' . uniqid() . '_' . rand(100, 999);
-            $stmt = $pdo->prepare("INSERT INTO wallet_transactions (id, vendor_id, amount, type, reference_id, payment_proof, status, description, admin_id) VALUES (?, ?, ?, 'credit', ?, ?, ?, ?, ?)");
-            $stmt->execute([$txId, $vendor_id, $amount, $refId, $payload['payment_proof'] ?? '', $status, "Wallet recharge via " . ($payload['payment_method'] ?? 'UPI / Bank Transfer'), $tenant_id]);
+            
+            $stmt = $pdo->prepare("INSERT INTO wallet_transactions (
+                id, vendor_id, amount, type, reference_id, payment_proof, status, description, admin_id, created_at
+            ) VALUES (?, ?, ?, 'credit', ?, ?, ?, ?, ?, datetime('now'))");
+            $stmt->execute([
+                $txId, 
+                $vendor_id, 
+                $amount, 
+                $refId, 
+                $paymentProof, 
+                $status, 
+                "Wallet recharge via " . ($payload['payment_method'] ?? 'UPI / Bank Transfer'), 
+                $tenant_id
+            ]);
+
+            // DO NOT immediately credit the vendor wallet if status is Pending Verification
             if ($status === 'Completed') {
                 $pdo->prepare("UPDATE vendor_wallets SET balance = balance + ? WHERE vendor_id = ?")->execute([$amount, $vendor_id]);
             }
-            echo json_encode(["success" => true, "message" => "Wallet recharge submitted.", "status" => $status, "id" => $txId]);
+
+            echo json_encode(["success" => true, "message" => "Recharge request submitted successfully. It will be credited after Super Admin verification.", "status" => $status, "id" => $txId]);
             exit;} elseif ($action === 'approve_recharge') {
             $status = $payload['status'] ?? 'Completed'; // 'Completed' or 'Rejected'
             $transaction_id = $payload['id'] ?? ($payload['transaction_id'] ?? null);
-            $stmt = $pdo->prepare("SELECT * FROM wallet_transactions WHERE id = ? OR reference_id = ?");
-            $stmt->execute([$transaction_id, $transaction_id]);
-            $txn = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($txn && $txn['status'] !== 'Completed') {
-                $stmt = $pdo->prepare("UPDATE wallet_transactions SET status = ? WHERE id = ?");
-                $stmt->execute([$status, $transaction_id]);
-                if ($status === 'Completed') {
-                    $pdo->prepare("INSERT OR IGNORE INTO vendor_wallets (vendor_id, balance, minimum_balance) VALUES (?, 0, 5000)")->execute([$txn['vendor_id']]);
-                    $pdo->prepare("UPDATE vendor_wallets SET balance = balance + ? WHERE vendor_id = ?")->execute([$txn['amount'], $txn['vendor_id']]);
+            $rejectionReason = trim($payload['rejection_reason'] ?? ($payload['remarks'] ?? ''));
+
+            if (!$transaction_id) {
+                http_response_code(400);
+                echo json_encode(["success" => false, "error" => "Missing transaction ID."]);
+                exit;
+            }
+
+            if (!$pdo->inTransaction()) {
+                $pdo->beginTransaction();
+            }
+
+            // Atomic conditional update to claim pending status and prevent double credit / race conditions
+            $stmtClaim = $pdo->prepare("UPDATE wallet_transactions SET status = ?, rejection_reason = ? WHERE id = ? AND (status = 'Pending Verification' OR status = 'pending')");
+            $stmtClaim->execute([
+                $status, 
+                ($status === 'Rejected' ? ($rejectionReason ?: 'Rejected by Super Admin') : null), 
+                $transaction_id
+            ]);
+
+            if ($stmtClaim->rowCount() === 0) {
+                // Already approved/rejected by another request or not pending
+                if ($pdo->inTransaction()) {
+                    $pdo->commit();
+                }
+                echo json_encode(["success" => true, "message" => "Recharge request was already processed."]);
+                exit;
+            }
+
+            if ($status === 'Completed') {
+                // Fetch transaction details
+                $stmtTx = $pdo->prepare("SELECT * FROM wallet_transactions WHERE id = ?");
+                $stmtTx->execute([$transaction_id]);
+                $txn = $stmtTx->fetch(PDO::FETCH_ASSOC);
+
+                if ($txn) {
+                    $vendorId = $txn['vendor_id'];
+                    $amount = floatval($txn['amount']);
+
+                    // Ensure wallet row exists
+                    $stmtW = $pdo->prepare("SELECT * FROM vendor_wallets WHERE vendor_id = ?");
+                    $stmtW->execute([$vendorId]);
+                    $wallet = $stmtW->fetch(PDO::FETCH_ASSOC);
+
+                    if (!$wallet) {
+                        $pdo->prepare("INSERT OR IGNORE INTO vendor_wallets (id, vendor_id, balance, negative_booking_count, minimum_balance) VALUES (?, ?, 0, 0, 5000)")->execute(['wall_' . uniqid(), $vendorId]);
+                        $wallet = ['balance' => 0.00, 'negative_booking_count' => 0];
+                    }
+
+                    $balanceBefore = floatval($wallet['balance'] ?? 0.00);
+                    $balanceAfter = round($balanceBefore + $amount, 2);
+                    $currentNegCount = intval($wallet['negative_booking_count'] ?? 0);
+
+                    // UNBLOCK RULE:
+                    // If balanceAfter >= 0: negative booking count resets to 0 and vendor is active.
+                    // If balanceAfter < 0: vendor remains negative; retain existing count so they remain blocked if limit was reached.
+                    if ($balanceAfter >= 0) {
+                        $newNegCount = 0;
+                    } else {
+                        $newNegCount = $currentNegCount;
+                    }
+
+                    // Update Vendor Wallet balance & negative booking count
+                    $stmtUpdW = $pdo->prepare("UPDATE vendor_wallets SET balance = ?, negative_booking_count = ?, updated_at = datetime('now') WHERE vendor_id = ?");
+                    $stmtUpdW->execute([$balanceAfter, $newNegCount, $vendorId]);
+
+                    // Update transaction record with balance audit trail
+                    $stmtTxUpd = $pdo->prepare("UPDATE wallet_transactions SET balance_before = ?, balance_after = ? WHERE id = ?");
+                    $stmtTxUpd->execute([$balanceBefore, $balanceAfter, $transaction_id]);
+
+                    // VERY IMPORTANT: DO NOT credit WOW GOA platform revenue on recharge.
+                    // Platform fee revenue was already recorded when bookings were confirmed.
                 }
             }
-            echo json_encode(["success" => true, "message" => "Recharge request processed."]);
-            exit;} elseif ($action === 'update_global_settings') { $stmt = $pdo->prepare("UPDATE global_settings SET siteName = ?, currency = ?, taxRate = ?, supportEmail = ?, whatsappNumber = ?, smsProvider = ?, darkMode = ?, maintenanceMode = ?"); $stmt->execute([$payload['siteName'] ?? 'TripGalileo', $payload['currency'] ?? 'INR', $payload['taxRate'] ?? 18, $payload['supportEmail'] ?? 'support@tripgalileo.com', $payload['whatsappNumber'] ?? '', $payload['smsProvider'] ?? 'none', isset($payload['darkMode']) && $payload['darkMode'] ? 1 : 0, isset($payload['maintenanceMode']) && $payload['maintenanceMode'] ? 1 : 0]); echo json_encode(["success" => true, "message" => "Global settings updated."]); exit; 
-        } elseif ($action === 'update_platform_settings') {
+
+            if ($pdo->inTransaction()) {
+                $pdo->commit();
+            }
+
+            echo json_encode(["success" => true, "message" => "Recharge request {$status} successfully."]);
+            exit;} elseif ($action === 'update_global_settings') { 
+                $stmt = $pdo->prepare("UPDATE global_settings SET siteName = ?, currency = ?, taxRate = ?, supportEmail = ?, whatsappNumber = ?, smsProvider = ?, darkMode = ?, maintenanceMode = ?"); 
+                $stmt->execute([$payload['siteName'] ?? 'TripGalileo', $payload['currency'] ?? 'INR', $payload['taxRate'] ?? 18, $payload['supportEmail'] ?? 'support@tripgalileo.com', $payload['whatsappNumber'] ?? '', $payload['smsProvider'] ?? 'none', isset($payload['darkMode']) && $payload['darkMode'] ? 1 : 0, isset($payload['maintenanceMode']) && $payload['maintenanceMode'] ? 1 : 0]); 
+                if (isset($payload['hotel_booking_driver_enabled'])) {
+                    $dVal = $payload['hotel_booking_driver_enabled'] ? 1 : 0;
+                    $pdo->prepare("UPDATE global_settings SET hotel_booking_driver_enabled = ? WHERE id = 1")->execute([$dVal]);
+                }
+                if (isset($payload['max_negative_bookings'])) {
+                    $maxNegVal = max(1, intval($payload['max_negative_bookings']));
+                    $pdo->prepare("UPDATE global_settings SET max_negative_bookings = ? WHERE id = 1")->execute([$maxNegVal]);
+                    $pdo->prepare("UPDATE site_configs SET max_negative_bookings = ?")->execute([$maxNegVal]);
+                }
+                echo json_encode(["success" => true, "message" => "Global settings updated."]); 
+                exit; 
+            } elseif ($action === 'update_wallet_settings') {
+                $maxNegVal = max(1, intval($payload['max_negative_bookings'] ?? 2));
+                $pdo->prepare("UPDATE global_settings SET max_negative_bookings = ? WHERE id = 1")->execute([$maxNegVal]);
+                $pdo->prepare("UPDATE site_configs SET max_negative_bookings = ?")->execute([$maxNegVal]);
+                echo json_encode(["success" => true, "message" => "Wallet settings updated.", "max_negative_bookings" => $maxNegVal]);
+                exit;
+            } elseif ($action === 'update_hotel_booking_settings') {
+                $actor = authenticateRequest($pdo, false);
+                $userRole = strtolower(trim($actor['role'] ?? ($payload['user_role'] ?? ($_SERVER['HTTP_X_USER_ROLE'] ?? ''))));
+                $isAuthorized = in_array($userRole, ['admin', 'superadmin']);
+
+                if (!$isAuthorized) {
+                    http_response_code(403);
+                    echo json_encode([
+                        "success" => false,
+                        "error" => "Unauthorized: Only Super Admin and Admin can modify Hotel Booking settings."
+                    ]);
+                    exit;
+                }
+
+                $driverEnabled = isset($payload['hotel_booking_driver_enabled'])
+                    ? ($payload['hotel_booking_driver_enabled'] ? 1 : 0)
+                    : (isset($payload['driver_enabled']) ? ($payload['driver_enabled'] ? 1 : 0) : (isset($payload['enabled']) ? ($payload['enabled'] ? 1 : 0) : 1));
+
+                $stmt = $pdo->prepare("UPDATE global_settings SET hotel_booking_driver_enabled = ? WHERE id = 1");
+                $stmt->execute([$driverEnabled]);
+                if ($stmt->rowCount() === 0) {
+                    $pdo->prepare("INSERT OR REPLACE INTO global_settings (id, siteName, hotel_booking_driver_enabled) VALUES (1, 'TripGalileo', ?)")->execute([$driverEnabled]);
+                }
+
+                echo json_encode([
+                    "success" => true,
+                    "hotel_booking_driver_enabled" => (bool)$driverEnabled,
+                    "driver_option_enabled" => (bool)$driverEnabled,
+                    "message" => "Hotel booking driver option " . ($driverEnabled ? "enabled" : "disabled") . " successfully."
+                ]);
+                exit;
+            } elseif ($action === 'update_platform_settings') {
             $stmt = $pdo->prepare("UPDATE site_configs SET booking_fee_deduction = ?, min_wallet_recharge = ?");
             $stmt->execute([$payload['booking_fee_deduction'], $payload['min_wallet_recharge']]);
             echo json_encode(["success" => true, "message" => "Platform settings updated."]);
@@ -12371,6 +12785,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $status = $payload['status'] ?? null;
             $payment_status = $payload['payment_status'] ?? null;
             
+            // Centralized platform fee trigger on booking confirmation
+            if ($status && strtolower(trim($status)) === 'confirmed') {
+                $confirmRes = BookingService::confirmBookingAndDeductPlatformFee($pdo, $payload['id'], $payload['vendor_id'] ?? null);
+                if (!$confirmRes['success']) {
+                    http_response_code(400);
+                    echo json_encode($confirmRes);
+                    exit;
+                }
+            }
+
             if ($status && $payment_status) {
                 $stmt = $pdo->prepare("UPDATE bookings SET status = ?, payment_status = ? WHERE id = ?");
                 $stmt->execute([$status, $payment_status, $payload['id']]);
@@ -13282,42 +13706,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             echo json_encode(["success" => true, "message" => "Commission rule saved."]);
             exit;} elseif ($action === 'verify_booking_payment') {
-            $booking_id = $payload['booking_id'];
-            $vendor_id = $payload['vendor_id'];
+            $booking_id = $payload['booking_id'] ?? null;
+            $vendor_id = $payload['vendor_id'] ?? null;
             
-            $stmt = $pdo->prepare("SELECT * FROM bookings WHERE id=?");
-            $stmt->execute([$booking_id]);
-            $booking = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($booking) {
-                // Get fixed platform fee from site_configs
-                $stmtConf = $pdo->query("SELECT booking_fee_deduction FROM site_configs LIMIT 1");
-                $conf = $stmtConf->fetch(PDO::FETCH_ASSOC);
-                $commission_amount = $conf ? (int)$conf['booking_fee_deduction'] : 250;
-                
-                // Check Wallet Balance
-                $stmtW = $pdo->prepare("SELECT balance FROM vendor_wallets WHERE vendor_id = ?");
-                $stmtW->execute([$vendor_id]);
-                $wallet = $stmtW->fetch(PDO::FETCH_ASSOC);
-                
-                if (!$wallet || $wallet['balance'] < $commission_amount) {
-                    echo json_encode(["success" => false, "error" => "Insufficient wallet balance to pay the platform fee (₹$commission_amount). Please top up your wallet first."]);
-                    exit;
-                }
-                
-                $stmt = $pdo->prepare("UPDATE vendor_wallets SET balance = balance - ? WHERE vendor_id = ?");
-                $stmt->execute([$commission_amount, $vendor_id]);
-                
-                $stmt = $pdo->prepare("INSERT INTO wallet_transactions (vendor_id, amount, type, reference_id, description) VALUES (?, ?, 'Platform Fee Deduction', ?, 'Platform fee for booking')");
-                $stmt->execute([$vendor_id, -$commission_amount, $booking_id]);
-                
-                $stmt = $pdo->prepare("UPDATE bookings SET status='Confirmed', payment_verification_status='Verified', commission_amount=?, wallet_deduction_status='Completed', payment_verified_at=CURRENT_TIMESTAMP, payment_verified_by=? WHERE id=?");
-                $stmt->execute([$commission_amount, $vendor_id, $booking_id]);
-                
-                echo json_encode(["success" => true, "message" => "Payment verified and booking confirmed."]);
-            } else {
-                echo json_encode(["success" => false, "error" => "Booking not found."]);
+            if (!$booking_id) {
+                http_response_code(400);
+                echo json_encode(["success" => false, "error" => "Missing booking ID."]);
+                exit;
             }
+
+            $res = BookingService::confirmBookingAndDeductPlatformFee($pdo, $booking_id, $vendor_id);
+            if (!$res['success']) {
+                http_response_code(400);
+                echo json_encode($res);
+                exit;
+            }
+
+            echo json_encode($res);
+            exit;
 
         } elseif ($action === 'reject_booking_payment') {
             $booking_id = $payload['booking_id'];
@@ -13397,15 +13803,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($payload['id'])) {
                 $stmt = $pdo->prepare("UPDATE vendor_payment_methods SET method_type=?, display_name=?, account_name=?, bank_name=?, account_number=?, ifsc_code=?, upi_id=?, qr_image_url=?, instructions=?, status=? WHERE id=? AND vendor_id=?");
                 $stmt->execute([$payload['method_type'], $payload['display_name'], $payload['account_name'] ?? null, $payload['bank_name'] ?? null, $payload['account_number'] ?? null, $payload['ifsc_code'] ?? null, $payload['upi_id'] ?? null, $payload['qr_image_url'] ?? null, $payload['instructions'] ?? null, $payload['status'] ?? 'Active', $payload['id'], $payload['vendor_id']]);
+                $savedId = $payload['id'];
             } else {
-                $stmt = $pdo->prepare("INSERT INTO vendor_payment_methods (vendor_id, method_type, display_name, account_name, bank_name, account_number, ifsc_code, upi_id, qr_image_url, instructions, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$payload['vendor_id'], $payload['method_type'], $payload['display_name'], $payload['account_name'] ?? null, $payload['bank_name'] ?? null, $payload['account_number'] ?? null, $payload['ifsc_code'] ?? null, $payload['upi_id'] ?? null, $payload['qr_image_url'] ?? null, $payload['instructions'] ?? null, $payload['status'] ?? 'Active']);
+                $savedId = 'vpm_' . uniqid();
+                $stmt = $pdo->prepare("INSERT INTO vendor_payment_methods (id, vendor_id, method_type, display_name, account_name, bank_name, account_number, ifsc_code, upi_id, qr_image_url, instructions, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$savedId, $payload['vendor_id'], $payload['method_type'], $payload['display_name'], $payload['account_name'] ?? null, $payload['bank_name'] ?? null, $payload['account_number'] ?? null, $payload['ifsc_code'] ?? null, $payload['upi_id'] ?? null, $payload['qr_image_url'] ?? null, $payload['instructions'] ?? null, $payload['status'] ?? 'Active']);
             }
-            echo json_encode(["success" => true, "message" => "Payment method saved."]);
+            echo json_encode(["success" => true, "id" => $savedId, "message" => "Payment method saved."]);
             exit;
         } elseif ($action === 'delete_vendor_payment_method') {
-            $stmt = $pdo->prepare("DELETE FROM vendor_payment_methods WHERE id=? AND vendor_id=?");
-            $stmt->execute([$payload['id'], $payload['vendor_id']]);
+            if (!empty($payload['id'])) {
+                $stmt = $pdo->prepare("DELETE FROM vendor_payment_methods WHERE id=?");
+                $stmt->execute([$payload['id']]);
+            } elseif (!empty($payload['vendor_id']) && !empty($payload['upi_id'])) {
+                $stmt = $pdo->prepare("DELETE FROM vendor_payment_methods WHERE vendor_id=? AND upi_id=?");
+                $stmt->execute([$payload['vendor_id'], $payload['upi_id']]);
+            }
             echo json_encode(["success" => true, "message" => "Payment method deleted."]);
             exit;
         } elseif ($action === 'add_car') {
@@ -13500,9 +13913,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'get_vendor_payment_methods') {
             $vendor_id = $payload['vendor_id'] ?? null;
             if ($vendor_id) {
-                $stmt = $pdo->prepare("SELECT * FROM vendor_payment_methods WHERE vendor_id = ?");
-                $stmt->execute([$vendor_id]);
-                echo json_encode($stmt->fetchAll());
+                if (in_array($vendor_id, ['u-4', 'vendor', 'vendor-1', 'vendor-2'])) {
+                    $stmt = $pdo->query("SELECT * FROM vendor_payment_methods WHERE vendor_id IN ('u-4', 'vendor', 'vendor-1', 'vendor-2') ORDER BY created_at DESC");
+                } elseif (in_array($vendor_id, ['u-5', 'hotel_vendor', 'vendor-3'])) {
+                    $stmt = $pdo->query("SELECT * FROM vendor_payment_methods WHERE vendor_id IN ('u-5', 'hotel_vendor', 'vendor-3') ORDER BY created_at DESC");
+                } elseif (in_array($vendor_id, ['u-6', 'flight_vendor', 'vendor-4'])) {
+                    $stmt = $pdo->query("SELECT * FROM vendor_payment_methods WHERE vendor_id IN ('u-6', 'flight_vendor', 'vendor-4') ORDER BY created_at DESC");
+                } else {
+                    $stmt = $pdo->prepare("SELECT * FROM vendor_payment_methods WHERE vendor_id = ? ORDER BY created_at DESC");
+                    $stmt->execute([$vendor_id]);
+                }
+                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
             } else {
                 echo json_encode([]);
             }
@@ -13514,22 +13935,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $admin = $stmt->fetch();
             if ($admin) {
                 $admin_id = $admin['id'];
-                $stmt = $pdo->prepare("SELECT * FROM vendor_payment_methods WHERE vendor_id = ?");
+                $stmt = $pdo->prepare("SELECT * FROM vendor_payment_methods WHERE vendor_id = ? ORDER BY created_at DESC");
                 $stmt->execute([$admin_id]);
-                echo json_encode($stmt->fetchAll());
+                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
             } else {
                 echo json_encode([]);
             }
             exit;
         } elseif ($action === 'add_vendor_payment_method') {
-            $stmt = $pdo->prepare("INSERT INTO vendor_payment_methods (vendor_id, method_type, display_name, account_name, bank_name, account_number, ifsc_code, upi_id, qr_image_url, instructions, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $id = !empty($payload['id']) ? $payload['id'] : ('vpm_' . uniqid());
+            $stmt = $pdo->prepare("INSERT INTO vendor_payment_methods (id, vendor_id, method_type, display_name, account_name, bank_name, account_number, ifsc_code, upi_id, qr_image_url, instructions, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
-                $payload['vendor_id'], $payload['method_type'], $payload['display_name'], 
+                $id, $payload['vendor_id'], $payload['method_type'], $payload['display_name'], 
                 $payload['account_name'] ?? null, $payload['bank_name'] ?? null, $payload['account_number'] ?? null, 
                 $payload['ifsc_code'] ?? null, $payload['upi_id'] ?? null, $payload['qr_image_url'] ?? null, 
                 $payload['instructions'] ?? null, $payload['status'] ?? 'Active'
             ]);
-            echo json_encode(["success" => true, "id" => $pdo->lastInsertId(), "message" => "Vendor payment method added."]);
+            echo json_encode(["success" => true, "id" => $id, "message" => "Vendor payment method added."]);
             exit;
         } elseif ($action === 'update_vendor_payment_method') {
             $stmt = $pdo->prepare("UPDATE vendor_payment_methods SET display_name=?, account_name=?, bank_name=?, account_number=?, ifsc_code=?, upi_id=?, qr_image_url=?, instructions=?, status=? WHERE id=?");
@@ -13542,8 +13964,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(["success" => true, "message" => "Vendor payment method updated."]);
             exit;
         } elseif ($action === 'delete_vendor_payment_method') {
-            $stmt = $pdo->prepare("DELETE FROM vendor_payment_methods WHERE id=?");
-            $stmt->execute([$payload['id']]);
+            if (!empty($payload['id'])) {
+                $stmt = $pdo->prepare("DELETE FROM vendor_payment_methods WHERE id=?");
+                $stmt->execute([$payload['id']]);
+            } elseif (!empty($payload['vendor_id']) && !empty($payload['upi_id'])) {
+                $stmt = $pdo->prepare("DELETE FROM vendor_payment_methods WHERE vendor_id=? AND upi_id=?");
+                $stmt->execute([$payload['vendor_id'], $payload['upi_id']]);
+            }
             echo json_encode(["success" => true, "message" => "Vendor payment method deleted."]);
             exit;
         } elseif ($action === 'create_lead' || $action === 'add_lead' || ($resource === 'leads' && empty($action))) {

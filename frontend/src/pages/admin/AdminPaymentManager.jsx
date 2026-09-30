@@ -49,7 +49,7 @@ export default function AdminPaymentManager({
       if (pVerif === 'Pending Verification' && (b.status || '').toLowerCase() !== 'cancelled') {
         pendingVerificationCount++;
       }
-      if (pVerif === 'Approved' && pPayout === 'Pending' && (b.status || '').toLowerCase() !== 'cancelled') {
+      if ((pVerif === 'Approved' || pVerif === 'Verified') && pPayout === 'Pending' && (b.status || '').toLowerCase() !== 'cancelled') {
         pendingPayoutAmount += vendAmt;
         pendingPayoutCount++;
       }
@@ -71,11 +71,12 @@ export default function AdminPaymentManager({
       const pVerif = String(b.payment_verification_status || 'Pending Verification');
       const pPayout = String(b.vendor_payout_status || 'Pending');
       const isCancelled = (b.status || '').toLowerCase() === 'cancelled';
+      const isApprovedOrVerified = pVerif === 'Approved' || pVerif === 'Verified';
 
       // Tab Filtering
       if (filterTab === 'pending_verification' && pVerif !== 'Pending Verification') return false;
-      if (filterTab === 'approved' && pVerif !== 'Approved') return false;
-      if (filterTab === 'payout_pending' && (pPayout !== 'Pending' || pVerif !== 'Approved' || isCancelled)) return false;
+      if (filterTab === 'approved' && !isApprovedOrVerified) return false;
+      if (filterTab === 'payout_pending' && (pPayout !== 'Pending' || !isApprovedOrVerified || isCancelled)) return false;
       if (filterTab === 'payout_settled' && pPayout !== 'Settled') return false;
       if (filterTab === 'cancelled' && !isCancelled) return false;
 
@@ -378,13 +379,16 @@ export default function AdminPaymentManager({
 
                     {/* Payment Verification Status */}
                     <td className="px-3 py-2.5 text-center">
-                      <span className={`badge rounded-pill px-2.5 py-1 fw-bold text-xxs ${
-                        verifStatus === 'Approved'
-                          ? 'bg-success bg-opacity-10 text-success border border-success border-opacity-25'
-                          : verifStatus === 'Rejected'
-                            ? 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25'
-                            : 'bg-warning bg-opacity-15 text-warning border border-warning border-opacity-30'
-                      }`}>
+                      <span
+                        className="badge rounded-pill px-2.5 py-1 fw-bold text-xxs border"
+                        style={
+                          verifStatus === 'Approved' || verifStatus === 'Verified'
+                            ? { background: '#dcfce7', color: '#16a34a', borderColor: '#bbf7d0' }
+                            : verifStatus === 'Rejected'
+                              ? { background: '#fee2e2', color: '#dc2626', borderColor: '#fecaca' }
+                              : { background: '#fef3c7', color: '#92400e', borderColor: '#fde68a' }
+                        }
+                      >
                         {verifStatus}
                       </span>
                     </td>
@@ -408,11 +412,14 @@ export default function AdminPaymentManager({
                     {/* Vendor Payout Status & UTR */}
                     <td className="px-3 py-2.5 text-center">
                       <div className="text-muted text-xxs mb-0.5">WOW GOA → Vendor</div>
-                      <span className={`badge rounded-pill px-2.5 py-1 fw-bold text-xxs ${
-                        payoutStatus === 'Settled'
-                          ? 'bg-success bg-opacity-10 text-success border border-success border-opacity-25'
-                          : 'bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25'
-                      }`}>
+                      <span
+                        className="badge rounded-pill px-2.5 py-1 fw-bold text-xxs border"
+                        style={
+                          payoutStatus === 'Settled'
+                            ? { background: '#dcfce7', color: '#16a34a', borderColor: '#bbf7d0' }
+                            : { background: '#f1f5f9', color: '#475569', borderColor: '#e2e8f0' }
+                        }
+                      >
                         {payoutStatus}
                       </span>
                       {vendUtr ? (
@@ -454,7 +461,7 @@ export default function AdminPaymentManager({
                         )}
 
                         {/* If Verified & Payout Pending: Show Settle Vendor Amount */}
-                        {verifStatus === 'Approved' && payoutStatus === 'Pending' && !isCancelled && (
+                        {(verifStatus === 'Approved' || verifStatus === 'Verified') && payoutStatus === 'Pending' && !isCancelled && (
                           <button
                             type="button"
                             className="btn btn-sm text-white fw-bold rounded-pill px-2.5 py-1 text-xxs shadow-xs"

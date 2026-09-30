@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle, ShieldCheck, Compass, Calendar, Clock, MapPin, Cake, Award, Sparkles, Gift, Wallet, Users, Crown, Car, Bike, Camera } from 'lucide-react';
+import { X, CheckCircle, ShieldCheck, Compass, Calendar, Clock, MapPin, Cake, Award, Sparkles, Gift, Wallet, Users, Crown, Car, Bike, Camera, AlertCircle } from 'lucide-react';
 import { getTodayDateStr, addDays, validateVehicleBookingEligibility } from '../utils/dateUtils';
 import * as api from '../services/api';
 import { checkCustomerDob } from '../services/api';
@@ -290,29 +290,41 @@ export default function BookingModal({
 
   useEffect(() => {
     import('../services/api').then(api => {
-      const vendorId = selectedBookingItem?.vendor_id || selectedBookingItem?.vendorId;
-      if (vendorId) {
-        api.getVendorPaymentMethods(vendorId).then(methods => {
-          setPaymentSettings(methods || []);
-          if (methods && methods.length > 0) {
-            setSelectedPaymentMethod(methods[0].id.toString());
-          }
-        }).catch(console.error);
-      } else {
-        // Fallback for global items without a vendor
-        api.getAdminPaymentMethods().then(methods => {
-          const activeMethods = methods.filter(m => m.status === 'Active');
+      const rawVendorId = selectedBookingItem?.vendor_id || selectedBookingItem?.vendorId;
+      const isCarOrBikeItem = selectedBookingItem && (
+        String(selectedBookingItem?.id).startsWith('car-') ||
+        String(selectedBookingItem?.id).startsWith('bike-') ||
+        selectedBookingItem.type === 'car' ||
+        selectedBookingItem.type === 'bike' ||
+        selectedBookingItem.category === 'bike' ||
+        /bike|scooter|activa|bullet|reborn|classic\s*350|himalayan|royal\s*enfield|jupiter|faschino|access\s*125|thar|swift|creta|ertiga|fortuner/i.test(
+          selectedBookingItem?.name || selectedBookingItem?.vehicle_name || selectedBookingItem?.title || ''
+        )
+      );
+      const effectiveVendorId = (rawVendorId && rawVendorId !== 'admin')
+        ? rawVendorId
+        : (isCarOrBikeItem ? 'u-4' : null);
+
+      if (effectiveVendorId) {
+        api.getVendorPaymentMethods(effectiveVendorId).then(methods => {
+          const activeMethods = (methods || []).filter(m => m.status === 'Active');
           setPaymentSettings(activeMethods);
           if (activeMethods.length > 0) {
-            setSelectedPaymentMethod(activeMethods[0].id.toString());
+            setSelectedPaymentMethod(activeMethods[0].id ? activeMethods[0].id.toString() : 'default');
           }
-        }).catch(console.error);
+        }).catch(err => {
+          console.error('Error fetching vendor payment methods:', err);
+          setPaymentSettings([]);
+        });
+      } else {
+        // Customer booking MUST NOT fall back to admin payment methods
+        setPaymentSettings([]);
       }
 
       // Fetch room types if hotel
       const isHotelItem = selectedBookingItem && (selectedBookingItem.id.toString().startsWith('hotel-') || selectedBookingItem.property_type || selectedBookingItem.stars);
-      if (isHotelItem && vendorId) {
-         api.pmsListRoomTypes(vendorId).then(res => {
+      if (isHotelItem && effectiveVendorId) {
+         api.pmsListRoomTypes(effectiveVendorId).then(res => {
            const hotelRooms = (res.room_types || []).filter(rt => rt.hotel_id == selectedBookingItem.id && rt.status === 'Active');
            setRoomTypes(hotelRooms);
          }).catch(console.error);
@@ -320,7 +332,7 @@ export default function BookingModal({
 
       // Fetch Vendor Cancellation Policy
       const sType = isHotelItem ? 'hotel' : 'vehicle';
-      api.fetchVendorCancellationPolicy(vendorId || 'vendor-1', sType).then(res => {
+      api.fetchVendorCancellationPolicy(effectiveVendorId || 'u-4', sType).then(res => {
         if (res && res.policy) {
           setVendorCancellationPolicy(res.policy);
         }
@@ -1375,15 +1387,41 @@ export default function BookingModal({
                     </div>
                   )}
 
-                  {/* Static QR Payment Section */}
-                  <StaticQRPaymentCard
-                    amount={finalPayable}
-                    upiId="wowgoa@upi"
-                    accountName="WOW GOA Tourism / TripGalileo"
-                    paymentReference={staticQrReference}
-                    onReferenceChange={setStaticQrReference}
-                    serviceTitle={selectedBookingItem.name}
-                  />
+                  {/* Static QR Payment Section - Direct to Vendor */}
+                  {(() => {
+                    const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
+                      paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
+                    ) : null;
+                    const isVendorPaymentConfigured = Boolean(
+                      activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
+                    );
+
+                    return isVendorPaymentConfigured ? (
+                      <StaticQRPaymentCard
+                        amount={finalPayable}
+                        upiId={activeVendorPayment.upi_id || ''}
+                        accountName={activeVendorPayment.account_name || activeVendorPayment.display_name || selectedBookingItem.name}
+                        qrImageUrl={activeVendorPayment.qr_image_url || ''}
+                        vendorName={activeVendorPayment.display_name || selectedBookingItem.vendor_name || 'Vendor'}
+                        paymentReference={staticQrReference}
+                        onReferenceChange={setStaticQrReference}
+                        serviceTitle={selectedBookingItem.name}
+                        instructions={activeVendorPayment.instructions || ''}
+                      />
+                    ) : (
+                      <div className="card shadow-sm border border-warning rounded-4 overflow-hidden mb-3" style={{ background: '#fffbeb' }}>
+                        <div className="card-body p-4 text-center">
+                          <div className="d-inline-flex p-3 rounded-circle bg-warning bg-opacity-25 text-warning mb-2">
+                            <AlertCircle size={28} />
+                          </div>
+                          <h6 className="fw-bold text-dark mb-1">Vendor Payment Notice</h6>
+                          <div className="alert alert-warning border border-warning d-inline-block text-start mb-0 py-2 px-3" style={{ fontSize: '0.88rem' }}>
+                            <strong>Vendor payment QR is not configured. Please contact support.</strong>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Vendor Cancellation Policy Card with Mandatory Agreement */}
                   <VendorCancellationPolicyCard
@@ -1393,15 +1431,28 @@ export default function BookingModal({
                     customerPayment={finalPayable}
                   />
 
-                  <button 
-                    type={(!isPackage || !selectedBookingItem.traveller_details) ? "submit" : "button"} 
-                    onClick={(e) => { if (isPackage && selectedBookingItem.traveller_details) handleFormSubmit(e) }} 
-                    form="booking-form" 
-                    className="btn w-100 py-2.5 fw-bold text-white shadow-sm mt-3" 
-                    style={{ background: '#FFC107', opacity: (!policyAgreed || !staticQrReference) ? 0.75 : 1 }}
-                  >
-                    Confirm & Reserve Booking
-                  </button>
+                  {(() => {
+                    const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
+                      paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
+                    ) : null;
+                    const isVendorPaymentConfigured = Boolean(
+                      activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
+                    );
+                    const isSubmitDisabled = !policyAgreed || !staticQrReference || !isVendorPaymentConfigured;
+
+                    return (
+                      <button 
+                        type={(!isPackage || !selectedBookingItem.traveller_details) ? "submit" : "button"} 
+                        onClick={(e) => { if (isPackage && selectedBookingItem.traveller_details && !isSubmitDisabled) handleFormSubmit(e) }} 
+                        form="booking-form" 
+                        className="btn w-100 py-2.5 fw-bold text-white shadow-sm mt-3" 
+                        style={{ background: '#FFC107', opacity: isSubmitDisabled ? 0.65 : 1 }}
+                        disabled={isSubmitDisabled}
+                      >
+                        Confirm & Reserve Booking
+                      </button>
+                    );
+                  })()}
                 </form>
               </div>
 

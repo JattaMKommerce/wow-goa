@@ -23,7 +23,9 @@ import AdminPromotions from './AdminPromotions';
 import AdminAnalytics from './AdminAnalytics';
 import AnalyticsView from '../../components/shared/AnalyticsView';
 import AdminPlatformSettings from './AdminPlatformSettings';
+import HotelBookingDriverSetting from '../../components/common/HotelBookingDriverSetting';
 import AdminWalletRecharges from './AdminWalletRecharges';
+import WalletApprovalCenter from '../../components/superadmin/WalletApprovalCenter';
 import AdminMarkupPanel from './AdminMarkupPanel';
 import AdminEnquiryCRM from './AdminEnquiryCRM';
 import LeadManagement from '../../components/shared/LeadManagement';
@@ -102,6 +104,7 @@ const SIDEBAR_GROUPS = [
     label: 'Settings',
     items: [
       { id: 'platform_settings', label: 'Platform Settings', icon: <Settings size={15} /> },
+      { id: 'hotel_booking_settings', label: 'Hotel Booking Settings', icon: <Hotel size={15} /> },
       { id: 'payment_settings', label: 'Payment Gateways', icon: <CreditCard size={15} /> },
       { id: 'wallet_recharges', label: 'Wallet Recharges', icon: <CreditCard size={15} /> },
     ]
@@ -796,7 +799,21 @@ export default function AdminPortalPage({
       case 'markup_reports':
         return <div className="p-4"><div className="rounded-3 shadow-sm border" style={{ background: '#fff' }}><AdminMarkupPanel markups={markups} onSaveMarkup={onSaveMarkup} vendors={liveVendors} bookings={liveBookings} flights={flights} hotels={hotels} cars={cars} bikes={bikes} packages={allPackages} /></div></div>;
       case 'platform_settings':
-        return <AdminPlatformSettings />;
+        return <AdminPlatformSettings currentUser={currentUser} />;
+      case 'hotel_booking_settings':
+        return (
+          <div className="p-4" style={{ minHeight: '100%' }}>
+            <div className="mb-4">
+              <h4 className="fw-bold mb-1" style={{ color: '#1a2b4a' }}>Hotel Booking Configuration</h4>
+              <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>Global settings for hotel guest booking preferences</p>
+            </div>
+            <div className="row">
+              <div className="col-lg-7">
+                <HotelBookingDriverSetting currentUser={currentUser} />
+              </div>
+            </div>
+          </div>
+        );
       case 'payment_settings':
         return (
           <div className="p-4">
@@ -805,8 +822,10 @@ export default function AdminPortalPage({
             </div>
           </div>
         );
+      case 'wallets':
+        return <WalletApprovalCenter defaultTab="wallets" />;
       case 'wallet_recharges':
-        return <AdminWalletRecharges vendors={liveVendors} />;
+        return <WalletApprovalCenter defaultTab="recharge" />;
       case 'payment':
         return (
           <AdminPaymentManager

@@ -12,6 +12,7 @@ import BikeDetailsPage from '../customer/BikeDetailsPage';
 import HotelDetailsPage from '../customer/HotelDetailsPage';
 import ActivityDetailsPage from '../customer/ActivityDetailsPage';
 import { isBikeVehicle } from '../../utils/vehicleHelper';
+import B2BModalPortal from '../../components/b2b/B2BModalPortal';
 
 const GOA_LOCATIONS = [
   'Manohar International Airport (Mopa - GOX)',
@@ -1600,120 +1601,132 @@ export default function B2BCraftMyTripFlow({ partner, activeMode, onBookingSucce
       )}
 
       {/* ── AUTHORITATIVE D2C VEHICLE DETAILS MODAL (CARS & BIKES SEPARATED) ── */}
-      {viewingVehicleDetails && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100 bg-white"
-          style={{ zIndex: 1060, overflowY: 'auto' }}
-        >
-          {isBikeVehicle(viewingVehicleDetails) ? (
-            <BikeDetailsPage
-              bike={viewingVehicleDetails}
-              pickupDate={pickupDate}
-              dropDate={dropDate}
-              bookingDays={nights}
-              isCraftMyTrip={true}
-              backLabel="← Back to Craft My Trip"
-              actionLabel="Select & Continue"
-              breadcrumbPrefix="B2B Portal / Craft My Trip"
-              memberCount={memberCount}
-              onMemberCountChange={setMemberCount}
-              onBack={() => setViewingVehicleDetails(null)}
-              onBook={(veh) => {
-                const target = veh || viewingVehicleDetails;
-                setSelectedVehicle(target);
-                setViewingVehicleDetails(null);
-                setStep(2);
-              }}
-            />
-          ) : (
-            <CarDetailsPage
-              car={viewingVehicleDetails}
-              pickupDate={pickupDate}
-              dropDate={dropDate}
-              bookingDays={nights}
-              isCraftMyTrip={true}
-              backLabel="← Back to Craft My Trip"
-              actionLabel="Select & Continue"
-              breadcrumbPrefix="B2B Portal / Craft My Trip"
-              memberCount={memberCount}
-              onMemberCountChange={setMemberCount}
-              onBack={() => setViewingVehicleDetails(null)}
-              onBook={(veh) => {
-                const target = veh || viewingVehicleDetails;
-                setSelectedVehicle(target);
-                setViewingVehicleDetails(null);
-                setStep(2);
-              }}
-            />
-          )}
-        </div>
-      )}
+      <B2BModalPortal
+        isOpen={Boolean(viewingVehicleDetails)}
+        onClose={() => setViewingVehicleDetails(null)}
+        isFullScreen={true}
+        ariaLabel="B2B Craft My Trip Vehicle Details"
+      >
+        {viewingVehicleDetails && (
+          <div className="w-100 min-vh-100 bg-white" style={{ overflowY: 'auto' }}>
+            {isBikeVehicle(viewingVehicleDetails) ? (
+              <BikeDetailsPage
+                bike={viewingVehicleDetails}
+                pickupDate={pickupDate}
+                dropDate={dropDate}
+                bookingDays={nights}
+                isCraftMyTrip={true}
+                backLabel="← Back to Craft My Trip"
+                actionLabel="Select & Continue"
+                breadcrumbPrefix="B2B Portal / Craft My Trip"
+                memberCount={memberCount}
+                onMemberCountChange={setMemberCount}
+                onBack={() => setViewingVehicleDetails(null)}
+                onBook={(veh) => {
+                  const target = veh || viewingVehicleDetails;
+                  setSelectedVehicle(target);
+                  setViewingVehicleDetails(null);
+                  setStep(2);
+                }}
+              />
+            ) : (
+              <CarDetailsPage
+                car={viewingVehicleDetails}
+                pickupDate={pickupDate}
+                dropDate={dropDate}
+                bookingDays={nights}
+                isCraftMyTrip={true}
+                backLabel="← Back to Craft My Trip"
+                actionLabel="Select & Continue"
+                breadcrumbPrefix="B2B Portal / Craft My Trip"
+                memberCount={memberCount}
+                onMemberCountChange={setMemberCount}
+                onBack={() => setViewingVehicleDetails(null)}
+                onBook={(veh) => {
+                  const target = veh || viewingVehicleDetails;
+                  setSelectedVehicle(target);
+                  setViewingVehicleDetails(null);
+                  setStep(2);
+                }}
+              />
+            )}
+          </div>
+        )}
+      </B2BModalPortal>
 
       {/* ── AUTHORITATIVE D2C HOTEL DETAILS MODAL (ROOMS & MEAL PLANS SELECTABLE) ── */}
-      {viewingHotelDetails && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100 bg-white"
-          style={{ zIndex: 1060, overflowY: 'auto' }}
-        >
-          <HotelDetailsPage
-            hotel={viewingHotelDetails}
-            pickupDate={pickupDate}
-            dropDate={dropDate}
-            nights={nights}
-            isCraftMyTrip={true}
-            backLabel="← Back to Craft My Trip"
-            actionLabel="Select & Continue"
-            breadcrumbPrefix="B2B Portal / Craft My Trip"
-            onBack={() => setViewingHotelDetails(null)}
-            onBook={(hotelItem, room, plan) => {
-              const item = hotelItem || viewingHotelDetails;
-              const nightPrice = plan?.base_price 
-                ? parseFloat(plan.base_price) 
-                : (parseFloat(item.price_per_night || item.price || item.rate || 0) || 3000);
-              const enrichedHotel = {
-                ...item,
-                preselected_room: room || null,
-                preselected_rate_plan: plan || null,
-                has_selected_room: Boolean(room && plan),
-                price: nightPrice,
-                price_per_night: nightPrice
-              };
-              setSelectedHotel(enrichedHotel);
-              setViewingHotelDetails(null);
-              setStep(3);
-            }}
-          />
-        </div>
-      )}
+      <B2BModalPortal
+        isOpen={Boolean(viewingHotelDetails)}
+        onClose={() => setViewingHotelDetails(null)}
+        isFullScreen={true}
+        ariaLabel="B2B Craft My Trip Hotel Details"
+      >
+        {viewingHotelDetails && (
+          <div className="w-100 min-vh-100 bg-white" style={{ overflowY: 'auto' }}>
+            <HotelDetailsPage
+              hotel={viewingHotelDetails}
+              pickupDate={pickupDate}
+              dropDate={dropDate}
+              nights={nights}
+              isCraftMyTrip={true}
+              backLabel="← Back to Craft My Trip"
+              actionLabel="Select & Continue"
+              breadcrumbPrefix="B2B Portal / Craft My Trip"
+              onBack={() => setViewingHotelDetails(null)}
+              onBook={(hotelItem, room, plan) => {
+                const item = hotelItem || viewingHotelDetails;
+                const nightPrice = plan?.base_price 
+                  ? parseFloat(plan.base_price) 
+                  : (parseFloat(item.price_per_night || item.price || item.rate || 0) || 3000);
+                const enrichedHotel = {
+                  ...item,
+                  preselected_room: room || null,
+                  preselected_rate_plan: plan || null,
+                  has_selected_room: Boolean(room && plan),
+                  price: nightPrice,
+                  price_per_night: nightPrice
+                };
+                setSelectedHotel(enrichedHotel);
+                setViewingHotelDetails(null);
+                setStep(3);
+              }}
+            />
+          </div>
+        )}
+      </B2BModalPortal>
 
       {/* ── AUTHORITATIVE D2C ACTIVITY DETAILS MODAL ── */}
-      {viewingActivityDetails && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100 bg-white"
-          style={{ zIndex: 1060, overflowY: 'auto' }}
-        >
-          <ActivityDetailsPage
-            activity={viewingActivityDetails}
-            pickupDate={pickupDate}
-            adultsCount={memberCount}
-            memberCount={memberCount}
-            isCraftMyTrip={true}
-            isSelected={selectedActivities.some(a => a.id === viewingActivityDetails.id)}
-            backLabel="← Back to Craft My Trip"
-            actionLabel={selectedActivities.some(a => a.id === viewingActivityDetails.id) ? "Continue to Flights" : "Add & Continue"}
-            breadcrumbPrefix="B2B Portal / Craft My Trip"
-            onBack={() => setViewingActivityDetails(null)}
-            onBook={(actData) => {
-              const act = actData || viewingActivityDetails;
-              if (!selectedActivities.some(a => a.id === act.id)) {
-                setSelectedActivities(prev => [...prev, act]);
-              }
-              setViewingActivityDetails(null);
-              setStep(4);
-            }}
-          />
-        </div>
-      )}
+      <B2BModalPortal
+        isOpen={Boolean(viewingActivityDetails)}
+        onClose={() => setViewingActivityDetails(null)}
+        isFullScreen={true}
+        ariaLabel="B2B Craft My Trip Activity Details"
+      >
+        {viewingActivityDetails && (
+          <div className="w-100 min-vh-100 bg-white" style={{ overflowY: 'auto' }}>
+            <ActivityDetailsPage
+              activity={viewingActivityDetails}
+              pickupDate={pickupDate}
+              adultsCount={memberCount}
+              memberCount={memberCount}
+              isCraftMyTrip={true}
+              isSelected={selectedActivities.some(a => a.id === viewingActivityDetails.id)}
+              backLabel="← Back to Craft My Trip"
+              actionLabel={selectedActivities.some(a => a.id === viewingActivityDetails.id) ? "Continue to Flights" : "Add & Continue"}
+              breadcrumbPrefix="B2B Portal / Craft My Trip"
+              onBack={() => setViewingActivityDetails(null)}
+              onBook={(actData) => {
+                const act = actData || viewingActivityDetails;
+                if (!selectedActivities.some(a => a.id === act.id)) {
+                  setSelectedActivities(prev => [...prev, act]);
+                }
+                setViewingActivityDetails(null);
+                setStep(4);
+              }}
+            />
+          </div>
+        )}
+      </B2BModalPortal>
     </div>
   );
 }

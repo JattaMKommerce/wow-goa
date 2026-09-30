@@ -554,9 +554,68 @@ export default function CustomerPortalPage({
   // ─── WOW GOA REVIEW & RATING POPUP & REMINDER SYSTEM ───────────────────────
   const [reviewModalBooking, setReviewModalBooking] = useState(null);
   const [reminderBooking, setReminderBooking] = useState(null);
+  const [reviewedBookingIds, setReviewedBookingIds] = useState(new Set());
+  const [dismissedReminderIds, setDismissedReminderIds] = useState(new Set());
 
+  // 1. Authoritative Backend Synchronization: Sync reviewed booking IDs from backend database
   useEffect(() => {
-    if (!customerUser || !Array.isArray(customerBookings) || customerBookings.length === 0) return;
+    if (!customerUser) return;
+    let isCancelled = false;
+
+    const syncReviewedStatus = async () => {
+      try {
+        const ids = await api.fetchCustomerReviewedBookingIds(customerUser);
+        if (!isCancelled && Array.isArray(ids)) {
+          setReviewedBookingIds(prev => {
+            const next = new Set(prev);
+            ids.forEach(id => next.add(String(id)));
+            (customerBookings || []).forEach(b => {
+              if (b && b.has_reviewed) {
+                next.add(String(b.id || b.booking_id));
+              }
+            });
+            return next;
+          });
+        }
+      } catch (err) {
+        console.warn('[CustomerPortal] Failed to sync customer reviewed IDs:', err);
+      }
+    };
+
+    syncReviewedStatus();
+    return () => { isCancelled = true; };
+  }, [customerUser, customerBookings]);
+
+  // Synchronize reviewed status immediately from customerBookings when server data arrives
+  useEffect(() => {
+    if (!Array.isArray(customerBookings) || customerBookings.length === 0) return;
+    const reviewedFromBookings = customerBookings
+      .filter(b => b && b.has_reviewed)
+      .map(b => String(b.id || b.booking_id));
+
+    if (reviewedFromBookings.length > 0) {
+      setReviewedBookingIds(prev => {
+        let changed = false;
+        const next = new Set(prev);
+        reviewedFromBookings.forEach(id => {
+          if (!next.has(id)) {
+            next.add(id);
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+  }, [customerBookings]);
+
+  // 2. Authoritative Reminder Evaluation
+  // The reminder should be shown repeatedly ONLY while:
+  // booking is completed AND review does NOT exist in backend database
+  useEffect(() => {
+    if (!customerUser || !Array.isArray(customerBookings) || customerBookings.length === 0) {
+      setReminderBooking(null);
+      return;
+    }
 
     // Find completed bookings only
     const completedList = customerBookings.filter(b => {
@@ -564,70 +623,68 @@ export default function CustomerPortalPage({
       return st === 'completed';
     });
 
-    if (completedList.length === 0) return;
-
-    // Find the first completed booking that has NOT been reviewed yet
-    const unreviewed = completedList.find(b => {
-      const bId = String(b.id || b.booking_id);
-      return localStorage.getItem(`tg_review_submitted_${bId}`) !== 'true';
-    });
-
-    if (!unreviewed) {
+    if (completedList.length === 0) {
       setReminderBooking(null);
-      setReviewModalBooking(null);
       return;
     }
 
-    const bId = String(unreviewed.id || unreviewed.booking_id);
-    const popupShown = localStorage.getItem(`tg_review_popup_shown_${bId}`) === 'true';
-    const reminderDismissed = localStorage.getItem(`tg_review_reminder_dismissed_${bId}`) === 'true';
+    // Check review status PER BOOKING
+    // Authoritative condition:
+    // review exists for this booking/customer:
+    //   YES -> review already submitted -> DO NOT show reminder
+    //   NO  -> review not submitted -> reminder may be shown
+    const unreviewed = completedList.find(b => {
+      const bId = String(b.id || b.booking_id);
+      const isReviewed = Boolean(b.has_reviewed) || reviewedBookingIds.has(bId);
+      if (isReviewed) return false;
 
-    // 1. Initial Popup: show if not shown yet and not currently reviewing
-    if (!popupShown) {
-      const timer = setTimeout(() => {
-        setReviewModalBooking(unreviewed);
-        localStorage.setItem(`tg_review_popup_shown_${bId}`, 'true');
-      }, 700);
-      return () => clearTimeout(timer);
-    }
+      // If customer dismissed reminder in current view/session (by clicking "Maybe Later" or "X"):
+      if (dismissedReminderIds.has(bId)) return false;
 
-    // 2. Reminder — ONLY ONCE: If popup was shown, but review not yet submitted, and reminder not dismissed
-    if (!reminderDismissed) {
-      setReminderBooking(unreviewed);
-    } else {
-      setReminderBooking(null);
-    }
-  }, [customerUser, customerBookings]);
+      return true;
+    });
+
+    setReminderBooking(unreviewed || null);
+  }, [customerUser, customerBookings, reviewedBookingIds, dismissedReminderIds]);
 
   const handleCloseReviewModal = (reason = '') => {
-    if (reviewModalBooking) {
-      const bId = String(reviewModalBooking.id || reviewModalBooking.booking_id);
-      const alreadyDismissed = localStorage.getItem(`tg_review_reminder_dismissed_${bId}`) === 'true';
-      const alreadySubmitted = localStorage.getItem(`tg_review_submitted_${bId}`) === 'true';
-      if (!alreadyDismissed && !alreadySubmitted) {
-        setReminderBooking(reviewModalBooking);
-      }
-    }
+    // Closing review modal or choosing "Maybe Later" does NOT mark booking as reviewed
     setReviewModalBooking(null);
   };
 
   const handleReviewSuccess = (bId, submittedRating) => {
     const cleanId = String(bId);
-    localStorage.setItem(`tg_review_submitted_${cleanId}`, 'true');
+    // ONLY after backend confirms review was created:
+    // 1. Mark booking as authoritatively reviewed
+    setReviewedBookingIds(prev => new Set(prev).add(cleanId));
+    // 2. Permanently stop showing the review reminder for that booking
     setReminderBooking(null);
     setReviewModalBooking(null);
+    // 3. Refresh live server customer data so booking.has_reviewed becomes true on server record
     if (typeof refreshCustomerData === 'function') {
       refreshCustomerData();
     }
   };
 
-  const handleDismissReminder = (bId) => {
+  const handleDismissReminder = (bId, reason = 'dismissed') => {
     const cleanId = String(bId);
-    localStorage.setItem(`tg_review_reminder_dismissed_${cleanId}`, 'true');
+    // Dismiss/close the reminder for current view/session ONLY.
+    // - Keep review status = NOT SUBMITTED.
+    // - Do not create/update a review record.
+    // - Do not permanently remove the reminder (DO NOT store in localStorage).
+    // - The reminder can appear again later (e.g. on page refresh or next visit).
+    setDismissedReminderIds(prev => new Set(prev).add(cleanId));
     setReminderBooking(null);
   };
 
   const handleTriggerReview = (booking) => {
+    if (!booking) return;
+    const bId = String(booking.id || booking.booking_id);
+    const isReviewed = Boolean(booking.has_reviewed) || reviewedBookingIds.has(bId);
+    if (isReviewed) {
+      // Review already submitted in backend: Do not show Rate Now / modal
+      return;
+    }
     setReviewModalBooking(booking);
   };
 
@@ -1690,6 +1747,7 @@ export default function CustomerPortalPage({
           pickupDate={getTodayDateStr()}
           dropDate={addDays(getTodayDateStr(), 2)}
           bookingDays={2}
+          isCustomerPortal={true}
         />
       )}
 

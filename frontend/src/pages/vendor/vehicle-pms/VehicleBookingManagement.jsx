@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Eye, Check, X, Clock, ArrowRight, AlertCircle, CheckCircle, Car, Filter, Download, Plus, Edit, Trash2, Save, Calendar, User, Phone, Mail, DollarSign } from 'lucide-react';
 import { createBooking, updateBooking, updateBookingStatus, deleteBooking } from '../../../services/api';
+import WalletRechargeRequiredModal from '../../../components/vendor/WalletRechargeRequiredModal';
 import { validateVehicleBookingEligibility } from '../../../utils/dateUtils';
 
 const WORKFLOW_STEPS = ['Pending', 'Payment Verification', 'Confirmed', 'Pickup', 'Return', 'Completed'];
@@ -64,6 +65,7 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
   const [statusFilter, setStatusFilter] = useState(initialStatus || 'all');
   const [selected, setSelected] = useState(null);
   const [localBookings, setLocalBookings] = useState(bookings || []);
+  const [blockedModal, setBlockedModal] = useState({ show: false, balance: 0 });
 
   useEffect(() => {
     if (initialStatus) {
@@ -338,7 +340,11 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
         if (selected?.id === booking.id) setSelected(prev => ({ ...prev, status: next }));
         broadcastBookingSync(booking.id, next);
       } catch (e) {
-        alert('Failed to update booking status: ' + e.message);
+        if (e.code === 'WALLET_BLOCKED' || (e.message && e.message.includes('WALLET_BLOCKED'))) {
+          setBlockedModal({ show: true, balance: e.balance !== undefined ? e.balance : -800 });
+        } else {
+          alert('Failed to update booking status: ' + e.message);
+        }
       }
     }
   };
@@ -823,6 +829,11 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
           </div>
         </div>
       )}
+      <WalletRechargeRequiredModal
+        show={blockedModal.show}
+        balance={blockedModal.balance}
+        onClose={() => setBlockedModal({ show: false, balance: 0 })}
+      />
     </div>
   );
 }

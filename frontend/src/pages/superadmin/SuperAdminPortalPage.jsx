@@ -67,6 +67,7 @@ const SIDEBAR_GROUPS = [
     items: [
       { id: 'vehicle_bookings', label: 'Vehicle Booking', icon: <Car size={15} /> },
       { id: 'hotel_bookings', label: 'Hotel Booking', icon: <Hotel size={15} /> },
+      { id: 'hotel_booking_settings', label: 'Hotel Booking Settings', icon: <Hotel size={15} /> },
       { id: 'flight_bookings', label: 'Flight Booking', icon: <Plane size={15} /> },
       { id: 'trip_bookings', label: 'Trip Booking', icon: <CalendarDays size={15} /> },
       { id: 'activity_bookings', label: 'Sightseeing & Activity Booking', icon: <MapIcon size={15} /> },
@@ -117,6 +118,7 @@ const PAGE_TITLES = {
   vendor_verification: 'KYC & Verification',
   lead_management: 'Lead Management',
   hotel_bookings: 'Hotel Booking',
+  hotel_booking_settings: 'Hotel Booking Settings',
   trip_bookings: 'Trip Booking',
   vehicle_bookings: 'Vehicle Booking',
   flight_bookings: 'Flight Booking',

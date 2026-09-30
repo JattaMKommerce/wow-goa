@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Save, AlertCircle } from 'lucide-react';
 import * as api from '../../services/api';
+import HotelBookingDriverSetting from '../../components/common/HotelBookingDriverSetting';
 
-export default function AdminPlatformSettings() {
+export default function AdminPlatformSettings({ currentUser }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState({
@@ -55,20 +56,20 @@ export default function AdminPlatformSettings() {
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div>
           <h4 className="fw-bold mb-1" style={{ color: '#1a2b4a' }}>Platform Configuration</h4>
-          <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>Global settings for platform fees and wallets</p>
+          <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>Global settings for platform fees, booking options, and operations</p>
         </div>
       </div>
 
       {loading ? (
         <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>
       ) : (
-        <div className="row">
-          <div className="col-md-6">
-            <div className="card border-0 shadow-sm rounded-4">
+        <div className="row g-4">
+          <div className="col-lg-6">
+            <div className="card border-0 shadow-sm rounded-4 h-100">
               <div className="card-body p-4">
                 <form onSubmit={handleSave}>
                   <div className="mb-4">
-                    <h6 className="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <h6 className="fw-bold mb-3 d-flex align-items-center gap-2" style={{ color: '#0D1B2E', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       <Settings size={18} className="text-primary" /> Vendor Wallet & Fee Settings
                     </h6>
                     <div className="alert bg-primary bg-opacity-10 text-primary border-0 rounded-3 small">
@@ -115,6 +116,10 @@ export default function AdminPlatformSettings() {
                 </form>
               </div>
             </div>
+          </div>
+
+          <div className="col-lg-6">
+            <HotelBookingDriverSetting currentUser={currentUser} />
           </div>
         </div>
       )}

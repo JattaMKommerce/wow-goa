@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Download, Eye, CheckCircle, XCircle, Calendar, Phone, CreditCard, RefreshCw, ChevronDown, FileText } from 'lucide-react';
 import { updateBookingStatus } from '../../../services/api';
+import WalletRechargeRequiredModal from '../../../components/vendor/WalletRechargeRequiredModal';
 
 const BOOKING_STATUSES = ['All', 'Confirmed', 'Pending', 'Checked In', 'Checked Out', 'Completed', 'Cancelled', 'No Show', 'Draft'];
 const PAYMENT_STATUSES = ['All', 'Paid', 'Partially Paid', 'Unpaid', 'Refund Pending', 'Refunded'];
@@ -32,6 +33,7 @@ export default function PMSAllBookings({ currentUser, vendorHotels, vendorBookin
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [blockedModal, setBlockedModal] = useState({ show: false, balance: 0 });
   const [page, setPage] = useState(1);
   const PER_PAGE = 15;
 
@@ -80,7 +82,11 @@ export default function PMSAllBookings({ currentUser, vendorHotels, vendorBookin
       }
       alert(`Booking #${bookingId} status updated to ${newStatus}`);
     } catch (err) {
-      alert('Failed to update status: ' + err.message);
+      if (err.code === 'WALLET_BLOCKED' || (err.message && err.message.includes('WALLET_BLOCKED'))) {
+        setBlockedModal({ show: true, balance: err.balance !== undefined ? err.balance : -800 });
+      } else {
+        alert('Failed to update status: ' + err.message);
+      }
     }
   };
 
@@ -282,6 +288,11 @@ export default function PMSAllBookings({ currentUser, vendorHotels, vendorBookin
           </div>
         </div>
       )}
+      <WalletRechargeRequiredModal
+        show={blockedModal.show}
+        balance={blockedModal.balance}
+        onClose={() => setBlockedModal({ show: false, balance: 0 })}
+      />
     </div>
   );
 }

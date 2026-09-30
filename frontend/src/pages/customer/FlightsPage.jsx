@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plane, Calendar, MapPin, ChevronRight, Check, Clock, AlertTriangle } from 'lucide-react';
 import * as api from '../../services/api';
+import { getFlightDefaultImage } from '../../utils/bookingImageHelper';
 
 export default function FlightsPage({
   searchQuery,
@@ -354,8 +355,7 @@ export default function FlightsPage({
                   };
 
                   const airlineName = offer.airline?.name || offer.airline || 'Unknown Airline';
-                  // Get clearbit logo
-                  const airlineLogo = offer.logo || `https://logo.clearbit.com/${airlineName.replace(/\s+/g, '').toLowerCase()}.com`;
+                  const airlineLogo = offer.logo || getFlightDefaultImage(airlineName);
                   const stops = offer.stops || 'Non stop';
                   const price = parseFloat(offer.price).toLocaleString(undefined, { maximumFractionDigits: 0 });
                   const currency = '₹';
@@ -405,7 +405,7 @@ export default function FlightsPage({
                     >
                       <div className="card-body p-4 d-flex flex-column flex-md-row align-items-center justify-content-between">
                         <div className="d-flex align-items-center gap-3" style={{ width: '25%' }}>
-                          <img src={airlineLogo} alt={airlineName} className="rounded bg-light" style={{ width: '40px', height: '40px', objectFit: 'contain' }} onError={(e)=>{e.target.src='https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=50&q=80'}} />
+                          <img src={airlineLogo} alt={airlineName} className="rounded bg-light" style={{ width: '40px', height: '40px', objectFit: 'contain' }} onError={(e)=>{e.target.src=getFlightDefaultImage(airlineName);}} />
                           <div>
                             <div className="fw-bold text-dark">{airlineName}</div>
                             <div className="text-muted small text-truncate" style={{ maxWidth: '120px' }}>{offer.flight?.iata || offer.id}</div>

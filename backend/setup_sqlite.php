@@ -357,10 +357,11 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
 CREATE TABLE IF NOT EXISTS vendor_wallets (
   id VARCHAR(100) PRIMARY KEY,
   vendor_id VARCHAR(100) UNIQUE,
-  balance INT DEFAULT 0,
+  balance DECIMAL(12,2) DEFAULT 0.00,
   reserved_commission INT DEFAULT 0,
   minimum_balance INT DEFAULT 0,
   negative_limit INT DEFAULT -1000,
+  negative_booking_count INT DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -368,11 +369,14 @@ CREATE TABLE IF NOT EXISTS vendor_wallets (
 CREATE TABLE IF NOT EXISTS wallet_transactions (
   id VARCHAR(100) PRIMARY KEY,
   vendor_id VARCHAR(100),
-  amount INT,
+  amount DECIMAL(12,2),
   type VARCHAR(50),
   reference_id VARCHAR(255),
   status VARCHAR(50) DEFAULT 'Completed',
   description TEXT,
+  balance_before DECIMAL(12,2) DEFAULT NULL,
+  balance_after DECIMAL(12,2) DEFAULT NULL,
+  rejection_reason TEXT DEFAULT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -382,14 +386,17 @@ CREATE TABLE IF NOT EXISTS global_settings (
   supportEmail VARCHAR(255) DEFAULT 'support@tripgalileo.com',
   supportPhone VARCHAR(50) DEFAULT '+91 99999 88888',
   logoUrl TEXT,
-  faviconUrl TEXT
+  faviconUrl TEXT,
+  hotel_booking_driver_enabled INT DEFAULT 1,
+  max_negative_bookings INT DEFAULT 2
 );
 
 CREATE TABLE IF NOT EXISTS site_configs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   admin_id VARCHAR(100) DEFAULT 'superadmin',
-  booking_fee_deduction INT DEFAULT 10,
-  min_wallet_recharge INT DEFAULT 5000
+  booking_fee_deduction INT DEFAULT 500,
+  min_wallet_recharge INT DEFAULT 2000,
+  max_negative_bookings INT DEFAULT 2
 );
 
 CREATE TABLE IF NOT EXISTS flights (
