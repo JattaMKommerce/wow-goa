@@ -4,6 +4,10 @@ import {
   Save, CheckCircle2, AlertCircle, FileText, Lock, Cake, Sparkles
 } from 'lucide-react';
 import { formatBirthdayDisplay } from '../../utils/loyaltyHelper';
+import InternationalPhoneInput from '../common/InternationalPhoneInput';
+import { useCustomerCurrency } from '../../context/CustomerCurrencyContext';
+
+import { getCustomerCategory } from '../../utils/countryCurrencyData';
 
 export default function CustomerProfileTab({
   currentUser,
@@ -14,16 +18,23 @@ export default function CustomerProfileTab({
   const savedDob = currentUser?.date_of_birth || 
     (bookings.find(b => b.date_of_birth)?.date_of_birth) || '';
 
+  const { country, currency, setCountry, setCurrency, availableCurrencies } = useCustomerCurrency();
+
   const [formData, setFormData] = useState({
     name: currentUser?.name || currentUser?.username || '',
     email: currentUser?.email || '',
     phone: currentUser?.phone || '',
+    country: currentUser?.country || country?.name || 'India',
+    countryCode: currentUser?.country_code || country?.code || 'IN',
+    preferredCurrency: currentUser?.preferred_currency || currency || 'INR',
     dateOfBirth: savedDob,
     city: currentUser?.city || 'Goa',
     address: currentUser?.address || '',
     licenseNumber: currentUser?.license_number || currentUser?.licenseNumber || '',
     emergencyContact: currentUser?.emergency_contact || '',
   });
+
+  const customerCategory = getCustomerCategory(formData.countryCode || formData.country);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -38,13 +49,24 @@ export default function CustomerProfileTab({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (formData.countryCode) {
+      setCountry(formData.countryCode);
+    }
+    if (formData.preferredCurrency) {
+      setCurrency(formData.preferredCurrency);
+    }
+    const profilePayload = {
+      ...formData,
+      customer_category: customerCategory,
+      customerCategory
+    };
     if (onUpdateProfile) {
-      onUpdateProfile(formData);
+      onUpdateProfile(profilePayload);
     }
     // Update local storage session
     try {
       const existing = JSON.parse(localStorage.getItem('currentUser') || '{}');
-      const updated = { ...existing, ...formData };
+      const updated = { ...existing, ...profilePayload };
       localStorage.setItem('currentUser', JSON.stringify(updated));
     } catch (err) {}
 
@@ -86,7 +108,22 @@ export default function CustomerProfileTab({
             <h5 className="fw-black text-dark mb-1 font-heading" style={{ fontSize: '18px' }}>
               {formData.name || 'Verified Explorer'}
             </h5>
-            <div className="text-muted text-xs mb-3">{formData.email || 'No email attached'}</div>
+            <div className="text-muted text-xs mb-2">{formData.email || 'No email attached'}</div>
+
+            <div className="mb-3">
+              <span
+                className="badge rounded-pill fw-bold"
+                style={{
+                  fontSize: '0.72rem',
+                  letterSpacing: '0.4px',
+                  color: customerCategory === 'FOREIGN' ? '#7c3aed' : '#059669',
+                  backgroundColor: customerCategory === 'FOREIGN' ? '#f3e8ff' : '#ecfdf5',
+                  border: `1px solid ${customerCategory === 'FOREIGN' ? '#ddd6fe' : '#a7f3d0'}`
+                }}
+              >
+                {customerCategory === 'FOREIGN' ? '✈️ FOREIGN CUSTOMER' : '🇮🇳 INDIAN RESIDENT'}
+              </span>
+            </div>
 
             {/* Travel Summary Stats */}
             <div className="p-3 bg-light rounded-3 text-start border mb-3">
@@ -162,17 +199,41 @@ export default function CustomerProfileTab({
                 </div>
 
                 <div className="col-md-6">
-                  <label className="form-label text-xs fw-bold text-muted">Mobile Number (WhatsApp Enabled)</label>
-                  <div className="input-group">
-                    <span className="input-group-text bg-light border-end-0"><Phone size={14} /></span>
-                    <input 
-                      type="tel" 
-                      className="form-control border-start-0 text-xs"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="+91 98765 43210"
-                    />
-                  </div>
+                  <InternationalPhoneInput 
+                    value={formData.phone}
+                    onChange={(val, c) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        phone: val ? String(val) : '',
+                        country: c?.name || prev.country,
+                        countryCode: c?.code || prev.countryCode,
+                        preferredCurrency: c?.currency || prev.preferredCurrency
+                      }));
+                    }}
+                    label="Mobile Number (WhatsApp Enabled)"
+                  />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label text-xs fw-bold text-muted">Preferred Display Currency (ISO 4217)</label>
+                  <select 
+                    className="form-select text-xs"
+                    value={formData.preferredCurrency}
+                    onChange={(e) => {
+                      const newCur = e.target.value;
+                      setFormData({ ...formData, preferredCurrency: newCur });
+                      setCurrency(newCur);
+                    }}
+                  >
+                    {availableCurrencies.map(c => (
+                      <option key={c.currency} value={c.currency}>
+                        {c.flag} {c.currency} - {c.country} ({c.symbol})
+                      </option>
+                    ))}
+                  </select>
+                  <small className="text-muted" style={{ fontSize: '10px' }}>
+                    WOW GOA prices will automatically convert and display in this currency.
+                  </small>
                 </div>
 
                 <div className="col-md-6">

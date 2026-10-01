@@ -12,6 +12,9 @@
  * - Master-Child booking creation for packages (Hotel, Vehicle, Driver child allocations)
  * - Atomic database transactions with rollback on failure
  */
+require_once __DIR__ . '/country_currency.php';
+require_once __DIR__ . '/ExchangeRateService.php';
+require_once __DIR__ . '/VendorWalletAlertService.php';
 
 class BookingServiceException extends Exception {
     protected $httpCode = 400;
@@ -541,11 +544,41 @@ class BookingService {
                 }
             }
 
-            // 7. Customer Identity & Permanent DOB Management
+            // 7. Customer Identity, Country/Currency & Permanent DOB Management
+            $rawCountryCode = $payload['customer_country_code'] ?? ($payload['country_code'] ?? null);
+            $rawCountryName = $payload['customer_country'] ?? ($payload['country'] ?? null);
+            $rawCurrency = $payload['customer_currency'] ?? ($payload['currency'] ?? null);
+
+            // Auto-detect from phone number if country code is missing or unformatted
+            if (empty($rawCountryCode) && !empty($rawPhone)) {
+                $detected = CountryCurrencyRegistry::detectFromPhone($rawPhone);
+                if ($detected) {
+                    $rawCountryCode = $detected['code'];
+                    if (empty($rawCountryName)) $rawCountryName = $detected['name'];
+                    if (empty($rawCurrency)) $rawCurrency = $detected['currency'];
+                }
+            }
+
+            // Authoritative server-side calculation for booking snapshot
+            $currencySnapshot = ExchangeRateService::calculateBookingSnapshot(
+                floatval($totalAmount),
+                $rawCountryCode ?: 'IN',
+                $rawCurrency
+            );
+
+            $customerCountry = $rawCountryName ?: $currencySnapshot['customer_country'];
+            $customerCountryCode = $currencySnapshot['customer_country_code'];
+            $customerCountryIso = $currencySnapshot['customer_country_iso'] ?? 'IN';
+            $customerCurrency = $currencySnapshot['customer_currency'];
+            $customerCategory = $currencySnapshot['customer_category'] ?? (($customerCountryIso === 'IN' || $customerCountryCode === '+91' || strtolower(trim($customerCountry)) === 'india') ? 'INDIAN' : 'FOREIGN');
+            $exchangeRateUsed = $currencySnapshot['exchange_rate_used'];
+            $convertedDisplayAmount = $currencySnapshot['converted_display_amount'];
+            $currencyRateTimestamp = $currencySnapshot['currency_rate_timestamp'];
+
             $custDob = null;
             if (!empty($last10)) {
                 try {
-                    $chkCust = $pdo->prepare("SELECT id, name, phone, email, date_of_birth FROM users WHERE (phone != '' AND (phone LIKE ? OR phone LIKE ?)) OR (email != '' AND LOWER(email) = ?) LIMIT 1");
+                    $chkCust = $pdo->prepare("SELECT id, name, phone, email, date_of_birth, country, country_code, preferred_currency, customer_category FROM users WHERE (phone != '' AND (phone LIKE ? OR phone LIKE ?)) OR (email != '' AND LOWER(email) = ?) LIMIT 1");
                     $chkCust->execute(["%$last10", "%$rawPhone", $custEmail]);
                     $existingCust = $chkCust->fetch(PDO::FETCH_ASSOC);
 
@@ -558,15 +591,27 @@ class BookingService {
                             $updCust = $pdo->prepare("UPDATE users SET date_of_birth = ? WHERE id = ?");
                             $updCust->execute([$custDob, $existingCust['id']]);
                         }
+
+                        // Update country/currency preferences if not yet populated or if customer updated
+                        try {
+                            $updCustCur = $pdo->prepare("UPDATE users SET 
+                                country = CASE WHEN (country IS NULL OR country = '' OR country = 'India') AND ? != 'India' THEN ? ELSE COALESCE(country, ?) END,
+                                country_code = CASE WHEN (country_code IS NULL OR country_code = '' OR country_code = 'IN') AND ? != 'IN' THEN ? ELSE COALESCE(country_code, ?) END,
+                                dial_code = CASE WHEN dial_code IS NULL OR dial_code = '' THEN ? ELSE dial_code END,
+                                preferred_currency = CASE WHEN (preferred_currency IS NULL OR preferred_currency = '' OR preferred_currency = 'INR') AND ? != 'INR' THEN ? ELSE COALESCE(preferred_currency, ?) END,
+                                customer_category = ?
+                                WHERE id = ?");
+                            $updCustCur->execute([$customerCountry, $customerCountry, $customerCountry, $customerCountryIso, $customerCountryIso, $customerCountryIso, $customerCountryCode, $customerCurrency, $customerCurrency, $customerCurrency, $customerCategory, $existingCust['id']]);
+                        } catch (Exception $cue) {}
                     } else {
-                        // Create new customer profile with mandatory DOB
+                        // Create new customer profile with mandatory DOB, country, dial code, preferred currency, category
                         $custDob = !empty($rawDob) ? $rawDob : null;
                         $newCustId = 'c_' . $last10;
                         $chkExistingId = $pdo->prepare("SELECT id FROM users WHERE id = ?");
                         $chkExistingId->execute([$newCustId]);
                         if (!$chkExistingId->fetch()) {
-                            $insCust = $pdo->prepare("INSERT INTO users (id, username, name, email, phone, role, status, date_of_birth, created_at) VALUES (?, ?, ?, ?, ?, 'customer', 'active', ?, ?)");
-                            $insCust->execute([$newCustId, $rawPhone, $custName, $custEmail, $rawPhone, $custDob, date('Y-m-d H:i:s')]);
+                            $insCust = $pdo->prepare("INSERT INTO users (id, username, name, email, phone, role, status, date_of_birth, country, country_code, dial_code, preferred_currency, customer_category, created_at) VALUES (?, ?, ?, ?, ?, 'customer', 'active', ?, ?, ?, ?, ?, ?, ?)");
+                            $insCust->execute([$newCustId, $rawPhone, $custName, $custEmail, $rawPhone, $custDob, $customerCountry, $customerCountryIso, $customerCountryCode, $customerCurrency, $customerCategory, date('Y-m-d H:i:s')]);
                         }
                     }
                 } catch (Exception $ce) {}
@@ -655,7 +700,9 @@ class BookingService {
                 customer_price, pricing_snapshot_json,
                 customer_payment, wow_goa_platform_fee, vendor_service_amount,
                 payment_reference, customer_payment_utr, payment_screenshot, payment_verification_status,
-                vendor_payout_status, cancellation_policy_snapshot
+                vendor_payout_status, cancellation_policy_snapshot,
+                customer_country, customer_country_code, customer_category, customer_currency,
+                exchange_rate_used, converted_display_amount, currency_rate_timestamp
             ) VALUES (
                 ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?,
@@ -674,7 +721,8 @@ class BookingService {
                 ?, ?,
                 ?, ?, ?,
                 ?, ?, ?,
-                ?, ?, ?
+                ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?
             )";
 
             $isGenuineB2B = $isB2B && !empty($actor) && in_array(strtolower($actor['role'] ?? ''), ['b2b', 'agent']);
@@ -818,7 +866,14 @@ class BookingService {
                 $paymentProof,
                 $paymentVerifStatus,
                 $vendorPayoutStatus,
-                $cancellationPolicySnapshotJson
+                $cancellationPolicySnapshotJson,
+                $customerCountry,
+                $customerCountryCode,
+                $customerCategory,
+                $customerCurrency,
+                $exchangeRateUsed,
+                $convertedDisplayAmount,
+                $currencyRateTimestamp
             ]);
 
             // 11. Master-Child Booking Creation for Package Bookings (Phase 6)
@@ -1675,6 +1730,22 @@ class BookingService {
                 if ($startedTransaction && $pdo->inTransaction()) {
                     $pdo->rollBack();
                 }
+
+                // Attach Authoritative Operational Alert to WALLET_BLOCKED event
+                // Safe error handling so notification failure can NEVER break booking state handling
+                try {
+                    VendorWalletAlertService::triggerBookingBlockedAlert(
+                        $pdo,
+                        $vendorId,
+                        $bookingId,
+                        $currentBalance,
+                        $negativeCount,
+                        $maxNegativeBookings
+                    );
+                } catch (Exception $alertEx) {
+                    error_log("VendorWalletAlertService triggerBookingBlockedAlert error: " . $alertEx->getMessage());
+                }
+
                 return [
                     'success' => false,
                     'code' => 'WALLET_BLOCKED',
@@ -1739,6 +1810,20 @@ class BookingService {
                 $balanceBefore,
                 $balanceAfter
             ]);
+
+            // 10b. Authoritative Minimum Vendor Wallet Balance Alert Trigger (₹1,000 Threshold)
+            try {
+                VendorWalletAlertService::checkAndTriggerLowBalanceAlert(
+                    $pdo,
+                    $wallet['vendor_id'],
+                    $balanceBefore,
+                    $balanceAfter,
+                    "Booking platform fee deduction for booking #{$bookingId}"
+                );
+            } catch (Exception $alertEx) {
+                // Notification failures are side-effects and must never break or roll back authoritative accounting
+                error_log("Vendor wallet alert error: " . $alertEx->getMessage());
+            }
 
             // 11. Record WOW GOA Platform Revenue Ledger Entry (Credit to Super Admin Platform Revenue)
             $revTxId = 'rev_pf_' . uniqid() . '_' . rand(100, 999);

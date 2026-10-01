@@ -698,6 +698,8 @@ export default function CustomerPortalPage({
 
   const handleConfirmDirectBooking = async (e, paymentMethodId, extraDetails = {}) => {
     if (e && e.preventDefault) e.preventDefault();
+    setDirectBookingSuccess(false);
+    setLastConfirmedDirectBooking(null);
     const details = (e && typeof e === 'object' && !e.preventDefault) ? e : extraDetails;
     try {
       const cleanDigits = String(bookingUserPhone || customerUser?.phone || '').replace(/\D/g, '');
@@ -766,9 +768,13 @@ export default function CustomerPortalPage({
       };
 
       const res = await api.createBooking(enrichedPayload);
-      const confirmedBooking = res && (res.id || res.booking_id)
-        ? { ...enrichedPayload, id: res.id || res.booking_id }
-        : { ...enrichedPayload, id: `WG${Math.floor(1000 + Math.random() * 9000)}` };
+      const confirmedBooking = {
+        ...enrichedPayload,
+        ...(res?.booking || {}),
+        id: res?.booking_id || res?.id || res?.booking?.id || `WG${Math.floor(1000 + Math.random() * 9000)}`,
+        booking_id: res?.booking_id || res?.id || res?.booking?.id,
+        cashback_preview: res?.cashback_preview || res?.booking?.cashback_preview || null
+      };
 
       setLastConfirmedDirectBooking(confirmedBooking);
       setDirectBookingSuccess(true);
@@ -1754,9 +1760,16 @@ export default function CustomerPortalPage({
       {/* ─── 4b. Direct Booking Modal within Customer Portal ─── */}
       {directBookingItem && (
         <BookingModal
+          key={directBookingItem ? `${directBookingItem.id || directBookingItem.name}_${lastConfirmedDirectBooking?.id || 'new'}` : 'closed'}
           selectedBookingItem={directBookingItem}
           setSelectedBookingItem={setDirectBookingItem}
-          showSuccess={directBookingSuccess}
+          onCloseModal={() => {
+            setDirectBookingItem(null);
+            setDirectBookingSuccess(false);
+            setLastConfirmedDirectBooking(null);
+          }}
+          showSuccess={Boolean(directBookingSuccess && lastConfirmedDirectBooking)}
+          setShowSuccess={setDirectBookingSuccess}
           userName={bookingUserName}
           setUserName={setBookingUserName}
           userPhone={bookingUserPhone}
@@ -1771,6 +1784,7 @@ export default function CustomerPortalPage({
           bookingDays={3}
           handleConfirmBooking={handleConfirmDirectBooking}
           lastConfirmedBooking={lastConfirmedDirectBooking}
+          setLastConfirmedBooking={setLastConfirmedDirectBooking}
           allPackages={packages}
           allCars={cars}
           allBikes={bikes}

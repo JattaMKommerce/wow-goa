@@ -17,6 +17,8 @@ import VehicleVendorProfileSettings from './vehicle-pms/VehicleVendorProfileSett
 import VendorDashboard from './VendorDashboard';
 import VendorNotificationBell from '../../components/vendor/VendorNotificationBell';
 import VendorCancellationPolicyManager from '../../components/vendor/VendorCancellationPolicyManager';
+import VendorSuspendedBanner from '../../components/vendor/VendorSuspendedBanner';
+import VendorRechargeReminderBanner from '../../components/vendor/VendorRechargeReminderBanner';
 
 const SIDEBAR_GROUPS = [
   {
@@ -108,6 +110,18 @@ export default function VendorPortalPage({
     if (onRefreshVehicles) {
       onRefreshVehicles();
     }
+    const handleNavEvent = (e) => {
+      if (e.detail) {
+        if (typeof e.detail === 'string') {
+          setActiveTab(e.detail);
+        } else if (e.detail.tab) {
+          setActiveTab(e.detail.tab);
+          if (e.detail.params) setTabParams(e.detail.params);
+        }
+      }
+    };
+    window.addEventListener('navigate-vendor-tab', handleNavEvent);
+    return () => window.removeEventListener('navigate-vendor-tab', handleNavEvent);
   }, [onRefreshVehicles]);
 
   const handleNavigate = (tab, params = {}) => {
@@ -183,6 +197,7 @@ export default function VendorPortalPage({
             initialStatus={tabParams.statusFilter || tabParams.filter}
             setBookingsList={setBookingsList}
             currentUser={currentUser}
+            onNavigate={handleNavigate}
           />
         );
       case 'calendar':
@@ -287,6 +302,14 @@ export default function VendorPortalPage({
             WebkitOverflowScrolling: 'touch'
           }}
         >
+          <VendorSuspendedBanner 
+            vendorId={currentUser?.id} 
+            onRechargeClick={() => setActiveTab('wallet')} 
+          />
+          <VendorRechargeReminderBanner
+            vendorId={currentUser?.id}
+            onRechargeClick={() => setActiveTab('wallet')}
+          />
           {renderContent()}
         </div>
       </div>

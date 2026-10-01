@@ -1,9 +1,12 @@
 import React from 'react';
-import { Compass, LogOut, User } from 'lucide-react';
+import { Compass, LogOut, User, Globe } from 'lucide-react';
 import { useSiteConfig } from '../context/SiteConfigContext';
+import { useCustomerCurrency } from '../context/CustomerCurrencyContext';
+import { COUNTRIES } from '../utils/countryCurrencyData';
 
 export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOpenLogin, onOpenLogin, onLogout }) {
   const { liveConfig } = useSiteConfig();
+  const { selectedCountry, currency, setCountry } = useCustomerCurrency();
   const headerLinks = liveConfig?.menus?.header || [];
   const handleOpenLogin = triggerOpenLogin || onOpenLogin;
   return (
@@ -78,6 +81,58 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
               >
                 Enquire Your Own Package
               </button>
+            </li>
+
+            {/* Currency / Country Selector Dropdown */}
+            <li className="nav-item dropdown ms-lg-2 me-1">
+              <button 
+                type="button"
+                className="btn btn-sm d-flex align-items-center gap-1.5 px-2.5 py-1.5 rounded-pill shadow-sm"
+                style={{ 
+                  background: 'rgba(255, 255, 255, 0.12)', 
+                  color: '#ffffff', 
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  backdropFilter: 'blur(8px)',
+                  transition: 'all 0.2s ease'
+                }}
+                id="currencyDropdown"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+                title="Change display country and currency"
+              >
+                <span style={{ fontSize: '14px' }}>{selectedCountry?.flag || '🇮🇳'}</span>
+                <span className="text-warning fw-bold">{currency || 'INR'}</span>
+                <span style={{ fontSize: '9px', opacity: 0.8 }}>▼</span>
+              </button>
+              <ul 
+                className="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2 p-1" 
+                aria-labelledby="currencyDropdown"
+                style={{ minWidth: '220px', maxHeight: '340px', overflowY: 'auto', borderRadius: '12px', zIndex: 1050 }}
+              >
+                <li className="px-3 py-1.5 text-muted fw-bold border-bottom mb-1" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Country & Display Currency
+                </li>
+                {COUNTRIES.map(c => (
+                  <li key={c.code}>
+                    <button
+                      type="button"
+                      className={`dropdown-item d-flex align-items-center justify-content-between rounded py-1.5 px-3 ${selectedCountry?.code === c.code ? 'active bg-primary text-white' : 'text-dark'}`}
+                      style={{ fontSize: '13px' }}
+                      onClick={() => setCountry(c)}
+                    >
+                      <span className="d-flex align-items-center gap-2">
+                        <span style={{ fontSize: '16px' }}>{c.flag}</span>
+                        <span className="fw-semibold">{c.name}</span>
+                      </span>
+                      <span className={`badge ${selectedCountry?.code === c.code ? 'bg-light text-primary' : 'bg-light text-dark border'} ms-2`} style={{ fontSize: '11px' }}>
+                        {c.currency}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </li>
 
             {/* Conditional Authentication Display */}

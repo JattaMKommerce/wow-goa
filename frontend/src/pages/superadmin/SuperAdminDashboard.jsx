@@ -2226,6 +2226,10 @@ function GlobalSettingsTab({ currentUser }) {
     siteName: 'TripGalileo', currency: 'INR', taxRate: 18, supportEmail: 'support@tripgalileo.com',
     whatsappNumber: '', smsProvider: 'none', darkMode: false, maintenanceMode: false,
     max_negative_bookings: 2,
+    min_vendor_wallet_balance: 1000,
+    wallet_reminder_frequency_hours: 2,
+    max_initial_reminders: 2,
+    wallet_alert_channels: 'SMS,Email,WhatsApp,Portal',
   });
   const [loading, setLoading] = useState(true);
 
@@ -2244,6 +2248,14 @@ function GlobalSettingsTab({ currentUser }) {
             darkMode: data.darkMode == 1,
             maintenanceMode: data.maintenanceMode == 1,
             max_negative_bookings: data.max_negative_bookings !== undefined ? Number(data.max_negative_bookings) : 2,
+            min_vendor_wallet_balance: data.min_vendor_wallet_balance !== undefined ? Number(data.min_vendor_wallet_balance) : 1000,
+            wallet_reminder_frequency_hours: (() => {
+              if (data.wallet_reminder_frequency_hours === undefined) return 2;
+              const f = parseFloat(data.wallet_reminder_frequency_hours);
+              return (f > 0 && f <= 0.02) ? 0.0167 : f;
+            })(),
+            max_initial_reminders: data.max_initial_reminders !== undefined ? Number(data.max_initial_reminders) : 2,
+            wallet_alert_channels: data.wallet_alert_channels || 'SMS,Email,WhatsApp,Portal',
           });
         }
         setLoading(false);
@@ -2321,6 +2333,77 @@ function GlobalSettingsTab({ currentUser }) {
               />
               <small className="text-muted" style={{ fontSize: '0.72rem' }}>
                 Default: 2. Vendors with negative wallet balances are blocked once this limit is reached.
+              </small>
+            </div>
+            <div className="mb-3">
+              <label className="form-label fw-bold" style={{ fontSize: '0.78rem', color: '#475569' }}>
+                Minimum Vendor Wallet Balance (₹)
+              </label>
+              <input 
+                type="number" 
+                min="0" 
+                step="100"
+                className="form-control" 
+                style={{ fontSize: '0.85rem', borderRadius: '8px' }} 
+                value={settings.min_vendor_wallet_balance ?? 1000} 
+                onChange={e => setSettings(s => ({ ...s, min_vendor_wallet_balance: parseFloat(e.target.value) || 0 }))} 
+              />
+              <small className="text-muted" style={{ fontSize: '0.72rem' }}>
+                Default: ₹1,000. Vendors whose wallets reach or drop below this balance receive low-balance alerts across SMS, Email, WhatsApp, and Portal.
+              </small>
+            </div>
+            <div className="mb-3">
+              <label className="form-label fw-bold" style={{ fontSize: '0.78rem', color: '#475569' }}>
+                Wallet Escalation Reminder Frequency
+              </label>
+              <select
+                className="form-select"
+                style={{ fontSize: '0.85rem', borderRadius: '8px' }}
+                value={settings.wallet_reminder_frequency_hours ?? 2}
+                onChange={e => setSettings(s => ({ ...s, wallet_reminder_frequency_hours: parseFloat(e.target.value) || 2 }))}
+              >
+                <option value="0.0167">1 minute (Testing)</option>
+                <option value="1">1 hour</option>
+                <option value="2">2 hours (Default)</option>
+                <option value="4">4 hours</option>
+                <option value="6">6 hours</option>
+                <option value="12">12 hours</option>
+                <option value="24">24 hours</option>
+              </select>
+              <small className="text-muted" style={{ fontSize: '0.72rem' }}>
+                Frequency between automatic escalation reminders after WALLET_BLOCKED is triggered.
+              </small>
+            </div>
+            <div className="mb-3">
+              <label className="form-label fw-bold" style={{ fontSize: '0.78rem', color: '#475569' }}>
+                Maximum Initial Automatic Reminders
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="5"
+                className="form-control"
+                style={{ fontSize: '0.85rem', borderRadius: '8px' }}
+                value={settings.max_initial_reminders ?? 2}
+                onChange={e => setSettings(s => ({ ...s, max_initial_reminders: parseInt(e.target.value) || 1 }))}
+              />
+              <small className="text-muted" style={{ fontSize: '0.72rem' }}>
+                Default: 2. Reminders automatically STOP after this limit; Admin/Super Admin decision required.
+              </small>
+            </div>
+            <div className="mb-3">
+              <label className="form-label fw-bold" style={{ fontSize: '0.78rem', color: '#475569' }}>
+                Wallet Alert Channels
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                style={{ fontSize: '0.85rem', borderRadius: '8px' }}
+                value={settings.wallet_alert_channels ?? 'SMS,Email,WhatsApp,Portal'}
+                onChange={e => setSettings(s => ({ ...s, wallet_alert_channels: e.target.value }))}
+              />
+              <small className="text-muted" style={{ fontSize: '0.72rem' }}>
+                Comma-separated active dispatch channels (e.g. SMS,Email,WhatsApp,Portal).
               </small>
             </div>
             <div className="d-flex gap-3">
@@ -2521,7 +2604,15 @@ export default function SuperAdminDashboard({
     case 'trip_bookings':
       return <TripBookingsTab bookings={bookings} customEnquiries={customEnquiries} vendors={vendors} onRefresh={onRefreshLeads} />;
     case 'wallet':
+    case 'wallets':
+    case 'vendor_wallets':
       return <WalletTab />;
+    case 'blocked_alerts':
+    case 'blocked_booking_alerts':
+      return <WalletApprovalCenter defaultTab="blocked_alerts" />;
+    case 'reactivations':
+    case 'vendor_reactivations':
+      return <WalletApprovalCenter defaultTab="reactivations" />;
     case 'payment_gateway':
       return <PaymentGatewayTab />;
     case 'subscription_plans':

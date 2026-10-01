@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, ToggleLeft, ToggleRight, X, Save, Camera, Car, Bike, Upload, Loader2, CheckCircle2, Star, Image as ImageIcon } from 'lucide-react';
-import { toggleVehicleAvailability, updateVehicle, deleteVehicle, uploadImage } from '../../../services/api';
+import { toggleVehicleAvailability, updateVehicle, deleteVehicle, uploadImage, apiFetch, API_BASE } from '../../../services/api';
 
-function VehicleCard({ vehicle, type, onEdit, onToggle, onDelete }) {
+function VehicleCard({ vehicle, type, onEdit, onToggle, onDelete, isSuspended }) {
   const available = vehicle.is_available !== 0 && vehicle.is_available !== false && vehicle.is_available !== '0';
   const [imgFailed, setImgFailed] = useState(false);
 
@@ -40,9 +40,15 @@ function VehicleCard({ vehicle, type, onEdit, onToggle, onDelete }) {
             </div>
           )}
           <div className="position-absolute top-0 start-0 m-2 d-flex gap-1">
-            <span className="px-2 py-1 rounded-pill fw-bold" style={{ background: available ? '#dcfce7' : '#fee2e2', color: available ? '#16a34a' : '#dc2626', fontSize: '0.62rem', textTransform: 'uppercase' }}>
-              {available ? 'Available' : 'Unavailable'}
-            </span>
+            {isSuspended ? (
+              <span className="px-2 py-1 rounded-pill fw-bold text-white shadow-sm" style={{ background: '#dc2626', fontSize: '0.62rem', textTransform: 'uppercase' }}>
+                HIDDEN — ADMIN REACTIVATION REQUIRED
+              </span>
+            ) : (
+              <span className="px-2 py-1 rounded-pill fw-bold" style={{ background: available ? '#dcfce7' : '#fee2e2', color: available ? '#16a34a' : '#dc2626', fontSize: '0.62rem', textTransform: 'uppercase' }}>
+                {available ? 'Available' : 'Unavailable'}
+              </span>
+            )}
             {allImages.length > 1 && (
               <span className="px-2 py-1 rounded-pill fw-bold text-white shadow-sm d-flex align-items-center gap-1" style={{ background: 'rgba(13,27,46,0.75)', backdropFilter: 'blur(4px)', fontSize: '0.62rem' }}>
                 <ImageIcon size={10} /> {allImages.length} Photos
@@ -193,6 +199,16 @@ function isBikeItem(item) {
 export default function VehicleFleetManagement({ currentUser, cars = [], bikes = [], initialFilter, onAddCar, onAddBike, onUpdateCar, onUpdateBike, onDeleteCar, onDeleteBike }) {
   const [activeTab, setActiveTab] = useState(initialFilter || 'all');
   const [search, setSearch] = useState('');
+  const [walletInfo, setWalletInfo] = useState(null);
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      apiFetch(`${API_BASE}?resource=vendor_wallet_info&vendor_id=${currentUser.id}`)
+        .then(r => r.json())
+        .then(d => { if (d && !d.error) setWalletInfo(d); })
+        .catch(console.error);
+    }
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (initialFilter) {
@@ -565,6 +581,7 @@ export default function VehicleFleetManagement({ currentUser, cars = [], bikes =
               }}
               onToggle={handleToggle}
               onDelete={handleDelete}
+              isSuspended={Number(walletInfo?.services_suspended) === 1}
             />
           </div>
         ))}

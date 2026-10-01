@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle, ShieldCheck, Compass, Calendar, Clock, MapPin, Cake, Award, Sparkles, Gift, Wallet, Users, Crown, Car, Bike, Camera, AlertCircle } from 'lucide-react';
+import { X, CheckCircle, ShieldCheck, Compass, Calendar, Clock, MapPin, Cake, Award, Sparkles, Gift, Wallet, Users, Crown, Car, Bike, Camera, AlertCircle, ArrowRight, ArrowLeft, Globe } from 'lucide-react';
 import { getTodayDateStr, addDays, validateVehicleBookingEligibility } from '../utils/dateUtils';
 import * as api from '../services/api';
 import { checkCustomerDob } from '../services/api';
@@ -10,6 +10,10 @@ import BookingConfirmationCard from './common/BookingConfirmationCard';
 import StaticQRPaymentCard from './common/StaticQRPaymentCard';
 import VendorCancellationPolicyCard from './common/VendorCancellationPolicyCard';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
+import InternationalPhoneInput from './common/InternationalPhoneInput';
+import CurrencyPriceDisplay from './common/CurrencyPriceDisplay';
+import { useCustomerCurrency } from '../context/CustomerCurrencyContext';
+import { parsePhoneNumber, extractPhoneString } from '../utils/countryCurrencyData';
 
 // Helper to normalize time strings (e.g. '10:00' -> '10:00 AM') so dropdown options match cleanly
 function normalizeTimeStr(t) {
@@ -36,7 +40,9 @@ function normalizeTimeStr(t) {
 export default function BookingModal({
   selectedBookingItem,
   setSelectedBookingItem,
+  onCloseModal,
   showSuccess,
+  setShowSuccess,
   userName,
   setUserName,
   userPhone,
@@ -52,11 +58,14 @@ export default function BookingModal({
   bookingDays,
   handleConfirmBooking,
   lastConfirmedBooking,
+  setLastConfirmedBooking,
   allPackages = [],
   allCars = [],
   allBikes = []
 }) {
   if (!selectedBookingItem) return null;
+  const { country, currency, category, isIndian, isForeign, setCountry, resetCountry } = useCustomerCurrency();
+  const [bookingStep, setBookingStep] = useState('DETAILS'); // 'DETAILS' | 'PAYMENT'
 
   const [modalPickupDate, setModalPickupDate] = useState(pickupDate || getTodayDateStr());
   const [modalDropDate, setModalDropDate] = useState(dropDate || addDays(pickupDate || getTodayDateStr(), bookingDays || 2));
@@ -80,6 +89,53 @@ export default function BookingModal({
   const [staticQrReference, setStaticQrReference] = useState('');
 
   const modalBodyRef = useRef(null);
+
+  // Authoritative Modal Teardown & Reset: clears confirmation state and restores default country/currency
+  const handleModalClose = () => {
+    setBookingStep('DETAILS');
+    setPolicyAgreed(false);
+    setStaticQrReference('');
+    if (resetCountry) resetCountry();
+    if (onCloseModal && typeof onCloseModal === 'function') {
+      onCloseModal();
+    } else {
+      if (setShowSuccess) setShowSuccess(false);
+      if (setLastConfirmedBooking) setLastConfirmedBooking(null);
+      if (setSelectedBookingItem) setSelectedBookingItem(null);
+    }
+  };
+
+  // Synchronize country on modal start: clean India for new booking, or parsed country if phone already exists
+  useEffect(() => {
+    const rawP = extractPhoneString(userPhone);
+    if (!rawP) {
+      if (resetCountry) resetCountry();
+    } else {
+      const parsed = parsePhoneNumber(rawP, 'IN');
+      if (parsed.country && setCountry) {
+        setCountry(parsed.country);
+      }
+    }
+  }, [selectedBookingItem]);
+
+  // Authoritative Customer Portal Tracker: tracks the CURRENT booking
+  const handleTrackInPortal = () => {
+    const curBooking = lastConfirmedBooking;
+    if (curBooking) {
+      try {
+        sessionStorage.setItem('last_created_booking', JSON.stringify(curBooking));
+        localStorage.setItem('last_created_booking', JSON.stringify(curBooking));
+        const ph = curBooking.customer_phone || curBooking.phone || userPhone;
+        if (ph) {
+          const clean = String(ph).replace(/\D/g, '');
+          sessionStorage.setItem('customer_login_phone', clean);
+          localStorage.setItem('customer_login_phone', clean);
+        }
+      } catch (e) {}
+    }
+    handleModalClose();
+    window.location.href = '/customer';
+  };
 
   // Global background scroll lock with exact scroll position preservation
   useEffect(() => {
@@ -435,8 +491,16 @@ export default function BookingModal({
   const finalPayable = Math.max(0, postTierTotal - appliedWalletAmount);
   const projectedCashback = Math.round(finalPayable * 0.10);
 
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
+  const validateDetailsStep = () => {
+    if (!userName || !userName.trim()) {
+      alert("Please enter your Full Name.");
+      return false;
+    }
+    const cleanPhone = String(userPhone || '').replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 6) {
+      alert("Please enter a valid phone number with your country code.");
+      return false;
+    }
 
     const isVehicleItem = isCar || isBike || Boolean(addonVehicle);
     if (isVehicleItem) {
@@ -449,51 +513,39 @@ export default function BookingModal({
       );
       if (!eligibility.valid) {
         alert(eligibility.error);
-        return;
+        return false;
       }
     } else {
       if (!userDob && !isDobSaved) {
         alert("Please select your Date of Birth (Day, Month, and Year). Date of Birth is required for birthday privileges and special offers from WOW GOA.");
-        return;
+        return false;
       }
-    }
-
-    // Cancellation Policy Agreement Validation
-    if (!policyAgreed) {
-      alert("Please review and acknowledge the vendor cancellation policy checkbox before confirming your booking.");
-      return;
-    }
-
-    // Static QR UTR Validation
-    if (!staticQrReference || staticQrReference.trim().length < 6) {
-      alert("Please enter the 12-digit UPI UTR / Transaction Reference ID after completing payment via the WOW GOA Static QR.");
-      return;
     }
 
     // Validation for driver services when enabled
     if (driverRequired) {
       if (!driverServiceType) {
         alert("Please select a Driver Service option: Pickup (₹400), Drop (₹400), or Full-Day Driver (₹800/day).");
-        return;
+        return false;
       }
 
       if (driverServiceType === 'PICKUP') {
         const effectivePickup = driverPickupDate || modalPickupDate;
         if (!effectivePickup) {
           alert("Please select a valid Pickup Date for the Driver Pickup service.");
-          return;
+          return false;
         }
         if (modalPickupDate && effectivePickup < modalPickupDate) {
           alert(`Driver pickup date cannot be before vehicle pickup date (${modalPickupDate}).`);
-          return;
+          return false;
         }
         if (modalDropDate && effectivePickup > modalDropDate) {
           alert(`Driver pickup date cannot be after vehicle drop date (${modalDropDate}).`);
-          return;
+          return false;
         }
         if (driverPickupLoc === 'Custom Address' && !driverPickupCustomLoc.trim()) {
           alert("Please enter the Custom Address for the Driver Pickup service.");
-          return;
+          return false;
         }
       }
 
@@ -501,19 +553,19 @@ export default function BookingModal({
         const effectiveDrop = driverDropDate || modalDropDate;
         if (!effectiveDrop) {
           alert("Please select a valid Drop Date for the Driver Drop service.");
-          return;
+          return false;
         }
         if (modalPickupDate && effectiveDrop < modalPickupDate) {
           alert(`Driver drop date cannot be before vehicle pickup date (${modalPickupDate}).`);
-          return;
+          return false;
         }
         if (modalDropDate && effectiveDrop > modalDropDate) {
           alert(`Driver drop date cannot be after vehicle drop date (${modalDropDate}).`);
-          return;
+          return false;
         }
         if (driverDropLoc === 'Custom Address' && !driverDropCustomLoc.trim()) {
           alert("Please enter the Custom Address for the Driver Drop service.");
-          return;
+          return false;
         }
       }
 
@@ -522,28 +574,53 @@ export default function BookingModal({
         const effectiveEnd = driverFullDayEnd || modalDropDate;
         if (!effectiveStart || !effectiveEnd) {
           alert("Please select valid Start and End dates for the Full-Day Driver service.");
-          return;
+          return false;
         }
         if (modalPickupDate && effectiveStart < modalPickupDate) {
           alert(`Driver start date cannot be before vehicle pickup date (${modalPickupDate}).`);
-          return;
+          return false;
         }
         if (modalDropDate && effectiveEnd > modalDropDate) {
           alert(`Driver end date cannot be after vehicle drop date (${modalDropDate}).`);
-          return;
+          return false;
         }
         if (effectiveEnd < effectiveStart) {
           alert("Driver end date cannot be before driver start date.");
-          return;
+          return false;
         }
         if (driverFullDayStartLoc === 'Custom Address' && !driverFullDayCustomStartLoc.trim()) {
           alert("Please enter the Custom Start Address for the Full-Day Driver service.");
-          return;
+          return false;
         }
         if (driverFullDayEndLoc === 'Custom Address' && !driverFullDayCustomEndLoc.trim()) {
           alert("Please enter the Custom End Address for the Full-Day Driver service.");
-          return;
+          return false;
         }
+      }
+    }
+
+    return true;
+  };
+
+  const handleProceedToPayment = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!validateDetailsStep()) return;
+    setBookingStep('PAYMENT');
+    modalBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleConfirmBookingSubmit = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+
+    if (!policyAgreed) {
+      alert("Please review and acknowledge the vendor cancellation policy checkbox before confirming your booking.");
+      return;
+    }
+
+    if (isIndian) {
+      if (!staticQrReference || staticQrReference.trim().length < 6) {
+        alert("Please enter the 12-digit UPI UTR / Transaction Reference ID after completing payment via the vendor Static QR.");
+        return;
       }
     }
 
@@ -588,7 +665,14 @@ export default function BookingModal({
       totalCharge: driverTotalCharge
     };
 
-    handleConfirmBooking(e, 'Static QR (UPI)', {
+    const paymentMethodToUse = isIndian 
+      ? 'Static QR (UPI)' 
+      : 'International Online Payment Gateway (Pending Integration)';
+    const paymentRefToUse = isIndian 
+      ? staticQrReference 
+      : 'INTL_PENDING';
+
+    handleConfirmBooking(e, paymentMethodToUse, {
       pickupDate: modalPickupDate,
       dropDate: modalDropDate,
       pickupTime: modalPickupTime,
@@ -634,15 +718,21 @@ export default function BookingModal({
       amount_paid: finalPayable,
       total_amount: total,
       customer_payment: finalPayable,
-      payment_method: 'Static QR (UPI)',
-      payment_reference: staticQrReference,
+      payment_method: paymentMethodToUse,
+      payment_reference: paymentRefToUse,
       payment_verification_status: 'Pending Verification',
       status: 'Pending',
       vendor_payout_status: 'Pending',
       cancellation_acknowledged: 1,
-      vendor_id: selectedBookingItem.vendor_id || selectedBookingItem.vendorId || null
+      vendor_id: selectedBookingItem.vendor_id || selectedBookingItem.vendorId || null,
+      customer_country: country?.name || 'India',
+      customer_country_code: country?.code || 'IN',
+      customer_currency: currency || 'INR',
+      customer_category: category || (isIndian ? 'INDIAN' : 'FOREIGN')
     });
   };
+
+  const isConfirmed = Boolean(showSuccess && lastConfirmedBooking);
 
   return createPortal(
     <div 
@@ -652,38 +742,71 @@ export default function BookingModal({
           e.preventDefault();
         }
       }} 
-      onClick={() => setSelectedBookingItem(null)}
+      onClick={handleModalClose}
     >
       <div className="checkout-modal-content animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
         <div className="checkout-header">
-          <h4 className="m-0 font-heading text-white">
-            Confirm Booking Summary
-          </h4>
+          <div className="d-flex align-items-center gap-2">
+            {bookingStep === 'PAYMENT' && !isConfirmed && (
+              <button 
+                type="button" 
+                className="btn btn-sm btn-link text-white p-0 me-1" 
+                onClick={() => setBookingStep('DETAILS')}
+                title="Back to Booking Details"
+              >
+                <ArrowLeft size={20} />
+              </button>
+            )}
+            <h4 className="m-0 font-heading text-white">
+              {isConfirmed ? '✓ Booking Confirmation' : (bookingStep === 'PAYMENT' ? 'Confirm & Reserve (Review & Payment)' : 'Confirm Booking Details')}
+            </h4>
+          </div>
           <button 
             type="button" 
             className="btn btn-link text-white p-0 border-0"
-            onClick={() => setSelectedBookingItem(null)}
+            onClick={handleModalClose}
           >
             <X size={24} />
           </button>
         </div>
         
         <div ref={modalBodyRef} className="checkout-body text-start" data-scrollable="true">
-          {showSuccess ? (
+          {isConfirmed ? (
             <div className="py-2 animate-fade-in">
               <BookingConfirmationCard
+                key={lastConfirmedBooking?.id || lastConfirmedBooking?.booking_id || 'confirmed-card'}
                 bookingId={lastConfirmedBooking?.id || lastConfirmedBooking?.booking_id}
-                customerName={userName}
-                customerPhone={userPhone}
-                serviceTitle={selectedBookingItem.name}
+                customerName={lastConfirmedBooking?.customer_name || lastConfirmedBooking?.name || userName || 'Valued Guest'}
+                customerPhone={lastConfirmedBooking?.customer_phone || lastConfirmedBooking?.phone || userPhone || ''}
+                serviceTitle={lastConfirmedBooking?.item_name || lastConfirmedBooking?.vehicle_name || selectedBookingItem.name}
                 serviceSubtitle={addonPackage ? `✓ Bundled Tour: ${addonPackage.name}` : ''}
                 cashbackPreview={lastConfirmedBooking?.cashback_preview}
                 details={[
-                  { label: isBike ? 'Two Wheeler' : 'Vehicle Model', value: selectedBookingItem.name, icon: isBike ? <Bike size={14} /> : <Car size={14} /> },
-                  { label: 'Rental Schedule', value: `${modalPickupDate} (${modalPickupTime}) → ${modalDropDate} (${modalDropTime})`, icon: <Calendar size={14} /> },
-                  { label: 'Pickup Location', value: modalPickupLoc, icon: <MapPin size={14} /> },
-                  { label: 'Drop Location', value: modalDropLoc, icon: <MapPin size={14} /> },
-                  { label: 'Rental Duration', value: `${calculatedDays} ${calculatedDays === 1 ? 'Day' : 'Days'}`, icon: <Clock size={14} /> },
+                  { 
+                    label: isBike ? 'Two Wheeler' : 'Vehicle Model', 
+                    value: lastConfirmedBooking?.vehicle_name || lastConfirmedBooking?.item_name || selectedBookingItem.name, 
+                    icon: isBike ? <Bike size={14} /> : <Car size={14} /> 
+                  },
+                  { 
+                    label: 'Rental Schedule', 
+                    value: `${lastConfirmedBooking?.pickup_date || modalPickupDate} (${lastConfirmedBooking?.pickup_time || modalPickupTime}) → ${lastConfirmedBooking?.drop_date || modalDropDate} (${lastConfirmedBooking?.drop_time || modalDropTime})`, 
+                    icon: <Calendar size={14} /> 
+                  },
+                  { 
+                    label: 'Pickup Location', 
+                    value: lastConfirmedBooking?.pickup_loc || lastConfirmedBooking?.pickup_location || modalPickupLoc, 
+                    icon: <MapPin size={14} /> 
+                  },
+                  { 
+                    label: 'Drop Location', 
+                    value: lastConfirmedBooking?.drop_loc || lastConfirmedBooking?.drop_location || modalDropLoc, 
+                    icon: <MapPin size={14} /> 
+                  },
+                  { 
+                    label: 'Rental Duration', 
+                    value: lastConfirmedBooking?.duration || (lastConfirmedBooking?.booking_days ? `${lastConfirmedBooking.booking_days} ${Number(lastConfirmedBooking.booking_days) === 1 ? 'Day' : 'Days'}` : `${calculatedDays} ${calculatedDays === 1 ? 'Day' : 'Days'}`), 
+                    icon: <Clock size={14} /> 
+                  },
                   ...(addonPackage ? [{ label: 'Bundled Package', value: addonPackage.name, isSuccess: true }] : []),
                   ...(addonVehicle ? [{ label: 'Bundled Vehicle', value: addonVehicle.name, isSuccess: true }] : []),
                   ...(driverRequired ? [{
@@ -692,21 +815,53 @@ export default function BookingModal({
                     isHighlight: true
                   }] : [])
                 ]}
-                totalAmount={total}
-                amountPaid={finalPayable}
-                paymentMode={selectedPaymentMethod === 'cash' ? 'Cash on Delivery' : 'Online / UPI'}
+                totalAmount={(lastConfirmedBooking?.total_amount !== undefined && lastConfirmedBooking?.total_amount !== null) ? Number(lastConfirmedBooking.total_amount) : total}
+                amountPaid={(lastConfirmedBooking?.amount_paid !== undefined && lastConfirmedBooking?.amount_paid !== null) ? Number(lastConfirmedBooking.amount_paid) : ((lastConfirmedBooking?.customer_payment !== undefined && lastConfirmedBooking?.customer_payment !== null) ? Number(lastConfirmedBooking.customer_payment) : finalPayable)}
+                paymentMode={lastConfirmedBooking?.payment_method || (selectedPaymentMethod === 'cash' ? 'Cash on Delivery' : 'Online / UPI')}
                 paymentStatus="Confirmed"
-                onClose={() => setSelectedBookingItem(null)}
+                onClose={handleModalClose}
+                onTrackPortal={handleTrackInPortal}
               />
             </div>
           ) : (
             <div className="row g-4">
-              {/* Left Column: Form Details */}
+              {/* Left Column: Two-Step Booking Flow */}
               <div className="col-lg-7 text-start">
                 
-                <h5 className="fw-bold mb-3 border-bottom pb-2">Customer & Trip Details</h5>
-                
-                <form onSubmit={handleFormSubmit} id="booking-form">
+                {/* Step Navigation Pill Indicator */}
+                <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                  <div className="d-flex align-items-center gap-2">
+                    <button
+                      type="button"
+                      className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${bookingStep === 'DETAILS' ? 'btn-primary text-white' : 'btn-outline-secondary'}`}
+                      onClick={() => bookingStep === 'PAYMENT' && setBookingStep('DETAILS')}
+                    >
+                      1. Details
+                    </button>
+                    <span className="text-muted small">→</span>
+                    <button
+                      type="button"
+                      className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${bookingStep === 'PAYMENT' ? 'btn-primary text-white' : 'btn-light border text-muted'}`}
+                      disabled={bookingStep === 'DETAILS'}
+                    >
+                      2. Payment &amp; Review
+                    </button>
+                  </div>
+                  <div className="d-flex align-items-center gap-1.5">
+                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${isIndian ? 'bg-success text-white' : 'bg-primary text-white'}`} style={{ fontSize: '0.72rem' }}>
+                      {category || (isIndian ? 'INDIAN' : 'FOREIGN')}
+                    </span>
+                    <span className="badge rounded-pill bg-dark text-white px-2.5 py-1 font-monospace" style={{ fontSize: '0.72rem' }}>
+                      {currency || 'INR'}
+                    </span>
+                  </div>
+                </div>
+
+                {bookingStep === 'DETAILS' ? (
+                  <>
+                    <h5 className="fw-bold mb-3">Customer &amp; Trip Details</h5>
+                    
+                    <form onSubmit={handleProceedToPayment} id="booking-details-form">
                   {(!isPackage || !selectedBookingItem.traveller_details) && (
                     <>
                       <div className="mb-3">
@@ -722,22 +877,20 @@ export default function BookingModal({
                       </div>
                       
                       <div className="mb-3">
-                        <label className="form-label small fw-bold">
-                          Mobile Phone Number <span className="text-danger">*</span>
-                        </label>
-                        <div className="input-group">
-                          <span className="input-group-text bg-light fw-bold text-xs">+91</span>
-                          <input 
-                            type="tel" 
-                            className={`form-control ${userPhone && String(userPhone).replace(/\D/g, '').length < 10 ? 'is-invalid' : ''}`} 
-                            placeholder="10-digit mobile number" 
-                            value={userPhone} 
-                            onChange={(e) => setUserPhone(e.target.value)} 
-                            required 
-                          />
-                        </div>
-                        <small className="text-muted" style={{ fontSize: '11px' }}>
-                          Use this 10-digit mobile number to log in to the Customer Portal & track your booking.
+                        <InternationalPhoneInput 
+                          value={userPhone} 
+                          onChange={(e164Val, countryObj) => {
+                            setUserPhone(e164Val ? String(e164Val) : '');
+                            if (countryObj && setCountry) setCountry(countryObj);
+                          }}
+                          onCountryChange={(c) => {
+                            if (c && setCountry) setCountry(c);
+                          }}
+                          label="Mobile Phone Number"
+                          required 
+                        />
+                        <small className="text-muted d-block mt-1" style={{ fontSize: '11px' }}>
+                          Use this mobile number to log in to the Customer Portal & track your booking.
                         </small>
                       </div>
 
@@ -790,7 +943,7 @@ export default function BookingModal({
                        </div>
                        <div className="d-flex align-items-center gap-2">
                            <span className="text-muted small">Contact:</span>
-                           <span className="fw-bold">{userPhone}</span>
+                           <span className="fw-bold">{String(userPhone || '')}</span>
                        </div>
                        {userDob && (
                          <div className="d-flex align-items-center gap-2 mt-1 pt-1 border-top">
@@ -1387,74 +1540,153 @@ export default function BookingModal({
                     </div>
                   )}
 
-                  {/* Static QR Payment Section - Direct to Vendor */}
-                  {(() => {
-                    const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
-                      paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
-                    ) : null;
-                    const isVendorPaymentConfigured = Boolean(
-                      activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
-                    );
+                    <div className="mt-4">
+                      <button 
+                        type="submit"
+                        className="btn w-100 py-2.5 fw-bold text-white shadow-sm d-flex align-items-center justify-content-center gap-2" 
+                        style={{ background: '#FF6333', borderColor: '#FF6333', fontSize: '0.95rem' }}
+                      >
+                        <span>Continue to Payment &amp; Review</span>
+                        <ArrowRight size={18} />
+                      </button>
+                    </div>
+                  </form>
+                </>
+              ) : (
+                <div className="payment-review-step animate-fade-in">
+                  {/* Customer Country, Category & Currency Badge Card */}
+                  <div className="p-3 mb-3 rounded-3 border" style={{ background: isIndian ? '#f0fdf4' : '#eff6ff', borderColor: isIndian ? '#bbf7d0' : '#bfdbfe' }}>
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="fs-5">{country?.flag || (isIndian ? '🇮🇳' : '🌐')}</span>
+                        <div>
+                          <div className="fw-bold text-dark text-sm">{country?.name || 'Customer Country'}</div>
+                          <div className="text-muted text-xxs">Identified from phone dial code ({country?.dial_code || '+91'})</div>
+                        </div>
+                      </div>
+                      <div className="d-flex align-items-center gap-1.5">
+                        <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${isIndian ? 'bg-success text-white' : 'bg-primary text-white'}`} style={{ fontSize: '0.72rem' }}>
+                          {category || (isIndian ? 'INDIAN' : 'FOREIGN')} CUSTOMER
+                        </span>
+                        <span className="badge rounded-pill bg-dark text-white px-2.5 py-1 font-monospace" style={{ fontSize: '0.72rem' }}>
+                          {currency || 'INR'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-baseline pt-2 border-top border-light-subtle">
+                      <span className="text-xs text-muted fw-semibold">Customer-Facing Payable:</span>
+                      <CurrencyPriceDisplay amountInr={finalPayable} size="lg" highlight />
+                    </div>
+                  </div>
 
-                    return isVendorPaymentConfigured ? (
-                      <StaticQRPaymentCard
-                        amount={finalPayable}
-                        upiId={activeVendorPayment.upi_id || ''}
-                        accountName={activeVendorPayment.account_name || activeVendorPayment.display_name || selectedBookingItem.name}
-                        qrImageUrl={activeVendorPayment.qr_image_url || ''}
-                        vendorName={activeVendorPayment.display_name || selectedBookingItem.vendor_name || 'Vendor'}
-                        paymentReference={staticQrReference}
-                        onReferenceChange={setStaticQrReference}
-                        serviceTitle={selectedBookingItem.name}
-                        instructions={activeVendorPayment.instructions || ''}
-                      />
-                    ) : (
-                      <div className="card shadow-sm border border-warning rounded-4 overflow-hidden mb-3" style={{ background: '#fffbeb' }}>
-                        <div className="card-body p-4 text-center">
-                          <div className="d-inline-flex p-3 rounded-circle bg-warning bg-opacity-25 text-warning mb-2">
-                            <AlertCircle size={28} />
+                  {/* If Indian: Direct to Vendor Static UPI QR */}
+                  {isIndian ? (
+                    <>
+                      {(() => {
+                        const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
+                          paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
+                        ) : null;
+                        const isVendorPaymentConfigured = Boolean(
+                          activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
+                        );
+
+                        return isVendorPaymentConfigured ? (
+                          <StaticQRPaymentCard
+                            amount={finalPayable}
+                            upiId={activeVendorPayment.upi_id || ''}
+                            accountName={activeVendorPayment.account_name || activeVendorPayment.display_name || selectedBookingItem.name}
+                            qrImageUrl={activeVendorPayment.qr_image_url || ''}
+                            vendorName={activeVendorPayment.display_name || selectedBookingItem.vendor_name || 'Vendor'}
+                            paymentReference={staticQrReference}
+                            onReferenceChange={setStaticQrReference}
+                            serviceTitle={selectedBookingItem.name}
+                            instructions={activeVendorPayment.instructions || ''}
+                          />
+                        ) : (
+                          <div className="card shadow-sm border border-warning rounded-4 overflow-hidden mb-3" style={{ background: '#fffbeb' }}>
+                            <div className="card-body p-4 text-center">
+                              <div className="d-inline-flex p-3 rounded-circle bg-warning bg-opacity-25 text-warning mb-2">
+                                <AlertCircle size={28} />
+                              </div>
+                              <h6 className="fw-bold text-dark mb-1">Vendor Payment Notice</h6>
+                              <div className="alert alert-warning border border-warning d-inline-block text-start mb-0 py-2 px-3" style={{ fontSize: '0.88rem' }}>
+                                <strong>Vendor payment QR is not configured. Please contact support.</strong>
+                              </div>
+                            </div>
                           </div>
-                          <h6 className="fw-bold text-dark mb-1">Vendor Payment Notice</h6>
-                          <div className="alert alert-warning border border-warning d-inline-block text-start mb-0 py-2 px-3" style={{ fontSize: '0.88rem' }}>
-                            <strong>Vendor payment QR is not configured. Please contact support.</strong>
+                        );
+                      })()}
+
+                      {/* Vendor Cancellation Policy Card with Mandatory Agreement */}
+                      <VendorCancellationPolicyCard
+                        policy={vendorCancellationPolicy}
+                        agreed={policyAgreed}
+                        onAgreementChange={setPolicyAgreed}
+                        customerPayment={finalPayable}
+                      />
+
+                      {(() => {
+                        const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
+                          paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
+                        ) : null;
+                        const isVendorPaymentConfigured = Boolean(
+                          activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
+                        );
+                        const isSubmitDisabled = !policyAgreed || !staticQrReference || !isVendorPaymentConfigured;
+
+                        return (
+                          <button 
+                            type="button" 
+                            onClick={handleConfirmBookingSubmit}
+                            className="btn w-100 py-2.5 fw-bold text-white shadow-sm mt-3" 
+                            style={{ background: '#FFC107', opacity: isSubmitDisabled ? 0.65 : 1 }}
+                            disabled={isSubmitDisabled}
+                          >
+                            Confirm &amp; Reserve Booking (₹{finalPayable.toLocaleString('en-IN')})
+                          </button>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    /* If Foreign: Foreign Customer Review & Reservation (NO fake UPI QR, NO INR shown) */
+                    <>
+                      <div className="card shadow-sm border border-primary border-opacity-25 rounded-4 overflow-hidden mb-3" style={{ background: '#f8fafc' }}>
+                        <div className="card-body p-4 text-center">
+                          <div className="d-inline-flex p-3 rounded-circle bg-primary bg-opacity-10 text-primary mb-2">
+                            <ShieldCheck size={28} />
+                          </div>
+                          <h6 className="fw-bold text-dark mb-1">Foreign Customer Reservation Review</h6>
+                          <div className="text-muted small mb-3">
+                            Payable in your local currency: <strong className="text-primary font-heading"><CurrencyPriceDisplay amountInr={finalPayable} size="md" highlight /></strong>
+                          </div>
+                          <div className="alert alert-info border border-info border-opacity-25 text-start py-2.5 px-3 mb-0" style={{ fontSize: '0.82rem' }}>
+                            <strong>Notice:</strong> International Online Card Payment Gateway is currently being integrated for seamless checkout. Your booking will be provisionally reserved directly with the vendor upon confirmation, and our operations team / vendor will reach out to provide you with secure international payment settlement instructions.
                           </div>
                         </div>
                       </div>
-                    );
-                  })()}
 
-                  {/* Vendor Cancellation Policy Card with Mandatory Agreement */}
-                  <VendorCancellationPolicyCard
-                    policy={vendorCancellationPolicy}
-                    agreed={policyAgreed}
-                    onAgreementChange={setPolicyAgreed}
-                    customerPayment={finalPayable}
-                  />
+                      {/* Vendor Cancellation Policy Card with Mandatory Agreement */}
+                      <VendorCancellationPolicyCard
+                        policy={vendorCancellationPolicy}
+                        agreed={policyAgreed}
+                        onAgreementChange={setPolicyAgreed}
+                        customerPayment={finalPayable}
+                      />
 
-                  {(() => {
-                    const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
-                      paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
-                    ) : null;
-                    const isVendorPaymentConfigured = Boolean(
-                      activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
-                    );
-                    const isSubmitDisabled = !policyAgreed || !staticQrReference || !isVendorPaymentConfigured;
-
-                    return (
                       <button 
-                        type={(!isPackage || !selectedBookingItem.traveller_details) ? "submit" : "button"} 
-                        onClick={(e) => { if (isPackage && selectedBookingItem.traveller_details && !isSubmitDisabled) handleFormSubmit(e) }} 
-                        form="booking-form" 
+                        type="button" 
+                        onClick={handleConfirmBookingSubmit}
                         className="btn w-100 py-2.5 fw-bold text-white shadow-sm mt-3" 
-                        style={{ background: '#FFC107', opacity: isSubmitDisabled ? 0.65 : 1 }}
-                        disabled={isSubmitDisabled}
+                        style={{ background: '#FF6333', opacity: !policyAgreed ? 0.65 : 1 }}
+                        disabled={!policyAgreed}
                       >
-                        Confirm & Reserve Booking
+                        Confirm &amp; Reserve Booking (<CurrencyPriceDisplay amountInr={finalPayable} size="sm" color="#ffffff" />)
                       </button>
-                    );
-                  })()}
-                </form>
-              </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
               {/* Right Column: Billing Breakdowns */}
               <div className="col-lg-5 text-start">
@@ -1502,7 +1734,7 @@ export default function BookingModal({
                     <div className="billing-summary-card mt-2 small">
                       <div className="d-flex justify-content-between mb-2">
                         <span>Base Price{isPackage && includeFlight ? ' (With Flight)' : ''}:</span>
-                        <span>₹{baseRate} {isPackage ? '' : (isFlight || isActivity) ? `× ${totalMembers} pax` : '/ day'}</span>
+                        <span><CurrencyPriceDisplay amountInr={baseRate} /> {isPackage ? '' : (isFlight || isActivity) ? `× ${totalMembers} pax` : '/ day'}</span>
                       </div>
                       <div className="d-flex justify-content-between mb-2">
                         <span>{isFlight ? 'Flight Info:' : isActivity ? 'Tour Duration:' : 'Duration:'}</span>
@@ -1512,14 +1744,14 @@ export default function BookingModal({
                       {addonPackage && (
                         <div className="d-flex justify-content-between mb-2 text-success fw-bold">
                           <span>Addon Plan ({addonPackage.name}):</span>
-                          <span>₹{addonPackage.price}</span>
+                          <CurrencyPriceDisplay amountInr={addonPackage.price} />
                         </div>
                       )}
 
                       {addonVehicle && (
                         <div className="d-flex justify-content-between mb-2 text-success fw-bold">
                           <span>Addon Drive ({addonVehicle.name}):</span>
-                          <span>₹{addonVehicle.price * calculatedDays}</span>
+                          <CurrencyPriceDisplay amountInr={addonVehicle.price * calculatedDays} />
                         </div>
                       )}
 
@@ -1527,24 +1759,24 @@ export default function BookingModal({
                         <div className="p-2 rounded mb-2" style={{ background: '#fffbeb', border: '1px solid #fef3c7', fontSize: '11px' }}>
                           <div className="fw-bold text-dark mb-1 d-flex justify-content-between">
                             <span>Private Driver Services:</span>
-                            <span className="text-warning fw-black">₹{driverTotalCharge.toLocaleString()}</span>
+                            <CurrencyPriceDisplay amountInr={driverTotalCharge} highlight />
                           </div>
                           {driverPickupEnabled && (
                             <div className="d-flex justify-content-between text-muted text-xxs mb-0.5">
                               <span>• Driver Pickup ({driverPickupDate || modalPickupDate} • {driverPickupTime || modalPickupTime}):</span>
-                              <span className="fw-bold text-dark">₹400</span>
+                              <CurrencyPriceDisplay amountInr={400} />
                             </div>
                           )}
                           {driverFullDayEnabled && (
                             <div className="d-flex justify-content-between text-muted text-xxs mb-0.5">
                               <span>• Full-Day Driver ({driverFullDayDaysCount} {driverFullDayDaysCount === 1 ? 'day' : 'days'}):</span>
-                              <span className="fw-bold text-dark">₹{driverFullDayCost.toLocaleString()}</span>
+                              <CurrencyPriceDisplay amountInr={driverFullDayCost} />
                             </div>
                           )}
                           {driverDropEnabled && (
                             <div className="d-flex justify-content-between text-muted text-xxs mb-0.5">
                               <span>• Driver Drop ({driverDropDate || modalDropDate} • {driverDropTime || modalDropTime}):</span>
-                              <span className="fw-bold text-dark">₹400</span>
+                              <CurrencyPriceDisplay amountInr={400} />
                             </div>
                           )}
                         </div>
@@ -1552,15 +1784,15 @@ export default function BookingModal({
 
                       <div className="d-flex justify-content-between border-top pt-2 mb-2 fw-semibold">
                         <span>Subtotal:</span>
-                        <span>₹{subtotal}</span>
+                        <CurrencyPriceDisplay amountInr={subtotal} />
                       </div>
                       <div className="d-flex justify-content-between mb-2 text-muted">
                         <span>GST (18%):</span>
-                        <span>₹{tax}</span>
+                        <CurrencyPriceDisplay amountInr={tax} />
                       </div>
                       <div className="d-flex justify-content-between mb-2 text-muted">
                         <span>Admin/Delivery Fee:</span>
-                        <span>₹{fee}</span>
+                        <CurrencyPriceDisplay amountInr={fee} />
                       </div>
 
                       {/* Loyalty Tier Recognition & Perks */}
@@ -1580,10 +1812,10 @@ export default function BookingModal({
                             </div>
                           </div>
                           {customerTier === 'Gold' && !isGoldEligible && (
-                            <span className="badge bg-warning text-dark text-xxs">₹500 off on &gt;₹5k</span>
+                            <span className="badge bg-warning text-dark text-xxs">Special member discounts on &gt;₹5k</span>
                           )}
                           {customerTier === 'Platinum' && !isPlatinumEligible && (
-                            <span className="badge bg-light text-dark text-xxs">₹1,000 off on &gt;₹10k</span>
+                            <span className="badge bg-light text-dark text-xxs">Special member discounts on &gt;₹10k</span>
                           )}
                         </div>
                       )}
@@ -1591,7 +1823,7 @@ export default function BookingModal({
                       {/* Gold Member Discount Alert */}
                       {isGoldEligible && (
                         <div className="p-2 rounded-3 my-2 text-xs fw-semibold" style={{ background: '#fef3c7', border: '1px solid #f59e0b', color: '#92400e' }}>
-                          🥇 <strong>Gold Member Privilege:</strong> Flat ₹500 instant discount applied!
+                          🥇 <strong>Gold Member Privilege:</strong> Instant privilege discount applied!
                         </div>
                       )}
 
@@ -1613,7 +1845,7 @@ export default function BookingModal({
                               style={{ cursor: 'pointer' }}
                             />
                             <label className="form-check-label text-xs fw-semibold text-dark" htmlFor="platDiscountVehicle" style={{ cursor: 'pointer' }}>
-                              Instant ₹1,000 Off Discount
+                              Instant Tier Privilege Discount
                             </label>
                           </div>
                           <div className="form-check mb-0">
@@ -1636,7 +1868,7 @@ export default function BookingModal({
                       {tierDiscount > 0 && (
                         <div className="d-flex justify-content-between mb-2 text-warning fw-bold">
                           <span>Tier Privilege Discount:</span>
-                          <span>-₹{tierDiscount.toLocaleString('en-IN')}</span>
+                          <span>-<CurrencyPriceDisplay amountInr={tierDiscount} /></span>
                         </div>
                       )}
 
@@ -1654,7 +1886,7 @@ export default function BookingModal({
                               <Wallet size={15} className="text-success" />
                               <div>
                                 <div className="fw-bold text-dark text-xs">WOW GOA Wallet</div>
-                                <div className="text-muted" style={{ fontSize: '10px' }}>Available: ₹{walletBalance.toLocaleString('en-IN')}</div>
+                                <div className="text-muted" style={{ fontSize: '10px' }}>Available: <CurrencyPriceDisplay amountInr={walletBalance} size="sm" /></div>
                               </div>
                             </div>
                             <div className="form-check form-switch mb-0">
@@ -1667,7 +1899,7 @@ export default function BookingModal({
                                 style={{ cursor: 'pointer' }}
                               />
                               <label className="form-check-label text-xs fw-bold text-success" htmlFor="useWalletCashback">
-                                Use ₹{Math.min(walletBalance, maxWalletBenefit).toLocaleString('en-IN')} (10% Benefit)
+                                Use 10% Benefit
                               </label>
                             </div>
                           </div>
@@ -1677,20 +1909,20 @@ export default function BookingModal({
                       {appliedWalletAmount > 0 && (
                         <div className="d-flex justify-content-between mb-2 text-success fw-bold">
                           <span>Wallet Cashback Applied:</span>
-                          <span>-₹{appliedWalletAmount.toLocaleString('en-IN')}</span>
+                          <span>-<CurrencyPriceDisplay amountInr={appliedWalletAmount} /></span>
                         </div>
                       )}
 
-                      <div className="d-flex justify-content-between border-top border-dark pt-2 fw-bold text-primary" style={{ fontSize: '16px' }}>
-                        <span>Final Amount Payable:</span>
-                        <span>₹{finalPayable.toLocaleString('en-IN')}</span>
+                      <div className="d-flex justify-content-between align-items-baseline border-top border-dark pt-2 fw-bold text-primary">
+                        <span style={{ fontSize: '15px' }}>Final Amount Payable:</span>
+                        <CurrencyPriceDisplay amountInr={finalPayable} size="lg" highlight />
                       </div>
 
                       {/* 10% Cashback Earning Preview */}
                       <div className="mt-2.5 p-2 rounded-3 text-center" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
                         <div className="text-xs fw-bold text-dark d-flex align-items-center justify-content-center gap-1">
                           <Gift size={13} className="text-warning" />
-                          <span>10% Cashback You Will Earn: <strong className="text-success font-heading">₹{projectedCashback.toLocaleString('en-IN')}</strong></span>
+                          <span>10% Cashback You Will Earn: <strong className="text-success font-heading"><CurrencyPriceDisplay amountInr={projectedCashback} /></strong></span>
                         </div>
                         <div className="text-muted text-xxs mt-0.5">
                           Credited to your wallet on booking completion • Valid 30 days

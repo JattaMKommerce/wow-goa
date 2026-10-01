@@ -133,8 +133,9 @@ function postApi(string $url, array $payload): array {
     ]);
     $response = @file_get_contents($url, false, $context);
     $httpCode = 200;
-    if (isset($http_response_header)) {
-        foreach ($http_response_header as $hdr) {
+    $headers = function_exists('http_get_last_response_headers') ? (http_get_last_response_headers() ?: []) : ($http_response_header ?? []);
+    if (!empty($headers)) {
+        foreach ($headers as $hdr) {
             if (preg_match('#HTTP/\S+\s+(\d+)#', $hdr, $m)) {
                 $httpCode = (int)$m[1];
             }
@@ -143,7 +144,7 @@ function postApi(string $url, array $payload): array {
     return ['code' => $httpCode, 'data' => json_decode($response ?: '{}', true)];
 }
 
-$apiUrl = 'http://127.0.0.1:8000/api.php';
+$apiUrl = 'http://localhost:8000/api.php';
 
 // Missing UTR
 $rech1 = postApi($apiUrl, [
@@ -400,6 +401,127 @@ $wB = $stmtWB->fetch(PDO::FETCH_ASSOC);
 
 assertTest("Vendor A balance deducted to ₹4,500", floatval($wA['balance']) === 4500.00);
 assertTest("Vendor B balance strictly untouched at ₹2,000", floatval($wB['balance']) === 2000.00);
+
+// --- TEST 21: Direct API Attempt to Mark Unconfirmed Booking COMPLETED is Blocked (400) ---
+echo "\n--- TEST 21: Direct API Attempt to Mark Unconfirmed Booking COMPLETED is Blocked ---\n";
+$bUnconfirmed = createTestBooking('bk_unconf_' . uniqid(), 'vendor_unconf_' . uniqid(), 500.00);
+$directCompleteRes = postApi($apiUrl, [
+    'action' => 'update_booking_status',
+    'id' => $bUnconfirmed,
+    'status' => 'Completed'
+]);
+assertTest("Direct API attempt to mark Pending booking as Completed is REJECTED (400)", $directCompleteRes['code'] === 400);
+assertTest("Error code is 'INVALID_STATE_TRANSITION'", ($directCompleteRes['data']['code'] ?? '') === 'INVALID_STATE_TRANSITION');
+
+$stmtCheckUnconf = getDb()->prepare("SELECT status FROM bookings WHERE id = ?");
+$stmtCheckUnconf->execute([$bUnconfirmed]);
+$unconfRow = $stmtCheckUnconf->fetch(PDO::FETCH_ASSOC);
+assertTest("Booking status remains Pending (not bypassed to Completed)", $unconfRow['status'] === 'Pending');
+
+// --- TEST 22: Direct API Attempt to Skip CONFIRMED to Return/Pickup is Blocked (400) ---
+echo "\n--- TEST 22: Direct API Attempt to Skip CONFIRMED to Return/Pickup is Blocked ---\n";
+$directReturnRes = postApi($apiUrl, [
+    'action' => 'update_booking_status',
+    'id' => $bUnconfirmed,
+    'status' => 'Return'
+]);
+assertTest("Direct API attempt to advance Pending booking to Return is REJECTED (400)", $directReturnRes['code'] === 400);
+assertTest("Error code is 'INVALID_STATE_TRANSITION'", ($directReturnRes['data']['code'] ?? '') === 'INVALID_STATE_TRANSITION');
+
+// --- TEST 23: Complete Booking on 3rd Negative Blocked Booking is Strictly Blocked ---
+echo "\n--- TEST 23: Complete Booking on 3rd Negative Blocked Booking is Blocked ---\n";
+$vBlocked = 'vendor_block_test_' . uniqid();
+resetVendorWallet($vBlocked, -1000.00, 2);
+
+$bBlocked3 = createTestBooking('bk_block3_' . uniqid(), $vBlocked, 500.00);
+
+// Attempt confirmation -> MUST BE BLOCKED
+$confBlockedRes = postApi($apiUrl, [
+    'action' => 'update_booking_status',
+    'id' => $bBlocked3,
+    'status' => 'Confirmed',
+    'vendor_id' => $vBlocked
+]);
+assertTest("Confirmation of 3rd negative booking is REJECTED (400)", $confBlockedRes['code'] === 400);
+assertTest("Response code is 'WALLET_BLOCKED'", ($confBlockedRes['data']['code'] ?? '') === 'WALLET_BLOCKED');
+assertTest("Authoritative balance returned (-₹1,000)", floatval($confBlockedRes['data']['balance'] ?? 0) === -1000.00);
+assertTest("Authoritative negative count returned (2)", intval($confBlockedRes['data']['negative_booking_count'] ?? 0) === 2);
+assertTest("Authoritative max negative bookings returned (2)", intval($confBlockedRes['data']['max_negative_bookings'] ?? 0) === 2);
+
+// Now attempt "Complete Booking" on this exact blocked booking -> MUST BE REJECTED
+$completeBlockedRes = postApi($apiUrl, [
+    'action' => 'update_booking_status',
+    'id' => $bBlocked3,
+    'status' => 'Completed',
+    'vendor_id' => $vBlocked
+]);
+assertTest("Complete Booking on blocked booking is REJECTED (400)", $completeBlockedRes['code'] === 400);
+assertTest("Rejection code is 'INVALID_STATE_TRANSITION'", ($completeBlockedRes['data']['code'] ?? '') === 'INVALID_STATE_TRANSITION');
+
+$stmtB3 = getDb()->prepare("SELECT status, wallet_deduction_status FROM bookings WHERE id = ?");
+$stmtB3->execute([$bBlocked3]);
+$b3Row = $stmtB3->fetch(PDO::FETCH_ASSOC);
+assertTest("Blocked booking status remains 'Pending' (NOT 'Completed')", $b3Row['status'] === 'Pending');
+assertTest("Platform fee was NOT deducted for blocked booking", $b3Row['wallet_deduction_status'] === 'Pending');
+
+$stmtRevCheck = getDb()->prepare("SELECT COUNT(*) FROM wallet_transactions WHERE reference_id = ? AND type = 'platform_revenue'");
+$stmtRevCheck->execute([$bBlocked3]);
+assertTest("WOW GOA platform revenue was NOT created for blocked booking", intval($stmtRevCheck->fetchColumn()) === 0);
+
+$stmtWCount = getDb()->prepare("SELECT negative_booking_count, balance FROM vendor_wallets WHERE vendor_id = ?");
+$stmtWCount->execute([$vBlocked]);
+$wCountRow = $stmtWCount->fetch(PDO::FETCH_ASSOC);
+assertTest("Wallet balance unchanged at -₹1,000", floatval($wCountRow['balance']) === -1000.00);
+assertTest("Negative booking count did NOT increase (remains 2)", intval($wCountRow['negative_booking_count']) === 2);
+
+// --- TEST 24: Recharge Approved -> Retry Confirmation on Booking #3 Succeeds ---
+echo "\n--- TEST 24: Recharge Approved -> Retry Confirmation on Booking #3 Succeeds ---\n";
+// Vendor recharges ₹2,000
+$utr3 = 'UTR_RECHARGE_3_' . uniqid();
+$recSubmitRes = postApi($apiUrl, [
+    'action' => 'recharge_wallet',
+    'vendor_id' => $vBlocked,
+    'amount' => 2000.00,
+    'payment_method' => 'UPI',
+    'reference_id' => $utr3,
+    'payment_proof' => '/uploads/receipt.png'
+]);
+assertTest("Recharge submission succeeds (200)", $recSubmitRes['code'] === 200 && ($recSubmitRes['data']['status'] ?? '') === 'Pending Verification');
+$recId = $recSubmitRes['data']['id'] ?? null;
+
+// Super Admin approves recharge
+$apprRes = postApi($apiUrl, [
+    'action' => 'approve_recharge',
+    'id' => $recId,
+    'status' => 'Completed'
+]);
+assertTest("Super Admin approves recharge (200)", $apprRes['code'] === 200 && !empty($apprRes['data']['success']));
+
+$stmtWAfterRec = getDb()->prepare("SELECT balance, negative_booking_count FROM vendor_wallets WHERE vendor_id = ?");
+$stmtWAfterRec->execute([$vBlocked]);
+$wAfterRec = $stmtWAfterRec->fetch(PDO::FETCH_ASSOC);
+assertTest("Wallet balance is now +₹1,000 (-1000 + 2000)", floatval($wAfterRec['balance']) === 1000.00);
+assertTest("Negative booking count reset to 0", intval($wAfterRec['negative_booking_count']) === 0);
+
+// Vendor returns to booking #3 and clicks Confirm Booking
+$retryConfRes = postApi($apiUrl, [
+    'action' => 'update_booking_status',
+    'id' => $bBlocked3,
+    'status' => 'Confirmed',
+    'vendor_id' => $vBlocked
+]);
+assertTest("Confirmation now SUCCEEDS after wallet recharge", $retryConfRes['code'] === 200 && ($retryConfRes['data']['success'] ?? false) === true);
+
+$stmtB3Final = getDb()->prepare("SELECT status, wallet_deduction_status, wow_goa_platform_fee FROM bookings WHERE id = ?");
+$stmtB3Final->execute([$bBlocked3]);
+$b3Final = $stmtB3Final->fetch(PDO::FETCH_ASSOC);
+assertTest("Booking #3 status is now 'Confirmed'", $b3Final['status'] === 'Confirmed');
+assertTest("Platform fee deduction status is now 'Completed'", $b3Final['wallet_deduction_status'] === 'Completed');
+
+$stmtWFinal = getDb()->prepare("SELECT balance FROM vendor_wallets WHERE vendor_id = ?");
+$stmtWFinal->execute([$vBlocked]);
+$wFinal = $stmtWFinal->fetch(PDO::FETCH_ASSOC);
+assertTest("Wallet balance after confirmation is ₹500 (1000 - 500)", floatval($wFinal['balance']) === 500.00);
 
 echo "\n======================================================================\n";
 echo "   TOTAL TESTS: " . ($passed + $failed) . " | PASSED: $passed | FAILED: $failed\n";

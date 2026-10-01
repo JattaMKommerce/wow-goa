@@ -34,6 +34,8 @@ import VendorWallet from '../../components/vendor/VendorWallet';
 import PMSPaymentSettings from './pms/PMSPaymentSettings';
 import VendorNotificationBell from '../../components/vendor/VendorNotificationBell';
 import VendorCancellationPolicyManager from '../../components/vendor/VendorCancellationPolicyManager';
+import VendorSuspendedBanner from '../../components/vendor/VendorSuspendedBanner';
+import VendorRechargeReminderBanner from '../../components/vendor/VendorRechargeReminderBanner';
 
 const SIDEBAR_GROUPS = [
   {
@@ -497,6 +499,14 @@ export default function HotelVendorPortalPage({
 
         {/* Module Content */}
         <div className="flex-grow-1 overflow-auto p-0">
+          <VendorSuspendedBanner 
+            vendorId={currentUser?.id} 
+            onRechargeClick={() => setActiveTab('wallet')} 
+          />
+          <VendorRechargeReminderBanner
+            vendorId={currentUser?.id}
+            onRechargeClick={() => setActiveTab('wallet')}
+          />
           {renderModule()}
         </div>
       </div>

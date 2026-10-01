@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, AlertCircle, Building, MapPin, Calendar, Upload, X } from 'lucide-react';
-import { uploadImage, updateHotelAvailability, updateBookingStatus } from '../../services/api';
+import { API_BASE, uploadImage, updateHotelAvailability, updateBookingStatus } from '../../services/api';
 import WalletRechargeRequiredModal from '../../components/vendor/WalletRechargeRequiredModal';
+import VendorMinimumBalanceAlertModal from '../../components/vendor/VendorMinimumBalanceAlertModal';
 
 export default function HotelVendorDashboard({
   activeTab,
@@ -24,7 +25,37 @@ export default function HotelVendorDashboard({
   const [badge, setBadge] = useState('Standard');
   const [description, setDescription] = useState('');
   const [editingHotelId, setEditingHotelId] = useState(null);
-  const [blockedModal, setBlockedModal] = useState({ show: false, balance: 0 });
+  const [blockedModal, setBlockedModal] = useState({
+    show: false,
+    balance: 0,
+    negativeBookingCount: 0,
+    maxNegativeBookings: 2
+  });
+  const [minBalanceModal, setMinBalanceModal] = useState({
+    show: false,
+    balance: 0,
+    threshold: 1000,
+    alertId: null
+  });
+
+  useEffect(() => {
+    const vId = currentUser?.vendor_id || currentUser?.id;
+    if (!vId) return;
+
+    fetch(`${API_BASE}?resource=vendor_wallet_info&vendor_id=${encodeURIComponent(vId)}`)
+      .then(res => res.json())
+      .then(info => {
+        if (info && info.active_portal_alert && info.active_portal_alert.active) {
+          setMinBalanceModal({
+            show: true,
+            balance: info.active_portal_alert.balance,
+            threshold: info.active_portal_alert.threshold,
+            alertId: info.active_portal_alert.alert_id
+          });
+        }
+      })
+      .catch(() => {});
+  }, [currentUser]);
   
   const handleEditHotelClick = (h) => {
     setEditingHotelId(h.id);
@@ -387,7 +418,12 @@ export default function HotelVendorDashboard({
                             alert(`Booking #${b.id} updated to ${newSt}`);
                           } catch (err) {
                             if (err.code === 'WALLET_BLOCKED' || (err.message && err.message.includes('WALLET_BLOCKED'))) {
-                              setBlockedModal({ show: true, balance: err.balance !== undefined ? err.balance : -800 });
+                              setBlockedModal({
+                                show: true,
+                                balance: err.balance !== undefined ? err.balance : (err.data?.balance ?? 0),
+                                negativeBookingCount: err.negative_booking_count !== undefined ? err.negative_booking_count : (err.data?.negative_booking_count ?? 0),
+                                maxNegativeBookings: err.max_negative_bookings !== undefined ? err.max_negative_bookings : (err.data?.max_negative_bookings ?? 2)
+                              });
                             } else {
                               alert('Failed to update: ' + err.message);
                             }
@@ -509,8 +545,30 @@ export default function HotelVendorDashboard({
       )}
       <WalletRechargeRequiredModal
         show={blockedModal.show}
+        isOpen={blockedModal.show}
         balance={blockedModal.balance}
-        onClose={() => setBlockedModal({ show: false, balance: 0 })}
+        negativeBookingCount={blockedModal.negativeBookingCount}
+        maxNegativeBookings={blockedModal.maxNegativeBookings}
+        onClose={() => setBlockedModal(prev => ({ ...prev, show: false }))}
+        onAddMoney={() => {
+          setBlockedModal(prev => ({ ...prev, show: false }));
+          window.dispatchEvent(new CustomEvent('navigate-vendor-tab', { detail: 'wallet' }));
+          window.dispatchEvent(new CustomEvent('tripgalileo-navigate', { detail: { tab: 'wallet' } }));
+        }}
+      />
+      <VendorMinimumBalanceAlertModal
+        show={minBalanceModal.show}
+        isOpen={minBalanceModal.show}
+        balance={minBalanceModal.balance}
+        threshold={minBalanceModal.threshold}
+        alertId={minBalanceModal.alertId}
+        vendorId={currentUser?.vendor_id || currentUser?.id}
+        onClose={() => setMinBalanceModal(prev => ({ ...prev, show: false }))}
+        onRecharge={() => {
+          setMinBalanceModal(prev => ({ ...prev, show: false }));
+          window.dispatchEvent(new CustomEvent('navigate-vendor-tab', { detail: 'wallet' }));
+          window.dispatchEvent(new CustomEvent('tripgalileo-navigate', { detail: { tab: 'wallet' } }));
+        }}
       />
     </div>
   );

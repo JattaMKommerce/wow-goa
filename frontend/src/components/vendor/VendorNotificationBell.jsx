@@ -137,7 +137,11 @@ export default function VendorNotificationBell({
         });
       });
 
-      let finalItems = Array.from(mergedMap.values());
+      let finalItems = Array.from(mergedMap.values()).sort((a, b) => {
+        const timeA = new Date(a.created_at || 0).getTime() || 0;
+        const timeB = new Date(b.created_at || 0).getTime() || 0;
+        return timeB - timeA;
+      });
 
       // If empty for Vehicle Vendor, provide clean fallback vehicle notifications
       if (finalItems.length === 0 && vendorType === 'vehicle') {
@@ -384,8 +388,12 @@ export default function VendorNotificationBell({
     }
 
     if (onNavigate) {
-      const targetTab = vendorType === 'hotel' ? 'all_bookings' : 'bookings';
-      onNavigate(targetTab);
+      if (n.type === 'MANUAL_WALLET_RECHARGE_REMINDER' || n.reference_type === 'manual_reminder' || n.type === 'wallet_reminder' || (n.title && n.title.includes('Recharge'))) {
+        onNavigate('wallet');
+      } else {
+        const targetTab = vendorType === 'hotel' ? 'all_bookings' : 'bookings';
+        onNavigate(targetTab);
+      }
     }
   };
 

@@ -294,6 +294,7 @@ export default function AdminBookingManagement({
   const [statusFilter, setStatusFilter] = useState('all');
   const [serviceFilter, setServiceFilter] = useState('ALL');
   const [channelFilter, setChannelFilter] = useState('ALL');
+  const [categoryFilter, setCategoryFilter] = useState('ALL'); // 'ALL' | 'INDIAN' | 'FOREIGN'
   const [dateFilter, setDateFilter] = useState('ALL');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -478,6 +479,13 @@ export default function AdminBookingManagement({
       return false;
     }
 
+    // 4b. Customer Category Filter (ALL, INDIAN, FOREIGN)
+    if (categoryFilter !== 'ALL') {
+      const isIndianBooking = (b.customer_category === 'INDIAN' || (!b.customer_category && (b.customer_country_code === 'IN' || !b.customer_country_code || (b.customer_country || '').toLowerCase() === 'india')));
+      const resolvedCategory = isIndianBooking ? 'INDIAN' : 'FOREIGN';
+      if (resolvedCategory !== categoryFilter) return false;
+    }
+
     // 5. Search query (includes UTR and Payment Reference)
     if (search.trim()) {
       const query = search.toLowerCase();
@@ -520,9 +528,16 @@ export default function AdminBookingManagement({
     B2B: bookingsList.filter(b => getBookingChannel(b) === 'B2B').length,
   }), [bookingsList]);
 
+  const categoryCounts = useMemo(() => ({
+    ALL: bookingsList.length,
+    INDIAN: bookingsList.filter(b => (b.customer_category === 'INDIAN' || (!b.customer_category && (b.customer_country_code === 'IN' || !b.customer_country_code || (b.customer_country || '').toLowerCase() === 'india')))).length,
+    FOREIGN: bookingsList.filter(b => !(b.customer_category === 'INDIAN' || (!b.customer_category && (b.customer_country_code === 'IN' || !b.customer_country_code || (b.customer_country || '').toLowerCase() === 'india')))).length,
+  }), [bookingsList]);
+
   const handleResetFilters = () => {
     setServiceFilter('ALL');
     setChannelFilter('ALL');
+    setCategoryFilter('ALL');
     setDateFilter('ALL');
     setCustomStartDate('');
     setCustomEndDate('');
@@ -533,6 +548,7 @@ export default function AdminBookingManagement({
   const isAnyFilterActive =
     serviceFilter !== 'ALL' ||
     channelFilter !== 'ALL' ||
+    categoryFilter !== 'ALL' ||
     dateFilter !== 'ALL' ||
     customStartDate !== '' ||
     customEndDate !== '' ||
@@ -978,6 +994,37 @@ export default function AdminBookingManagement({
             </div>
           </div>
 
+          {/* Row 2b: Customer Category Filter (ALL, INDIAN, FOREIGN) */}
+          <div className="d-flex align-items-center gap-3 flex-wrap">
+            <div className="admin-filter-label">
+              <span style={{ fontSize: '13px' }}>🌍</span>
+              <span>Category:</span>
+            </div>
+            <div className="d-flex align-items-center gap-2 flex-grow-1 flex-wrap">
+              <button
+                type="button"
+                className={`admin-filter-pill ${categoryFilter === 'ALL' ? 'active-navy' : ''}`}
+                onClick={() => setCategoryFilter('ALL')}
+              >
+                ALL <span className="admin-pill-badge">{categoryCounts.ALL}</span>
+              </button>
+              <button
+                type="button"
+                className={`admin-filter-pill ${categoryFilter === 'INDIAN' ? 'active-emerald' : ''}`}
+                onClick={() => setCategoryFilter('INDIAN')}
+              >
+                🇮🇳 INDIAN <span className="admin-pill-badge">{categoryCounts.INDIAN}</span>
+              </button>
+              <button
+                type="button"
+                className={`admin-filter-pill ${categoryFilter === 'FOREIGN' ? 'active-blue' : ''}`}
+                onClick={() => setCategoryFilter('FOREIGN')}
+              >
+                🌐 FOREIGN <span className="admin-pill-badge">{categoryCounts.FOREIGN}</span>
+              </button>
+            </div>
+          </div>
+
           {/* Row 3: Operational Date Filter */}
           <div className="d-flex align-items-center gap-3 flex-wrap">
             <div className="admin-filter-label">
@@ -1113,6 +1160,17 @@ export default function AdminBookingManagement({
                 </span>
               )}
 
+              {categoryFilter !== 'ALL' && (
+                <span
+                  className="admin-filter-chip bg-primary-subtle text-primary border border-primary-subtle"
+                  onClick={() => setCategoryFilter('ALL')}
+                  title="Click to remove category filter"
+                >
+                  Category: {categoryFilter}
+                  <X size={12} />
+                </span>
+              )}
+
               {dateFilter !== 'ALL' && (
                 <span
                   className="admin-filter-chip bg-warning-subtle text-warning-emphasis border border-warning-subtle"
@@ -1216,6 +1274,22 @@ export default function AdminBookingManagement({
                       <td>
                         <div className="fw-bold text-dark">{cName}</div>
                         <div className="text-muted small" style={{ fontSize: '0.75rem' }}>{cPhone}</div>
+                        {(() => {
+                          const isIndianBooking = (b.customer_category === 'INDIAN' || (!b.customer_category && (b.customer_country_code === 'IN' || !b.customer_country_code || (b.customer_country || '').toLowerCase() === 'india')));
+                          const cat = isIndianBooking ? 'INDIAN' : 'FOREIGN';
+                          return (
+                            <div className="mt-1 d-flex align-items-center gap-1 flex-wrap">
+                              <span className={`badge rounded-pill px-2 py-0.5 fw-bold ${cat === 'INDIAN' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle'}`} style={{ fontSize: '0.65rem' }}>
+                                {cat === 'INDIAN' ? '🇮🇳 INDIAN' : '🌐 FOREIGN'}
+                              </span>
+                              {b.customer_country && (
+                                <span className="badge rounded-pill bg-light text-dark border px-1.5 py-0.5" style={{ fontSize: '0.65rem' }}>
+                                  {b.customer_country} {b.customer_country_code ? `(${b.customer_country_code})` : ''}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {b.email && <div className="text-muted text-xxs" style={{ fontSize: '0.68rem' }}>{b.email}</div>}
                       </td>
                       <td>
@@ -1280,10 +1354,18 @@ export default function AdminBookingManagement({
                         )}
                       </td>
                       <td>
-                        <div className="fw-bold text-dark">₹{amount.toLocaleString()}</div>
+                        <div className="fw-bold text-dark">₹{amount.toLocaleString('en-IN')} <span className="text-muted text-xxs font-monospace">INR</span></div>
+                        {b.customer_currency && b.customer_currency !== 'INR' && b.converted_display_amount && (
+                          <div className="text-primary fw-semibold mt-0.5" style={{ fontSize: '0.72rem' }} title={`Exchange Rate: 1 INR = ${b.exchange_rate_used} ${b.customer_currency}`}>
+                            {b.customer_currency} {Number(b.converted_display_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <span className="text-muted text-xxs d-block" style={{ fontSize: '0.65rem' }}>
+                              Rate: {Number(b.exchange_rate_used || 0).toFixed(4)}
+                            </span>
+                          </div>
+                        )}
                         {b.amount_paid !== undefined && (
                           <div className="text-muted small" style={{ fontSize: '0.72rem' }}>
-                            Paid: ₹{Number(b.amount_paid || 0).toLocaleString()}
+                            Paid: ₹{Number(b.amount_paid || 0).toLocaleString('en-IN')}
                           </div>
                         )}
                       </td>
@@ -1310,7 +1392,7 @@ export default function AdminBookingManagement({
                       <td>
                         <PaymentBadge status={b.payment_status} />
                         {(b.customer_payment_utr || b.payment_reference) ? (
-                          <div className="mt-1" title="Customer Payment UTR (Customer → WOW GOA)">
+                          <div className="mt-1" title="Customer Payment UTR (Customer → Vendor)">
                             <span className="badge font-monospace text-primary bg-primary bg-opacity-10 border border-primary border-opacity-25 px-1.5 py-0.5" style={{ fontSize: '0.70rem', letterSpacing: '0.3px' }}>
                               Cust UTR: {b.customer_payment_utr || b.payment_reference}
                             </span>
@@ -1319,7 +1401,7 @@ export default function AdminBookingManagement({
                           <div className="text-muted text-xxs mt-0.5">{b.payment_method || 'Cash / Offline'}</div>
                         )}
                         {(b.vendor_payout_utr || b.vendor_payout_reference) && (
-                          <div className="mt-0.5" title="Vendor Payout UTR (WOW GOA → Vendor)">
+                          <div className="mt-0.5" title="Historical Settlement UTR">
                             <span className="badge font-monospace bg-light text-secondary border px-1.5 py-0.5" style={{ fontSize: '0.65rem' }}>
                               Vendor UTR: {b.vendor_payout_utr || b.vendor_payout_reference}
                             </span>
@@ -1764,25 +1846,88 @@ export default function AdminBookingManagement({
                     <div className="text-muted small">Payment Method</div>
                     <div className="small fw-semibold">{viewBooking.payment_method || 'Cash / Offline'}</div>
                   </div>
+
+                  {/* Customer Country, Dial Code & Currency Snapshot */}
+                  <div className="col-12 mt-2 p-2.5 rounded-3 bg-light border">
+                    <div className="fw-bold text-dark text-xxs text-uppercase mb-2 d-flex align-items-center justify-content-between">
+                      <div className="d-flex align-items-center gap-1.5">
+                        <span>🌍 Customer Country & Currency Snapshot</span>
+                        <span
+                          className="badge rounded-pill fw-bold"
+                          style={{
+                            fontSize: '0.68rem',
+                            letterSpacing: '0.4px',
+                            color: String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#7c3aed' : '#059669',
+                            backgroundColor: String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#f3e8ff' : '#ecfdf5',
+                            border: `1px solid ${String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#ddd6fe' : '#a7f3d0'}`
+                          }}
+                        >
+                          {String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '✈️ FOREIGN' : '🇮🇳 INDIAN'}
+                        </span>
+                      </div>
+                      <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-1.5 py-0.5">
+                        {viewBooking.customer_currency || 'INR'}
+                      </span>
+                    </div>
+                    <div className="row g-2 text-xs">
+                      <div className="col-4">
+                        <span className="text-muted d-block text-xxs">Customer Country</span>
+                        <span className="fw-bold text-dark">{viewBooking.customer_country || 'India'}</span>
+                      </div>
+                      <div className="col-4">
+                        <span className="text-muted d-block text-xxs">Customer Category</span>
+                        <span className="fw-bold" style={{ color: String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#7c3aed' : '#059669' }}>
+                          {String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? 'FOREIGN' : 'INDIAN'}
+                        </span>
+                      </div>
+                      <div className="col-4">
+                        <span className="text-muted d-block text-xxs">Dial / ISO Code</span>
+                        <span className="fw-semibold text-dark font-monospace">{viewBooking.customer_country_code || '+91'}</span>
+                      </div>
+                      <div className="col-4 mt-1">
+                        <span className="text-muted d-block text-xxs">Currency Code</span>
+                        <span className="fw-bold text-primary font-monospace">{viewBooking.customer_currency || 'INR'}</span>
+                      </div>
+                      <div className="col-4 mt-1">
+                        <span className="text-muted d-block text-xxs">Base Price (INR)</span>
+                        <span className="fw-bold text-dark">₹{Number(viewBooking.total_amount || 0).toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="col-4 mt-1">
+                        <span className="text-muted d-block text-xxs">Display Amount</span>
+                        <span className="fw-bold text-success font-heading">
+                          {viewBooking.converted_display_amount ? `${viewBooking.customer_currency} ${Number(viewBooking.converted_display_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '₹' + Number(viewBooking.total_amount || 0).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <div className="col-4 mt-1">
+                        <span className="text-muted d-block text-xxs">Exchange Rate</span>
+                        <span className="fw-semibold font-monospace">{viewBooking.exchange_rate_used ? Number(viewBooking.exchange_rate_used).toFixed(4) : '1.0000'}</span>
+                      </div>
+                      {viewBooking.currency_rate_timestamp && (
+                        <div className="col-8 mt-1">
+                          <span className="text-muted text-xxs">Rate Snapshot Taken: {viewBooking.currency_rate_timestamp}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Financial Split & Two-UTR Breakdown */}
                 <div className="rounded-3 mb-3 p-3 border" style={{ background: '#f8fafc' }}>
                   <div className="fw-bold text-dark text-xs mb-2 pb-1 border-bottom d-flex justify-content-between">
-                    <span>Payment &amp; Vendor Settlement Breakdown</span>
-                    <span className="text-muted text-xxs">Static QR Flow</span>
+                    <span>Payment &amp; Platform Fee Breakdown</span>
+                    <span className="text-muted text-xxs">Direct Vendor Payment Flow</span>
                   </div>
 
                   {/* 1. Customer Payment Box */}
                   <div className="p-2.5 rounded-3 mb-2 bg-white border">
                     <div className="d-flex justify-content-between align-items-center mb-1">
-                      <span className="fw-bold text-dark text-xs">Customer Payment (Customer → WOW GOA)</span>
-                      <span className={`badge rounded-pill text-xxs ${viewBooking.payment_verification_status === 'Approved' ? 'bg-success text-white' : 'bg-warning text-dark'}`}>
-                        {viewBooking.payment_verification_status || 'Pending Verification'}
+                      <span className="fw-bold text-dark text-xs">Customer Direct Payment (Customer → Vendor)</span>
+                      <span className={`badge rounded-pill text-xxs ${viewBooking.payment_verification_status === 'Approved' || viewBooking.payment_verification_status === 'Verified' ? 'bg-success text-white' : 'bg-warning text-dark'}`}>
+                        {viewBooking.payment_verification_status || 'Paid to Vendor'}
                       </span>
                     </div>
                     <div className="d-flex justify-content-between text-xs">
-                      <span className="text-muted">Amount:</span>
+                      <span className="text-muted">Amount Paid:</span>
                       <strong className="text-dark">₹{Number(viewBooking.customer_payment || viewBooking.total_amount || 0).toLocaleString()}</strong>
                     </div>
                     <div className="d-flex justify-content-between text-xs mt-1">
@@ -1794,36 +1939,34 @@ export default function AdminBookingManagement({
                   </div>
 
                   {/* WOW GOA Platform Fee */}
-                  <div className="d-flex justify-content-between text-xs py-1 px-1 text-success mb-2">
-                    <span>WOW GOA Platform Fee (10% Retained):</span>
-                    <strong>₹{Number(viewBooking.wow_goa_platform_fee || (Number(viewBooking.customer_payment || viewBooking.total_amount || 0) * 0.10)).toLocaleString()} (Non-Refundable)</strong>
+                  <div className="d-flex justify-content-between text-xs py-1 px-1 text-success mb-1">
+                    <span>WOW GOA Platform Fee (Debited from Vendor Wallet):</span>
+                    <strong>₹{Number(viewBooking.wow_goa_platform_fee || (Number(viewBooking.customer_payment || viewBooking.total_amount || 0) * 0.10)).toLocaleString()}</strong>
                   </div>
 
-                  {/* 2. Vendor Settlement Box */}
-                  <div className="p-2.5 rounded-3 border" style={{ background: '#fff7ed', borderColor: '#fed7aa' }}>
-                    <div className="d-flex justify-content-between align-items-center mb-1">
-                      <span className="fw-bold text-dark text-xs">Vendor Settlement (WOW GOA → Vendor)</span>
-                      <span className={`badge rounded-pill text-xxs ${viewBooking.vendor_payout_status === 'Settled' ? 'bg-success text-white' : 'bg-secondary text-white'}`}>
-                        Status: {viewBooking.vendor_payout_status || 'Pending'}
-                      </span>
-                    </div>
-                    <div className="d-flex justify-content-between text-xs">
-                      <span className="text-muted">Vendor Amount:</span>
-                      <strong className="text-primary font-heading fs-6">
-                        ₹{Number(viewBooking.vendor_service_amount || (Number(viewBooking.customer_payment || viewBooking.total_amount || 0) * 0.90)).toLocaleString()}
-                      </strong>
-                    </div>
-                    <div className="d-flex justify-content-between text-xs mt-1">
-                      <span className="text-muted">Vendor Payout UTR:</span>
-                      {(viewBooking.vendor_payout_utr || viewBooking.vendor_payout_reference) ? (
-                        <span className="badge font-monospace bg-secondary bg-opacity-10 text-dark border px-2 py-0.5 text-xs">
-                          {viewBooking.vendor_payout_utr || viewBooking.vendor_payout_reference}
-                        </span>
-                      ) : (
-                        <span className="text-muted text-xxs fst-italic">Pending Payout Transfer</span>
+                  {/* Historical Settlement Box (Only shown if historical payout exists) */}
+                  {viewBooking.vendor_payout_status === 'Settled' && (
+                    <div className="p-2.5 rounded-3 border mt-2" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="fw-bold text-success text-xs">Historical Settlement Record</span>
+                        <span className="badge bg-success text-white text-xxs">Settled</span>
+                      </div>
+                      <div className="d-flex justify-content-between text-xs">
+                        <span className="text-muted">Settled Amount:</span>
+                        <strong className="text-success font-heading fs-6">
+                          ₹{Number(viewBooking.vendor_service_amount || (Number(viewBooking.customer_payment || viewBooking.total_amount || 0) * 0.90)).toLocaleString()}
+                        </strong>
+                      </div>
+                      {viewBooking.vendor_payout_utr && (
+                        <div className="d-flex justify-content-between text-xs mt-1">
+                          <span className="text-muted">Settlement UTR:</span>
+                          <span className="badge font-monospace bg-light text-secondary border px-2 py-0.5 text-xs">
+                            {viewBooking.vendor_payout_utr}
+                          </span>
+                        </div>
                       )}
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Cancellation Audit (If Cancelled) */}

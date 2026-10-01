@@ -10,6 +10,10 @@ import BookingConfirmationCard from './common/BookingConfirmationCard';
 import StaticQRPaymentCard from './common/StaticQRPaymentCard';
 import VendorCancellationPolicyCard from './common/VendorCancellationPolicyCard';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
+import InternationalPhoneInput from './common/InternationalPhoneInput';
+import CurrencyPriceDisplay from './common/CurrencyPriceDisplay';
+import { useCustomerCurrency } from '../context/CustomerCurrencyContext';
+import { parsePhoneNumber, extractPhoneString } from '../utils/countryCurrencyData';
 
 const TIME_SLOTS = [
   '06:00 AM', '07:00 AM', '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM',
@@ -25,6 +29,7 @@ export default function HotelBookingModal({
   bookingDays,
   isCustomerPortal = false
 }) {
+  const { country, currency, category, isIndian, isForeign, setCountry, resetCountry } = useCustomerCurrency();
   // Track if booking was opened with a preselected room from HotelDetailsPage
   const [step, setStep] = useState(() => (selectedBookingItem?.preselected_room ? 2 : 1));
   const openedWithPreselectedRef = React.useRef(Boolean(selectedBookingItem?.preselected_room));
@@ -49,6 +54,25 @@ export default function HotelBookingModal({
   const [checkOutTime, setCheckOutTime] = useState('11:00 AM');
 
   const modalBodyRef = useRef(null);
+
+  // Authoritative Modal Teardown & Reset: clears country/currency state and closes modal
+  const handleHotelModalClose = () => {
+    if (resetCountry) resetCountry();
+    setSelectedBookingItem(null);
+  };
+
+  // Synchronize country on modal start: clean India for new booking, or parsed country if phone already exists
+  useEffect(() => {
+    const rawP = extractPhoneString(guestPhone);
+    if (!rawP) {
+      if (resetCountry) resetCountry();
+    } else {
+      const parsed = parsePhoneNumber(rawP, 'IN');
+      if (parsed.country && setCountry) {
+        setCountry(parsed.country);
+      }
+    }
+  }, [selectedBookingItem]);
 
   // Global background scroll lock with exact scroll position preservation
   useEffect(() => {
@@ -541,7 +565,12 @@ export default function HotelBookingModal({
       };
 
       const selectedCustom = paymentSettings.find(m => m.id?.toString() === paymentOption?.toString());
-      const paymentMethodName = isPayAtHotel ? 'Pay at Hotel' : (paymentOption === 'upi_direct' ? 'UPI' : (selectedCustom?.method_name || 'Online Payment'));
+      const paymentMethodName = isForeign
+        ? 'International Online Payment Gateway (Pending Integration)'
+        : (isPayAtHotel ? 'Pay at Hotel' : (paymentOption === 'upi_direct' ? 'UPI' : (selectedCustom?.method_name || 'Static QR (UPI)')));
+      const paymentRefToUse = isForeign
+        ? 'INTL_PENDING'
+        : (isPayAtHotel ? 'PAY-AT-HOTEL' : (transactionId || `TXN-${Date.now()}`));
       const customerId = `c_${cleanGuestPhone || Date.now()}`;
       const customerEmail = guestEmail || `${cleanGuestPhone || 'guest'}@hotel.wowgoa.com`;
 
@@ -600,14 +629,18 @@ export default function HotelBookingModal({
         payment_status: isPayAtHotel ? 'Pay at Hotel (Pending)' : (payableNow > 0 ? 'Submitted' : 'Pending'),
         payment_verification_status: isPayAtHotel ? 'Not Required' : 'Pending Verification',
         payment_method: paymentMethodName,
-        payment_reference: isPayAtHotel ? 'PAY-AT-HOTEL' : (transactionId || `TXN-${Date.now()}`),
-        transaction_id: isPayAtHotel ? 'PAY-AT-HOTEL' : (transactionId || `TXN-${Date.now()}`),
+        payment_reference: paymentRefToUse,
+        transaction_id: paymentRefToUse,
         customer_payment: payableNow,
         wow_goa_platform_fee: Math.round(payableNow * 0.10),
         vendor_service_amount: Math.round(payableNow * 0.90),
         vendor_payout_status: 'Pending',
         cancellation_acknowledged: 1,
         vendor_id: selectedBookingItem.vendor_id || selectedBookingItem.admin_id || 'u-5',
+        customer_country: country?.name || 'India',
+        customer_country_code: country?.code || 'IN',
+        customer_currency: currency || 'INR',
+        customer_category: category || (isIndian ? 'INDIAN' : 'FOREIGN'),
         traveller_details_json: JSON.stringify(travellerDetails),
         price_breakdown_json: JSON.stringify(priceBreakdown),
         customizations: JSON.stringify({
@@ -912,23 +945,33 @@ export default function HotelBookingModal({
 
   const renderStep2 = () => (
     <div className="animate-fade-in">
-        <div className="d-flex align-items-center mb-3 border-bottom pb-2">
-            <button 
-              type="button"
-              className="btn btn-sm btn-link text-muted p-0 me-2" 
-              onClick={() => {
-                if (openedWithPreselectedRef.current) {
-                  // Return to HotelDetailsPage so the customer can change room / rates
-                  setSelectedBookingItem(null);
-                } else {
-                  setStep(1);
-                }
-              }}
-              title={openedWithPreselectedRef.current ? "Back to Hotel Details" : "Back to Room Selection"}
-            >
-              <ArrowLeft size={20}/>
-            </button>
-            <h5 className="fw-bold mb-0">Step 2: Guest Details</h5>
+        <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+            <div className="d-flex align-items-center">
+              <button 
+                type="button"
+                className="btn btn-sm btn-link text-muted p-0 me-2" 
+                onClick={() => {
+                  if (openedWithPreselectedRef.current) {
+                    // Return to HotelDetailsPage so the customer can change room / rates
+                    handleHotelModalClose();
+                  } else {
+                    setStep(1);
+                  }
+                }}
+                title={openedWithPreselectedRef.current ? "Back to Hotel Details" : "Back to Room Selection"}
+              >
+                <ArrowLeft size={20}/>
+              </button>
+              <h5 className="fw-bold mb-0">Step 2: Guest Details</h5>
+            </div>
+            <div className="d-flex align-items-center gap-1.5">
+              <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${isIndian ? 'bg-success text-white' : 'bg-primary text-white'}`} style={{ fontSize: '0.72rem' }}>
+                {category || (isIndian ? 'INDIAN' : 'FOREIGN')}
+              </span>
+              <span className="badge rounded-pill bg-dark text-white px-2.5 py-1 font-monospace" style={{ fontSize: '0.72rem' }}>
+                {currency || 'INR'}
+              </span>
+            </div>
         </div>
 
         {/* Selected Room & Rate Plan Confirmation Card */}
@@ -960,21 +1003,19 @@ export default function HotelBookingModal({
                 <input type="text" className="form-control" placeholder="Full Name as per ID" value={guestName} onChange={e => setGuestName(e.target.value)} required />
             </div>
             <div className="col-md-6">
-                <label className="form-label small fw-bold">
-                  Mobile Number <span className="text-danger">*</span>
-                </label>
-                <div className="input-group">
-                  <span className="input-group-text bg-light fw-bold text-xs">+91</span>
-                  <input 
-                    type="tel" 
-                    className={`form-control ${guestPhone && String(guestPhone).replace(/\D/g, '').length < 10 ? 'is-invalid' : ''}`} 
-                    placeholder="10-digit mobile number" 
-                    value={guestPhone} 
-                    onChange={e => setGuestPhone(e.target.value)} 
-                    required 
-                  />
-                </div>
-                <small className="text-muted" style={{ fontSize: '11px' }}>
+                <InternationalPhoneInput 
+                  value={guestPhone} 
+                  onChange={(val, countryObj) => {
+                    setGuestPhone(val ? String(val) : '');
+                    if (countryObj && setCountry) setCountry(countryObj);
+                  }} 
+                  onCountryChange={(c) => {
+                    if (c && setCountry) setCountry(c);
+                  }}
+                  label="Mobile Number"
+                  required 
+                />
+                <small className="text-muted d-block mt-1" style={{ fontSize: '11px' }}>
                   Your Customer Portal login & trip updates will be linked to this number.
                 </small>
             </div>
@@ -1174,119 +1215,185 @@ export default function HotelBookingModal({
           <button className="btn btn-sm btn-link text-muted p-0 me-2" onClick={() => setStep(2)}>
             <ArrowLeft size={20}/>
           </button>
-          <h5 className="fw-bold mb-0">Step 3: Payment</h5>
+          <h5 className="fw-bold mb-0">Step 3: Review &amp; Payment</h5>
         </div>
 
-        <div className="mb-4">
-          <h6 className="fw-bold mb-3">Select Payment Option</h6>
-
-          {/* Static QR Payment Option */}
-          <div
-            className={`card mb-2 cursor-pointer shadow-sm ${paymentOption === 'static_qr' ? 'border-primary bg-primary bg-opacity-10' : 'border'}`}
-            style={{ borderRadius: '10px', transition: 'all 0.2s' }}
-            onClick={() => setPaymentOption('static_qr')}
-          >
-            <div className="card-body p-3 d-flex align-items-start gap-3">
-              <input type="radio" className="form-check-input mt-1" checked={paymentOption === 'static_qr'} readOnly />
-              <div className="flex-grow-1">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <span className="fw-bold text-dark fs-6">📱 WOW GOA Static QR Payment (UPI)</span>
-                  <span className="badge bg-primary text-white">Recommended</span>
-                </div>
-                <div className="text-muted small">
-                  Scan the WOW GOA static QR with Google Pay, PhonePe, Paytm or BHIM to pay <strong>₹{totalAmount.toLocaleString('en-IN')}</strong>.
-                </div>
+        {/* Customer Category & Currency Banner */}
+        <div className="p-3 mb-3 rounded-3 border" style={{ background: isIndian ? '#f0fdf4' : '#eff6ff', borderColor: isIndian ? '#bbf7d0' : '#bfdbfe' }}>
+          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <div className="d-flex align-items-center gap-2">
+              <span className="fs-5">{country?.flag || (isIndian ? '🇮🇳' : '🌐')}</span>
+              <div>
+                <div className="fw-bold text-dark text-sm">{country?.name || 'Customer Country'}</div>
+                <div className="text-muted text-xxs">Identified from phone dial code ({country?.dial_code || '+91'})</div>
               </div>
+            </div>
+            <div className="d-flex align-items-center gap-1.5">
+              <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${isIndian ? 'bg-success text-white' : 'bg-primary text-white'}`} style={{ fontSize: '0.72rem' }}>
+                {category || (isIndian ? 'INDIAN' : 'FOREIGN')} CUSTOMER
+              </span>
+              <span className="badge rounded-pill bg-dark text-white px-2.5 py-1 font-monospace" style={{ fontSize: '0.72rem' }}>
+                {currency || 'INR'}
+              </span>
             </div>
           </div>
-
-          {/* Pay at Hotel Option */}
-          <div
-            className={`card mb-2 cursor-pointer shadow-sm ${isPayAtHotel ? 'border-primary bg-primary bg-opacity-10' : 'border'}`}
-            style={{ borderRadius: '10px', transition: 'all 0.2s' }}
-            onClick={() => setPaymentOption('pay_at_hotel')}
-          >
-            <div className="card-body p-3 d-flex align-items-start gap-3">
-              <input type="radio" className="form-check-input mt-1" checked={isPayAtHotel} readOnly />
-              <div className="flex-grow-1">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <span className="fw-bold text-dark fs-6">🏨 Pay at Hotel Front Desk</span>
-                  <span className="badge bg-light text-dark border">Check-in Pay</span>
-                </div>
-                <div className="text-muted small">
-                  Pay <strong>₹{totalAmount.toLocaleString('en-IN')}</strong> directly at the hotel reception during check-in.
-                </div>
-              </div>
-            </div>
+          <div className="d-flex justify-content-between align-items-baseline pt-2 border-top border-light-subtle">
+            <span className="text-xs text-muted fw-semibold">Customer-Facing Total:</span>
+            <CurrencyPriceDisplay amountInr={totalAmount} size="lg" highlight />
           </div>
         </div>
 
-        {/* Static QR Details Card - Direct to Vendor */}
-        {paymentOption === 'static_qr' && (() => {
-          const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
-            paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
-          ) : null;
-          const isVendorPaymentConfigured = Boolean(
-            activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
-          );
+        {isIndian ? (
+          <>
+            <div className="mb-4">
+              <h6 className="fw-bold mb-3">Select Payment Option</h6>
 
-          return isVendorPaymentConfigured ? (
-            <StaticQRPaymentCard
-              amount={totalAmount}
-              upiId={activeVendorPayment.upi_id || ''}
-              accountName={activeVendorPayment.account_name || activeVendorPayment.display_name || selectedBookingItem.name}
-              qrImageUrl={activeVendorPayment.qr_image_url || ''}
-              vendorName={activeVendorPayment.display_name || selectedBookingItem.vendor_name || 'Hotel Vendor'}
-              paymentReference={transactionId}
-              onReferenceChange={setTransactionId}
-              serviceTitle={selectedBookingItem.name}
-              instructions={activeVendorPayment.instructions || ''}
+              {/* Static QR Payment Option */}
+              <div
+                className={`card mb-2 cursor-pointer shadow-sm ${paymentOption === 'static_qr' ? 'border-primary bg-primary bg-opacity-10' : 'border'}`}
+                style={{ borderRadius: '10px', transition: 'all 0.2s' }}
+                onClick={() => setPaymentOption('static_qr')}
+              >
+                <div className="card-body p-3 d-flex align-items-start gap-3">
+                  <input type="radio" className="form-check-input mt-1" checked={paymentOption === 'static_qr'} readOnly />
+                  <div className="flex-grow-1">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="fw-bold text-dark fs-6">📱 WOW GOA Static QR Payment (UPI)</span>
+                      <span className="badge bg-primary text-white">Recommended</span>
+                    </div>
+                    <div className="text-muted small">
+                      Scan the vendor static QR with Google Pay, PhonePe, Paytm or BHIM to pay <strong>₹{totalAmount.toLocaleString('en-IN')}</strong>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pay at Hotel Option */}
+              <div
+                className={`card mb-2 cursor-pointer shadow-sm ${isPayAtHotel ? 'border-primary bg-primary bg-opacity-10' : 'border'}`}
+                style={{ borderRadius: '10px', transition: 'all 0.2s' }}
+                onClick={() => setPaymentOption('pay_at_hotel')}
+              >
+                <div className="card-body p-3 d-flex align-items-start gap-3">
+                  <input type="radio" className="form-check-input mt-1" checked={isPayAtHotel} readOnly />
+                  <div className="flex-grow-1">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="fw-bold text-dark fs-6">🏨 Pay at Hotel Front Desk</span>
+                      <span className="badge bg-light text-dark border">Check-in Pay</span>
+                    </div>
+                    <div className="text-muted small">
+                      Pay <strong>₹{totalAmount.toLocaleString('en-IN')}</strong> directly at the hotel reception during check-in.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Static QR Details Card - Direct to Vendor */}
+            {paymentOption === 'static_qr' && (() => {
+              const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
+                paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
+              ) : null;
+              const isVendorPaymentConfigured = Boolean(
+                activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
+              );
+
+              return isVendorPaymentConfigured ? (
+                <StaticQRPaymentCard
+                  amount={totalAmount}
+                  upiId={activeVendorPayment.upi_id || ''}
+                  accountName={activeVendorPayment.account_name || activeVendorPayment.display_name || selectedBookingItem.name}
+                  qrImageUrl={activeVendorPayment.qr_image_url || ''}
+                  vendorName={activeVendorPayment.display_name || selectedBookingItem.vendor_name || 'Hotel Vendor'}
+                  paymentReference={transactionId}
+                  onReferenceChange={setTransactionId}
+                  serviceTitle={selectedBookingItem.name}
+                  instructions={activeVendorPayment.instructions || ''}
+                />
+              ) : (
+                <div className="card shadow-sm border border-warning rounded-4 overflow-hidden mb-3" style={{ background: '#fffbeb' }}>
+                  <div className="card-body p-4 text-center">
+                    <div className="d-inline-flex p-3 rounded-circle bg-warning bg-opacity-25 text-warning mb-2">
+                      <AlertCircle size={28} />
+                    </div>
+                    <h6 className="fw-bold text-dark mb-1">Vendor Payment Notice</h6>
+                    <div className="alert alert-warning border border-warning d-inline-block text-start mb-0 py-2 px-3" style={{ fontSize: '0.88rem' }}>
+                      <strong>Vendor payment QR is not configured. Please contact support.</strong>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Vendor Cancellation Policy Card */}
+            <VendorCancellationPolicyCard
+              policy={vendorCancellationPolicy}
+              agreed={policyAgreed}
+              onAgreementChange={setPolicyAgreed}
+              customerPayment={totalAmount}
             />
-          ) : (
-            <div className="card shadow-sm border border-warning rounded-4 overflow-hidden mb-3" style={{ background: '#fffbeb' }}>
-              <div className="card-body p-4 text-center">
-                <div className="d-inline-flex p-3 rounded-circle bg-warning bg-opacity-25 text-warning mb-2">
-                  <AlertCircle size={28} />
+
+            {(() => {
+              const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
+                paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
+              ) : null;
+              const isVendorPaymentConfigured = Boolean(
+                activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
+              );
+              const isSubmitDisabled = isProcessing || !policyAgreed || (paymentOption === 'static_qr' && (!isVendorPaymentConfigured || !transactionId));
+
+              return (
+                <div className="mt-4 text-end">
+                  <button 
+                    className="btn btn-warning px-5 py-2.5 fw-bold w-100 shadow-sm rounded-3" 
+                    onClick={handleConfirmBooking}
+                    disabled={isSubmitDisabled}
+                    style={{ fontSize: '0.95rem', opacity: isSubmitDisabled ? 0.65 : 1 }}
+                  >
+                    {isProcessing ? 'Confirming Booking...' : (isPayAtHotel ? `Confirm Booking (Pay ₹${totalAmount.toLocaleString('en-IN')} at Hotel)` : `Submit Payment of ₹${totalAmount.toLocaleString('en-IN')}`)}
+                  </button>
                 </div>
-                <h6 className="fw-bold text-dark mb-1">Vendor Payment Notice</h6>
-                <div className="alert alert-warning border border-warning d-inline-block text-start mb-0 py-2 px-3" style={{ fontSize: '0.88rem' }}>
-                  <strong>Vendor payment QR is not configured. Please contact support.</strong>
+              );
+            })()}
+          </>
+        ) : (
+          /* Foreign Customer Flow: Review & Reserve (NO fake UPI QR, NO INR shown) */
+          <>
+            <div className="card shadow-sm border border-primary border-opacity-25 rounded-4 overflow-hidden mb-3" style={{ background: '#f8fafc' }}>
+              <div className="card-body p-4 text-center">
+                <div className="d-inline-flex p-3 rounded-circle bg-primary bg-opacity-10 text-primary mb-2">
+                  <ShieldCheck size={28} />
+                </div>
+                <h6 className="fw-bold text-dark mb-1">Foreign Customer Stay Reservation</h6>
+                <div className="text-muted small mb-3">
+                  Payable in your local currency: <strong className="text-primary font-heading"><CurrencyPriceDisplay amountInr={totalAmount} size="md" highlight /></strong>
+                </div>
+                <div className="alert alert-info border border-info border-opacity-25 text-start py-2.5 px-3 mb-0" style={{ fontSize: '0.82rem' }}>
+                  <strong>Notice:</strong> International Online Card Payment Gateway is currently being integrated for seamless checkout. Your room will be provisionally reserved directly with {selectedBookingItem.name} upon confirmation, and our operations team / hotel will reach out to provide you with secure international payment settlement instructions.
                 </div>
               </div>
             </div>
-          );
-        })()}
 
-        {/* Vendor Cancellation Policy Card */}
-        <VendorCancellationPolicyCard
-          policy={vendorCancellationPolicy}
-          agreed={policyAgreed}
-          onAgreementChange={setPolicyAgreed}
-          customerPayment={totalAmount}
-        />
+            {/* Vendor Cancellation Policy Card */}
+            <VendorCancellationPolicyCard
+              policy={vendorCancellationPolicy}
+              agreed={policyAgreed}
+              onAgreementChange={setPolicyAgreed}
+              customerPayment={totalAmount}
+            />
 
-        {(() => {
-          const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
-            paymentSettings.find(m => (m.method_type === 'UPI' || m.qr_image_url || m.upi_id) && (m.upi_id || m.qr_image_url)) || paymentSettings[0]
-          ) : null;
-          const isVendorPaymentConfigured = Boolean(
-            activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
-          );
-          const isSubmitDisabled = isProcessing || !policyAgreed || (paymentOption === 'static_qr' && (!isVendorPaymentConfigured || !transactionId));
-
-          return (
             <div className="mt-4 text-end">
               <button 
-                className="btn btn-warning px-5 py-2.5 fw-bold w-100 shadow-sm rounded-3" 
+                className="btn btn-primary px-5 py-2.5 fw-bold w-100 shadow-sm rounded-3" 
                 onClick={handleConfirmBooking}
-                disabled={isSubmitDisabled}
-                style={{ fontSize: '0.95rem', opacity: isSubmitDisabled ? 0.65 : 1 }}
+                disabled={isProcessing || !policyAgreed}
+                style={{ fontSize: '0.95rem', opacity: (!policyAgreed || isProcessing) ? 0.65 : 1, background: '#FF6333', borderColor: '#FF6333' }}
               >
-                {isProcessing ? 'Confirming Booking...' : (isPayAtHotel ? `Confirm Booking (Pay ₹${totalAmount.toLocaleString('en-IN')} at Hotel)` : `Submit Payment of ₹${totalAmount.toLocaleString('en-IN')}`)}
+                {isProcessing ? 'Confirming Reservation...' : <>Confirm &amp; Reserve Stay (<CurrencyPriceDisplay amountInr={totalAmount} size="sm" color="#ffffff" />)</>}
               </button>
             </div>
-          );
-        })()}
+          </>
+        )}
       </div>
     );
   };
@@ -1323,7 +1430,7 @@ export default function HotelBookingModal({
           remainingBalance={effectiveRemaining}
           paymentMode={isPayAtHotel ? 'Pay at Hotel Front Desk' : (selectedCustom?.method_name || (paymentOption === 'upi_direct' ? 'Online / UPI' : 'Prepaid'))}
           paymentStatus={isPayAtHotel ? 'Confirmed (Pay at Hotel)' : 'Confirmed & Paid'}
-          onClose={() => setSelectedBookingItem(null)}
+          onClose={handleHotelModalClose}
         />
       </div>
     );
@@ -1339,14 +1446,14 @@ export default function HotelBookingModal({
           e.preventDefault();
         }
       }} 
-      onClick={() => setSelectedBookingItem(null)}
+      onClick={handleHotelModalClose}
     >
       <div className="checkout-modal-content animate-fade-in-up" style={{ maxWidth: step === 4 ? '600px' : '900px' }} onClick={(e) => e.stopPropagation()}>
         <div className="checkout-header bg-dark text-white">
           <h4 className="m-0 fw-bold">
             {step === 4 ? 'Booking Confirmation' : 'Complete Your Booking'}
           </h4>
-          <button type="button" className="btn btn-link text-white p-0 border-0" onClick={() => setSelectedBookingItem(null)}>
+          <button type="button" className="btn btn-link text-white p-0 border-0" onClick={handleHotelModalClose}>
             <X size={24} />
           </button>
         </div>
@@ -1474,7 +1581,7 @@ export default function HotelBookingModal({
                             <h6 className="fw-bold mb-3 border-bottom pb-2">Price Breakdown</h6>
                             <div className="d-flex justify-content-between mb-1.5">
                                 <span>Room ({selectedRoom?.name || 'Selected Room'}):</span>
-                                <span className="fw-bold">₹{nightlyRoomRate.toLocaleString('en-IN')} / N</span>
+                                <span className="fw-bold"><CurrencyPriceDisplay amountInr={nightlyRoomRate} /> / N</span>
                             </div>
                             <div className="d-flex justify-content-between mb-1.5 text-muted">
                                 <span>Meal Plan:</span>
@@ -1486,32 +1593,32 @@ export default function HotelBookingModal({
                             </div>
                             <div className="d-flex justify-content-between border-top pt-2 mb-1.5">
                                 <span>Base Room Total:</span>
-                                <span>₹{baseRoomTotal.toLocaleString('en-IN')}</span>
+                                <span><CurrencyPriceDisplay amountInr={baseRoomTotal} /></span>
                             </div>
                             {extraAdultTotal > 0 && (
                               <div className="d-flex justify-content-between mb-1.5 text-muted">
                                   <span>Extra Adults ({extraAdultsCount}):</span>
-                                  <span>₹{extraAdultTotal.toLocaleString('en-IN')}</span>
+                                  <span><CurrencyPriceDisplay amountInr={extraAdultTotal} /></span>
                               </div>
                             )}
                             {extraChildTotal > 0 && (
                               <div className="d-flex justify-content-between mb-1.5 text-muted">
                                   <span>Extra Children:</span>
-                                  <span>₹{extraChildTotal.toLocaleString('en-IN')}</span>
+                                  <span><CurrencyPriceDisplay amountInr={extraChildTotal} /></span>
                               </div>
                             )}
                             <div className="d-flex justify-content-between mb-1.5 text-muted">
                                 <span>GST (18%):</span>
-                                <span>₹{gst.toLocaleString('en-IN')}</span>
+                                <span><CurrencyPriceDisplay amountInr={gst} /></span>
                             </div>
                             <div className="d-flex justify-content-between mb-1.5 text-muted">
                                 <span>Platform Fee:</span>
-                                <span>₹{platformFee.toLocaleString('en-IN')}</span>
+                                <span><CurrencyPriceDisplay amountInr={platformFee} /></span>
                             </div>
                             {driverOptionEnabled && driverRequired && driverCharge > 0 && (
                               <div className="d-flex justify-content-between mb-1.5 text-muted">
                                   <span>Chauffeur Service ({driverServiceType}):</span>
-                                  <span>₹{driverCharge.toLocaleString('en-IN')}</span>
+                                  <span><CurrencyPriceDisplay amountInr={driverCharge} /></span>
                               </div>
                             )}
 
@@ -1532,10 +1639,10 @@ export default function HotelBookingModal({
                                   </div>
                                 </div>
                                 {customerTier === 'Gold' && !isGoldEligible && (
-                                  <span className="badge bg-warning text-dark text-xxs">₹500 off on &gt;₹5k</span>
+                                  <span className="badge bg-warning text-dark text-xxs">Special member discounts on &gt;₹5k</span>
                                 )}
                                 {customerTier === 'Platinum' && !isPlatinumEligible && (
-                                  <span className="badge bg-light text-dark text-xxs">₹1,000 off on &gt;₹10k</span>
+                                  <span className="badge bg-light text-dark text-xxs">Special member discounts on &gt;₹10k</span>
                                 )}
                               </div>
                             )}
@@ -1543,19 +1650,19 @@ export default function HotelBookingModal({
                             {/* Gold/Platinum Discount Alerts */}
                             {isGoldEligible && (
                               <div className="p-2 rounded-3 my-2 text-xs fw-semibold" style={{ background: '#fef3c7', border: '1px solid #f59e0b', color: '#92400e' }}>
-                                🥇 <strong>Gold Member Privilege:</strong> Flat ₹500 instant discount applied!
+                                🥇 <strong>Gold Member Privilege:</strong> Instant privilege discount applied!
                               </div>
                             )}
                             {isPlatinumEligible && (
                               <div className="p-2 rounded-3 my-2 text-xs fw-semibold" style={{ background: '#f5f3ff', border: '1px solid #a855f7', color: '#581c87' }}>
-                                💎 <strong>Platinum VIP Privilege:</strong> Flat ₹1,000 instant discount applied!
+                                💎 <strong>Platinum VIP Privilege:</strong> Instant VIP discount applied!
                               </div>
                             )}
 
                             {tierDiscount > 0 && (
                               <div className="d-flex justify-content-between mb-2 text-warning fw-bold">
                                 <span>Tier Privilege Discount:</span>
-                                <span>-₹{tierDiscount.toLocaleString('en-IN')}</span>
+                                <span>-<CurrencyPriceDisplay amountInr={tierDiscount} /></span>
                               </div>
                             )}
 
@@ -1566,7 +1673,7 @@ export default function HotelBookingModal({
                                             <Wallet size={15} className="text-success" />
                                             <div>
                                                 <div className="fw-bold text-dark text-xs">WOW GOA Wallet</div>
-                                                <div className="text-muted" style={{ fontSize: '10px' }}>Available: ₹{walletBalance.toLocaleString('en-IN')}</div>
+                                                <div className="text-muted" style={{ fontSize: '10px' }}>Available: <CurrencyPriceDisplay amountInr={walletBalance} size="sm" /></div>
                                             </div>
                                         </div>
                                         <div className="form-check form-switch mb-0">
@@ -1579,7 +1686,7 @@ export default function HotelBookingModal({
                                                 style={{ cursor: 'pointer' }}
                                             />
                                             <label className="form-check-label text-xs fw-bold text-success" htmlFor="useHotelWalletCashback">
-                                                Use ₹{Math.min(walletBalance, maxWalletBenefit).toLocaleString('en-IN')} (10% Benefit)
+                                                Use 10% Benefit
                                             </label>
                                         </div>
                                     </div>
@@ -1589,20 +1696,20 @@ export default function HotelBookingModal({
                             {appliedWalletAmount > 0 && (
                                 <div className="d-flex justify-content-between mb-2 text-success fw-bold">
                                     <span>Wallet Cashback Applied:</span>
-                                    <span>-₹{appliedWalletAmount.toLocaleString('en-IN')}</span>
+                                    <span>-<CurrencyPriceDisplay amountInr={appliedWalletAmount} /></span>
                                 </div>
                             )}
 
-                            <div className="d-flex justify-content-between border-top border-dark pt-2 fw-bold text-primary" style={{ fontSize: '16px' }}>
-                                <span>Total Payable:</span>
-                                <span>₹{finalTotalPayable.toLocaleString('en-IN')}</span>
+                            <div className="d-flex justify-content-between align-items-baseline border-top border-dark pt-2 fw-bold text-primary">
+                                <span style={{ fontSize: '15px' }}>Total Payable:</span>
+                                <CurrencyPriceDisplay amountInr={finalTotalPayable} size="lg" highlight />
                             </div>
 
                             {/* 10% Cashback Earning Preview */}
                             <div className="mt-2.5 p-2 rounded-3 text-center" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
                                 <div className="text-xs fw-bold text-dark d-flex align-items-center justify-content-center gap-1">
                                     <Gift size={13} className="text-warning" />
-                                    <span>10% Cashback You Will Earn: <strong className="text-success font-heading">₹{projectedCashback.toLocaleString('en-IN')}</strong></span>
+                                    <span>10% Cashback You Will Earn: <strong className="text-success font-heading"><CurrencyPriceDisplay amountInr={projectedCashback} /></strong></span>
                                 </div>
                                 <div className="text-muted text-xxs mt-0.5">
                                     Credited to your wallet on trip completion • Valid 30 days

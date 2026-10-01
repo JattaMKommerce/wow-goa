@@ -60,12 +60,17 @@ function WorkflowBadge({ status }) {
   );
 }
 
-export default function VehicleBookingManagement({ bookings = [], cars = [], bikes = [], initialStatus, setBookingsList, currentUser }) {
+export default function VehicleBookingManagement({ bookings = [], cars = [], bikes = [], initialStatus, setBookingsList, currentUser, onNavigate }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialStatus || 'all');
   const [selected, setSelected] = useState(null);
   const [localBookings, setLocalBookings] = useState(bookings || []);
-  const [blockedModal, setBlockedModal] = useState({ show: false, balance: 0 });
+  const [blockedModal, setBlockedModal] = useState({
+    show: false,
+    balance: 0,
+    negativeBookingCount: 0,
+    maxNegativeBookings: 2
+  });
 
   useEffect(() => {
     if (initialStatus) {
@@ -341,7 +346,12 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
         broadcastBookingSync(booking.id, next);
       } catch (e) {
         if (e.code === 'WALLET_BLOCKED' || (e.message && e.message.includes('WALLET_BLOCKED'))) {
-          setBlockedModal({ show: true, balance: e.balance !== undefined ? e.balance : -800 });
+          setBlockedModal({
+            show: true,
+            balance: e.balance !== undefined ? e.balance : (e.data?.balance ?? 0),
+            negativeBookingCount: e.negative_booking_count !== undefined ? e.negative_booking_count : (e.data?.negative_booking_count ?? 0),
+            maxNegativeBookings: e.max_negative_bookings !== undefined ? e.max_negative_bookings : (e.data?.max_negative_bookings ?? 2)
+          });
         } else {
           alert('Failed to update booking status: ' + e.message);
         }
@@ -350,6 +360,10 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
   };
 
   const markCompleted = async (booking) => {
+    if (!['Confirmed', 'Pickup', 'Return'].includes(booking.status)) {
+      alert('Cannot complete an unconfirmed booking. Booking must first be confirmed with platform fee processed.');
+      return;
+    }
     try {
       await updateBookingStatus(booking.id, 'Completed');
       const updated = localBookings.map(b => b.id === booking.id ? { ...b, status: 'Completed' } : b);
@@ -358,7 +372,16 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
       if (selected?.id === booking.id) setSelected(prev => ({ ...prev, status: 'Completed' }));
       broadcastBookingSync(booking.id, 'Completed');
     } catch (e) {
-      alert('Failed to mark booking as completed: ' + e.message);
+      if (e.code === 'WALLET_BLOCKED' || (e.message && e.message.includes('WALLET_BLOCKED'))) {
+        setBlockedModal({
+          show: true,
+          balance: e.balance !== undefined ? e.balance : (e.data?.balance ?? 0),
+          negativeBookingCount: e.negative_booking_count !== undefined ? e.negative_booking_count : (e.data?.negative_booking_count ?? 0),
+          maxNegativeBookings: e.max_negative_bookings !== undefined ? e.max_negative_bookings : (e.data?.max_negative_bookings ?? 2)
+        });
+      } else {
+        alert('Failed to mark booking as completed: ' + e.message);
+      }
     }
   };
 
@@ -779,18 +802,20 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
                     background: 'linear-gradient(90deg,#FF6333,#FF8A00)', 
                     fontSize: '0.82rem' 
                   }}
-                  title={selected.status === 'Return' ? 'Advance to Completed' : 'Advance to next workflow step'}
+                  title={selected.status === 'Return' ? 'Advance to Completed' : selected.status === 'Payment Verification' ? 'Confirm Booking and Process Platform Fee' : 'Advance to next workflow step'}
                 >
-                  <ArrowRight size={13} /> Next
+                  <ArrowRight size={13} /> {selected.status === 'Payment Verification' ? 'Confirm Booking' : 'Next'}
                 </button>
-                <button 
-                  onClick={() => markCompleted(selected)} 
-                  className="btn py-2 px-3 rounded-3 fw-bold text-white d-flex align-items-center justify-content-center gap-1" 
-                  style={{ background: '#059669', fontSize: '0.82rem' }}
-                  title="Directly mark this vehicle booking as Completed"
-                >
-                  <CheckCircle size={13} /> Complete
-                </button>
+                {['Confirmed', 'Pickup', 'Return'].includes(selected.status) && (
+                  <button 
+                    onClick={() => markCompleted(selected)} 
+                    className="btn py-2 px-3 rounded-3 fw-bold text-white d-flex align-items-center justify-content-center gap-1" 
+                    style={{ background: '#059669', fontSize: '0.82rem' }}
+                    title="Mark this vehicle rental as Completed"
+                  >
+                    <CheckCircle size={13} /> Complete
+                  </button>
+                )}
                 <button onClick={() => cancelBooking(selected.id)} className="btn py-2 px-3 rounded-3 fw-bold" style={{ background: '#fee2e2', color: '#dc2626', fontSize: '0.82rem' }}>
                   Cancel
                 </button>
@@ -831,8 +856,19 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
       )}
       <WalletRechargeRequiredModal
         show={blockedModal.show}
+        isOpen={blockedModal.show}
         balance={blockedModal.balance}
-        onClose={() => setBlockedModal({ show: false, balance: 0 })}
+        negativeBookingCount={blockedModal.negativeBookingCount}
+        maxNegativeBookings={blockedModal.maxNegativeBookings}
+        onClose={() => setBlockedModal(prev => ({ ...prev, show: false }))}
+        onAddMoney={() => {
+          setBlockedModal(prev => ({ ...prev, show: false }));
+          if (onNavigate) {
+            onNavigate('wallet');
+          } else {
+            window.dispatchEvent(new CustomEvent('navigate-vendor-tab', { detail: 'wallet' }));
+          }
+        }}
       />
     </div>
   );

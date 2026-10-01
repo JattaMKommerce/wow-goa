@@ -3,7 +3,7 @@ import {
   Compass, LogOut, Box, Building, MessageSquare, CreditCard, Calendar,
   Plane, Hotel, Shield, LayoutDashboard, Globe, Users, Tag, BarChart2,
   ChevronDown, ChevronRight, Menu, Bell, Layers, FileText, Star, PlusCircle, Settings, X, UserPlus,
-  Briefcase, Gift, Clock, AlertCircle, Wallet, CheckCircle2, Map as MapIcon
+  Briefcase, Gift, Clock, AlertCircle, Wallet, CheckCircle2, Map as MapIcon, DollarSign
 } from 'lucide-react';
 import * as api from '../../services/api';
 import AdminDashboard from './AdminDashboard';
@@ -31,7 +31,6 @@ import AdminEnquiryCRM from './AdminEnquiryCRM';
 import LeadManagement from '../../components/shared/LeadManagement';
 import AdminSubscriptionPanel from '../../components/admin/AdminSubscriptionPanel';
 import AdminDriverManagement from './AdminDriverManagement';
-import AdminPaymentManager from './AdminPaymentManager';
 import AdminReviewsManagement from './AdminReviewsManagement';
 import NotificationSoundToggle from '../../components/common/NotificationSoundToggle';
 import { handleIncomingNotifications, registerSeenNotifications, getRelativeTimeString, parseNotificationTitleAndStatus } from '../../utils/notificationSound';
@@ -77,7 +76,7 @@ const SIDEBAR_GROUPS = [
     items: [
       { id: 'drivers', label: 'Driver Management', icon: <Users size={15} /> },
       { id: 'vendors', label: 'Vendor Management', icon: <Building size={15} /> },
-      { id: 'wallets', label: 'Vendor Wallets & Payouts', icon: <CreditCard size={15} /> },
+      { id: 'wallets', label: 'Vendor Wallets', icon: <Wallet size={15} /> },
     ]
   },
   {
@@ -85,7 +84,6 @@ const SIDEBAR_GROUPS = [
     items: [
       { id: 'bookings', label: 'Booking Management', icon: <Calendar size={15} /> },
       { id: 'reviews', label: 'Customer Reviews', icon: <Star size={15} /> },
-      { id: 'payment', label: 'Payment & UTR Verification', icon: <CreditCard size={15} /> },
       { id: 'lead_management', label: 'Lead Management (AI)', icon: <Users size={15} /> },
       { id: 'enquiries', label: 'Custom Enquiries', icon: <FileText size={15} /> },
       { id: 'add_users', label: 'Create Sub-Admin / Add Users', icon: <UserPlus size={15} /> },
@@ -94,7 +92,8 @@ const SIDEBAR_GROUPS = [
   {
     label: 'Revenue & Finance',
     items: [
-      { id: 'payment', label: 'Payment & Settlements', icon: <CreditCard size={15} /> },
+      { id: 'platform_revenue', label: 'Platform Revenue Ledger', icon: <DollarSign size={15} /> },
+      { id: 'wallet_recharges', label: 'Wallet Recharge Approvals', icon: <Wallet size={15} /> },
       { id: 'promotions', label: 'Promotions & Offers', icon: <Tag size={15} /> },
       { id: 'markup_reports', label: 'Markup & Reports', icon: <CreditCard size={15} /> },
       { id: 'analytics', label: 'Analytics', icon: <BarChart2 size={15} /> },
@@ -106,7 +105,6 @@ const SIDEBAR_GROUPS = [
       { id: 'platform_settings', label: 'Platform Settings', icon: <Settings size={15} /> },
       { id: 'hotel_booking_settings', label: 'Hotel Booking Settings', icon: <Hotel size={15} /> },
       { id: 'payment_settings', label: 'Payment Gateways', icon: <CreditCard size={15} /> },
-      { id: 'wallet_recharges', label: 'Wallet Recharges', icon: <CreditCard size={15} /> },
     ]
   },
   {
@@ -331,7 +329,7 @@ export default function AdminPortalPage({
   vehicleUnits = []
 }) {
   const [adminActiveTab, setAdminActiveTab] = useState(() => {
-    if (initialTab) return initialTab;
+    if (initialTab) return initialTab === 'payment' ? 'wallets' : initialTab;
     const currentPath = window.location.pathname;
     if (currentPath === '/admin/leads' || currentPath === '/admin/lead-management') return 'lead_management';
     if (currentPath === '/admin/custom-enquiries') return 'enquiries';
@@ -341,28 +339,43 @@ export default function AdminPortalPage({
     if (currentPath === '/admin/drivers') return 'drivers';
     if (currentPath === '/admin/activities' || currentPath === '/admin/sightseeing') return 'admin_activities';
     if (currentPath === '/admin/reviews') return 'reviews';
-    return localStorage.getItem('adminActiveTab') || 'overview';
+    if (currentPath === '/admin/wallets' || currentPath === '/admin/payment' || currentPath === '/admin/payments' || currentPath === '/admin/settlements') return 'wallets';
+    if (currentPath === '/admin/platform-revenue') return 'platform_revenue';
+    if (currentPath === '/admin/wallet-recharges') return 'wallet_recharges';
+    const saved = localStorage.getItem('adminActiveTab');
+    if (saved === 'payment') {
+      try { localStorage.setItem('adminActiveTab', 'wallets'); } catch (e) {}
+      return 'wallets';
+    }
+    return saved || 'overview';
   });
 
   const handleTabChange = (tabId) => {
-    setAdminActiveTab(tabId);
+    const targetTab = tabId === 'payment' ? 'wallets' : tabId;
+    setAdminActiveTab(targetTab);
     try {
-      localStorage.setItem('adminActiveTab', tabId);
-      if (tabId === 'leads' || tabId === 'lead_management') {
+      localStorage.setItem('adminActiveTab', targetTab);
+      if (targetTab === 'leads' || targetTab === 'lead_management') {
         window.history.replaceState(null, '', '/admin/leads');
-      } else if (tabId === 'enquiries') {
+      } else if (targetTab === 'enquiries') {
         window.history.replaceState(null, '', '/admin/custom-enquiries');
-      } else if (tabId === 'customers') {
+      } else if (targetTab === 'customers') {
         window.history.replaceState(null, '', '/admin/customers');
-      } else if (tabId === 'add_users') {
+      } else if (targetTab === 'add_users') {
         window.history.replaceState(null, '', '/admin/add-users');
-      } else if (tabId === 'bookings') {
+      } else if (targetTab === 'bookings') {
         window.history.replaceState(null, '', '/admin/bookings');
-      } else if (tabId === 'drivers') {
+      } else if (targetTab === 'drivers') {
         window.history.replaceState(null, '', '/admin/drivers');
-      } else if (tabId === 'reviews') {
+      } else if (targetTab === 'reviews') {
         window.history.replaceState(null, '', '/admin/reviews');
-      } else if (tabId === 'overview') {
+      } else if (targetTab === 'wallets') {
+        window.history.replaceState(null, '', '/admin/wallets');
+      } else if (targetTab === 'platform_revenue') {
+        window.history.replaceState(null, '', '/admin/platform-revenue');
+      } else if (targetTab === 'wallet_recharges') {
+        window.history.replaceState(null, '', '/admin/wallet-recharges');
+      } else if (targetTab === 'overview') {
         window.history.replaceState(null, '', '/admin');
       }
     } catch (e) {}
@@ -823,17 +836,22 @@ export default function AdminPortalPage({
           </div>
         );
       case 'wallets':
+      case 'vendor_wallets':
         return <WalletApprovalCenter defaultTab="wallets" />;
       case 'wallet_recharges':
+      case 'wallet_recharge':
         return <WalletApprovalCenter defaultTab="recharge" />;
+      case 'blocked_booking_alerts':
+      case 'blocked_alerts':
+        return <WalletApprovalCenter defaultTab="blocked_alerts" />;
+      case 'reactivations':
+      case 'reactivation_requests':
+        return <WalletApprovalCenter defaultTab="reactivations" />;
+      case 'platform_revenue':
+      case 'wallet_approvals':
+        return <WalletApprovalCenter defaultTab="revenue" />;
       case 'payment':
-        return (
-          <AdminPaymentManager
-            liveBookings={liveBookings}
-            currentUser={currentUser}
-            onRefreshBookings={loadAllAdminData}
-          />
-        );
+        return <WalletApprovalCenter defaultTab="wallets" />;
       case 'reviews':
       case 'customer_reviews':
         return <AdminReviewsManagement portalTitle="Admin Portal" onSelectTab={handleTabChange} />;

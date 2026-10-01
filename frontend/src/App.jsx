@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import './App.css';
 import { useSiteConfig } from './context/SiteConfigContext';
+import { useCustomerCurrency } from './context/CustomerCurrencyContext';
 import { unlockAudio } from './utils/notificationSound';
 
 // Import Components
@@ -158,6 +159,8 @@ export default function App() {
   });
   const [currentPath, setCurrentPath] = useState(() => (typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '/'));
   const path = currentPath;
+  const customerCurrency = useCustomerCurrency();
+  const resetCountry = customerCurrency?.resetCountry;
 
   // Search Widget form fields
   const [pickupLoc, setPickupLoc] = useState('');
@@ -793,6 +796,12 @@ export default function App() {
   };
 
   const handleOpenBooking = (item, isCustomization = false) => {
+    // Reset previous booking confirmation state completely
+    setShowSuccess(false);
+    setLastConfirmedBooking(null);
+    setUserPhone('');
+    if (resetCountry) resetCountry();
+
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
       document.activeElement.blur();
     }
@@ -849,6 +858,12 @@ export default function App() {
   };
 
   const handleOpenHotelBooking = (hotel, selectedRoom = null, selectedRatePlan = null) => {
+    // Reset previous booking confirmation state completely
+    setShowSuccess(false);
+    setLastConfirmedBooking(null);
+    setUserPhone('');
+    if (resetCountry) resetCountry();
+
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
       document.activeElement.blur();
     }
@@ -1430,6 +1445,8 @@ export default function App() {
 
   const handleConfirmBooking = async (e, paymentMethodId, extraDetails = {}) => {
     if (e && e.preventDefault) e.preventDefault();
+    setShowSuccess(false);
+    setLastConfirmedBooking(null);
     const cleanPhone = String(userPhone || '').replace(/\D/g, '');
     if (!userName || cleanPhone.length < 10) {
       alert("Please enter your name and a valid 10-digit mobile phone number for booking confirmation & tracking.");
@@ -1552,9 +1569,13 @@ export default function App() {
       };
 
       const res = await api.createBooking(payload);
-      const confirmedBooking = (res && (res.id || res.booking_id)) 
-        ? { ...payload, id: res.id || res.booking_id } 
-        : { ...payload, id: `WG${Math.floor(1000 + Math.random() * 9000)}` };
+      const confirmedBooking = {
+        ...payload,
+        ...(res?.booking || {}),
+        id: res?.booking_id || res?.id || res?.booking?.id || `WG${Math.floor(1000 + Math.random() * 9000)}`,
+        booking_id: res?.booking_id || res?.id || res?.booking?.id,
+        cashback_preview: res?.cashback_preview || res?.booking?.cashback_preview || null
+      };
       
       setLastConfirmedBooking(confirmedBooking);
 
@@ -1575,6 +1596,15 @@ export default function App() {
     } catch (e) {
       alert(e.message || "Failed to submit booking. Please try again.");
     }
+  };
+
+  // Authoritative Close Window & Teardown handler: clears selected item and confirmation state completely
+  const handleCloseBookingModal = () => {
+    setSelectedBookingItem(null);
+    setShowSuccess(false);
+    setLastConfirmedBooking(null);
+    setUserPhone('');
+    if (resetCountry) resetCountry();
   };
 
   if (isAuthHydrating) {
@@ -2706,9 +2736,12 @@ export default function App() {
           />
         ) : (
           <BookingModal
+            key={selectedBookingItem ? `${selectedBookingItem.id || selectedBookingItem.name}_${lastConfirmedBooking?.id || 'new'}` : 'closed'}
             selectedBookingItem={selectedBookingItem}
             setSelectedBookingItem={setSelectedBookingItem}
-            showSuccess={showSuccess}
+            onCloseModal={handleCloseBookingModal}
+            showSuccess={Boolean(showSuccess && lastConfirmedBooking)}
+            setShowSuccess={setShowSuccess}
             userName={userName}
             setUserName={setUserName}
             userPhone={userPhone}
@@ -2725,6 +2758,7 @@ export default function App() {
             bookingDays={bookingDays}
             handleConfirmBooking={handleConfirmBooking}
             lastConfirmedBooking={lastConfirmedBooking}
+            setLastConfirmedBooking={setLastConfirmedBooking}
             allPackages={packages}
             allCars={cars}
             allBikes={bikes}

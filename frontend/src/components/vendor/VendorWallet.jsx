@@ -5,6 +5,7 @@ import {
   Landmark, Smartphone, CreditCard
 } from 'lucide-react';
 import { apiFetch, API_BASE } from '../../services/api';
+import ReactivationRequestModal from './ReactivationRequestModal';
 
 const COLORS = { primary: '#FF6333', dark: '#0D1B2E', success: '#16a34a', danger: '#dc2626', warn: '#ca8a04' };
 
@@ -26,6 +27,7 @@ export default function VendorWallet({ currentUser }) {
   const [minRecharge, setMinRecharge] = useState(5000);
   const [loading, setLoading] = useState(true);
   const [showRecharge, setShowRecharge] = useState(false);
+  const [showReactivationModal, setShowReactivationModal] = useState(false);
   const [activeRechargeMethod, setActiveRechargeMethod] = useState(null);
   const [rechargeAmount, setRechargeAmount] = useState('');
   const [proofFile, setProofFile] = useState(null);
@@ -145,6 +147,56 @@ export default function VendorWallet({ currentUser }) {
         </div>
         <button className="btn btn-sm" onClick={load} title="Refresh"><RefreshCw size={14} /></button>
       </div>
+
+      {/* Services Suspended Notice */}
+      {Number(wallet?.services_suspended) === 1 && (
+        <div className="rounded-3 p-3 mb-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 shadow-sm" style={{ background: '#fef2f2', border: '1.5px solid #dc2626' }}>
+          <div className="d-flex align-items-center gap-3">
+            <XCircle size={28} style={{ color: '#dc2626', flexShrink: 0 }} />
+            <div>
+              <div className="fw-bold" style={{ color: '#dc2626' }}>SERVICES CURRENTLY HIDDEN — Admin Reactivation Required</div>
+              <div style={{ fontSize: '0.8rem', color: '#7f1d1d' }}>
+                Reason: {wallet?.suspension_reason || 'Negative wallet balance confirmation limit reached'}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#991b1b', marginTop: '3px' }}>
+                Recharging your wallet clears your negative balance, but services remain hidden until Admin / Super Admin explicitly reviews and approves reactivation.
+              </div>
+            </div>
+          </div>
+          <div className="d-flex gap-2 align-items-center flex-shrink-0">
+            <button className="btn btn-sm btn-outline-danger fw-bold px-3 py-1.5 rounded-pill" onClick={() => setShowRecharge(true)}>
+              Recharge
+            </button>
+            <button className="btn btn-sm fw-bold text-white px-3 py-1.5 rounded-pill shadow-sm" style={{ background: 'linear-gradient(90deg,#FF6333,#FF8A00)', border: 'none' }} onClick={() => setShowReactivationModal(true)}>
+              {wallet?.reactivation_status === 'PENDING_REACTIVATION' ? 'View Reactivation Status' : 'Request Reactivation'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Official Administration Reminder Notice */}
+      {(wallet?.latest_manual_reminder || (wallet?.active_portal_alert && wallet?.active_portal_alert?.active)) && (
+        <div className="rounded-3 p-3 mb-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 shadow-sm" style={{ background: '#fffbeb', border: '1.5px solid #f59e0b' }}>
+          <div className="d-flex align-items-start gap-3">
+            <AlertTriangle size={26} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div className="fw-bold d-flex align-items-center gap-2" style={{ color: '#92400e' }}>
+                <span>Official Notice from Administration: Wallet Recharge Required</span>
+                <span className="badge bg-warning text-dark" style={{ fontSize: '0.62rem' }}>MANUAL REMINDER</span>
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#78350f', marginTop: '3px' }}>
+                {wallet?.latest_manual_reminder?.message || wallet?.active_portal_alert?.message || `Your WOW GOA vendor wallet requires recharge. Please recharge your wallet to continue your services.`}
+              </div>
+              <div className="d-flex align-items-center gap-2 mt-1 text-muted" style={{ fontSize: '0.7rem' }}>
+                <Clock size={11} /> Sent: {new Date(wallet?.latest_manual_reminder?.created_at || wallet?.active_portal_alert?.created_at || Date.now()).toLocaleString()}
+              </div>
+            </div>
+          </div>
+          <button className="btn btn-sm btn-warning text-dark fw-bold px-3 py-1.5 rounded-pill shadow-sm flex-shrink-0" onClick={() => setShowRecharge(true)}>
+            Recharge Now
+          </button>
+        </div>
+      )}
 
       {/* Blocked Balance Warning */}
       {isBlocked && (
@@ -393,6 +445,14 @@ export default function VendorWallet({ currentUser }) {
           </table>
         </div>
       </div>
+
+      <ReactivationRequestModal
+        isOpen={showReactivationModal}
+        onClose={() => setShowReactivationModal(false)}
+        wallet={wallet}
+        vendorId={vendorId}
+        onSuccess={load}
+      />
     </div>
   );
 }

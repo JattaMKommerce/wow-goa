@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import VendorWallet from '../../components/vendor/VendorWallet';
 import WalletRechargeRequiredModal from '../../components/vendor/WalletRechargeRequiredModal';
+import VendorMinimumBalanceAlertModal from '../../components/vendor/VendorMinimumBalanceAlertModal';
 import * as api from '../../services/api';
 import { calculateFlightDuration } from '../../utils/flightHelper';
 
@@ -775,7 +776,37 @@ function FlightBookings({ bookings, onUpdateStatus }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [updatingId, setUpdatingId] = useState(null);
-  const [blockedModal, setBlockedModal] = useState({ show: false, balance: 0 });
+  const [blockedModal, setBlockedModal] = useState({
+    show: false,
+    balance: 0,
+    negativeBookingCount: 0,
+    maxNegativeBookings: 2
+  });
+  const [minBalanceModal, setMinBalanceModal] = useState({
+    show: false,
+    balance: 0,
+    threshold: 1000,
+    alertId: null
+  });
+
+  useEffect(() => {
+    const vId = currentUser?.vendor_id || currentUser?.id;
+    if (!vId) return;
+
+    fetch(`${api.API_BASE}?resource=vendor_wallet_info&vendor_id=${encodeURIComponent(vId)}`)
+      .then(res => res.json())
+      .then(info => {
+        if (info && info.active_portal_alert && info.active_portal_alert.active) {
+          setMinBalanceModal({
+            show: true,
+            balance: info.active_portal_alert.balance,
+            threshold: info.active_portal_alert.threshold,
+            alertId: info.active_portal_alert.alert_id
+          });
+        }
+      })
+      .catch(() => {});
+  }, [currentUser]);
 
   const filtered = useMemo(() => {
     return bookings.filter(b => {
@@ -806,7 +837,12 @@ function FlightBookings({ bookings, onUpdateStatus }) {
       window.dispatchEvent(new CustomEvent('tripgalileo-booking-sync', { detail: { bookingId, status: newStatus } }));
     } catch (err) {
       if (err.code === 'WALLET_BLOCKED' || (err.message && err.message.includes('WALLET_BLOCKED'))) {
-        setBlockedModal({ show: true, balance: err.balance !== undefined ? err.balance : -800 });
+        setBlockedModal({
+          show: true,
+          balance: err.balance !== undefined ? err.balance : (err.data?.balance ?? 0),
+          negativeBookingCount: err.negative_booking_count !== undefined ? err.negative_booking_count : (err.data?.negative_booking_count ?? 0),
+          maxNegativeBookings: err.max_negative_bookings !== undefined ? err.max_negative_bookings : (err.data?.max_negative_bookings ?? 2)
+        });
       } else {
         alert('Failed to update booking status: ' + (err.message || 'Network error'));
       }
@@ -959,8 +995,30 @@ function FlightBookings({ bookings, onUpdateStatus }) {
       </div>
       <WalletRechargeRequiredModal
         show={blockedModal.show}
+        isOpen={blockedModal.show}
         balance={blockedModal.balance}
-        onClose={() => setBlockedModal({ show: false, balance: 0 })}
+        negativeBookingCount={blockedModal.negativeBookingCount}
+        maxNegativeBookings={blockedModal.maxNegativeBookings}
+        onClose={() => setBlockedModal(prev => ({ ...prev, show: false }))}
+        onAddMoney={() => {
+          setBlockedModal(prev => ({ ...prev, show: false }));
+          window.dispatchEvent(new CustomEvent('navigate-vendor-tab', { detail: 'wallet' }));
+          window.dispatchEvent(new CustomEvent('tripgalileo-navigate', { detail: { tab: 'wallet' } }));
+        }}
+      />
+      <VendorMinimumBalanceAlertModal
+        show={minBalanceModal.show}
+        isOpen={minBalanceModal.show}
+        balance={minBalanceModal.balance}
+        threshold={minBalanceModal.threshold}
+        alertId={minBalanceModal.alertId}
+        vendorId={currentUser?.vendor_id || currentUser?.id}
+        onClose={() => setMinBalanceModal(prev => ({ ...prev, show: false }))}
+        onRecharge={() => {
+          setMinBalanceModal(prev => ({ ...prev, show: false }));
+          window.dispatchEvent(new CustomEvent('navigate-vendor-tab', { detail: 'wallet' }));
+          window.dispatchEvent(new CustomEvent('tripgalileo-navigate', { detail: { tab: 'wallet' } }));
+        }}
       />
     </div>
   );

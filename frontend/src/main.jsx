@@ -6,6 +6,7 @@ import 'bootstrap-icons/font/bootstrap-icons.css'
 import './index.css'
 import App from './App.jsx'
 import { SiteConfigProvider } from './context/SiteConfigContext.jsx'
+import { CustomerCurrencyProvider } from './context/CustomerCurrencyContext.jsx'
 
 class GlobalErrorBoundary extends Component {
   constructor(props) {
@@ -70,7 +71,9 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <GlobalErrorBoundary>
       <SiteConfigProvider>
-        <App />
+        <CustomerCurrencyProvider>
+          <App />
+        </CustomerCurrencyProvider>
       </SiteConfigProvider>
     </GlobalErrorBoundary>
   </StrictMode>,

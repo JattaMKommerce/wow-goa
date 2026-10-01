@@ -33,6 +33,7 @@ function getTenantId() {
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/BookingService.php';
+require_once __DIR__ . '/VendorWalletAlertService.php';
 
 // 1. Database Configuration loaded from config.php / .env
 $sqlitePath = __DIR__ . '/database.sqlite';
@@ -482,11 +483,57 @@ if (!$connected) {
             "CREATE INDEX IF NOT EXISTS idx_cust_rev_booking ON customer_reviews(booking_id)",
             "CREATE INDEX IF NOT EXISTS idx_cust_rev_rating ON customer_reviews(rating DESC)",
             "CREATE INDEX IF NOT EXISTS idx_cust_rev_created ON customer_reviews(created_at DESC)",
-            "ALTER TABLE global_settings ADD COLUMN hotel_booking_driver_enabled INT DEFAULT 1"
+            "ALTER TABLE global_settings ADD COLUMN hotel_booking_driver_enabled INT DEFAULT 1",
+            "ALTER TABLE bookings ADD COLUMN customer_country VARCHAR(100) DEFAULT NULL",
+            "ALTER TABLE bookings ADD COLUMN customer_country_code VARCHAR(10) DEFAULT NULL",
+            "ALTER TABLE bookings ADD COLUMN customer_currency VARCHAR(10) DEFAULT 'INR'",
+            "ALTER TABLE bookings ADD COLUMN customer_category VARCHAR(20) DEFAULT 'INDIAN'",
+            "ALTER TABLE bookings ADD COLUMN exchange_rate_used DECIMAL(14,6) DEFAULT 1.000000",
+            "ALTER TABLE bookings ADD COLUMN converted_display_amount DECIMAL(12,2) DEFAULT NULL",
+            "ALTER TABLE bookings ADD COLUMN currency_rate_timestamp DATETIME DEFAULT NULL",
+            "ALTER TABLE users ADD COLUMN country VARCHAR(100) DEFAULT 'India'",
+            "ALTER TABLE users ADD COLUMN country_code VARCHAR(10) DEFAULT 'IN'",
+            "ALTER TABLE users ADD COLUMN dial_code VARCHAR(10) DEFAULT '+91'",
+            "ALTER TABLE users ADD COLUMN preferred_currency VARCHAR(10) DEFAULT 'INR'",
+            "ALTER TABLE users ADD COLUMN customer_category VARCHAR(20) DEFAULT 'INDIAN'",
+            "ALTER TABLE custom_enquiries ADD COLUMN customer_country VARCHAR(100) DEFAULT NULL",
+            "ALTER TABLE custom_enquiries ADD COLUMN customer_country_code VARCHAR(10) DEFAULT NULL",
+            "ALTER TABLE custom_enquiries ADD COLUMN customer_currency VARCHAR(10) DEFAULT 'INR'",
+            "ALTER TABLE custom_enquiries ADD COLUMN customer_category VARCHAR(20) DEFAULT 'INDIAN'",
+            "ALTER TABLE custom_enquiries ADD COLUMN exchange_rate_used DECIMAL(14,6) DEFAULT 1.000000",
+            "ALTER TABLE custom_enquiries ADD COLUMN converted_display_amount DECIMAL(12,2) DEFAULT NULL",
+            "ALTER TABLE global_settings ADD COLUMN min_vendor_wallet_balance DECIMAL(10,2) DEFAULT 1000.00",
+            "ALTER TABLE vendor_wallets ADD COLUMN low_balance_alert_sent INT DEFAULT 0",
+            "ALTER TABLE vendor_wallets ADD COLUMN last_low_balance_alert_at DATETIME DEFAULT NULL",
+            "CREATE TABLE IF NOT EXISTS vendor_wallet_alert_logs (
+                id VARCHAR(100) PRIMARY KEY,
+                alert_id VARCHAR(100) NOT NULL,
+                vendor_id VARCHAR(100) NOT NULL,
+                channel VARCHAR(50) NOT NULL,
+                threshold DECIMAL(10,2) NOT NULL,
+                wallet_balance DECIMAL(10,2) NOT NULL,
+                status VARCHAR(50) NOT NULL,
+                provider VARCHAR(100) DEFAULT NULL,
+                provider_message_id VARCHAR(255) DEFAULT NULL,
+                recipient VARCHAR(255) DEFAULT NULL,
+                error_message TEXT DEFAULT NULL,
+                payload_preview TEXT DEFAULT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                sent_at DATETIME DEFAULT NULL
+            )",
+            "CREATE TABLE IF NOT EXISTS vendor_wallet_alert_dismissals (
+                vendor_id VARCHAR(100) NOT NULL,
+                alert_id VARCHAR(100) NOT NULL,
+                dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (vendor_id, alert_id)
+            )"
         ];
         foreach ($drvAlters as $da) {
             try { $pdo->exec($da); } catch (Exception $e) {}
         }
+        try {
+            VendorWalletAlertService::ensureSchema($pdo);
+        } catch (Exception $e) {}
         try {
             $gsInitCount = $pdo->query("SELECT COUNT(*) FROM global_settings")->fetchColumn();
             if (intval($gsInitCount) === 0) {
@@ -3368,6 +3415,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $pdo->exec("TRUNCATE TABLE packages");
             echo "Packages truncated";
             exit();
+        } elseif ($resource === 'exchange_rates') {
+            require_once __DIR__ . '/ExchangeRateService.php';
+            $data = ExchangeRateService::getExchangeRates();
+            echo json_encode([
+                'success' => true,
+                'base' => 'INR',
+                'timestamp' => $data['timestamp'] ?? date('Y-m-d H:i:s'),
+                'rates' => $data['rates'] ?? []
+            ]);
+            exit;
+        } elseif ($resource === 'countries') {
+            require_once __DIR__ . '/country_currency.php';
+            $countries = CountryCurrencyRegistry::getAllCountries();
+            echo json_encode([
+                'success' => true,
+                'countries' => $countries
+            ]);
+            exit;
         } elseif ($resource === 'cars') {
             $actor = authenticateRequest($pdo, false);
 
@@ -3388,7 +3453,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
 
             // Public customer / Guest / Admin / Super Admin broad visibility
-            $stmt = $pdo->prepare("SELECT c.*, (SELECT COUNT(*) FROM vehicle_units vu WHERE vu.vehicle_id = c.id AND vu.status = 'Active') AS fleet_count FROM cars c WHERE (c.admin_id = ? OR c.admin_id IS NULL OR c.admin_id = '' OR c.admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin')");
+            $isAdmin = $actor && in_array(strtolower($actor['role'] ?? ''), ['admin', 'superadmin']);
+            $suspendFilter = $isAdmin ? "" : "AND (c.vendor_id IS NULL OR c.vendor_id = '' OR c.vendor_id NOT IN (SELECT vendor_id FROM vendor_wallets WHERE services_suspended = 1))";
+            $stmt = $pdo->prepare("SELECT c.*, (SELECT COUNT(*) FROM vehicle_units vu WHERE vu.vehicle_id = c.id AND vu.status = 'Active') AS fleet_count FROM cars c WHERE (c.admin_id = ? OR c.admin_id IS NULL OR c.admin_id = '' OR c.admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin') {$suspendFilter}");
             $stmt->execute([$tenant_id, $tenant_id, $tenant_id]);
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode($data);
@@ -3413,7 +3480,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
 
             // Public customer / Guest / Admin / Super Admin broad visibility
-            $stmt = $pdo->prepare("SELECT b.*, (SELECT COUNT(*) FROM vehicle_units vu WHERE vu.vehicle_id = b.id AND vu.status = 'Active') AS fleet_count FROM bikes b WHERE (b.admin_id = ? OR b.admin_id IS NULL OR b.admin_id = '' OR b.admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin')");
+            $isAdmin = $actor && in_array(strtolower($actor['role'] ?? ''), ['admin', 'superadmin']);
+            $suspendFilter = $isAdmin ? "" : "AND (b.vendor_id IS NULL OR b.vendor_id = '' OR b.vendor_id NOT IN (SELECT vendor_id FROM vendor_wallets WHERE services_suspended = 1))";
+            $stmt = $pdo->prepare("SELECT b.*, (SELECT COUNT(*) FROM vehicle_units vu WHERE vu.vehicle_id = b.id AND vu.status = 'Active') AS fleet_count FROM bikes b WHERE (b.admin_id = ? OR b.admin_id IS NULL OR b.admin_id = '' OR b.admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin') {$suspendFilter}");
             $stmt->execute([$tenant_id, $tenant_id, $tenant_id]);
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode($data);
@@ -3457,12 +3526,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             echo json_encode($data);
             exit;
         } elseif ($resource === 'hotels') {
+            $actor = authenticateRequest($pdo, false);
+            $isAdmin = $actor && in_array(strtolower($actor['role'] ?? ''), ['admin', 'superadmin']);
+            $suspendFilter = $isAdmin ? "" : "AND (vendor_id IS NULL OR vendor_id = '' OR vendor_id NOT IN (SELECT vendor_id FROM vendor_wallets WHERE services_suspended = 1))";
             $includeArchived = isset($_GET['include_archived']) && ($_GET['include_archived'] === '1' || $_GET['include_archived'] === 'true');
             if ($includeArchived) {
-                $stmt = $pdo->prepare("SELECT * FROM hotels WHERE (admin_id = ? OR admin_id IS NULL OR admin_id = '' OR admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin') ORDER BY stars ASC, price ASC");
+                $stmt = $pdo->prepare("SELECT * FROM hotels WHERE (admin_id = ? OR admin_id IS NULL OR admin_id = '' OR admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin') {$suspendFilter} ORDER BY stars ASC, price ASC");
                 $stmt->execute([$tenant_id, $tenant_id, $tenant_id]);
             } else {
-                $stmt = $pdo->prepare("SELECT * FROM hotels WHERE (admin_id = ? OR admin_id IS NULL OR admin_id = '' OR admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin') AND (is_available = 1 OR is_available IS NULL) AND (hotel_status = 'Live' OR hotel_status IS NULL OR hotel_status = '') ORDER BY stars ASC, price ASC");
+                $stmt = $pdo->prepare("SELECT * FROM hotels WHERE (admin_id = ? OR admin_id IS NULL OR admin_id = '' OR admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin') AND (is_available = 1 OR is_available IS NULL) AND (hotel_status = 'Live' OR hotel_status IS NULL OR hotel_status = '') {$suspendFilter} ORDER BY stars ASC, price ASC");
                 $stmt->execute([$tenant_id, $tenant_id, $tenant_id]);
             }
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -4685,17 +4757,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $actor = authenticateRequest($pdo, false);
             $role = '';
             $actorId = '';
-            $userPhone = '';
+            $qRole = strtolower(trim($_GET['role'] ?? ''));
+            $qUserId = trim($_GET['user_id'] ?? ($_GET['userId'] ?? ''));
+            $qPhone = preg_replace('/\D/', '', $_GET['phone'] ?? ($_GET['mobile'] ?? ''));
 
-            if ($actor) {
+            if (!empty($qRole) && (!empty($qUserId) || !empty($qPhone))) {
+                // Explicit component query (e.g. Vendor Portal querying its own notifications)
+                $role = $qRole;
+                $actorId = $qUserId;
+                $userPhone = $qPhone;
+            } elseif ($actor) {
                 $role = strtolower($actor['role'] ?? '');
                 $actorId = strval($actor['id'] ?? '');
                 $userPhone = preg_replace('/\D/', '', $actor['phone'] ?? '');
             } else {
                 // Graceful fallback to query parameters for all routes
-                $role = strtolower(trim($_GET['role'] ?? ''));
-                $actorId = trim($_GET['user_id'] ?? ($_GET['userId'] ?? ''));
-                $userPhone = preg_replace('/\D/', '', $_GET['phone'] ?? ($_GET['mobile'] ?? ''));
+                $role = $qRole;
+                $actorId = $qUserId;
+                $userPhone = $qPhone;
             }
 
             $last10 = strlen($userPhone) >= 10 ? substr($userPhone, -10) : $userPhone;
@@ -4942,7 +5021,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
             exit;} elseif ($resource === 'flights') {
             try {
-                $stmt = $pdo->prepare("SELECT * FROM flights WHERE (admin_id = ? OR admin_id IS NULL OR admin_id = '' OR admin_id = 'admin' OR vendor_id = ? OR ? = 'superadmin' OR ? = 'admin') ORDER BY created_at DESC");
+                $actor = authenticateRequest($pdo, false);
+                $isAdmin = $actor && in_array(strtolower($actor['role'] ?? ''), ['admin', 'superadmin']);
+                $suspendFilter = $isAdmin ? "" : "AND (vendor_id IS NULL OR vendor_id = '' OR vendor_id NOT IN (SELECT vendor_id FROM vendor_wallets WHERE services_suspended = 1))";
+                $stmt = $pdo->prepare("SELECT * FROM flights WHERE (admin_id = ? OR admin_id IS NULL OR admin_id = '' OR admin_id = 'admin' OR vendor_id = ? OR ? = 'superadmin' OR ? = 'admin') {$suspendFilter} ORDER BY created_at DESC");
                 $stmt->execute([$tenant_id, $tenant_id, $tenant_id, $tenant_id]);
                 $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 echo json_encode($data ?: []);
@@ -5364,13 +5446,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             echo json_encode($data);
             exit;} elseif ($resource === 'wallets' || $resource === 'vendor_wallets') {
             try {
-                // Read global max negative bookings limit
+                // Read global max negative bookings limit & max automatic reminders
                 $maxNeg = 2;
+                $maxReminders = 2;
                 try {
-                    $stmtG = $pdo->query("SELECT max_negative_bookings FROM global_settings LIMIT 1");
+                    $stmtG = $pdo->query("SELECT max_negative_bookings, max_initial_reminders FROM global_settings LIMIT 1");
                     $gRow = $stmtG->fetch(PDO::FETCH_ASSOC);
                     if ($gRow && isset($gRow['max_negative_bookings']) && intval($gRow['max_negative_bookings']) > 0) {
                         $maxNeg = intval($gRow['max_negative_bookings']);
+                    }
+                    if ($gRow && isset($gRow['max_initial_reminders']) && intval($gRow['max_initial_reminders']) > 0) {
+                        $maxReminders = intval($gRow['max_initial_reminders']);
+                    }
+                } catch (Exception $e) {}
+
+                // Count manual reminders per vendor
+                $manualCounts = [];
+                try {
+                    $stmtManCnt = $pdo->query("
+                        SELECT vendor_id, COUNT(*) as cnt 
+                        FROM vendor_wallet_alert_logs 
+                        WHERE event_type = 'MANUAL_REMINDER' 
+                        GROUP BY vendor_id
+                    ");
+                    while ($mRow = $stmtManCnt->fetch(PDO::FETCH_ASSOC)) {
+                        $manualCounts[$mRow['vendor_id']] = intval($mRow['cnt']);
                     }
                 } catch (Exception $e) {}
 
@@ -5397,10 +5497,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         w.vendor_id,
                         COALESCE(NULLIF(v.name, ''), NULLIF(u.name, ''), NULLIF(u.username, ''), w.vendor_id) AS vendor_name,
                         COALESCE(NULLIF(v.role, ''), NULLIF(u.role, ''), 'vendor') AS vendor_type,
+                        COALESCE(NULLIF(v.phone, ''), NULLIF(u.phone, '')) AS vendor_phone,
+                        COALESCE(NULLIF(v.email, ''), NULLIF(u.email, '')) AS vendor_email,
                         w.balance,
                         w.negative_booking_count,
                         w.minimum_balance,
                         w.negative_limit,
+                        w.low_balance_alert_sent,
+                        w.last_low_balance_alert_at,
+                        w.services_suspended,
+                        w.suspended_at,
+                        w.suspension_reason,
+                        w.suspended_by,
+                        w.initial_reminders_sent,
+                        w.last_reminder_at,
+                        w.last_blocked_booking_id,
+                        w.reactivation_status,
+                        w.reactivation_requested_at,
+                        w.reactivation_message,
+                        w.reactivation_rejection_reason,
                         w.created_at,
                         w.updated_at
                     FROM vendor_wallets w
@@ -5410,10 +5525,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 ");
                 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                $data = array_map(function($r) use ($maxNeg) {
+                $minBalThreshold = VendorWalletAlertService::getMinimumWalletBalance($pdo);
+                $data = array_map(function($r) use ($pdo, $maxNeg, $maxReminders, $manualCounts, $minBalThreshold) {
                     $bal = round(floatval($r['balance'] ?? 0), 2);
                     $negCount = intval($r['negative_booking_count'] ?? 0);
                     $isBlocked = ($bal < 0 && $negCount >= $maxNeg);
+                    $isSuspended = intval($r['services_suspended'] ?? 0) === 1;
                     $rawType = strtolower($r['vendor_type'] ?? 'vendor');
                     
                     if (strpos($rawType, 'hotel') !== false) {
@@ -5428,7 +5545,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         $formattedType = 'Vehicle Vendor';
                     }
 
-                    $status = $isBlocked ? 'WALLET RECHARGE REQUIRED' : ($bal < 0 ? 'NEGATIVE (GRACE)' : 'ACTIVE');
+                    if ($isSuspended) {
+                        $status = 'SERVICES SUSPENDED';
+                    } elseif ($isBlocked) {
+                        $status = 'WALLET RECHARGE REQUIRED';
+                    } elseif ($bal < 0) {
+                        $status = 'NEGATIVE (GRACE)';
+                    } else {
+                        $status = 'ACTIVE';
+                    }
+
+                    // Fetch latest recharge info
+                    $rechargeStatus = 'No recent recharge';
+                    try {
+                        $stmtTx = $pdo->prepare("SELECT status, amount, created_at FROM wallet_transactions WHERE vendor_id = ? AND type = 'credit' ORDER BY created_at DESC LIMIT 1");
+                        $stmtTx->execute([$r['vendor_id']]);
+                        $lastTx = $stmtTx->fetch(PDO::FETCH_ASSOC);
+                        if ($lastTx) {
+                            $amt = number_format(floatval($lastTx['amount']), 2);
+                            $rechargeStatus = "{$lastTx['status']} (₹{$amt}) on " . substr($lastTx['created_at'], 0, 10);
+                        }
+                    } catch (Exception $e) {}
+
+                    $escalationStatus = 'NORMAL / ACTIVE';
+                    if ($isSuspended) {
+                        $escalationStatus = 'SERVICES SUSPENDED (MANUAL)';
+                    } elseif ($isBlocked) {
+                        $remSent = intval($r['initial_reminders_sent'] ?? 0);
+                        if ($remSent === 0) {
+                            $escalationStatus = 'BLOCKED - REMINDER #1 DUE';
+                        } elseif ($remSent === 1) {
+                            $escalationStatus = 'REMINDER #1 SENT';
+                        } else {
+                            $escalationStatus = "AUTO REMINDERS COMPLETED ({$remSent} SENT)";
+                        }
+                    } elseif ($bal <= $minBalThreshold) {
+                        $escalationStatus = 'LOW BALANCE WARNING';
+                    }
 
                     return [
                         'id' => $r['id'],
@@ -5436,11 +5589,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         'vendor_name' => $r['vendor_name'] ?: $r['vendor_id'],
                         'vendor_type' => $formattedType,
                         'raw_vendor_type' => $r['vendor_type'],
+                        'phone' => preg_replace('/[^\d+]/', '', $r['vendor_phone'] ?? ''),
+                        'email' => trim($r['vendor_email'] ?? ''),
                         'balance' => $bal,
                         'negative_booking_count' => $negCount,
                         'max_negative_booking_limit' => $maxNeg,
+                        'min_vendor_wallet_balance' => $minBalThreshold,
+                        'is_low_balance' => ($bal <= $minBalThreshold),
+                        'low_balance_alert_sent' => intval($r['low_balance_alert_sent'] ?? 0),
                         'wallet_status' => $status,
+                        'escalation_status' => $escalationStatus,
+                        'service_visibility' => $isSuspended ? 'HIDDEN' : 'VISIBLE',
+                        'recharge_status' => $rechargeStatus,
                         'is_blocked' => $isBlocked,
+                        'services_suspended' => $isSuspended ? 1 : 0,
+                        'suspended_at' => $r['suspended_at'] ?? null,
+                        'suspension_reason' => $r['suspension_reason'] ?? null,
+                        'suspended_by' => $r['suspended_by'] ?? null,
+                        'initial_reminders_sent' => intval($r['initial_reminders_sent'] ?? 0),
+                        'manual_reminders_sent' => intval($manualCounts[$r['vendor_id']] ?? 0),
+                        'max_initial_reminders' => $maxReminders,
+                        'last_reminder_at' => $r['last_reminder_at'] ?? null,
+                        'last_blocked_booking_id' => $r['last_blocked_booking_id'] ?? null,
+                        'reactivation_status' => $r['reactivation_status'] ?? null,
+                        'reactivation_requested_at' => $r['reactivation_requested_at'] ?? null,
+                        'reactivation_message' => $r['reactivation_message'] ?? null,
+                        'reactivation_rejection_reason' => $r['reactivation_rejection_reason'] ?? null,
                         'minimum_balance' => floatval($r['minimum_balance'] ?? 5000),
                         'created_at' => $r['created_at'],
                         'updated_at' => $r['updated_at']
@@ -5518,7 +5692,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $curBal = floatval($wallet['balance'] ?? 0);
             $curNegCount = intval($wallet['negative_booking_count'] ?? 0);
             $wallet['is_blocked'] = ($curBal < 0 && $curNegCount >= $maxNeg);
+
+            // Authoritative minimum vendor wallet balance & active portal alert
+            $minWalletBal = VendorWalletAlertService::getMinimumWalletBalance($pdo);
+            $wallet['min_vendor_wallet_balance'] = $minWalletBal;
+            $wallet['is_low_balance'] = ($curBal <= $minWalletBal);
+            $portalAlert = VendorWalletAlertService::getActivePortalAlert($pdo, $vendor_id);
+            $wallet['active_portal_alert'] = $portalAlert;
+
+            // Authoritative suspension & reactivation state
+            $wallet['services_suspended'] = intval($wallet['services_suspended'] ?? 0);
+            $wallet['suspended_at'] = $wallet['suspended_at'] ?? null;
+            $wallet['suspension_reason'] = $wallet['suspension_reason'] ?? null;
+            $wallet['suspended_by'] = $wallet['suspended_by'] ?? null;
+            $wallet['initial_reminders_sent'] = intval($wallet['initial_reminders_sent'] ?? 0);
+            $wallet['last_reminder_at'] = $wallet['last_reminder_at'] ?? null;
+            $wallet['last_blocked_booking_id'] = $wallet['last_blocked_booking_id'] ?? null;
+
+            // Fetch manual reminders count
+            $stmtManCount = $pdo->prepare("SELECT COUNT(*) FROM vendor_wallet_alert_logs WHERE vendor_id = ? AND event_type = 'MANUAL_REMINDER'");
+            $stmtManCount->execute([$vendor_id]);
+            $wallet['manual_reminders_sent'] = intval($stmtManCount->fetchColumn() ?: 0);
+
+            // Fetch max initial reminders configured
+            $maxReminders = 2;
+            try {
+                $stmtGRem = $pdo->query("SELECT max_initial_reminders FROM global_settings LIMIT 1");
+                $gRemRow = $stmtGRem->fetch(PDO::FETCH_ASSOC);
+                if ($gRemRow && isset($gRemRow['max_initial_reminders']) && intval($gRemRow['max_initial_reminders']) > 0) {
+                    $maxReminders = intval($gRemRow['max_initial_reminders']);
+                }
+            } catch (Exception $e) {}
+            $wallet['max_initial_reminders'] = $maxReminders;
+
+            // Fetch latest manual reminder if any
+            $stmtLastMan = $pdo->prepare("
+                SELECT id, title, message, created_at, reference_id
+                FROM notifications
+                WHERE (user_id = ? OR (role = 'vendor' AND user_id = ?))
+                  AND type = 'MANUAL_WALLET_RECHARGE_REMINDER'
+                ORDER BY id DESC LIMIT 1
+            ");
+            $stmtLastMan->execute([$vendor_id, $vendor_id]);
+            $wallet['latest_manual_reminder'] = $stmtLastMan->fetch(PDO::FETCH_ASSOC) ?: null;
+
+            $wallet['reactivation_status'] = $wallet['reactivation_status'] ?? null;
+            $wallet['reactivation_requested_at'] = $wallet['reactivation_requested_at'] ?? null;
+            $wallet['reactivation_message'] = $wallet['reactivation_message'] ?? null;
+            $wallet['reactivation_rejection_reason'] = $wallet['reactivation_rejection_reason'] ?? null;
+
             echo json_encode($wallet);
+            exit;} elseif ($resource === 'vendor_wallet_alert_logs') {
+            VendorWalletAlertService::ensureSchema($pdo);
+            $vId = trim($_GET['vendor_id'] ?? '');
+            if (!empty($vId)) {
+                $stmt = $pdo->prepare("SELECT * FROM vendor_wallet_alert_logs WHERE vendor_id = ? ORDER BY created_at DESC LIMIT 100");
+                $stmt->execute([$vId]);
+            } else {
+                $stmt = $pdo->query("SELECT * FROM vendor_wallet_alert_logs ORDER BY created_at DESC LIMIT 200");
+            }
+            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+            exit;} elseif ($resource === 'vendor_reactivations') {
+            VendorWalletAlertService::ensureSchema($pdo);
+            $reactivations = VendorWalletAlertService::getReactivationRequests($pdo);
+            echo json_encode($reactivations);
+            exit;} elseif ($resource === 'blocked_booking_alerts') {
+            VendorWalletAlertService::ensureSchema($pdo);
+            $alerts = VendorWalletAlertService::getBlockedBookingAlerts($pdo);
+            echo json_encode($alerts);
             exit;} elseif ($resource === 'wallet_transactions') {
             $vendor_id = isset($_GET['vendor_id']) ? trim($_GET['vendor_id']) : null;
             $status_filter = isset($_GET['status_filter']) ? trim($_GET['status_filter']) : '';
@@ -5808,7 +6049,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             include_once __DIR__ . '/hotel_pms_actions.php';
         }
 
-        if ($action === 'login') {
+        if ($action === 'calculate_booking_snapshot' || $action === 'convert_currency') {
+            require_once __DIR__ . '/country_currency.php';
+            require_once __DIR__ . '/ExchangeRateService.php';
+            $baseAmountInr = floatval($payload['base_amount_inr'] ?? ($payload['amount'] ?? 0));
+            $countryCode = $payload['country_code'] ?? null;
+            $clientCurrency = $payload['currency'] ?? null;
+            $snapshot = ExchangeRateService::calculateBookingSnapshot($baseAmountInr, $countryCode, $clientCurrency);
+            echo json_encode([
+                'success' => true,
+                'snapshot' => $snapshot
+            ]);
+            exit();
+        } elseif ($action === 'login') {
             // Phase 10: Use consolidated authoritative login handler
             $result = handleAuthoritativeLogin($pdo, $payload['username'] ?? '', $payload['password'] ?? '');
             echo json_encode($result);
@@ -8531,6 +8784,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // DO NOT immediately credit the vendor wallet if status is Pending Verification
             if ($status === 'Completed') {
                 $pdo->prepare("UPDATE vendor_wallets SET balance = balance + ? WHERE vendor_id = ?")->execute([$amount, $vendor_id]);
+                try {
+                    $stmtB = $pdo->prepare("SELECT balance FROM vendor_wallets WHERE vendor_id = ?");
+                    $stmtB->execute([$vendor_id]);
+                    $freshB = floatval($stmtB->fetchColumn() ?? 0.00);
+                    VendorWalletAlertService::resetLowBalanceAlertState($pdo, $vendor_id, $freshB);
+                } catch (Exception $e) {}
             }
 
             echo json_encode(["success" => true, "message" => "Recharge request submitted successfully. It will be credited after Super Admin verification.", "status" => $status, "id" => $txId]);
@@ -8603,6 +8862,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmtUpdW = $pdo->prepare("UPDATE vendor_wallets SET balance = ?, negative_booking_count = ?, updated_at = datetime('now') WHERE vendor_id = ?");
                     $stmtUpdW->execute([$balanceAfter, $newNegCount, $vendorId]);
 
+                    // Reset low-balance alert state if balance returned above minimum threshold
+                    try {
+                        VendorWalletAlertService::resetLowBalanceAlertState($pdo, $vendorId, $balanceAfter);
+                    } catch (Exception $e) {}
+
                     // Update transaction record with balance audit trail
                     $stmtTxUpd = $pdo->prepare("UPDATE wallet_transactions SET balance_before = ?, balance_after = ? WHERE id = ?");
                     $stmtTxUpd->execute([$balanceBefore, $balanceAfter, $transaction_id]);
@@ -8618,6 +8882,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             echo json_encode(["success" => true, "message" => "Recharge request {$status} successfully."]);
             exit;} elseif ($action === 'update_global_settings') { 
+                VendorWalletAlertService::ensureSchema($pdo);
                 $stmt = $pdo->prepare("UPDATE global_settings SET siteName = ?, currency = ?, taxRate = ?, supportEmail = ?, whatsappNumber = ?, smsProvider = ?, darkMode = ?, maintenanceMode = ?"); 
                 $stmt->execute([$payload['siteName'] ?? 'TripGalileo', $payload['currency'] ?? 'INR', $payload['taxRate'] ?? 18, $payload['supportEmail'] ?? 'support@tripgalileo.com', $payload['whatsappNumber'] ?? '', $payload['smsProvider'] ?? 'none', isset($payload['darkMode']) && $payload['darkMode'] ? 1 : 0, isset($payload['maintenanceMode']) && $payload['maintenanceMode'] ? 1 : 0]); 
                 if (isset($payload['hotel_booking_driver_enabled'])) {
@@ -8629,13 +8894,164 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pdo->prepare("UPDATE global_settings SET max_negative_bookings = ? WHERE id = 1")->execute([$maxNegVal]);
                     $pdo->prepare("UPDATE site_configs SET max_negative_bookings = ?")->execute([$maxNegVal]);
                 }
+                if (isset($payload['min_vendor_wallet_balance'])) {
+                    $minBalVal = max(0, floatval($payload['min_vendor_wallet_balance']));
+                    $pdo->prepare("UPDATE global_settings SET min_vendor_wallet_balance = ? WHERE id = 1")->execute([$minBalVal]);
+                }
+                if (isset($payload['wallet_reminder_frequency_hours'])) {
+                    $freqVal = max(0.01, floatval($payload['wallet_reminder_frequency_hours']));
+                    $pdo->prepare("UPDATE global_settings SET wallet_reminder_frequency_hours = ? WHERE id = 1")->execute([$freqVal]);
+                }
+                if (isset($payload['max_initial_reminders'])) {
+                    $remVal = max(0, intval($payload['max_initial_reminders']));
+                    $pdo->prepare("UPDATE global_settings SET max_initial_reminders = ? WHERE id = 1")->execute([$remVal]);
+                }
+                if (isset($payload['wallet_alert_channels'])) {
+                    $chanVal = is_array($payload['wallet_alert_channels']) ? implode(',', $payload['wallet_alert_channels']) : trim($payload['wallet_alert_channels']);
+                    $pdo->prepare("UPDATE global_settings SET wallet_alert_channels = ? WHERE id = 1")->execute([$chanVal]);
+                }
                 echo json_encode(["success" => true, "message" => "Global settings updated."]); 
                 exit; 
             } elseif ($action === 'update_wallet_settings') {
+                VendorWalletAlertService::ensureSchema($pdo);
                 $maxNegVal = max(1, intval($payload['max_negative_bookings'] ?? 2));
                 $pdo->prepare("UPDATE global_settings SET max_negative_bookings = ? WHERE id = 1")->execute([$maxNegVal]);
                 $pdo->prepare("UPDATE site_configs SET max_negative_bookings = ?")->execute([$maxNegVal]);
+                if (isset($payload['min_vendor_wallet_balance'])) {
+                    $minBalVal = max(0, floatval($payload['min_vendor_wallet_balance']));
+                    $pdo->prepare("UPDATE global_settings SET min_vendor_wallet_balance = ? WHERE id = 1")->execute([$minBalVal]);
+                }
+                if (isset($payload['wallet_reminder_frequency_hours'])) {
+                    $freqVal = max(0.01, floatval($payload['wallet_reminder_frequency_hours']));
+                    $pdo->prepare("UPDATE global_settings SET wallet_reminder_frequency_hours = ? WHERE id = 1")->execute([$freqVal]);
+                }
+                if (isset($payload['max_initial_reminders'])) {
+                    $remVal = max(0, intval($payload['max_initial_reminders']));
+                    $pdo->prepare("UPDATE global_settings SET max_initial_reminders = ? WHERE id = 1")->execute([$remVal]);
+                }
+                if (isset($payload['wallet_alert_channels'])) {
+                    $chanVal = is_array($payload['wallet_alert_channels']) ? implode(',', $payload['wallet_alert_channels']) : trim($payload['wallet_alert_channels']);
+                    $pdo->prepare("UPDATE global_settings SET wallet_alert_channels = ? WHERE id = 1")->execute([$chanVal]);
+                }
                 echo json_encode(["success" => true, "message" => "Wallet settings updated.", "max_negative_bookings" => $maxNegVal]);
+                exit;
+            } elseif ($action === 'run_vendor_escalation_cron') {
+                VendorWalletAlertService::ensureSchema($pdo);
+                $forceDue = !empty($_GET['force_due']) || !empty($payload['force_due']);
+                $cronRes = VendorWalletAlertService::processDueEscalationReminders($pdo, $forceDue);
+                echo json_encode($cronRes);
+                exit;
+            } elseif ($action === 'suspend_vendor_services' || $action === 'hide_vendor_services') {
+                VendorWalletAlertService::ensureSchema($pdo);
+                $actor = authenticateRequest($pdo, false);
+                $actorId = $actor['id'] ?? ($payload['actor_id'] ?? 'admin');
+                $vendorId = trim($payload['vendor_id'] ?? ($_GET['vendor_id'] ?? ''));
+                $reason = trim($payload['reason'] ?? ($payload['suspension_reason'] ?? ''));
+                $bookingId = trim($payload['booking_id'] ?? '');
+
+                if (empty($vendorId)) {
+                    http_response_code(400);
+                    echo json_encode(["success" => false, "error" => "vendor_id is required"]);
+                    exit;
+                }
+
+                $res = VendorWalletAlertService::suspendVendorServices($pdo, $vendorId, $actorId, $reason, $bookingId);
+                echo json_encode($res);
+                exit;
+            } elseif ($action === 'request_service_reactivation') {
+                VendorWalletAlertService::ensureSchema($pdo);
+                $vendorId = trim($payload['vendor_id'] ?? ($_GET['vendor_id'] ?? ''));
+                $msg = trim($payload['message'] ?? ($payload['reactivation_message'] ?? ''));
+
+                if (empty($vendorId)) {
+                    http_response_code(400);
+                    echo json_encode(["success" => false, "error" => "vendor_id is required"]);
+                    exit;
+                }
+
+                $res = VendorWalletAlertService::submitReactivationRequest($pdo, $vendorId, $msg);
+                if (!$res['success']) {
+                    http_response_code(400);
+                }
+                echo json_encode($res);
+                exit;
+            } elseif ($action === 'approve_service_reactivation') {
+                VendorWalletAlertService::ensureSchema($pdo);
+                $actor = authenticateRequest($pdo, false);
+                $actorId = $actor['id'] ?? ($payload['actor_id'] ?? 'admin');
+                $vendorId = trim($payload['vendor_id'] ?? ($_GET['vendor_id'] ?? ''));
+
+                if (empty($vendorId)) {
+                    http_response_code(400);
+                    echo json_encode(["success" => false, "error" => "vendor_id is required"]);
+                    exit;
+                }
+
+                $res = VendorWalletAlertService::handleReactivationDecision($pdo, $vendorId, $actorId, 'APPROVED');
+                echo json_encode($res);
+                exit;
+            } elseif ($action === 'reject_service_reactivation') {
+                VendorWalletAlertService::ensureSchema($pdo);
+                $actor = authenticateRequest($pdo, false);
+                $actorId = $actor['id'] ?? ($payload['actor_id'] ?? 'admin');
+                $vendorId = trim($payload['vendor_id'] ?? ($_GET['vendor_id'] ?? ''));
+                $reason = trim($payload['rejection_reason'] ?? ($payload['reason'] ?? ''));
+
+                if (empty($vendorId)) {
+                    http_response_code(400);
+                    echo json_encode(["success" => false, "error" => "vendor_id is required"]);
+                    exit;
+                }
+                if (empty($reason)) {
+                    http_response_code(400);
+                    echo json_encode(["success" => false, "error" => "Rejection reason is mandatory when rejecting reactivation."]);
+                    exit;
+                }
+
+                $res = VendorWalletAlertService::handleReactivationDecision($pdo, $vendorId, $actorId, 'REJECTED', $reason);
+                if (!$res['success']) {
+                    http_response_code(400);
+                }
+                echo json_encode($res);
+                exit;
+            } elseif ($action === 'send_manual_vendor_reminder' || $action === 'send_manual_suspension_reminder') {
+                VendorWalletAlertService::ensureSchema($pdo);
+                $actor = authenticateRequest($pdo, false);
+                $actorRole = strtolower(trim($actor['role'] ?? ($payload['user_role'] ?? ($_SERVER['HTTP_X_USER_ROLE'] ?? 'admin'))));
+                if (!in_array($actorRole, ['admin', 'superadmin', 'subadmin'])) {
+                    http_response_code(403);
+                    echo json_encode(["success" => false, "error" => "Unauthorized. Only Admin and Super Admin can send manual vendor reminders."]);
+                    exit;
+                }
+                $actorId = $actor['id'] ?? ($payload['actor_id'] ?? 'admin');
+                $vendorId = trim($payload['vendor_id'] ?? ($_GET['vendor_id'] ?? ''));
+                $channels = $payload['channels'] ?? ['SMS'];
+                if (is_string($channels)) {
+                    $channels = array_filter(array_map('trim', explode(',', $channels)));
+                }
+                $customMsg = trim($payload['message'] ?? ($payload['custom_message'] ?? ''));
+
+                if (empty($vendorId)) {
+                    http_response_code(400);
+                    echo json_encode(["success" => false, "error" => "vendor_id is required"]);
+                    exit;
+                }
+
+                $res = VendorWalletAlertService::sendManualVendorReminder($pdo, $vendorId, $actorId, $channels, $customMsg);
+                if (!$res['success']) {
+                    http_response_code(400);
+                }
+                echo json_encode($res);
+                exit;
+            } elseif ($action === 'dismiss_wallet_alert') {
+                $vendorId = trim($payload['vendor_id'] ?? ($_GET['vendor_id'] ?? ''));
+                $alertId = trim($payload['alert_id'] ?? ($_GET['alert_id'] ?? ''));
+                if ($vendorId && $alertId) {
+                    VendorWalletAlertService::dismissPortalAlert($pdo, $vendorId, $alertId);
+                    echo json_encode(["success" => true, "message" => "Alert dismissed successfully."]);
+                } else {
+                    echo json_encode(["success" => false, "error" => "Missing vendor_id or alert_id."]);
+                }
                 exit;
             } elseif ($action === 'update_hotel_booking_settings') {
                 $actor = authenticateRequest($pdo, false);
@@ -12753,6 +13169,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!isset($payload['id'])) {
                 throw new Exception("Missing booking ID.");
             }
+            $stmtCur = $pdo->prepare("SELECT id, status, payment_status, wallet_deduction_status, vendor_id FROM bookings WHERE id = ?");
+            $stmtCur->execute([$payload['id']]);
+            $currentBooking = $stmtCur->fetch(PDO::FETCH_ASSOC);
+            if (!$currentBooking) {
+                http_response_code(404);
+                echo json_encode(["success" => false, "error" => "Booking #{$payload['id']} not found."]);
+                exit;
+            }
+
+            $currentStatus = trim($currentBooking['status'] ?? 'Pending');
+            $requestedStatus = isset($payload['status']) ? trim($payload['status']) : $currentStatus;
+            $cleanRequested = strtolower($requestedStatus);
+            $cleanCurrent = strtolower($currentStatus);
+
+            $postConfirmationStates = ['completed', 'pickup', 'return', 'checked in', 'checked out', 'ongoing'];
+            if (in_array($cleanRequested, $postConfirmationStates)) {
+                $isAlreadyConfirmed = in_array($cleanCurrent, ['confirmed', 'pickup', 'return', 'checked in', 'checked out', 'ongoing']) ||
+                                      (($currentBooking['wallet_deduction_status'] ?? '') === 'Completed');
+                if (!$isAlreadyConfirmed) {
+                    http_response_code(400);
+                    echo json_encode([
+                        "success" => false,
+                        "code" => "INVALID_STATE_TRANSITION",
+                        "error" => "Invalid status transition. Booking #{$payload['id']} is currently '{$currentStatus}'. It must first be confirmed with platform fee processed before it can be marked as '{$requestedStatus}'."
+                    ]);
+                    exit;
+                }
+            }
+
+            if ($cleanRequested === 'confirmed' && $cleanCurrent !== 'confirmed') {
+                $confirmRes = BookingService::confirmBookingAndDeductPlatformFee($pdo, $payload['id'], $payload['vendor_id'] ?? ($currentBooking['vendor_id'] ?? null));
+                if (!$confirmRes['success']) {
+                    http_response_code(400);
+                    echo json_encode($confirmRes);
+                    exit;
+                }
+            }
+
             $stmt = $pdo->prepare("UPDATE bookings SET name=?, phone=?, email=?, license=?, pickup_loc=?, pickup_date=?, pickup_time=?, drop_date=?, drop_time=?, item_id=?, item_name=?, booking_days=?, total_amount=?, amount_paid=?, remaining_amount=?, total_paid=?, status=?, payment_status=?, payment_method=? WHERE id=?");
             $stmt->execute([
                 $payload['name'] ?? '',
@@ -12771,8 +13225,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 intval($payload['amount_paid'] ?? ($payload['total_paid'] ?? 0)),
                 intval($payload['remaining_amount'] ?? 0),
                 intval($payload['total_paid'] ?? ($payload['total_amount'] ?? 0)),
-                $payload['status'] ?? 'Confirmed',
-                $payload['payment_status'] ?? 'Paid',
+                $requestedStatus,
+                $payload['payment_status'] ?? ($currentBooking['payment_status'] ?? 'Pending'),
                 $payload['payment_method'] ?? ($payload['payment_mode'] ?? 'Cash'),
                 $payload['id']
             ]);
@@ -12784,10 +13238,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $status = $payload['status'] ?? null;
             $payment_status = $payload['payment_status'] ?? null;
+            $actorId = $payload['vendor_id'] ?? ($tenant_id ?? null);
             
-            // Centralized platform fee trigger on booking confirmation
-            if ($status && strtolower(trim($status)) === 'confirmed') {
-                $confirmRes = BookingService::confirmBookingAndDeductPlatformFee($pdo, $payload['id'], $payload['vendor_id'] ?? null);
+            // 1. Fetch current booking to enforce authoritative state machine
+            $stmtCur = $pdo->prepare("SELECT id, status, payment_status, wallet_deduction_status, vendor_id, total_amount, wow_goa_platform_fee FROM bookings WHERE id = ?");
+            $stmtCur->execute([$payload['id']]);
+            $currentBooking = $stmtCur->fetch(PDO::FETCH_ASSOC);
+
+            if (!$currentBooking) {
+                http_response_code(404);
+                echo json_encode(["success" => false, "error" => "Booking #{$payload['id']} not found."]);
+                exit;
+            }
+
+            $currentStatus = trim($currentBooking['status'] ?? 'Pending');
+            $cleanCurrentStatus = strtolower($currentStatus);
+            $cleanNewStatus = $status ? strtolower(trim($status)) : null;
+
+            // 2. State Machine Rule: Unconfirmed bookings CANNOT jump to Completed, Pickup, Return, Checked In, or Checked Out
+            $postConfirmationStates = ['completed', 'pickup', 'return', 'checked in', 'checked out', 'ongoing'];
+            $unconfirmedStates = ['pending', 'payment verification', 'payment submitted', 'payment rejected', 'rejected'];
+
+            if ($cleanNewStatus && in_array($cleanNewStatus, $postConfirmationStates)) {
+                // Booking must either already be Confirmed, or have wallet deduction Completed, or be in a post-confirmation state
+                $isAlreadyConfirmed = in_array($cleanCurrentStatus, ['confirmed', 'pickup', 'return', 'checked in', 'checked out', 'ongoing']) ||
+                                      (($currentBooking['wallet_deduction_status'] ?? '') === 'Completed');
+
+                if (!$isAlreadyConfirmed) {
+                    http_response_code(400);
+                    echo json_encode([
+                        "success" => false,
+                        "code" => "INVALID_STATE_TRANSITION",
+                        "error" => "Invalid status transition. Booking #{$payload['id']} is currently '{$currentStatus}'. It must first be confirmed with platform fee processed before it can be marked as '{$status}'."
+                    ]);
+                    exit;
+                }
+            }
+
+            // 3. Centralized platform fee trigger on booking confirmation
+            if ($cleanNewStatus === 'confirmed') {
+                $confirmRes = BookingService::confirmBookingAndDeductPlatformFee($pdo, $payload['id'], $actorId ?: ($currentBooking['vendor_id'] ?? null));
                 if (!$confirmRes['success']) {
                     http_response_code(400);
                     echo json_encode($confirmRes);

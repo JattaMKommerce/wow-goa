@@ -9,7 +9,12 @@ export default function PMSPaymentVerification({ currentUser, vendorHotels, onNa
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [verificationType, setVerificationType] = useState(null);
-  const [blockedModal, setBlockedModal] = useState({ open: false, balance: 0 });
+  const [blockedModal, setBlockedModal] = useState({
+    open: false,
+    balance: 0,
+    negativeBookingCount: 0,
+    maxNegativeBookings: 2
+  });
   
   // Wallet info for displaying commission before confirmation
   const [wallet, setWallet] = useState(null);
@@ -55,7 +60,12 @@ export default function PMSPaymentVerification({ currentUser, vendorHotels, onNa
       if (res && res.success === false) {
         if (res.code === 'WALLET_BLOCKED') {
           setShowModal(false);
-          setBlockedModal({ open: true, balance: res.balance ?? wallet?.balance ?? 0 });
+          setBlockedModal({
+            open: true,
+            balance: res.balance ?? wallet?.balance ?? 0,
+            negativeBookingCount: res.negative_booking_count ?? wallet?.negative_booking_count ?? 0,
+            maxNegativeBookings: res.max_negative_bookings ?? 2
+          });
           return;
         }
         alert('Error: ' + (res.error || 'Failed to process payment'));
@@ -68,7 +78,12 @@ export default function PMSPaymentVerification({ currentUser, vendorHotels, onNa
     } catch (e) {
       if (e.code === 'WALLET_BLOCKED' || e.data?.code === 'WALLET_BLOCKED') {
         setShowModal(false);
-        setBlockedModal({ open: true, balance: e.balance ?? e.data?.balance ?? wallet?.balance ?? 0 });
+        setBlockedModal({
+          open: true,
+          balance: e.balance ?? e.data?.balance ?? wallet?.balance ?? 0,
+          negativeBookingCount: e.negative_booking_count ?? e.data?.negative_booking_count ?? wallet?.negative_booking_count ?? 0,
+          maxNegativeBookings: e.max_negative_bookings ?? e.data?.max_negative_bookings ?? 2
+        });
         return;
       }
       alert('Error: ' + e.message);
@@ -238,13 +253,18 @@ export default function PMSPaymentVerification({ currentUser, vendorHotels, onNa
       {/* Wallet Recharge Required Modal when negative booking limit is reached */}
       <WalletRechargeRequiredModal
         isOpen={blockedModal.open}
-        onClose={() => setBlockedModal({ open: false, balance: 0 })}
+        show={blockedModal.open}
+        onClose={() => setBlockedModal(prev => ({ ...prev, open: false }))}
         balance={blockedModal.balance}
+        negativeBookingCount={blockedModal.negativeBookingCount}
+        maxNegativeBookings={blockedModal.maxNegativeBookings}
         onAddMoney={() => {
+          setBlockedModal(prev => ({ ...prev, open: false }));
           if (onNavigate) {
             onNavigate('wallet');
           } else {
-            window.location.hash = '#/wallet';
+            window.dispatchEvent(new CustomEvent('navigate-vendor-tab', { detail: 'wallet' }));
+            window.dispatchEvent(new CustomEvent('tripgalileo-navigate', { detail: { tab: 'wallet' } }));
           }
         }}
       />

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, AlertCircle, X, Check, XCircle, MapPin, Edit2, Save } from 'lucide-react';
-import { toggleVehicleAvailability, updateVehicle, uploadImage, updateBookingStatus } from '../../services/api';
+import { API_BASE, toggleVehicleAvailability, updateVehicle, uploadImage, updateBookingStatus } from '../../services/api';
 import WalletRechargeRequiredModal from '../../components/vendor/WalletRechargeRequiredModal';
+import VendorMinimumBalanceAlertModal from '../../components/vendor/VendorMinimumBalanceAlertModal';
 
 // ─── GOA LOCATIONS ──────────────────────────────────────────────────────────
 const GOA_LOCATIONS = [
@@ -250,7 +251,37 @@ export default function VendorDashboard({
   const initialVendorId = isVendorRole ? (currentUser.vendor_id || currentUser.id) : 'all';
   const [selectedVendorId, setSelectedVendorId] = useState(initialVendorId);
   const [selectedBooking, setSelectedBooking] = useState(null);
-  const [blockedModal, setBlockedModal] = useState({ show: false, balance: 0 });
+  const [blockedModal, setBlockedModal] = useState({
+    show: false,
+    balance: 0,
+    negativeBookingCount: 0,
+    maxNegativeBookings: 2
+  });
+  const [minBalanceModal, setMinBalanceModal] = useState({
+    show: false,
+    balance: 0,
+    threshold: 1000,
+    alertId: null
+  });
+
+  useEffect(() => {
+    const vId = currentUser?.vendor_id || currentUser?.id;
+    if (!vId) return;
+
+    fetch(`${API_BASE}?resource=vendor_wallet_info&vendor_id=${encodeURIComponent(vId)}`)
+      .then(res => res.json())
+      .then(info => {
+        if (info && info.active_portal_alert && info.active_portal_alert.active) {
+          setMinBalanceModal({
+            show: true,
+            balance: info.active_portal_alert.balance,
+            threshold: info.active_portal_alert.threshold,
+            alertId: info.active_portal_alert.alert_id
+          });
+        }
+      })
+      .catch(() => {});
+  }, [currentUser]);
   const [editVehicle, setEditVehicle] = useState(null); // { vehicle, type }
   const activeVendor = (!selectedVendorId || selectedVendorId === 'all')
     ? { id: 'all', name: 'All Vendors', role: 'admin' }
@@ -954,7 +985,12 @@ export default function VendorDashboard({
                                 alert(`Booking #${selectedBooking.id} Confirmed!`);
                               } catch (e) {
                                 if (e.code === 'WALLET_BLOCKED' || (e.message && e.message.includes('WALLET_BLOCKED'))) {
-                                  setBlockedModal({ show: true, balance: e.balance !== undefined ? e.balance : -800 });
+                                  setBlockedModal({
+                                    show: true,
+                                    balance: e.balance !== undefined ? e.balance : (e.data?.balance ?? 0),
+                                    negativeBookingCount: e.negative_booking_count !== undefined ? e.negative_booking_count : (e.data?.negative_booking_count ?? 0),
+                                    maxNegativeBookings: e.max_negative_bookings !== undefined ? e.max_negative_bookings : (e.data?.max_negative_bookings ?? 2)
+                                  });
                                 } else {
                                   alert('Error: ' + e.message);
                                 }
@@ -964,25 +1000,36 @@ export default function VendorDashboard({
                             ✓ Confirm
                           </button>
                         )}
-                        <button 
-                          className="btn btn-sm btn-success fw-bold text-white rounded-pill px-3" 
-                          onClick={async () => {
-                            try {
-                              await updateBookingStatus(selectedBooking.id, 'Completed');
-                              setSelectedBooking(prev => ({ ...prev, status: 'Completed' }));
-                              const target = bookings.find(b => b.id === selectedBooking.id);
-                              if (target) target.status = 'Completed';
-                              window.dispatchEvent(new CustomEvent('new-booking-created'));
-                              window.dispatchEvent(new CustomEvent('booking-status-updated', { detail: { bookingId: selectedBooking.id, status: 'Completed' } }));
-                              window.dispatchEvent(new CustomEvent('tripgalileo-booking-sync', { detail: { bookingId: selectedBooking.id, status: 'Completed' } }));
-                              alert(`Booking #${selectedBooking.id} marked as Completed!`);
-                            } catch (e) {
-                              alert('Error: ' + e.message);
-                            }
-                          }}
-                        >
-                          ✓ Mark as Completed
-                        </button>
+                        {(selectedBooking.status || '').toLowerCase() === 'confirmed' && (
+                          <button 
+                            className="btn btn-sm btn-success fw-bold text-white rounded-pill px-3" 
+                            onClick={async () => {
+                              try {
+                                await updateBookingStatus(selectedBooking.id, 'Completed');
+                                setSelectedBooking(prev => ({ ...prev, status: 'Completed' }));
+                                const target = bookings.find(b => b.id === selectedBooking.id);
+                                if (target) target.status = 'Completed';
+                                window.dispatchEvent(new CustomEvent('new-booking-created'));
+                                window.dispatchEvent(new CustomEvent('booking-status-updated', { detail: { bookingId: selectedBooking.id, status: 'Completed' } }));
+                                window.dispatchEvent(new CustomEvent('tripgalileo-booking-sync', { detail: { bookingId: selectedBooking.id, status: 'Completed' } }));
+                                alert(`Booking #${selectedBooking.id} marked as Completed!`);
+                              } catch (e) {
+                                if (e.code === 'WALLET_BLOCKED' || (e.message && e.message.includes('WALLET_BLOCKED'))) {
+                                  setBlockedModal({
+                                    show: true,
+                                    balance: e.balance !== undefined ? e.balance : (e.data?.balance ?? 0),
+                                    negativeBookingCount: e.negative_booking_count !== undefined ? e.negative_booking_count : (e.data?.negative_booking_count ?? 0),
+                                    maxNegativeBookings: e.max_negative_bookings !== undefined ? e.max_negative_bookings : (e.data?.max_negative_bookings ?? 2)
+                                  });
+                                } else {
+                                  alert('Error: ' + e.message);
+                                }
+                              }
+                            }}
+                          >
+                            ✓ Mark as Completed
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
@@ -1030,8 +1077,29 @@ export default function VendorDashboard({
       )}
       <WalletRechargeRequiredModal
         show={blockedModal.show}
+        isOpen={blockedModal.show}
         balance={blockedModal.balance}
-        onClose={() => setBlockedModal({ show: false, balance: 0 })}
+        negativeBookingCount={blockedModal.negativeBookingCount}
+        maxNegativeBookings={blockedModal.maxNegativeBookings}
+        onClose={() => setBlockedModal(prev => ({ ...prev, show: false }))}
+        onAddMoney={() => {
+          setBlockedModal(prev => ({ ...prev, show: false }));
+          window.dispatchEvent(new CustomEvent('navigate-vendor-tab', { detail: 'wallet' }));
+          window.dispatchEvent(new CustomEvent('tripgalileo-navigate', { detail: { tab: 'wallet' } }));
+        }}
+      />
+      <VendorMinimumBalanceAlertModal
+        show={minBalanceModal.show}
+        isOpen={minBalanceModal.show}
+        balance={minBalanceModal.balance}
+        threshold={minBalanceModal.threshold}
+        alertId={minBalanceModal.alertId}
+        vendorId={currentUser?.vendor_id || currentUser?.id}
+        onClose={() => setMinBalanceModal(prev => ({ ...prev, show: false }))}
+        onRecharge={() => {
+          setMinBalanceModal(prev => ({ ...prev, show: false }));
+          if (setActiveTab) setActiveTab('wallet');
+        }}
       />
     </div>
   );

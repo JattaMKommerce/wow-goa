@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Users, User, Mail, Phone, ShieldCheck, Calendar } from 'lucide-react';
 import { formatDisplayDate } from '../../utils/dateUtils';
+import InternationalPhoneInput from '../../components/common/InternationalPhoneInput';
 
 export default function PackageCheckoutStep2({
   pkg,
@@ -252,10 +253,7 @@ export default function PackageCheckoutStep2({
                  </div>
                  <div className="col-md-6">
                      <label className="form-label small fw-bold text-secondary">Mobile Number *</label>
-                     <div className="input-group">
-                         <span className="input-group-text bg-white text-muted"><Phone size={16}/></span>
-                         <input type="tel" className="form-control" placeholder="9876543210" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} required />
-                     </div>
+                     <InternationalPhoneInput value={contactPhone} onChange={val => setContactPhone(val ? String(val) : '')} required />
                      <small className="text-muted" style={{fontSize:'11px'}}>For trip updates and driver details.</small>
                  </div>
              </div>

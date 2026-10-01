@@ -33,7 +33,12 @@ export default function PMSAllBookings({ currentUser, vendorHotels, vendorBookin
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedBooking, setSelectedBooking] = useState(null);
-  const [blockedModal, setBlockedModal] = useState({ show: false, balance: 0 });
+  const [blockedModal, setBlockedModal] = useState({
+    show: false,
+    balance: 0,
+    negativeBookingCount: 0,
+    maxNegativeBookings: 2
+  });
   const [page, setPage] = useState(1);
   const PER_PAGE = 15;
 
@@ -83,7 +88,12 @@ export default function PMSAllBookings({ currentUser, vendorHotels, vendorBookin
       alert(`Booking #${bookingId} status updated to ${newStatus}`);
     } catch (err) {
       if (err.code === 'WALLET_BLOCKED' || (err.message && err.message.includes('WALLET_BLOCKED'))) {
-        setBlockedModal({ show: true, balance: err.balance !== undefined ? err.balance : -800 });
+        setBlockedModal({
+          show: true,
+          balance: err.balance !== undefined ? err.balance : (err.data?.balance ?? 0),
+          negativeBookingCount: err.negative_booking_count !== undefined ? err.negative_booking_count : (err.data?.negative_booking_count ?? 0),
+          maxNegativeBookings: err.max_negative_bookings !== undefined ? err.max_negative_bookings : (err.data?.max_negative_bookings ?? 2)
+        });
       } else {
         alert('Failed to update status: ' + err.message);
       }
@@ -267,13 +277,15 @@ export default function PMSAllBookings({ currentUser, vendorHotels, vendorBookin
                         ✓ Confirm Booking
                       </button>
                     )}
-                    <button 
-                      onClick={() => handleStatusUpdate(selectedBooking.id, 'Completed')} 
-                      className="btn btn-sm rounded-pill px-3 fw-bold text-white" 
-                      style={{ background: '#0984e3' }}
-                    >
-                      ✓ Mark as Completed
-                    </button>
+                    {['confirmed', 'checked in', 'checked out'].includes(String(selectedBooking.status).toLowerCase()) && (
+                      <button 
+                        onClick={() => handleStatusUpdate(selectedBooking.id, 'Completed')} 
+                        className="btn btn-sm rounded-pill px-3 fw-bold text-white" 
+                        style={{ background: '#0984e3' }}
+                      >
+                        ✓ Mark as Completed
+                      </button>
+                    )}
                     <button 
                       onClick={() => { if (window.confirm('Cancel this booking?')) handleStatusUpdate(selectedBooking.id, 'Cancelled'); }} 
                       className="btn btn-sm rounded-pill px-3 fw-bold text-danger border border-danger-subtle bg-danger-subtle"
@@ -290,8 +302,16 @@ export default function PMSAllBookings({ currentUser, vendorHotels, vendorBookin
       )}
       <WalletRechargeRequiredModal
         show={blockedModal.show}
+        isOpen={blockedModal.show}
         balance={blockedModal.balance}
-        onClose={() => setBlockedModal({ show: false, balance: 0 })}
+        negativeBookingCount={blockedModal.negativeBookingCount}
+        maxNegativeBookings={blockedModal.maxNegativeBookings}
+        onClose={() => setBlockedModal(prev => ({ ...prev, show: false }))}
+        onAddMoney={() => {
+          setBlockedModal(prev => ({ ...prev, show: false }));
+          window.dispatchEvent(new CustomEvent('navigate-vendor-tab', { detail: 'wallet' }));
+          window.dispatchEvent(new CustomEvent('tripgalileo-navigate', { detail: { tab: 'wallet' } }));
+        }}
       />
     </div>
   );

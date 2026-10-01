@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, Upload, MapPin, Calendar, Users, DollarSign, Hotel, Utensils, Plane, Train, Car, Bike, Info, CheckCircle2, User, Compass, AlertCircle, Loader2, CalendarDays, Sparkles, X } from 'lucide-react';
 import * as api from '../../services/api';
 import { getTodayDateStr, addDays, formatDisplayDate } from '../../utils/dateUtils';
+import InternationalPhoneInput from '../../components/common/InternationalPhoneInput';
 
 export default function CustomTripEnquiryPage({ setActiveTab, currentUser, prefilledPackage, onClearPrefilledPackage }) {
   const [formData, setFormData] = useState({
@@ -299,8 +300,15 @@ export default function CustomTripEnquiryPage({ setActiveTab, currentUser, prefi
                 <input type="text" className="form-control bg-light border-0 py-2" name="customer_name" required value={formData.customer_name} onChange={handleChange} />
               </div>
               <div className="col-md-6">
-                <label className="form-label fw-semibold">Mobile Number *</label>
-                <input type="tel" className="form-control bg-light border-0 py-2" name="phone" required value={formData.phone} onChange={handleChange} />
+                <InternationalPhoneInput 
+                  value={formData.phone} 
+                  onChange={(val) => {
+                    const s = val ? String(val) : '';
+                    setFormData(prev => ({ ...prev, phone: s, whatsapp: prev.whatsapp || s }));
+                  }} 
+                  label="Mobile Number" 
+                  required 
+                />
               </div>
               <div className="col-md-6">
                 <label className="form-label fw-semibold">Email Address</label>

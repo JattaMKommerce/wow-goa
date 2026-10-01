@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { QrCode, Copy, Check, ShieldCheck, AlertCircle, Info } from 'lucide-react';
+import { QrCode, Copy, Check, ShieldCheck, AlertCircle, Info, Globe } from 'lucide-react';
+import { useCustomerCurrency } from '../../context/CustomerCurrencyContext';
 
 export default function StaticQRPaymentCard({
   amount = 0,
@@ -17,6 +18,7 @@ export default function StaticQRPaymentCard({
 }) {
   const [copiedId, setCopiedId] = useState(false);
   const [copiedAmt, setCopiedAmt] = useState(false);
+  const { currency, convert } = useCustomerCurrency();
 
   // If vendor has no QR image and no UPI ID, or explicitly marked unconfigured
   const hasValidPaymentMethod = !isNotConfigured && Boolean((qrImageUrl && qrImageUrl.trim()) || (upiId && upiId.trim()));
@@ -110,11 +112,18 @@ export default function StaticQRPaymentCard({
         <div className="row g-2 mb-3">
           <div className="col-sm-6">
             <div className="p-2.5 rounded-3 bg-light border text-start">
-              <span className="text-muted d-block text-xxs fw-bold text-uppercase">Payable Amount</span>
+              <span className="text-muted d-block text-xxs fw-bold text-uppercase">Payable Amount (INR)</span>
               <div className="d-flex align-items-center justify-content-between mt-0.5">
-                <span className="fw-black text-dark font-heading" style={{ fontSize: '15px' }}>
-                  ₹{Number(amount).toLocaleString('en-IN')}
-                </span>
+                <div>
+                  <span className="fw-black text-dark font-heading" style={{ fontSize: '15px' }}>
+                    ₹{Number(amount).toLocaleString('en-IN')}
+                  </span>
+                  {currency && currency !== 'INR' && (
+                    <div className="text-xs fw-semibold text-primary mt-0.5">
+                      Approx. {convert(amount).formatted}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   className="btn btn-sm btn-link p-0 text-decoration-none text-primary d-flex align-items-center gap-0.5"
@@ -146,6 +155,16 @@ export default function StaticQRPaymentCard({
               </div>
             </div>
           </div>
+          {currency && currency !== 'INR' && (
+            <div className="col-12">
+              <div className="p-2 rounded-2 text-start small d-flex align-items-center gap-1.5" style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', fontSize: '11px', color: '#475569' }}>
+                <Globe size={13} className="text-primary flex-shrink-0" />
+                <span>
+                  <strong>International Note:</strong> Vendor UPI QR accepts payment in <strong>INR (₹)</strong>. Your banking app will charge approximately <strong>{convert(amount).formatted}</strong> from your account based on your card/bank rate.
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* UTR Input Section */}

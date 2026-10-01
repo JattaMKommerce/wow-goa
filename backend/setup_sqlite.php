@@ -362,6 +362,8 @@ CREATE TABLE IF NOT EXISTS vendor_wallets (
   minimum_balance INT DEFAULT 0,
   negative_limit INT DEFAULT -1000,
   negative_booking_count INT DEFAULT 0,
+  low_balance_alert_sent INT DEFAULT 0,
+  last_low_balance_alert_at DATETIME DEFAULT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -388,7 +390,32 @@ CREATE TABLE IF NOT EXISTS global_settings (
   logoUrl TEXT,
   faviconUrl TEXT,
   hotel_booking_driver_enabled INT DEFAULT 1,
-  max_negative_bookings INT DEFAULT 2
+  max_negative_bookings INT DEFAULT 2,
+  min_vendor_wallet_balance DECIMAL(10,2) DEFAULT 1000.00
+);
+
+CREATE TABLE IF NOT EXISTS vendor_wallet_alert_logs (
+  id VARCHAR(100) PRIMARY KEY,
+  alert_id VARCHAR(100) NOT NULL,
+  vendor_id VARCHAR(100) NOT NULL,
+  channel VARCHAR(50) NOT NULL,
+  threshold DECIMAL(10,2) NOT NULL,
+  wallet_balance DECIMAL(10,2) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  provider VARCHAR(100) DEFAULT NULL,
+  provider_message_id VARCHAR(255) DEFAULT NULL,
+  recipient VARCHAR(255) DEFAULT NULL,
+  error_message TEXT DEFAULT NULL,
+  payload_preview TEXT DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  sent_at DATETIME DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS vendor_wallet_alert_dismissals (
+  vendor_id VARCHAR(100) NOT NULL,
+  alert_id VARCHAR(100) NOT NULL,
+  dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (vendor_id, alert_id)
 );
 
 CREATE TABLE IF NOT EXISTS site_configs (

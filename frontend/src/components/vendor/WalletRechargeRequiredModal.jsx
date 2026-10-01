@@ -1,18 +1,37 @@
 import React from 'react';
-import { AlertOctagon, ArrowUpRight, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, X } from 'lucide-react';
 
-export default function WalletRechargeRequiredModal({ isOpen, onClose, balance, onAddMoney }) {
-  if (!isOpen) return null;
+export default function WalletRechargeRequiredModal({
+  isOpen,
+  show,
+  onClose,
+  balance = 0,
+  negativeBookingCount = 0,
+  maxNegativeBookings = 2,
+  onAddMoney
+}) {
+  const isVisible = Boolean(isOpen ?? show);
+  if (!isVisible) return null;
 
   const formattedBalance = Number(balance || 0);
   const displayBalance = formattedBalance < 0 
     ? `-₹${Math.abs(formattedBalance).toLocaleString('en-IN')}` 
     : `₹${formattedBalance.toLocaleString('en-IN')}`;
 
+  const negCount = Number(negativeBookingCount ?? 0);
+  const maxNeg = Number(maxNegativeBookings ?? 2);
+
   const handleAddMoneyClick = () => {
     if (onAddMoney) {
-      onAddMoney();
+      try { onAddMoney(); } catch (e) {}
     }
+    try {
+      window.dispatchEvent(new CustomEvent('navigate-vendor-tab', { detail: 'wallet' }));
+      window.dispatchEvent(new CustomEvent('tripgalileo-navigate', { detail: { tab: 'wallet' } }));
+      if (typeof window !== 'undefined' && window.location.hash && window.location.hash.includes('vendor')) {
+        window.location.hash = '#/wallet';
+      }
+    } catch (e) {}
     if (onClose) {
       onClose();
     }
@@ -22,9 +41,9 @@ export default function WalletRechargeRequiredModal({ isOpen, onClose, balance, 
     <div
       className="position-fixed top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center"
       style={{
-        background: 'rgba(13, 27, 46, 0.75)',
-        backdropFilter: 'blur(6px)',
-        zIndex: 9999,
+        background: 'rgba(13, 27, 46, 0.78)',
+        backdropFilter: 'blur(8px)',
+        zIndex: 99999,
         padding: '16px'
       }}
       onClick={onClose}
@@ -33,9 +52,9 @@ export default function WalletRechargeRequiredModal({ isOpen, onClose, balance, 
         className="rounded-4 overflow-hidden shadow-2xl bg-white animate__animated animate__zoomIn"
         style={{
           width: '100%',
-          maxWidth: '480px',
+          maxWidth: '460px',
           border: '1.5px solid #fee2e2',
-          boxShadow: '0 20px 40px -15px rgba(220, 38, 38, 0.25)'
+          boxShadow: '0 25px 50px -12px rgba(220, 38, 38, 0.28)'
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -55,64 +74,69 @@ export default function WalletRechargeRequiredModal({ isOpen, onClose, balance, 
           
           <div 
             className="d-inline-flex align-items-center justify-content-center rounded-circle mb-3 shadow-sm"
-            style={{ width: '64px', height: '64px', background: '#fee2e2', color: '#dc2626' }}
+            style={{ width: '60px', height: '60px', background: '#fee2e2', color: '#dc2626' }}
           >
-            <AlertOctagon size={32} />
+            <AlertTriangle size={30} />
           </div>
 
-          <h5 className="fw-black text-danger mb-1" style={{ letterSpacing: '0.5px' }}>
-            WALLET RECHARGE REQUIRED
+          <h5 className="fw-black text-danger mb-1 font-heading" style={{ letterSpacing: '0.3px', fontSize: '1.15rem' }}>
+            ⚠ WALLET RECHARGE REQUIRED
           </h5>
-          <span className="badge rounded-pill bg-danger-subtle text-danger px-3 py-1 fw-bold text-uppercase" style={{ fontSize: '0.7rem' }}>
-            Negative Booking Limit Reached
-          </span>
+          <p className="text-secondary small mb-0 px-2" style={{ fontSize: '0.85rem', lineHeight: '1.45' }}>
+            Your vendor wallet has reached the maximum allowed negative booking limit.
+          </p>
         </div>
 
         {/* Body */}
-        <div className="p-4 text-center">
-          <p className="text-secondary mb-3" style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-            Your wallet balance is insufficient and you have reached the maximum number of bookings allowed with a negative wallet balance.
-          </p>
-
+        <div className="p-4">
           <div 
-            className="p-3 rounded-3 mb-3 d-flex flex-column align-items-center justify-content-center"
-            style={{ background: '#fef2f2', border: '1px dashed #fca5a5' }}
+            className="p-3.5 rounded-3 mb-3"
+            style={{ background: '#fef2f2', border: '1.5px dashed #fca5a5' }}
           >
-            <div className="text-muted small fw-bold text-uppercase" style={{ fontSize: '0.72rem', letterSpacing: '0.5px' }}>
-              Current Wallet Balance
+            <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom border-danger-subtle">
+              <span className="text-muted small fw-semibold" style={{ fontSize: '0.85rem' }}>
+                Current Wallet Balance:
+              </span>
+              <span className="fw-black text-danger font-monospace" style={{ fontSize: '1.05rem' }}>
+                {displayBalance}
+              </span>
             </div>
-            <div className="fw-black text-danger my-1" style={{ fontSize: '1.85rem' }}>
-              {displayBalance}
-            </div>
-            <div className="text-danger small" style={{ fontSize: '0.78rem' }}>
-              Recharge is required before you can confirm new bookings.
+
+            <div className="d-flex justify-content-between align-items-center py-1.5 mt-1">
+              <span className="text-muted small fw-semibold" style={{ fontSize: '0.85rem' }}>
+                Negative Bookings:
+              </span>
+              <span className="badge rounded-pill bg-danger text-white fw-bold px-2.5 py-1" style={{ fontSize: '0.8rem' }}>
+                {negCount} / {maxNeg}
+              </span>
             </div>
           </div>
 
-          <p className="small text-muted mb-0">
-            Please recharge your wallet to continue accepting bookings.
+          <p className="text-center text-dark fw-medium small mb-0 px-2" style={{ fontSize: '0.85rem', lineHeight: '1.45' }}>
+            Please recharge your wallet before confirming this booking.
           </p>
         </div>
 
         {/* Footer */}
-        <div className="p-4 pt-0 d-flex flex-column gap-2">
+        <div className="p-4 pt-0 d-flex align-items-center gap-2">
           <button
             type="button"
-            className="btn py-2.5 fw-black text-white rounded-3 shadow-sm d-flex align-items-center justify-content-center gap-2"
-            style={{
-              background: 'linear-gradient(90deg, #FF6333 0%, #FF8A00 100%)',
-              fontSize: '0.95rem'
-            }}
-            onClick={handleAddMoneyClick}
+            className="btn btn-outline-secondary flex-grow-1 py-2.5 fw-bold rounded-3"
+            style={{ fontSize: '0.88rem' }}
+            onClick={onClose}
           >
-            <ArrowUpRight size={18} /> ADD MONEY
+            CANCEL
           </button>
           <button
             type="button"
-            className="btn btn-link text-muted fw-bold text-decoration-none small py-1"
-            onClick={onClose}
+            className="btn flex-grow-1 py-2.5 fw-black text-white rounded-3 shadow-sm d-flex align-items-center justify-content-center gap-1.5"
+            style={{
+              background: 'linear-gradient(90deg, #FF6333 0%, #FF8A00 100%)',
+              fontSize: '0.88rem'
+            }}
+            onClick={handleAddMoneyClick}
           >
-            Cancel
+            <ArrowUpRight size={16} /> ADD MONEY
           </button>
         </div>
       </div>
