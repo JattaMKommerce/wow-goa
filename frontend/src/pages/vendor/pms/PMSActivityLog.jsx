@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, RefreshCw, Filter } from 'lucide-react';
 import * as api from '../../../services/api';
+import { getRelativeTimeString } from '../../../utils/notificationSound';
 
 const ACTION_ICONS = {
   'Created': '➕', 'Updated': '✏️', 'Deleted': '🗑️', 'Submitted': '📤',
@@ -30,13 +31,7 @@ export default function PMSActivityLog({ currentUser }) {
 
   const filtered = logs.filter(l => !filter || l.action.toLowerCase().includes(filter.toLowerCase()) || l.user_name.toLowerCase().includes(filter.toLowerCase()));
 
-  const timeAgo = (dateStr) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.round(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.round(diff / 3600000)}h ago`;
-    return new Date(dateStr).toLocaleDateString('en-IN');
-  };
+  const timeAgo = (dateStr) => getRelativeTimeString(dateStr);
 
   const TYPE_COLORS = { auth: '#6c5ce7', availability: '#0984e3', booking: '#00b894', hotel: '#fdcb6e', payment: '#e17055', review: '#FFC107' };
 

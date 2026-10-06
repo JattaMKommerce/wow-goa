@@ -3,7 +3,8 @@ import {
   Calendar, Search, Filter, Plus, Edit2, Trash2, Eye, CheckCircle2,
   XCircle, Clock, AlertCircle, RefreshCw, DollarSign, User, Phone,
   MapPin, ChevronRight, X, Shield, FileText, Download, RotateCcw,
-  Layers, Radio, SlidersHorizontal, CreditCard
+  Layers, Radio, SlidersHorizontal, CreditCard,
+  Hotel, Car, Compass, Sparkles, Plane, UserCheck, Package
 } from 'lucide-react';
 import * as api from '../../services/api';
 import { validateVehicleBookingEligibility } from '../../utils/dateUtils';
@@ -275,7 +276,9 @@ export default function AdminBookingManagement({
   currentUser,
   hotels = [],
   cars = [],
-  bikes = []
+  bikes = [],
+  packages = [],
+  flights = []
 }) {
   const [bookingsList, setBookingsList] = useState(initialBookings);
   const [loading, setLoading] = useState(false);
@@ -1269,7 +1272,17 @@ export default function AdminBookingManagement({
                   return (
                     <tr key={bId}>
                       <td className="ps-3 fw-bold text-dark font-monospace" style={{ fontSize: '0.8rem' }}>
-                        #{bId}
+                        <div>#{bId}</div>
+                        {b.parent_booking_id && (
+                          <div className="mt-0.5">
+                            <span 
+                              className="badge bg-light text-primary border text-xxs px-1.5 py-0.5" 
+                              title={`Belongs to Master Package #${b.parent_booking_id}`}
+                            >
+                              ↳ Child of #{b.parent_booking_id}
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div className="fw-bold text-dark">{cName}</div>
@@ -1293,8 +1306,13 @@ export default function AdminBookingManagement({
                         {b.email && <div className="text-muted text-xxs" style={{ fontSize: '0.68rem' }}>{b.email}</div>}
                       </td>
                       <td>
-                        <div className="d-flex align-items-center gap-1.5 mb-1">
+                        <div className="d-flex align-items-center gap-1.5 mb-1 flex-wrap">
                           <ServiceBadge type={svcType} />
+                          {b.parent_booking_id && (
+                            <span className="badge bg-secondary-subtle text-secondary border text-xxs py-0 px-1.5" style={{ fontSize: '0.62rem' }}>
+                              Child Component
+                            </span>
+                          )}
                         </div>
                         <div className="fw-semibold text-truncate text-dark" style={{ maxWidth: '200px' }} title={itemName}>
                           {itemName}
@@ -1780,292 +1798,689 @@ export default function AdminBookingManagement({
       )}
 
       {/* VIEW BOOKING DETAILS MODAL */}
-      {viewBooking && (
-        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-              <div className="modal-header bg-dark text-white py-3 px-4">
-                <h5 className="modal-title fw-bold fs-6">Booking #{viewBooking.id || viewBooking.booking_id}</h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setViewBooking(null)} />
-              </div>
-              <div className="modal-body p-4">
-                <div className="mb-2 d-flex justify-content-between align-items-center">
-                  <span className="text-muted small">Status:</span>
-                  <StatusBadge status={viewBooking.status} />
-                </div>
-                <div className="mb-2 d-flex justify-content-between align-items-center">
-                  <span className="text-muted small">Payment:</span>
-                  <PaymentBadge status={viewBooking.payment_status} />
-                </div>
-                <div className="mb-2 d-flex justify-content-between align-items-center">
-                  <span className="text-muted small">Service:</span>
-                  <ServiceBadge type={getBookingServiceType(viewBooking)} />
-                </div>
-                <div className="mb-2 d-flex justify-content-between align-items-center">
-                  <span className="text-muted small">Channel:</span>
-                  <ChannelBadge
-                    channel={getBookingChannel(viewBooking)}
-                    mode={viewBooking.b2b_mode}
-                    partnerName={viewBooking.b2b_partner_name}
-                  />
-                </div>
-                <hr className="my-2 text-muted opacity-25" />
-                <div className="row g-2 mb-3">
-                  <div className="col-6">
-                    <div className="text-muted small">Customer Name</div>
-                    <div className="fw-bold">{viewBooking.name || viewBooking.customer_name || '—'}</div>
+      {viewBooking && (() => {
+        const isTrip = getBookingServiceType(viewBooking) === 'TRIP' ||
+                       viewBooking.type === 'package' ||
+                       viewBooking.package_type === 'Trip Package' ||
+                       String(viewBooking.item_id || '').toLowerCase().startsWith('pkg-') ||
+                       String(viewBooking.item_id || '').toLowerCase().startsWith('tp-') ||
+                       String(viewBooking.package_type || '').toLowerCase().includes('package');
+
+        const vId = String(viewBooking.id || viewBooking.booking_id || '').trim();
+        const childList = (bookingsList || []).filter(b => b && String(b.parent_booking_id || '').trim() === vId);
+
+        const isChild = Boolean(viewBooking.parent_booking_id && String(viewBooking.parent_booking_id).trim() !== '');
+        const parentBk = isChild ? (bookingsList || []).find(b => String(b?.id || b?.booking_id || '').trim() === String(viewBooking.parent_booking_id).trim()) : null;
+
+        const matchedPkg = isTrip ? (packages || []).find(p => 
+          (p && p.id && String(p.id).toLowerCase() === String(viewBooking.item_id || '').toLowerCase()) ||
+          (p && p.name && (p.name.toLowerCase() === String(viewBooking.item_name || '').toLowerCase() || p.name.toLowerCase() === String(viewBooking.package_name || '').toLowerCase()))
+        ) : null;
+
+        const hotelChild = childList.find(c => c.type === 'hotel' || String(c.id).startsWith('BK-H-'));
+        const vehicleChild = childList.find(c => c.type === 'car' || c.type === 'vehicle' || String(c.id).startsWith('BK-V-'));
+        const driverChild = childList.find(c => c.type === 'driver' || String(c.id).startsWith('BK-D-'));
+
+        const pkgHotel = viewBooking.hotel_name || hotelChild?.item_name || matchedPkg?.hotel_included || matchedPkg?.hotel?.name || 'The Grand Candolim Beachfront Resort';
+        const pkgRoom = viewBooking.room_type || viewBooking.hotel_room_type || matchedPkg?.hotel_room_type || matchedPkg?.hotel?.room_type || 'Deluxe AC Room';
+        const pkgMeal = viewBooking.meal_plan || matchedPkg?.food_included || 'Daily Buffet Breakfast Included';
+
+        const pkgVehicle = viewBooking.vehicle_name || vehicleChild?.item_name || matchedPkg?.car_included || matchedPkg?.vehicle?.name || 'Maruti Suzuki Swift';
+        const pkgVehicleDetails = vehicleChild?.physical_unit_id ? `Assigned Unit: ${vehicleChild.physical_unit_id} (AC Tourist Vehicle)` : (matchedPkg?.car_included || '4 Seater • AC • Sanitized Tourist Vehicle');
+
+        const pkgDriver = viewBooking.driver_service_type || driverChild?.driver_service_type || 'Full Day Chauffeur';
+        const pkgDriverStatus = viewBooking.assigned_driver_name ? `Assigned: ${viewBooking.assigned_driver_name}` : (driverChild?.assigned_driver_name ? `Assigned: ${driverChild.assigned_driver_name}` : 'Open for Driver First-Accept / Manual Assign');
+
+        const pkgFlight = viewBooking.flight_details || ((viewBooking.flight_number || viewBooking.airline) ? `${viewBooking.airline || 'Flight'} ${viewBooking.flight_number}` : 'Without Flight (Land Package Only)');
+
+        let rawSight = viewBooking.sightseeing_places || viewBooking.places_included || matchedPkg?.places_included || matchedPkg?.sightseeing_places;
+        let sightList = ['Fort Aguada', 'Baga Beach', 'Anjuna Beach', 'Basilica of Bom Jesus', 'Mandovi River Cruise'];
+        if (viewBooking.sightseeing_custom_json || matchedPkg?.sightseeing_custom_json) {
+          try {
+            const parsed = JSON.parse(viewBooking.sightseeing_custom_json || matchedPkg?.sightseeing_custom_json);
+            if (Array.isArray(parsed) && parsed.length > 0) sightList = parsed;
+          } catch(e) {}
+        } else if (typeof rawSight === 'string' && rawSight.trim().length > 0) {
+          sightList = rawSight.includes('|') ? rawSight.split('|').map(s => s.trim()).filter(Boolean) : rawSight.split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        let actList = [{ name: 'Mandovi Sunset River Cruise', duration: '1 Hour', description: 'Scenic 1-hour cruise with Goan cultural folk dance & DJ' }];
+        let rawAct = viewBooking.activities_list || viewBooking.activity_custom_json || matchedPkg?.activity_custom_json;
+        if (rawAct) {
+          try {
+            const parsed = typeof rawAct === 'string' ? JSON.parse(rawAct) : rawAct;
+            if (Array.isArray(parsed) && parsed.length > 0) actList = parsed;
+          } catch(e) {}
+        } else {
+          const actChildren = childList.filter(c => c.type === 'activity' || String(c.id).startsWith('BK-A-'));
+          if (actChildren.length > 0) {
+            actList = actChildren.map(a => ({ name: a.item_name, duration: '1 Hour' }));
+          }
+        }
+
+        let itinList = [
+          { day: 1, title: 'Arrival in Goa & Beach Leisure', description: 'Airport/Station pickup, check in to resort, relax by the beach shacks.', morning: 'Pickup & resort check-in', afternoon: 'Beachside relaxation', evening: 'Sunset beach walk' },
+          { day: 2, title: 'North Goa Heritage & Coastal Highlights', description: 'Fort Aguada, Sinquerim coastline, Anjuna and Baga beach tour.', morning: 'Breakfast at resort', afternoon: 'Fort Aguada coastal tour', evening: 'Anjuna & Baga exploration' },
+          { day: 3, title: 'South Goa Culture & Mandovi Sunset Cruise', description: 'Old Goa churches, Basilica of Bom Jesus, and Mandovi river cruise.', morning: 'Old Goa heritage churches', afternoon: 'Panaji Latin Quarter walk', evening: '1-Hour Mandovi River Cruise' },
+          { day: 4, title: 'Departure with Sweet Goan Memories', description: 'Breakfast, souvenir shopping at Panaji market, and transfer to airport.', morning: 'Breakfast & resort check-out', afternoon: 'Airport/Station transfer', evening: 'Departure' }
+        ];
+        let rawItin = viewBooking.day_wise_itinerary || viewBooking.itinerary || matchedPkg?.day_wise_itinerary || matchedPkg?.itinerary;
+        if (rawItin) {
+          try {
+            const parsed = typeof rawItin === 'string' ? JSON.parse(rawItin) : rawItin;
+            if (Array.isArray(parsed) && parsed.length > 0) itinList = parsed;
+          } catch(e) {}
+        }
+
+        let incExc = null;
+        let rawIncExc = viewBooking.inclusions_exclusions_json || matchedPkg?.inclusions_exclusions_json;
+        if (rawIncExc) {
+          try {
+            incExc = typeof rawIncExc === 'string' ? JSON.parse(rawIncExc) : rawIncExc;
+          } catch(e) {}
+        }
+
+        return (
+          <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
+            <div className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+              <div className="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div className="modal-header bg-dark text-white py-3 px-4">
+                  <div className="d-flex align-items-center gap-2">
+                    <h5 className="modal-title fw-bold fs-6 mb-0">Booking #{viewBooking.id || viewBooking.booking_id}</h5>
+                    {isTrip && (
+                      <span className="badge bg-primary text-white text-xxs">TRIP PACKAGE</span>
+                    )}
+                    {isChild && (
+                      <span className="badge bg-warning text-dark text-xxs">CHILD COMPONENT</span>
+                    )}
                   </div>
-                  <div className="col-6">
-                    <div className="text-muted small">Phone</div>
-                    <div className="fw-bold">{viewBooking.phone || '—'}</div>
-                  </div>
-                  <div className="col-12 mt-2">
-                    <div className="text-muted small">Service / Item</div>
-                    <div className="fw-semibold text-primary">{viewBooking.item_name || '—'}</div>
-                  </div>
-                  <div className="col-6 mt-2">
-                    <div className="text-muted small">Service / Travel Dates</div>
-                    <div className="small fw-semibold text-dark">
-                      {formatServiceDateRange(getBookingServiceDates(viewBooking).start, getBookingServiceDates(viewBooking).end)}
+                  <button type="button" className="btn-close btn-close-white" onClick={() => setViewBooking(null)} />
+                </div>
+                <div className="modal-body p-4" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+                  
+                  {/* Child Booking Alert Banner */}
+                  {isChild && (
+                    <div className="alert alert-info py-2 px-3 small d-flex align-items-center justify-content-between mb-3 rounded-3 border-info">
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="badge bg-primary">CHILD BOOKING</span>
+                        <span className="text-dark">
+                          Belongs to Master Trip Package: <strong>#{viewBooking.parent_booking_id}</strong>
+                        </span>
+                      </div>
+                      {parentBk && (
+                        <button 
+                          type="button" 
+                          className="btn btn-sm btn-primary py-0.5 px-2.5 rounded-pill text-xxs fw-bold"
+                          onClick={() => setViewBooking(parentBk)}
+                        >
+                          View Master Package →
+                        </button>
+                      )}
                     </div>
-                    {getBookingServiceDates(viewBooking).start && (
-                      <div className="text-muted text-xxs mt-0.5">
-                        {getBookingServiceDates(viewBooking).start} to {getBookingServiceDates(viewBooking).end}
+                  )}
+
+                  <div className="mb-2 d-flex justify-content-between align-items-center">
+                    <span className="text-muted small">Status:</span>
+                    <StatusBadge status={viewBooking.status} />
+                  </div>
+                  <div className="mb-2 d-flex justify-content-between align-items-center">
+                    <span className="text-muted small">Payment:</span>
+                    <PaymentBadge status={viewBooking.payment_status} />
+                  </div>
+                  <div className="mb-2 d-flex justify-content-between align-items-center">
+                    <span className="text-muted small">Service:</span>
+                    <ServiceBadge type={getBookingServiceType(viewBooking)} />
+                  </div>
+                  <div className="mb-2 d-flex justify-content-between align-items-center">
+                    <span className="text-muted small">Channel:</span>
+                    <ChannelBadge
+                      channel={getBookingChannel(viewBooking)}
+                      mode={viewBooking.b2b_mode}
+                      partnerName={viewBooking.b2b_partner_name}
+                    />
+                  </div>
+                  <hr className="my-2 text-muted opacity-25" />
+                  <div className="row g-2 mb-3">
+                    <div className="col-6">
+                      <div className="text-muted small">Customer Name</div>
+                      <div className="fw-bold">{viewBooking.name || viewBooking.customer_name || '—'}</div>
+                    </div>
+                    <div className="col-6">
+                      <div className="text-muted small">Phone</div>
+                      <div className="fw-bold">{viewBooking.phone || '—'}</div>
+                    </div>
+                    <div className="col-12 mt-2">
+                      <div className="text-muted small">Service / Item</div>
+                      <div className="fw-semibold text-primary">{viewBooking.item_name || '—'}</div>
+                    </div>
+                    <div className="col-6 mt-2">
+                      <div className="text-muted small">Service / Travel Dates</div>
+                      <div className="small fw-semibold text-dark">
+                        {formatServiceDateRange(getBookingServiceDates(viewBooking).start, getBookingServiceDates(viewBooking).end)}
+                      </div>
+                      {getBookingServiceDates(viewBooking).start && (
+                        <div className="text-muted text-xxs mt-0.5">
+                          {getBookingServiceDates(viewBooking).start} to {getBookingServiceDates(viewBooking).end}
+                        </div>
+                      )}
+                    </div>
+                    <div className="col-6 mt-2">
+                      <div className="text-muted small">Pickup Location</div>
+                      <div className="small">{viewBooking.pickup_loc || 'Goa'}</div>
+                    </div>
+                    <div className="col-6 mt-2">
+                      <div className="text-muted small">Total Price</div>
+                      <div className="fw-bold fs-6 text-dark">₹{Number(viewBooking.total_amount || viewBooking.total_paid || 0).toLocaleString()}</div>
+                    </div>
+                    <div className="col-6 mt-2">
+                      <div className="text-muted small">Payment Method</div>
+                      <div className="small fw-semibold">{viewBooking.payment_method || 'Cash / Offline'}</div>
+                    </div>
+
+                    {/* ══════════════════════════════════════════════════════════
+                        TRIP PACKAGE INCLUDED SERVICES & BOOKED DETAILS
+                    ══════════════════════════════════════════════════════════ */}
+                    {isTrip && (
+                      <div className="col-12 mt-3 p-3 rounded-3 border" style={{ borderColor: '#bfdbfe', backgroundColor: '#f8fafc' }}>
+                        <div className="d-flex align-items-center justify-content-between pb-2 mb-2.5 border-bottom" style={{ borderColor: '#e2e8f0' }}>
+                          <div className="d-flex align-items-center gap-2">
+                            <span className="badge bg-primary text-white text-xxs px-2 py-0.5 fw-bold">TRIP PACKAGE INCLUSIONS</span>
+                            <span className="fw-bold text-dark text-xs">Customer Booked Services Breakdown</span>
+                          </div>
+                          <span className="badge bg-light text-secondary border text-xxs">
+                            {itinList.length} Days / {Math.max(1, itinList.length - 1)} Nights Plan
+                          </span>
+                        </div>
+
+                        {/* Grid of Core Services */}
+                        <div className="row g-2 mb-3">
+                          {/* 1. HOTEL */}
+                          <div className="col-12 col-md-6">
+                            <div className="p-2.5 rounded-3 bg-white border h-100 shadow-xs">
+                              <div className="d-flex align-items-center justify-content-between mb-1">
+                                <div className="d-flex align-items-center gap-1.5">
+                                  <Hotel size={14} className="text-primary" />
+                                  <strong className="text-dark text-xs">ACCOMMODATION / HOTEL</strong>
+                                </div>
+                                {hotelChild && (
+                                  <span 
+                                    className="badge bg-light text-primary border text-xxs"
+                                    title="Click to view child booking"
+                                    onClick={() => setViewBooking(hotelChild)}
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    #{hotelChild.id} ↗
+                                  </span>
+                                )}
+                              </div>
+                              <div className="fw-bold text-dark text-xs mb-1">
+                                {pkgHotel}
+                              </div>
+                              <div className="d-flex flex-wrap gap-1 mt-1">
+                                <span className="badge bg-light text-dark border text-xxs">🛏️ {pkgRoom}</span>
+                                <span className="badge bg-light text-dark border text-xxs">🍽️ {pkgMeal}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 2. VEHICLE */}
+                          <div className="col-12 col-md-6">
+                            <div className="p-2.5 rounded-3 bg-white border h-100 shadow-xs">
+                              <div className="d-flex align-items-center justify-content-between mb-1">
+                                <div className="d-flex align-items-center gap-1.5">
+                                  <Car size={14} className="text-primary" />
+                                  <strong className="text-dark text-xs">RESERVED VEHICLE</strong>
+                                </div>
+                                {vehicleChild && (
+                                  <span 
+                                    className="badge bg-light text-primary border text-xxs"
+                                    title="Click to view child booking"
+                                    onClick={() => setViewBooking(vehicleChild)}
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    #{vehicleChild.id} ↗
+                                  </span>
+                                )}
+                              </div>
+                              <div className="fw-bold text-dark text-xs mb-1">
+                                {pkgVehicle}
+                              </div>
+                              <div className="text-muted text-xxs">
+                                {pkgVehicleDetails}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 3. CHAUFFEUR / DRIVER */}
+                          <div className="col-12 col-md-6">
+                            <div className="p-2.5 rounded-3 bg-white border h-100 shadow-xs">
+                              <div className="d-flex align-items-center justify-content-between mb-1">
+                                <div className="d-flex align-items-center gap-1.5">
+                                  <UserCheck size={14} className="text-primary" />
+                                  <strong className="text-dark text-xs">CHAUFFEUR SERVICE</strong>
+                                </div>
+                                {driverChild && (
+                                  <span 
+                                    className="badge bg-light text-primary border text-xxs"
+                                    title="Click to view child booking"
+                                    onClick={() => setViewBooking(driverChild)}
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    #{driverChild.id} ↗
+                                  </span>
+                                )}
+                              </div>
+                              <div className="fw-bold text-dark text-xs mb-1">
+                                {pkgDriver}
+                              </div>
+                              <div className="text-muted text-xxs">
+                                <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-1.5 py-0.5">
+                                  {pkgDriverStatus}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 4. FLIGHT */}
+                          <div className="col-12 col-md-6">
+                            <div className="p-2.5 rounded-3 bg-white border h-100 shadow-xs">
+                              <div className="d-flex align-items-center justify-content-between mb-1">
+                                <div className="d-flex align-items-center gap-1.5">
+                                  <Plane size={14} className="text-primary" />
+                                  <strong className="text-dark text-xs">FLIGHT SERVICE</strong>
+                                </div>
+                              </div>
+                              <div className="fw-bold text-dark text-xs mb-1">
+                                {pkgFlight}
+                              </div>
+                              <div className="text-muted text-xxs">
+                                Coordinated airport transfers with vehicle itinerary
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Sightseeing & Activities */}
+                        <div className="row g-2 mb-3">
+                          <div className="col-12 col-md-6">
+                            <div className="p-2.5 rounded-3 bg-white border h-100">
+                              <div className="d-flex align-items-center gap-1.5 mb-1.5">
+                                <MapPin size={13} className="text-primary" />
+                                <strong className="text-dark text-xs">CONFIGURED SIGHTSEEING</strong>
+                              </div>
+                              <div className="d-flex flex-wrap gap-1">
+                                {sightList.map((spot, sIdx) => (
+                                  <span key={sIdx} className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
+                                    📍 {typeof spot === 'object' ? (spot.name || spot.title) : spot}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="col-12 col-md-6">
+                            <div className="p-2.5 rounded-3 bg-white border h-100">
+                              <div className="d-flex align-items-center gap-1.5 mb-1.5">
+                                <Sparkles size={13} className="text-primary" />
+                                <strong className="text-dark text-xs">CURATED ACTIVITIES</strong>
+                              </div>
+                              <div className="d-flex flex-wrap gap-1">
+                                {actList.map((act, aIdx) => (
+                                  <span key={aIdx} className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
+                                    ✨ {typeof act === 'object' ? (act.name || act.title) : act}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Day-Wise Itinerary */}
+                        {itinList.length > 0 && (
+                          <div className="p-2.5 rounded-3 bg-white border mb-3">
+                            <div className="d-flex align-items-center gap-1.5 mb-2 pb-1 border-bottom">
+                              <Compass size={13} className="text-primary" />
+                              <strong className="text-dark text-xs">DAY-WISE ITINERARY SCHEDULE</strong>
+                            </div>
+                            <div className="d-flex flex-column gap-2">
+                              {itinList.map((dayItem, dIdx) => (
+                                <div key={dIdx} className="p-2 rounded bg-light border-start border-3 border-primary" style={{ fontSize: '11px' }}>
+                                  <strong className="text-dark d-block mb-0.5">
+                                    Day {dayItem.day || dIdx + 1}: {dayItem.title || dayItem.heading || `Tour Day ${dIdx + 1}`}
+                                  </strong>
+                                  {dayItem.description && (
+                                    <div className="text-muted text-xxs mb-1">{dayItem.description}</div>
+                                  )}
+                                  <div className="d-flex flex-wrap gap-2 text-dark text-xxs">
+                                    {dayItem.morning && <span>🌅 <strong>Morning:</strong> {dayItem.morning}</span>}
+                                    {dayItem.afternoon && <span>☀️ <strong>Afternoon:</strong> {dayItem.afternoon}</span>}
+                                    {dayItem.evening && <span>🌙 <strong>Evening:</strong> {dayItem.evening}</span>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Inclusions & Exclusions */}
+                        {incExc && (incExc.inclusions?.length > 0 || incExc.exclusions?.length > 0) && (
+                          <div className="row g-2 mb-3">
+                            {incExc.inclusions?.length > 0 && (
+                              <div className="col-12 col-md-6">
+                                <div className="p-2.5 rounded-3 bg-white border h-100 shadow-xs">
+                                  <strong className="text-success text-xs d-block mb-1.5">✓ Included in Package</strong>
+                                  <ul className="list-unstyled mb-0 d-flex flex-column gap-1 text-xxs text-dark">
+                                    {incExc.inclusions.map((inc, iIdx) => (
+                                      <li key={iIdx} className="d-flex align-items-start gap-1">
+                                        <span className="text-success fw-bold">✓</span>
+                                        <span>{inc}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            )}
+                            {incExc.exclusions?.length > 0 && (
+                              <div className="col-12 col-md-6">
+                                <div className="p-2.5 rounded-3 bg-white border h-100 shadow-xs">
+                                  <strong className="text-danger text-xs d-block mb-1.5">✕ Excluded from Package</strong>
+                                  <ul className="list-unstyled mb-0 d-flex flex-column gap-1 text-xxs text-muted">
+                                    {incExc.exclusions.map((exc, eIdx) => (
+                                      <li key={eIdx} className="d-flex align-items-start gap-1">
+                                        <span className="text-danger fw-bold">✕</span>
+                                        <span>{exc}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Linked Child Component Bookings Table */}
+                        {childList.length > 0 && (
+                          <div className="p-2.5 rounded-3 bg-white border">
+                            <div className="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom">
+                              <div className="d-flex align-items-center gap-1.5">
+                                <Layers size={13} className="text-primary" />
+                                <strong className="text-dark text-xs">LINKED DATABASE CHILD BOOKINGS ({childList.length})</strong>
+                              </div>
+                              <span className="text-muted text-xxs">Component rows created for vendor PMS &amp; drivers</span>
+                            </div>
+                            <div className="table-responsive">
+                              <table className="table table-sm table-bordered align-middle mb-0 text-xxs">
+                                <thead className="bg-light text-muted">
+                                  <tr>
+                                    <th>Booking ID</th>
+                                    <th>Type</th>
+                                    <th>Service Name / Details</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th className="text-center">Action</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {childList.map((child, cIdx) => (
+                                    <tr key={child.id || cIdx}>
+                                      <td className="fw-bold text-dark font-monospace">#{child.id}</td>
+                                      <td>
+                                        <span className="badge bg-light text-dark border text-uppercase" style={{ fontSize: '9px' }}>
+                                          {child.type}
+                                        </span>
+                                      </td>
+                                      <td className="text-dark fw-semibold">
+                                        {child.item_name || child.vehicle_name || child.hotel_name || 'Component'}
+                                        {child.physical_unit_id && (
+                                          <span className="text-muted ms-1">(Unit: {child.physical_unit_id})</span>
+                                        )}
+                                      </td>
+                                      <td className="text-muted">₹{Number(child.total_amount || 0).toLocaleString()} (Included in Package)</td>
+                                      <td>
+                                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25" style={{ fontSize: '9px' }}>
+                                          {child.status || 'Confirmed'}
+                                        </span>
+                                      </td>
+                                      <td className="text-center">
+                                        <button
+                                          type="button"
+                                          className="btn btn-xs btn-outline-primary py-0 px-2"
+                                          style={{ fontSize: '10px' }}
+                                          onClick={() => setViewBooking(child)}
+                                        >
+                                          View Child
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Customer Country, Dial Code & Currency Snapshot */}
+                    <div className="col-12 mt-2 p-2.5 rounded-3 bg-light border">
+                      <div className="fw-bold text-dark text-xxs text-uppercase mb-2 d-flex align-items-center justify-content-between">
+                        <div className="d-flex align-items-center gap-1.5">
+                          <span>🌍 Customer Country & Currency Snapshot</span>
+                          <span
+                            className="badge rounded-pill fw-bold"
+                            style={{
+                              fontSize: '0.68rem',
+                              letterSpacing: '0.4px',
+                              color: String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#7c3aed' : '#059669',
+                              backgroundColor: String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#f3e8ff' : '#ecfdf5',
+                              border: `1px solid ${String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#ddd6fe' : '#a7f3d0'}`
+                            }}
+                          >
+                            {String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '✈️ FOREIGN' : '🇮🇳 INDIAN'}
+                          </span>
+                        </div>
+                        <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-1.5 py-0.5">
+                          {viewBooking.customer_currency || 'INR'}
+                        </span>
+                      </div>
+                      <div className="row g-2 text-xs">
+                        <div className="col-4">
+                          <span className="text-muted d-block text-xxs">Customer Country</span>
+                          <span className="fw-bold text-dark">{viewBooking.customer_country || 'India'}</span>
+                        </div>
+                        <div className="col-4">
+                          <span className="text-muted d-block text-xxs">Customer Category</span>
+                          <span className="fw-bold" style={{ color: String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#7c3aed' : '#059669' }}>
+                            {String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? 'FOREIGN' : 'INDIAN'}
+                          </span>
+                        </div>
+                        <div className="col-4">
+                          <span className="text-muted d-block text-xxs">Dial / ISO Code</span>
+                          <span className="fw-semibold text-dark font-monospace">{viewBooking.customer_country_code || '+91'}</span>
+                        </div>
+                        <div className="col-4 mt-1">
+                          <span className="text-muted d-block text-xxs">Currency Code</span>
+                          <span className="fw-bold text-primary font-monospace">{viewBooking.customer_currency || 'INR'}</span>
+                        </div>
+                        <div className="col-4 mt-1">
+                          <span className="text-muted d-block text-xxs">Base Price (INR)</span>
+                          <span className="fw-bold text-dark">₹{Number(viewBooking.total_amount || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="col-4 mt-1">
+                          <span className="text-muted d-block text-xxs">Display Amount</span>
+                          <span className="fw-bold text-success font-heading">
+                            {viewBooking.converted_display_amount ? `${viewBooking.customer_currency} ${Number(viewBooking.converted_display_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '₹' + Number(viewBooking.total_amount || 0).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="col-4 mt-1">
+                          <span className="text-muted d-block text-xxs">Exchange Rate</span>
+                          <span className="fw-semibold font-monospace">{viewBooking.exchange_rate_used ? Number(viewBooking.exchange_rate_used).toFixed(4) : '1.0000'}</span>
+                        </div>
+                        {viewBooking.currency_rate_timestamp && (
+                          <div className="col-8 mt-1">
+                            <span className="text-muted text-xxs">Rate Snapshot Taken: {viewBooking.currency_rate_timestamp}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Financial Split & Two-UTR Breakdown */}
+                  <div className="rounded-3 mb-3 p-3 border" style={{ background: '#f8fafc' }}>
+                    <div className="fw-bold text-dark text-xs mb-2 pb-1 border-bottom d-flex justify-content-between">
+                      <span>Payment &amp; Platform Fee Breakdown</span>
+                      <span className="text-muted text-xxs">Direct Vendor Payment Flow</span>
+                    </div>
+
+                    {/* 1. Customer Payment Box */}
+                    <div className="p-2.5 rounded-3 mb-2 bg-white border">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="fw-bold text-dark text-xs">Customer Direct Payment (Customer → Vendor)</span>
+                        <span className={`badge rounded-pill text-xxs ${viewBooking.payment_verification_status === 'Approved' || viewBooking.payment_verification_status === 'Verified' ? 'bg-success text-white' : 'bg-warning text-dark'}`}>
+                          {viewBooking.payment_verification_status || 'Paid to Vendor'}
+                        </span>
+                      </div>
+                      <div className="d-flex justify-content-between text-xs">
+                        <span className="text-muted">Amount Paid:</span>
+                        <strong className="text-dark">₹{Number(viewBooking.customer_payment || viewBooking.total_amount || 0).toLocaleString()}</strong>
+                      </div>
+                      <div className="d-flex justify-content-between text-xs mt-1">
+                        <span className="text-muted">Customer UTR:</span>
+                        <span className="badge font-monospace text-primary bg-primary bg-opacity-10 border border-primary border-opacity-25 px-2 py-0.5 text-xs">
+                          {viewBooking.customer_payment_utr || viewBooking.payment_reference || 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* WOW GOA Platform Fee */}
+                    <div className="d-flex justify-content-between text-xs py-1 px-1 text-success mb-1">
+                      <span>WOW GOA Platform Fee (Debited from Vendor Wallet):</span>
+                      <strong>₹{Number(viewBooking.wow_goa_platform_fee || (Number(viewBooking.customer_payment || viewBooking.total_amount || 0) * 0.10)).toLocaleString()}</strong>
+                    </div>
+
+                    {/* Historical Settlement Box (Only shown if historical payout exists) */}
+                    {viewBooking.vendor_payout_status === 'Settled' && (
+                      <div className="p-2.5 rounded-3 border mt-2" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <span className="fw-bold text-success text-xs">Historical Settlement Record</span>
+                          <span className="badge bg-success text-white text-xxs">Settled</span>
+                        </div>
+                        <div className="d-flex justify-content-between text-xs">
+                          <span className="text-muted">Settled Amount:</span>
+                          <strong className="text-success font-heading fs-6">
+                            ₹{Number(viewBooking.vendor_service_amount || (Number(viewBooking.customer_payment || viewBooking.total_amount || 0) * 0.90)).toLocaleString()}
+                          </strong>
+                        </div>
+                        {viewBooking.vendor_payout_utr && (
+                          <div className="d-flex justify-content-between text-xs mt-1">
+                            <span className="text-muted">Settlement UTR:</span>
+                            <span className="badge font-monospace bg-light text-secondary border px-2 py-0.5 text-xs">
+                              {viewBooking.vendor_payout_utr}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                  <div className="col-6 mt-2">
-                    <div className="text-muted small">Pickup Location</div>
-                    <div className="small">{viewBooking.pickup_loc || 'Goa'}</div>
-                  </div>
-                  <div className="col-6 mt-2">
-                    <div className="text-muted small">Total Price</div>
-                    <div className="fw-bold fs-6 text-dark">₹{Number(viewBooking.total_amount || viewBooking.total_paid || 0).toLocaleString()}</div>
-                  </div>
-                  <div className="col-6 mt-2">
-                    <div className="text-muted small">Payment Method</div>
-                    <div className="small fw-semibold">{viewBooking.payment_method || 'Cash / Offline'}</div>
-                  </div>
 
-                  {/* Customer Country, Dial Code & Currency Snapshot */}
-                  <div className="col-12 mt-2 p-2.5 rounded-3 bg-light border">
-                    <div className="fw-bold text-dark text-xxs text-uppercase mb-2 d-flex align-items-center justify-content-between">
-                      <div className="d-flex align-items-center gap-1.5">
-                        <span>🌍 Customer Country & Currency Snapshot</span>
-                        <span
-                          className="badge rounded-pill fw-bold"
-                          style={{
-                            fontSize: '0.68rem',
-                            letterSpacing: '0.4px',
-                            color: String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#7c3aed' : '#059669',
-                            backgroundColor: String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#f3e8ff' : '#ecfdf5',
-                            border: `1px solid ${String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#ddd6fe' : '#a7f3d0'}`
-                          }}
-                        >
-                          {String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '✈️ FOREIGN' : '🇮🇳 INDIAN'}
-                        </span>
-                      </div>
-                      <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-1.5 py-0.5">
-                        {viewBooking.customer_currency || 'INR'}
-                      </span>
-                    </div>
-                    <div className="row g-2 text-xs">
-                      <div className="col-4">
-                        <span className="text-muted d-block text-xxs">Customer Country</span>
-                        <span className="fw-bold text-dark">{viewBooking.customer_country || 'India'}</span>
-                      </div>
-                      <div className="col-4">
-                        <span className="text-muted d-block text-xxs">Customer Category</span>
-                        <span className="fw-bold" style={{ color: String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? '#7c3aed' : '#059669' }}>
-                          {String(viewBooking.customer_category || '').toUpperCase() === 'FOREIGN' || (viewBooking.customer_country_iso && viewBooking.customer_country_iso !== 'IN') ? 'FOREIGN' : 'INDIAN'}
-                        </span>
-                      </div>
-                      <div className="col-4">
-                        <span className="text-muted d-block text-xxs">Dial / ISO Code</span>
-                        <span className="fw-semibold text-dark font-monospace">{viewBooking.customer_country_code || '+91'}</span>
-                      </div>
-                      <div className="col-4 mt-1">
-                        <span className="text-muted d-block text-xxs">Currency Code</span>
-                        <span className="fw-bold text-primary font-monospace">{viewBooking.customer_currency || 'INR'}</span>
-                      </div>
-                      <div className="col-4 mt-1">
-                        <span className="text-muted d-block text-xxs">Base Price (INR)</span>
-                        <span className="fw-bold text-dark">₹{Number(viewBooking.total_amount || 0).toLocaleString('en-IN')}</span>
-                      </div>
-                      <div className="col-4 mt-1">
-                        <span className="text-muted d-block text-xxs">Display Amount</span>
-                        <span className="fw-bold text-success font-heading">
-                          {viewBooking.converted_display_amount ? `${viewBooking.customer_currency} ${Number(viewBooking.converted_display_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '₹' + Number(viewBooking.total_amount || 0).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                      <div className="col-4 mt-1">
-                        <span className="text-muted d-block text-xxs">Exchange Rate</span>
-                        <span className="fw-semibold font-monospace">{viewBooking.exchange_rate_used ? Number(viewBooking.exchange_rate_used).toFixed(4) : '1.0000'}</span>
-                      </div>
-                      {viewBooking.currency_rate_timestamp && (
-                        <div className="col-8 mt-1">
-                          <span className="text-muted text-xxs">Rate Snapshot Taken: {viewBooking.currency_rate_timestamp}</span>
+                  {/* Cancellation Audit (If Cancelled) */}
+                  {(viewBooking.status || '').toLowerCase() === 'cancelled' && (
+                    <div className="p-3 rounded-3 mb-2" style={{ background: '#fef2f2', border: '1px solid #fee2e2' }}>
+                      <div className="fw-bold text-danger text-xs mb-1">Cancellation Audit Record</div>
+                      <div className="row g-2 text-xxs text-dark">
+                        <div className="col-6">
+                          <strong>Requested At:</strong> {viewBooking.cancellation_requested_at || '—'}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Financial Split & Two-UTR Breakdown */}
-                <div className="rounded-3 mb-3 p-3 border" style={{ background: '#f8fafc' }}>
-                  <div className="fw-bold text-dark text-xs mb-2 pb-1 border-bottom d-flex justify-content-between">
-                    <span>Payment &amp; Platform Fee Breakdown</span>
-                    <span className="text-muted text-xxs">Direct Vendor Payment Flow</span>
-                  </div>
-
-                  {/* 1. Customer Payment Box */}
-                  <div className="p-2.5 rounded-3 mb-2 bg-white border">
-                    <div className="d-flex justify-content-between align-items-center mb-1">
-                      <span className="fw-bold text-dark text-xs">Customer Direct Payment (Customer → Vendor)</span>
-                      <span className={`badge rounded-pill text-xxs ${viewBooking.payment_verification_status === 'Approved' || viewBooking.payment_verification_status === 'Verified' ? 'bg-success text-white' : 'bg-warning text-dark'}`}>
-                        {viewBooking.payment_verification_status || 'Paid to Vendor'}
-                      </span>
-                    </div>
-                    <div className="d-flex justify-content-between text-xs">
-                      <span className="text-muted">Amount Paid:</span>
-                      <strong className="text-dark">₹{Number(viewBooking.customer_payment || viewBooking.total_amount || 0).toLocaleString()}</strong>
-                    </div>
-                    <div className="d-flex justify-content-between text-xs mt-1">
-                      <span className="text-muted">Customer UTR:</span>
-                      <span className="badge font-monospace text-primary bg-primary bg-opacity-10 border border-primary border-opacity-25 px-2 py-0.5 text-xs">
-                        {viewBooking.customer_payment_utr || viewBooking.payment_reference || 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* WOW GOA Platform Fee */}
-                  <div className="d-flex justify-content-between text-xs py-1 px-1 text-success mb-1">
-                    <span>WOW GOA Platform Fee (Debited from Vendor Wallet):</span>
-                    <strong>₹{Number(viewBooking.wow_goa_platform_fee || (Number(viewBooking.customer_payment || viewBooking.total_amount || 0) * 0.10)).toLocaleString()}</strong>
-                  </div>
-
-                  {/* Historical Settlement Box (Only shown if historical payout exists) */}
-                  {viewBooking.vendor_payout_status === 'Settled' && (
-                    <div className="p-2.5 rounded-3 border mt-2" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
-                      <div className="d-flex justify-content-between align-items-center mb-1">
-                        <span className="fw-bold text-success text-xs">Historical Settlement Record</span>
-                        <span className="badge bg-success text-white text-xxs">Settled</span>
-                      </div>
-                      <div className="d-flex justify-content-between text-xs">
-                        <span className="text-muted">Settled Amount:</span>
-                        <strong className="text-success font-heading fs-6">
-                          ₹{Number(viewBooking.vendor_service_amount || (Number(viewBooking.customer_payment || viewBooking.total_amount || 0) * 0.90)).toLocaleString()}
-                        </strong>
-                      </div>
-                      {viewBooking.vendor_payout_utr && (
-                        <div className="d-flex justify-content-between text-xs mt-1">
-                          <span className="text-muted">Settlement UTR:</span>
-                          <span className="badge font-monospace bg-light text-secondary border px-2 py-0.5 text-xs">
-                            {viewBooking.vendor_payout_utr}
-                          </span>
+                        <div className="col-6">
+                          <strong>Applied Rule:</strong> {viewBooking.cancellation_rule_applied || '—'}
                         </div>
-                      )}
+                        <div className="col-6">
+                          <strong>Refund %:</strong> {viewBooking.cancellation_refund_percentage}%
+                        </div>
+                        <div className="col-6">
+                          <strong>Refund to Customer:</strong> ₹{viewBooking.cancellation_refund_amount}
+                        </div>
+                        <div className="col-6">
+                          <strong>Retained Platform Fee:</strong> ₹{viewBooking.cancellation_platform_fee}
+                        </div>
+                        <div className="col-12">
+                          <strong>Reason:</strong> {viewBooking.cancellation_reason || '—'}
+                        </div>
+                      </div>
                     </div>
                   )}
-                </div>
 
-                {/* Cancellation Audit (If Cancelled) */}
-                {(viewBooking.status || '').toLowerCase() === 'cancelled' && (
-                  <div className="p-3 rounded-3 mb-2" style={{ background: '#fef2f2', border: '1px solid #fee2e2' }}>
-                    <div className="fw-bold text-danger text-xs mb-1">Cancellation Audit Record</div>
-                    <div className="row g-2 text-xxs text-dark">
-                      <div className="col-6">
-                        <strong>Requested At:</strong> {viewBooking.cancellation_requested_at || '—'}
-                      </div>
-                      <div className="col-6">
-                        <strong>Applied Rule:</strong> {viewBooking.cancellation_rule_applied || '—'}
-                      </div>
-                      <div className="col-6">
-                        <strong>Refund %:</strong> {viewBooking.cancellation_refund_percentage}%
-                      </div>
-                      <div className="col-6">
-                        <strong>Refund to Customer:</strong> ₹{viewBooking.cancellation_refund_amount}
-                      </div>
-                      <div className="col-6">
-                        <strong>Retained Platform Fee:</strong> ₹{viewBooking.cancellation_platform_fee}
-                      </div>
-                      <div className="col-12">
-                        <strong>Reason:</strong> {viewBooking.cancellation_reason || '—'}
-                      </div>
+                  {/* Driver Requirement Info */}
+                  <div className="p-3 rounded-3 bg-light border mt-2">
+                    <div className="d-flex align-items-center justify-content-between">
+                      <span className="small fw-bold text-dark">
+                        Driver Requirement:
+                      </span>
+                      <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${(['PICKUP', 'DROP', 'FULL'].includes(String(viewBooking.driver_service_type || '').toUpperCase()) || viewBooking.driver_required == 1 || viewBooking.driver_required === 'yes') ? 'bg-warning text-dark' : 'bg-secondary-subtle text-secondary'}`} style={{ fontSize: '0.72rem' }}>
+                        {viewBooking.driver_service_type ? `🚗 YES (${viewBooking.driver_service_type})` : ((viewBooking.driver_required == 1 || viewBooking.driver_required === 'yes') ? '🚗 YES (Driver Required)' : 'NO (Self Drive / Unrequested)')}
+                      </span>
                     </div>
-                  </div>
-                )}
-
-                {/* Driver Requirement Info */}
-                <div className="p-3 rounded-3 bg-light border mt-2">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <span className="small fw-bold text-dark">
-                      Driver Requirement:
-                    </span>
-                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${(['PICKUP', 'DROP', 'FULL'].includes(String(viewBooking.driver_service_type || '').toUpperCase()) || viewBooking.driver_required == 1 || viewBooking.driver_required === 'yes') ? 'bg-warning text-dark' : 'bg-secondary-subtle text-secondary'}`} style={{ fontSize: '0.72rem' }}>
-                      {viewBooking.driver_service_type ? `🚗 YES (${viewBooking.driver_service_type})` : ((viewBooking.driver_required == 1 || viewBooking.driver_required === 'yes') ? '🚗 YES (Driver Required)' : 'NO (Self Drive / Unrequested)')}
-                    </span>
-                  </div>
-                  {(['PICKUP', 'DROP', 'FULL'].includes(String(viewBooking.driver_service_type || '').toUpperCase()) || viewBooking.driver_required == 1 || viewBooking.driver_required === 'yes') && (
-                    <div className="mt-2 pt-2 border-top">
-                      {viewBooking.assigned_driver_id ? (
-                        <div className="small">
+                    {(['PICKUP', 'DROP', 'FULL'].includes(String(viewBooking.driver_service_type || '').toUpperCase()) || viewBooking.driver_required == 1 || viewBooking.driver_required === 'yes') && (
+                      <div className="mt-2 pt-2 border-top">
+                        {viewBooking.assigned_driver_id ? (
+                          <div className="small">
+                            <div className="d-flex justify-content-between align-items-center">
+                              <span className="text-muted">Assigned Driver:</span>
+                              <span className="fw-bold text-success">
+                                {viewBooking.assigned_driver_name || viewBooking.assigned_driver_id} ({viewBooking.driver_job_status || 'Accepted'})
+                              </span>
+                            </div>
+                            {viewBooking.assigned_driver_phone && (
+                              <div className="d-flex justify-content-between align-items-center mt-1">
+                                <span className="text-muted">Driver Contact:</span>
+                                <span className="fw-semibold text-dark">{viewBooking.assigned_driver_phone}</span>
+                              </div>
+                            )}
+                            {viewBooking.assigned_driver_vehicle && (
+                              <div className="d-flex justify-content-between align-items-center mt-1">
+                                <span className="text-muted">Assigned Vehicle:</span>
+                                <span className="text-dark">{viewBooking.assigned_driver_vehicle}</span>
+                              </div>
+                            )}
+                            <div className="d-flex justify-content-between align-items-center mt-1 border-top pt-1">
+                              <span className="text-muted">Driver Service & Fee:</span>
+                              <span className="fw-bold text-dark">{viewBooking.driver_service_type || 'FULL'} • ₹{Number(viewBooking.driver_charge || (String(viewBooking.driver_service_type).toUpperCase() === 'FULL' ? (800 * Math.max(1, parseInt(viewBooking.driver_days || viewBooking.booking_days || 1))) : 400)).toLocaleString()}</span>
+                            </div>
+                            <div className="d-flex justify-content-between align-items-center mt-1">
+                              <span className="text-muted">Driver Earning Payout:</span>
+                              <span className="fw-bold text-success">₹{Number(viewBooking.driver_earning || viewBooking.driver_charge || (String(viewBooking.driver_service_type).toUpperCase() === 'FULL' ? (800 * Math.max(1, parseInt(viewBooking.driver_days || viewBooking.booking_days || 1))) : 400)).toLocaleString()} • {viewBooking.driver_payment_status || (viewBooking.driver_job_status === 'Completed' ? 'Payable' : 'Pending')}</span>
+                            </div>
+                          </div>
+                        ) : (
                           <div className="d-flex justify-content-between align-items-center">
-                            <span className="text-muted">Assigned Driver:</span>
-                            <span className="fw-bold text-success">
-                              {viewBooking.assigned_driver_name || viewBooking.assigned_driver_id} ({viewBooking.driver_job_status || 'Accepted'})
-                            </span>
+                            <span className="text-muted small">No driver assigned yet.</span>
+                            <button
+                              type="button"
+                              className="btn btn-sm text-white fw-bold px-3 py-1 rounded-pill shadow-sm"
+                              style={{ background: 'linear-gradient(90deg,#FF6333,#FF8A00)', fontSize: '0.75rem' }}
+                              onClick={() => {
+                                setAssigningBooking(viewBooking);
+                                setViewBooking(null);
+                              }}
+                            >
+                              Assign Driver Now
+                            </button>
                           </div>
-                          {viewBooking.assigned_driver_phone && (
-                            <div className="d-flex justify-content-between align-items-center mt-1">
-                              <span className="text-muted">Driver Contact:</span>
-                              <span className="fw-semibold text-dark">{viewBooking.assigned_driver_phone}</span>
-                            </div>
-                          )}
-                          {viewBooking.assigned_driver_vehicle && (
-                            <div className="d-flex justify-content-between align-items-center mt-1">
-                              <span className="text-muted">Assigned Vehicle:</span>
-                              <span className="text-dark">{viewBooking.assigned_driver_vehicle}</span>
-                            </div>
-                          )}
-                          <div className="d-flex justify-content-between align-items-center mt-1 border-top pt-1">
-                            <span className="text-muted">Driver Service & Fee:</span>
-                            <span className="fw-bold text-dark">{viewBooking.driver_service_type || 'FULL'} • ₹{Number(viewBooking.driver_charge || (String(viewBooking.driver_service_type).toUpperCase() === 'FULL' ? (800 * Math.max(1, parseInt(viewBooking.driver_days || viewBooking.booking_days || 1))) : 400)).toLocaleString()}</span>
-                          </div>
-                          <div className="d-flex justify-content-between align-items-center mt-1">
-                            <span className="text-muted">Driver Earning Payout:</span>
-                            <span className="fw-bold text-success">₹{Number(viewBooking.driver_earning || viewBooking.driver_charge || (String(viewBooking.driver_service_type).toUpperCase() === 'FULL' ? (800 * Math.max(1, parseInt(viewBooking.driver_days || viewBooking.booking_days || 1))) : 400)).toLocaleString()} • {viewBooking.driver_payment_status || (viewBooking.driver_job_status === 'Completed' ? 'Payable' : 'Pending')}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="d-flex justify-content-between align-items-center">
-                          <span className="text-muted small">No driver assigned yet.</span>
-                          <button
-                            type="button"
-                            className="btn btn-sm text-white fw-bold px-3 py-1 rounded-pill shadow-sm"
-                            style={{ background: 'linear-gradient(90deg,#FF6333,#FF8A00)', fontSize: '0.75rem' }}
-                            onClick={() => {
-                              setAssigningBooking(viewBooking);
-                              setViewBooking(null);
-                            }}
-                          >
-                            Assign Driver Now
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="modal-footer border-top py-2 px-4 bg-light">
-                <button type="button" className="btn btn-sm btn-secondary px-3" onClick={() => setViewBooking(null)}>
-                  Close
-                </button>
+                <div className="modal-footer border-top py-2 px-4 bg-light">
+                  <button type="button" className="btn btn-sm btn-secondary px-3" onClick={() => setViewBooking(null)}>
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* EDIT BOOKING MODAL */}
       {editBooking && (

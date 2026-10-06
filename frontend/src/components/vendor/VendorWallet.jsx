@@ -59,13 +59,39 @@ export default function VendorWallet({ currentUser }) {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { if (vendorId) load(); }, [vendorId]);
+  useEffect(() => { 
+    if (vendorId) load(); 
+
+    const handleSync = () => {
+      if (vendorId) load();
+    };
+
+    window.addEventListener('tripgalileo-notification-sync', handleSync);
+    window.addEventListener('vendor-wallet-updated', handleSync);
+    const handleStorage = (e) => {
+      if (e.key === 'tg_wallet_updated') handleSync();
+    };
+    window.addEventListener('storage', handleStorage);
+
+    const interval = setInterval(() => {
+      if (vendorId) load();
+    }, 10000);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('tripgalileo-notification-sync', handleSync);
+      window.removeEventListener('vendor-wallet-updated', handleSync);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [vendorId]);
 
   const balance = Number(wallet?.balance || 0);
   const maxNegBookings = Number(wallet?.max_negative_bookings || 2);
   const negBookingCount = Number(wallet?.negative_booking_count || 0);
   const isBlocked = Boolean(wallet?.is_blocked) || (balance < 0 && negBookingCount >= maxNegBookings);
   const isNegative = balance < 0;
+  const isSuspended = Number(wallet?.services_suspended) === 1;
+  const isRestricted = isNegative || isBlocked || isSuspended;
   const LOW_BALANCE_THRESHOLD = minRecharge;
   const isLow = !isNegative && balance < LOW_BALANCE_THRESHOLD;
 
@@ -175,7 +201,7 @@ export default function VendorWallet({ currentUser }) {
       )}
 
       {/* Official Administration Reminder Notice */}
-      {(wallet?.latest_manual_reminder || (wallet?.active_portal_alert && wallet?.active_portal_alert?.active)) && (
+      {isRestricted && (wallet?.latest_manual_reminder || (wallet?.active_portal_alert && wallet?.active_portal_alert?.active)) && (
         <div className="rounded-3 p-3 mb-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 shadow-sm" style={{ background: '#fffbeb', border: '1.5px solid #f59e0b' }}>
           <div className="d-flex align-items-start gap-3">
             <AlertTriangle size={26} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} />

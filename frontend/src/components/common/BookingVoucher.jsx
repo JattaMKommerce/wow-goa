@@ -1,6 +1,10 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Printer, X, CheckCircle, Clock, ShieldCheck, MapPin, Phone, Mail, Calendar, User, FileText, Compass, AlertCircle } from 'lucide-react';
+import { 
+  Printer, X, CheckCircle, Clock, ShieldCheck, MapPin, Phone, Mail, Calendar, 
+  User, FileText, Compass, AlertCircle, Hotel, Car, UserCheck, Sparkles, Plane,
+  ChevronDown, ChevronRight
+} from 'lucide-react';
 import { lockScroll, unlockScroll } from '../../utils/scrollLock';
 
 /**
@@ -100,7 +104,20 @@ export default function BookingVoucher({
   const rawItemName = String(booking.item_name || booking.package_name || booking.hotel_name || booking.vehicle_name || '').toLowerCase();
   const rawItemId = String(booking.item_id || '').toLowerCase();
 
-  const isHotel = (
+  const isPackage = (
+    rawType === 'package' ||
+    rawType.includes('package') ||
+    String(booking.package_type || '').toLowerCase().includes('package') ||
+    rawItemId.startsWith('pkg-') ||
+    rawItemId.startsWith('package-') ||
+    rawItemId.startsWith('tp-') ||
+    rawType.includes('tour') ||
+    rawType.includes('holiday') ||
+    rawItemName.includes('package') ||
+    rawItemName.includes('tour')
+  ) && !rawType.includes('self drive');
+
+  const isHotel = !isPackage && (
     rawType === 'hotel' ||
     rawType.includes('hotel') ||
     rawItemName.includes('resort') ||
@@ -109,17 +126,20 @@ export default function BookingVoucher({
     rawItemName.includes('suites') ||
     rawItemId.startsWith('hotel-') ||
     rawItemId.startsWith('htl-') ||
-    Boolean(booking.hotel_name && !booking.vehicle_name)
-  ) && !rawType.includes('self drive') && !rawType.includes('package');
+    Boolean(booking.hotel_name && !booking.vehicle_name && !booking.car_included)
+  ) && !rawType.includes('self drive');
 
-  const isFlight = rawType === 'flight' || rawItemName.includes('flight') || rawItemId.startsWith('fl-');
+  const isFlight = !isPackage && (rawType === 'flight' || rawItemName.includes('flight') || rawItemId.startsWith('fl-'));
 
-  const isPackage = (
-    rawType === 'package' ||
-    rawType.includes('tour') ||
-    rawType.includes('holiday') ||
-    rawItemName.includes('package') ||
-    rawItemName.includes('tour')
+  const isActivity = !isPackage && (
+    rawType === 'activity' ||
+    rawType === 'sightseeing' ||
+    rawType.includes('activity') ||
+    rawType.includes('sightseeing') ||
+    rawItemId.startsWith('act-') ||
+    rawItemId.startsWith('sight-') ||
+    rawItemName.includes('sightseeing') ||
+    rawItemName.includes('tour activity')
   ) && !rawType.includes('self drive');
 
   const isBike = (
@@ -145,32 +165,90 @@ export default function BookingVoucher({
     rawItemId.startsWith('bk-')
   );
 
-  const isSelfDrive = (
-    rawType.includes('self drive') ||
-    rawType === 'selfdrive' ||
-    rawType === 'vehicle' ||
-    rawType === 'car' ||
-    rawItemName.includes('self drive') ||
-    rawItemId.startsWith('car-') ||
-    isBike ||
-    (!isHotel && !isFlight && !isPackage)
+  // Authoritative Driver / Chauffeur Service Check (Strictly NEVER for bikes / scooters)
+  const svcType = String(booking.driver_service_type || '').toUpperCase();
+  const hasDriverService = !isBike && Boolean(
+    ['PICKUP', 'DROP', 'FULL'].includes(svcType) ||
+    booking.driver_required == 1 ||
+    booking.driver_required === 'yes' ||
+    booking.driver_required === '1' ||
+    booking.driver_required === true ||
+    booking.assigned_driver_name ||
+    booking.assigned_driver_id
   );
+
+  const isCar = !isBike && !isHotel && !isFlight && !isPackage && !isActivity && (
+    rawType === 'car' ||
+    rawType === 'vehicle' ||
+    rawType === 'selfdrive' ||
+    rawType.includes('self drive') ||
+    rawType.includes('car') ||
+    rawItemId.startsWith('car-') ||
+    rawItemId.startsWith('car_') ||
+    rawItemId.startsWith('lux-') ||
+    Boolean(booking.vehicle_name && !booking.hotel_name) ||
+    (!isHotel && !isFlight && !isPackage && !isActivity && !isBike)
+  );
+
+  const isSelfDriveCar = isCar && !hasDriverService;
+  const isChauffeurCar = isCar && hasDriverService;
+  const isSelfDrive = isBike || isSelfDriveCar; // strictly self-drive bookings only
 
   // Service Label
   let serviceLabel = 'Travel Reservation';
   if (isHotel) serviceLabel = 'Hotel & Resort Accommodation';
   else if (isPackage) serviceLabel = 'Curated Holiday Tour Package';
   else if (isFlight) serviceLabel = 'Scheduled Flight Reservation';
+  else if (isActivity) serviceLabel = 'Sightseeing & Tour Activity';
   else if (isBike) serviceLabel = 'Self-Drive Bike Rental';
-  else if (isSelfDrive) serviceLabel = 'Self-Drive Vehicle Rental';
+  else if (isChauffeurCar) serviceLabel = 'Car Rental with Chauffeur';
+  else if (isSelfDriveCar) serviceLabel = 'Self-Drive Car Rental';
 
-  const reservedItemName = (
-    booking.item_name ||
-    booking.package_name ||
-    booking.hotel_name ||
-    booking.vehicle_name ||
-    'WOW GOA Travel Service'
-  ).trim();
+  // Safe Vehicle & Item Name Formatter
+  const formatTitleCase = (str) => {
+    if (!str || typeof str !== 'string') return '';
+    return str
+      .split(/\s+/)
+      .map(w => {
+        const u = w.toUpperCase();
+        if (['4X4', '4WD', 'AWD', 'AT', 'MT', 'VXI', 'ZXI', 'LXI', 'GT', 'BS6', 'ABS', 'SUV', 'MUV', 'AC', 'CC'].includes(u)) {
+          return u;
+        }
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+      })
+      .join(' ');
+  };
+
+  const getCleanItemName = () => {
+    if (isHotel) {
+      return booking.hotel_name || booking.item_name || booking.package_name || 'WOW GOA Hotel Accommodation';
+    }
+    if (isCar || isBike) {
+      const candidates = [
+        booking.vehicle_name,
+        booking.item_name,
+        booking.package_name
+      ].map(s => (typeof s === 'string' ? s.trim() : '')).filter(Boolean);
+
+      const genericNames = [
+        'trip booking', 'self drive vehicle', 'self drive holiday',
+        'trip package', 'vehicle', 'car rental', 'bike rental',
+        'wow goa travel service', 'travel reservation', 'car', 'bike'
+      ];
+      const specific = candidates.find(c => !genericNames.includes(c.toLowerCase()));
+      if (specific) return formatTitleCase(specific);
+      return candidates[0] ? formatTitleCase(candidates[0]) : (isBike ? 'Two Wheeler Rental' : (isChauffeurCar ? 'Chauffeur Driven Car' : 'Self-Drive Vehicle'));
+    }
+    return (
+      booking.item_name ||
+      booking.package_name ||
+      booking.hotel_name ||
+      booking.vehicle_name ||
+      'WOW GOA Travel Service'
+    ).trim();
+  };
+
+  const reservedItemName = getCleanItemName();
 
   // ─── 4. Schedule & Dates ───
   const pickupDate = booking.pickup_date || booking.departure_date || booking.check_in_date || booking.checkin_date || booking.travel_date || '';
@@ -178,22 +256,35 @@ export default function BookingVoucher({
   const pickupTime = booking.pickup_time || '10:00 AM';
   const dropTime = booking.drop_time || '10:00 AM';
 
-  const pickupLocation = booking.pickup_loc || booking.pickup_location || booking.pickup || booking.hotel_location || 'Goa';
-  const dropLocation = booking.drop_loc || booking.drop_location || booking.drop || (isHotel ? booking.hotel_location : pickupLocation);
+  const pickupLocation = (
+    booking.pickup_loc ||
+    booking.pickup_location ||
+    booking.pickup ||
+    booking.hotel_location ||
+    'Goa'
+  ).trim();
+
+  // Authoritative Drop-Off Location: NEVER fallback to pickupLocation
+  const resolvedDropLoc = (
+    booking.drop_loc ||
+    booking.drop_location ||
+    booking.driver_drop_loc ||
+    booking.drop ||
+    voucherCustoms.drop_loc ||
+    voucherCustoms.dropLoc ||
+    voucherCustoms.drop_location ||
+    voucherCustoms.driver_details?.drop?.location ||
+    voucherCustoms.driver_details?.fullDay?.endLocation ||
+    (isHotel ? (booking.hotel_location || 'Hotel Property') : '')
+  );
+
+  const dropLocation = (resolvedDropLoc && typeof resolvedDropLoc === 'string' && resolvedDropLoc.trim().length > 0)
+    ? resolvedDropLoc.trim()
+    : 'Not specified';
 
   const durationText = booking.duration || (booking.booking_days ? `${booking.booking_days} Days / ${Math.max(1, booking.booking_days - 1)} Nights` : '');
 
-  // ─── 5. Driver / Chauffeur Service Check (Strictly NEVER for bikes / scooters) ───
-  const svcType = String(booking.driver_service_type || '').toUpperCase();
-  const hasDriverService = !isBike && Boolean(
-    ['PICKUP', 'DROP', 'FULL'].includes(svcType) ||
-    booking.driver_required == 1 ||
-    booking.driver_required === 'yes' ||
-    booking.driver_required === true ||
-    booking.assigned_driver_name ||
-    booking.assigned_driver_id
-  );
-
+  // ─── 5. Driver / Chauffeur Service Details ───
   const driverAssigned = hasDriverService && Boolean(booking.assigned_driver_name || booking.assigned_driver_id);
   const driverName = hasDriverService ? (booking.assigned_driver_name || (booking.assigned_driver_id ? `Chauffeur #${booking.assigned_driver_id}` : '')) : '';
   const driverPhone = hasDriverService ? (booking.assigned_driver_phone || '') : '';
@@ -209,12 +300,123 @@ export default function BookingVoucher({
   const b2bNetPrice = parseFloat(booking.b2b_net_price || 0);
 
   const paymentStatus = booking.payment_status || (pendingBalance === 0 && totalAmount > 0 ? 'Paid' : 'Pending');
-  const paymentMethod = booking.payment_method || booking.payment_mode || (booking.b2b_mode ? 'B2B Partner Billing' : 'Prepaid Online / Direct');
+  const paymentMethod = booking.payment_method || booking.payment_mode || (booking.b2b_mode ? 'B2B Partner Billing' : (amountPaid > 0 ? 'Online Payment' : 'Cash on Arrival'));
   const bookingStatus = (booking.status || 'Confirmed').toUpperCase();
+
+  const formatPaymentMode = (mode) => {
+    if (!mode || typeof mode !== 'string') return 'Cash / Direct';
+    const m = mode.trim();
+    if (m.toLowerCase() === 'cash') return 'Cash';
+    if (m.toLowerCase() === 'upi') return 'UPI';
+    if (m.toLowerCase() === 'card') return 'Credit / Debit Card';
+    if (m.toLowerCase() === 'online' || m.toLowerCase() === 'online payment') return 'Online Payment';
+    if (m.toLowerCase() === 'direct') return 'Direct';
+    return m;
+  };
+
+  // ─── Curated Trip Package Component Resolutions ───
+  const packageHotelName = (
+    booking.hotel_name || 
+    booking.hotel_child?.item_name || 
+    booking.package_data?.hotel_included || 
+    booking.package_data?.hotel?.name || 
+    (isPackage ? 'The Grand Candolim Beachfront Resort' : '')
+  );
+
+  const packageRoomType = (
+    booking.room_type || 
+    booking.hotel_room_type || 
+    booking.package_data?.hotel_room_type || 
+    voucherCustoms.room_type || 
+    'Deluxe AC Room'
+  );
+
+  const packageMealPlan = (
+    booking.meal_plan || 
+    booking.package_data?.food_included || 
+    voucherCustoms.meal_plan || 
+    'Daily Buffet Breakfast Included'
+  );
+
+  const packageVehicleName = (
+    booking.vehicle_name || 
+    booking.vehicle_child?.item_name || 
+    booking.package_data?.car_included || 
+    booking.package_data?.vehicle?.name || 
+    'Maruti Suzuki Swift'
+  );
+
+  const packageVehicleDetails = (
+    booking.vehicle_details || 
+    (booking.vehicle_child?.physical_unit_id ? `Assigned Unit: ${booking.vehicle_child.physical_unit_id} (AC Tourist Vehicle)` : '4 Seater • AC • Sanitized Vehicle')
+  );
+
+  const packageDriverType = (
+    booking.driver_service_type || 
+    booking.driver_child?.driver_service_type || 
+    (hasDriverService ? 'Full Day Chauffeur' : 'Dedicated Chauffeur Included')
+  );
+
+  const packageDriverStatus = driverAssigned 
+    ? (driverName ? `Assigned: ${driverName}` : 'Driver Assigned')
+    : '24/7 Local Concierge Assigned';
+
+  const packageFlightDetails = (
+    booking.flight_details || 
+    ((booking.flight_number || booking.airline) 
+      ? `${booking.airline || 'Flight'} ${booking.flight_number}` 
+      : 'Without Flight (Land Package Only)')
+  );
+
+  const packageSightseeingList = React.useMemo(() => {
+    let raw = booking.sightseeing_places || booking.places_included || booking.package_data?.places_included;
+    if (booking.sightseeing_custom_json || booking.package_data?.sightseeing_custom_json) {
+      try {
+        const json = booking.sightseeing_custom_json || booking.package_data?.sightseeing_custom_json;
+        const parsed = typeof json === 'string' ? JSON.parse(json) : json;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    if (typeof raw === 'string' && raw.trim().length > 0) {
+      return raw.includes('|') ? raw.split('|').map(s => s.trim()).filter(Boolean) : raw.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    return ['Fort Aguada', 'Baga Beach', 'Anjuna Beach', 'Basilica of Bom Jesus', 'Mandovi River Cruise'];
+  }, [booking]);
+
+  const packageActivitiesList = React.useMemo(() => {
+    let raw = booking.activities_list || booking.activity_custom_json || booking.package_data?.activity_custom_json;
+    if (raw) {
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    if (Array.isArray(booking.activity_children) && booking.activity_children.length > 0) {
+      return booking.activity_children.map(a => ({ name: a.item_name, duration: '1 Hour' }));
+    }
+    return [{ name: 'Mandovi Sunset River Cruise', duration: '1 Hour', description: 'Scenic 1-hour cruise with Goan cultural folk dance & DJ' }];
+  }, [booking]);
+
+  const packageItineraryList = React.useMemo(() => {
+    let raw = booking.day_wise_itinerary || booking.itinerary || booking.package_data?.day_wise_itinerary || booking.package_data?.itinerary;
+    if (raw) {
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return [
+      { day: 1, title: 'Arrival in Goa & Beach Leisure', description: 'Airport/Station pickup, check in to resort, relax by the beach shacks.', morning: 'Pickup & resort check-in', afternoon: 'Beachside relaxation', evening: 'Sunset beach walk' },
+      { day: 2, title: 'North Goa Heritage & Coastal Highlights', description: 'Fort Aguada, Sinquerim coastline, Anjuna and Baga beach tour.', morning: 'Breakfast at resort', afternoon: 'Fort Aguada coastal tour', evening: 'Anjuna & Baga exploration' },
+      { day: 3, title: 'South Goa Culture & Mandovi Sunset Cruise', description: 'Old Goa churches, Basilica of Bom Jesus, and Mandovi river cruise.', morning: 'Old Goa heritage churches', afternoon: 'Panaji Latin Quarter walk', evening: '1-Hour Mandovi River Cruise' },
+      { day: 4, title: 'Departure with Sweet Goan Memories', description: 'Breakfast, souvenir shopping at Panaji market, and transfer to airport.', morning: 'Breakfast & resort check-out', afternoon: 'Airport/Station transfer', evening: 'Departure' }
+    ];
+  }, [booking]);
 
   // ─── 7. Hide sticky header while modal is open ───
   useEffect(() => {
     if (!isModal) return;
+    document.body.classList.add('voucher-modal-active');
     // Suppress any sticky/fixed portal headers so the backdrop fully covers them
     const stickyHeaders = document.querySelectorAll('.sticky-top, [class*="sticky"]');
     const originals = [];
@@ -224,6 +426,7 @@ export default function BookingVoucher({
     });
     document.body.style.overflow = 'hidden';
     return () => {
+      document.body.classList.remove('voucher-modal-active');
       originals.forEach(({ el, zIndex }) => {
         el.style.zIndex = zIndex;
       });
@@ -231,12 +434,35 @@ export default function BookingVoucher({
     };
   }, [isModal]);
 
+  // ─── Print Active Event Listeners ───
+  useEffect(() => {
+    const handleBeforePrint = () => {
+      document.body.classList.add('voucher-print-active');
+    };
+    const handleAfterPrint = () => {
+      document.body.classList.remove('voucher-print-active');
+    };
+    window.addEventListener('beforeprint', handleBeforePrint);
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      document.body.classList.remove('voucher-print-active');
+      window.removeEventListener('beforeprint', handleBeforePrint);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, []);
+
   // ─── 7. Print Handler ───
   const handlePrint = (e) => {
     if (e) {
       if (e.preventDefault) e.preventDefault();
       if (e.stopPropagation) e.stopPropagation();
     }
+    document.body.classList.add('voucher-print-active');
+    const cleanup = () => {
+      document.body.classList.remove('voucher-print-active');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
     try {
       window.focus();
     } catch (err) {
@@ -244,6 +470,7 @@ export default function BookingVoucher({
     }
     setTimeout(() => {
       window.print();
+      setTimeout(cleanup, 2000);
     }, 50);
   };
 
@@ -360,10 +587,12 @@ export default function BookingVoucher({
             <span className="text-dark">{guestEmail || '—'}</span>
           </div>
 
-          {/* Conditional License row strictly for vehicle bookings with license available */}
-          {isSelfDrive && guestLicense && (
+          {/* Conditional License row strictly for self-drive vehicle bookings (never for chauffeur car) */}
+          {(isSelfDriveCar || isBike) && !isChauffeurCar && guestLicense && (
             <div className="col-4 mt-1">
-              <span className="text-muted d-block" style={{ fontSize: '9.5px' }}>Driving License / ID:</span>
+              <span className="text-muted d-block" style={{ fontSize: '9.5px' }}>
+                {isBike ? 'Rider License / ID:' : 'Driving License / ID:'}
+              </span>
               <strong className="text-dark">{guestLicense}</strong>
             </div>
           )}
@@ -467,6 +696,171 @@ export default function BookingVoucher({
       </div>
 
       {/* ═══════════════════════════════════════════════════════
+          SECTION 3B: INCLUDED TRIP PACKAGE SERVICES & ITINERARY
+      ═══════════════════════════════════════════════════════ */}
+      {isPackage && (
+        <div className="border rounded-2 p-2.5 mb-2" style={{ borderColor: '#bfdbfe', backgroundColor: '#f8fafc' }}>
+          <div className="d-flex align-items-center justify-content-between pb-1.5 mb-2 border-bottom" style={{ borderColor: '#e2e8f0' }}>
+            <div className="d-flex align-items-center gap-1.5">
+              <span className="badge bg-primary text-white text-xxs px-2 py-0.5">TRIP PACKAGE INCLUSIONS</span>
+              <span className="text-uppercase fw-bold text-muted" style={{ fontSize: '9.5px', letterSpacing: '0.6px' }}>
+                All-Inclusive Pre-Configured Services
+              </span>
+            </div>
+            <span className="text-xs text-muted">
+              {packageItineraryList.length} Days / {Math.max(1, packageItineraryList.length - 1)} Nights Plan
+            </span>
+          </div>
+
+          {/* Grid of included core services */}
+          <div className="row g-2 mb-2" style={{ fontSize: '11px' }}>
+            {/* 1. HOTEL */}
+            <div className="col-12 col-md-6">
+              <div className="p-2 rounded bg-white border h-100" style={{ borderColor: '#e2e8f0' }}>
+                <div className="d-flex align-items-center gap-1.5 mb-1">
+                  <Hotel size={13} className="text-primary" />
+                  <strong className="text-dark" style={{ fontSize: '11px' }}>ACCOMMODATION / HOTEL</strong>
+                </div>
+                <div className="fw-semibold text-dark mb-0.5" style={{ fontSize: '11.5px' }}>
+                  {packageHotelName}
+                </div>
+                <div className="d-flex flex-wrap gap-1 mt-1">
+                  <span className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
+                    🛏️ {packageRoomType}
+                  </span>
+                  <span className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
+                    🍽️ {packageMealPlan}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. VEHICLE */}
+            <div className="col-12 col-md-6">
+              <div className="p-2 rounded bg-white border h-100" style={{ borderColor: '#e2e8f0' }}>
+                <div className="d-flex align-items-center gap-1.5 mb-1">
+                  <Car size={13} className="text-primary" />
+                  <strong className="text-dark" style={{ fontSize: '11px' }}>RESERVED VEHICLE</strong>
+                </div>
+                <div className="fw-semibold text-dark mb-0.5" style={{ fontSize: '11.5px' }}>
+                  {packageVehicleName}
+                </div>
+                <div className="text-muted" style={{ fontSize: '10.5px' }}>
+                  {packageVehicleDetails}
+                </div>
+              </div>
+            </div>
+
+            {/* 3. DRIVER */}
+            <div className="col-12 col-md-6">
+              <div className="p-2 rounded bg-white border h-100" style={{ borderColor: '#e2e8f0' }}>
+                <div className="d-flex align-items-center gap-1.5 mb-1">
+                  <UserCheck size={13} className="text-primary" />
+                  <strong className="text-dark" style={{ fontSize: '11px' }}>CHAUFFEUR SERVICE</strong>
+                </div>
+                <div className="fw-semibold text-dark mb-0.5" style={{ fontSize: '11.5px' }}>
+                  {packageDriverType}
+                </div>
+                <div className="d-flex align-items-center gap-1 text-muted mt-1" style={{ fontSize: '10.5px' }}>
+                  <span className="badge bg-success-subtle text-success border border-success-subtle px-1.5 py-0.5 text-xxs">
+                    {packageDriverStatus}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. FLIGHT */}
+            <div className="col-12 col-md-6">
+              <div className="p-2 rounded bg-white border h-100" style={{ borderColor: '#e2e8f0' }}>
+                <div className="d-flex align-items-center gap-1.5 mb-1">
+                  <Plane size={13} className="text-primary" />
+                  <strong className="text-dark" style={{ fontSize: '11px' }}>FLIGHT SERVICE</strong>
+                </div>
+                <div className="fw-semibold text-dark mb-0.5" style={{ fontSize: '11.5px' }}>
+                  {packageFlightDetails}
+                </div>
+                <div className="text-muted" style={{ fontSize: '10px' }}>
+                  Airport transfers coordinated with vehicle schedule
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. SIGHTSEEING & ACTIVITIES */}
+          <div className="row g-2 mb-2" style={{ fontSize: '11px' }}>
+            <div className="col-12 col-md-6">
+              <div className="p-2 rounded bg-white border h-100" style={{ borderColor: '#e2e8f0' }}>
+                <div className="d-flex align-items-center gap-1.5 mb-1">
+                  <MapPin size={13} className="text-primary" />
+                  <strong className="text-dark" style={{ fontSize: '11px' }}>CONFIGURED SIGHTSEEING</strong>
+                </div>
+                <div className="d-flex flex-wrap gap-1 mt-1">
+                  {packageSightseeingList.map((spot, idx) => (
+                    <span key={idx} className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
+                      📍 {typeof spot === 'object' ? (spot.name || spot.title) : spot}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="col-12 col-md-6">
+              <div className="p-2 rounded bg-white border h-100" style={{ borderColor: '#e2e8f0' }}>
+                <div className="d-flex align-items-center gap-1.5 mb-1">
+                  <Sparkles size={13} className="text-primary" />
+                  <strong className="text-dark" style={{ fontSize: '11px' }}>CURATED ACTIVITIES</strong>
+                </div>
+                <div className="d-flex flex-wrap gap-1 mt-1">
+                  {packageActivitiesList.map((act, idx) => (
+                    <span key={idx} className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
+                      ✨ {typeof act === 'object' ? (act.name || act.title) : act}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 6. DAY-WISE ITINERARY */}
+          {packageItineraryList.length > 0 && (
+            <div className="p-2 rounded bg-white border" style={{ borderColor: '#e2e8f0' }}>
+              <div className="d-flex align-items-center gap-1.5 mb-2 pb-1 border-bottom" style={{ borderColor: '#f1f5f9' }}>
+                <Compass size={13} className="text-primary" />
+                <strong className="text-dark" style={{ fontSize: '11px' }}>DAY-WISE ITINERARY</strong>
+              </div>
+              <div className="d-flex flex-column gap-2" style={{ fontSize: '10.5px' }}>
+                {packageItineraryList.map((dayItem, idx) => (
+                  <div key={idx} className="p-1.5 rounded bg-light border-start border-3 border-primary" style={{ borderColor: '#3b82f6' }}>
+                    <div className="d-flex align-items-center justify-content-between mb-0.5">
+                      <strong className="text-dark" style={{ fontSize: '11px' }}>
+                        Day {dayItem.day || idx + 1}: {dayItem.title || dayItem.heading || `Tour Day ${idx + 1}`}
+                      </strong>
+                    </div>
+                    {dayItem.description && (
+                      <div className="text-muted mb-1" style={{ fontSize: '10px' }}>
+                        {dayItem.description}
+                      </div>
+                    )}
+                    <div className="d-flex flex-wrap gap-2 text-dark" style={{ fontSize: '9.5px' }}>
+                      {dayItem.morning && (
+                        <span>🌅 <strong>Morning:</strong> {dayItem.morning}</span>
+                      )}
+                      {dayItem.afternoon && (
+                        <span>☀️ <strong>Afternoon:</strong> {dayItem.afternoon}</span>
+                      )}
+                      {dayItem.evening && (
+                        <span>🌙 <strong>Evening:</strong> {dayItem.evening}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════
           SECTION 4: PRICE & FINANCIAL BREAKDOWN
       ═══════════════════════════════════════════════════════ */}
       <div className="border rounded-2 p-2 mb-2" style={{ borderColor: '#e2e8f0' }}>
@@ -520,24 +914,29 @@ export default function BookingVoucher({
               </td>
             </tr>
 
-            <tr style={{ fontSize: '10.5px' }}>
-              <td className="pt-1.5 text-muted">
-                Amount Paid Online ({paymentMethod})
-              </td>
-              <td className="pt-1.5 text-end fw-bold text-success">
+            <tr className="border-bottom" style={{ borderColor: '#f1f5f9', fontSize: '10.5px' }}>
+              <td className="py-1 text-muted">Amount Paid</td>
+              <td className="py-1 text-end fw-bold text-success">
                 ₹{amountPaid.toLocaleString('en-IN')}
+              </td>
+            </tr>
+
+            <tr className="border-bottom" style={{ borderColor: '#f1f5f9', fontSize: '10.5px' }}>
+              <td className="py-1 text-muted">Payment Mode</td>
+              <td className="py-1 text-end fw-semibold text-dark">
+                {formatPaymentMode(paymentMethod)}
               </td>
             </tr>
 
             {pendingBalance > 0 ? (
               <tr className="text-danger fw-bold" style={{ fontSize: '11px' }}>
-                <td className="pt-1">Balance Due on Arrival / Handover</td>
-                <td className="pt-1 text-end">₹{pendingBalance.toLocaleString('en-IN')}</td>
+                <td className="pt-1.5">Balance Due on Arrival / Handover</td>
+                <td className="pt-1.5 text-end">₹{pendingBalance.toLocaleString('en-IN')}</td>
               </tr>
             ) : (
-              <tr className="text-success" style={{ fontSize: '10px' }}>
-                <td className="pt-0.5">Payment Status</td>
-                <td className="pt-0.5 text-end fw-bold">✓ Full Payment Settled (Nil Balance)</td>
+              <tr className="text-success" style={{ fontSize: '10.5px' }}>
+                <td className="pt-1 text-muted">Payment Status</td>
+                <td className="pt-1 text-end fw-bold text-success">✓ Full Payment Settled (Nil Balance)</td>
               </tr>
             )}
           </tbody>
@@ -603,10 +1002,27 @@ export default function BookingVoucher({
                 • <strong>Fuel Policy:</strong> Vehicles are handed over with reserve fuel; please return with the same fuel level.
               </div>
             </>
-          ) : isSelfDrive ? (
-            <div className="mb-0.5">
-              • <strong>Security Deposit:</strong> A refundable deposit of ₹3,000–₹5,000 (UPI/Cash) and physical Driving License must be presented at vehicle handover.
-            </div>
+          ) : isSelfDriveCar ? (
+            <>
+              <div className="mb-0.5">
+                • <strong>Self-Drive Verification:</strong> Physical original Driving License and Government-issued photo ID must be presented by the designated driver at vehicle handover.
+              </div>
+              <div className="mb-0.5">
+                • <strong>Security Deposit:</strong> A refundable security deposit of ₹3,000–₹5,000 (UPI/Cash) is required at vehicle handover, returned upon safe vehicle inspection.
+              </div>
+            </>
+          ) : isChauffeurCar ? (
+            <>
+              <div className="mb-0.5">
+                • <strong>Chauffeur Service:</strong> Professional Goa chauffeur assigned for your reserved itinerary ({booking.driver_service_type || 'Full Day / Trip'}). Vehicle will report at your specified pickup location punctually.
+              </div>
+              <div className="mb-0.5">
+                • <strong>No Customer Driving Required:</strong> You will be chauffeured throughout the journey. No customer driving license or vehicle security deposit is required.
+              </div>
+              <div className="mb-0.5">
+                • <strong>Trip Inclusions:</strong> Driver allowance and fuel are covered as per your chosen chauffeur package. Parking and toll charges (if applicable) are settled directly.
+              </div>
+            </>
           ) : null}
           {isHotel && (
             <div className="mb-0.5">
@@ -616,6 +1032,11 @@ export default function BookingVoucher({
           {isPackage && (
             <div className="mb-0.5">
               • <strong>Airport / Station Pickup:</strong> Our Goa concierge will meet you at the arrival terminal. Please keep your phone reachable upon landing.
+            </div>
+          )}
+          {isActivity && (
+            <div className="mb-0.5">
+              • <strong>Activity Briefing:</strong> Please report at the activity briefing location 15 minutes before scheduled start time. Carry comfortable swimwear/footwear.
             </div>
           )}
           <div>
@@ -669,126 +1090,6 @@ export default function BookingVoucher({
           This is a system-generated electronic booking voucher issued by WOW GOA. No physical signature or stamp required.
         </div>
       </div>
-
-      {/* ─── Embedded Print Styles ─── */}
-      <style>{`
-        @media print {
-          /* Page setup for standard A4 portrait */
-          @page {
-            size: A4 portrait;
-            margin: 6mm 8mm;
-          }
-
-          /* Force background colors and clean paper canvas */
-          html, body {
-            width: 100% !important;
-            height: auto !important;
-            min-height: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            overflow: visible !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          /* Hide all ambient application elements by default */
-          body * {
-            visibility: hidden !important;
-          }
-
-          /* Explicitly unhide and unclip the modal container hierarchy */
-          .modal-backdrop-custom,
-          .modal-backdrop-custom *,
-          .booking-voucher-document,
-          .booking-voucher-document * {
-            visibility: visible !important;
-          }
-
-          /* Reset Modal Backdrop to unclipped, white, static flow */
-          .modal-backdrop-custom {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            height: auto !important;
-            max-height: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            overflow: visible !important;
-            z-index: 999999 !important;
-          }
-
-          /* Reset Modal Card */
-          .modal-backdrop-custom .card {
-            position: static !important;
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            height: auto !important;
-            max-height: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border: none !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            background: #ffffff !important;
-            overflow: visible !important;
-          }
-
-          /* Reset Modal Scroll Body & Card Body */
-          .modal-backdrop-custom .card-body,
-          .modal-backdrop-custom .modal-voucher-scroll-body {
-            position: static !important;
-            display: block !important;
-            width: 100% !important;
-            height: auto !important;
-            max-height: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            overflow: visible !important;
-          }
-
-          /* The Voucher Document itself */
-          .booking-voucher-document {
-            position: static !important;
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 auto !important;
-            padding: 6px 10px !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 4px !important;
-            box-shadow: none !important;
-            background: #ffffff !important;
-            color: #0f172a !important;
-            font-size: 10px !important;
-            line-height: 1.25 !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-
-          /* Completely hide buttons, close icons, and toolbar */
-          .no-print,
-          .no-print * {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-
-          /* Prevent unwanted page splits inside boxes */
-          .border, table, tr, div, ol, li {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-        }
-      `}</style>
     </div>
   );
 

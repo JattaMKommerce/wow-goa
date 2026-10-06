@@ -400,35 +400,82 @@ export function handleIncomingNotifications(items = [], { isInitialLoad = false 
 }
 
 /**
+ * Safely parse a notification timestamp into a valid Date object.
+ * Interprets bare UTC SQL datetime strings ("YYYY-MM-DD HH:mm:ss") as UTC,
+ * while preserving standard ISO-8601 strings with 'Z' or timezone offsets.
+ */
+export function parseNotificationDate(ts) {
+  if (!ts) return null;
+  if (ts instanceof Date) return isNaN(ts.getTime()) ? null : ts;
+  if (typeof ts === 'number') return new Date(ts);
+  if (typeof ts !== 'string') return null;
+
+  const trimmed = ts.trim();
+  if (trimmed === 'Recent' || trimmed === 'Just now' || trimmed === 'just now' || trimmed === '') return null;
+
+  // Handle bare SQL datetime format "YYYY-MM-DD HH:mm:ss" or "YYYY-MM-DDTHH:mm:ss" without offset/Z
+  const bareSqlRegex = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?$/;
+  if (bareSqlRegex.test(trimmed)) {
+    const isoUtc = trimmed.replace(' ', 'T') + 'Z';
+    const d = new Date(isoUtc);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  const d = new Date(trimmed);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
  * Format timestamp into concise relative time string:
- * Just now, 2m ago, 15m ago, 1h ago, Yesterday, or short date
+ * 0–59 seconds: "just now"
+ * 1 minute: "1 min ago"
+ * 2 minutes: "2 min ago"
+ * 59 minutes: "59 min ago"
+ * 1 hour: "1h ago"
+ * 2 hours: "2h ago"
+ * 23 hours: "23h ago"
+ * 1 day: "1d ago"
+ * 2 days: "2d ago"
+ * Older: short date
  */
 export function getRelativeTimeString(ts) {
-  if (!ts) return 'Just now';
-  if (ts === 'Recent' || ts === 'Just now') return 'Just now';
+  if (!ts) return 'just now';
+  if (ts === 'Recent' || ts === 'Just now' || ts === 'just now') return 'just now';
   try {
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return String(ts);
+    const d = parseNotificationDate(ts);
+    if (!d) return String(ts);
+
     const now = Date.now();
     const diffSec = Math.floor((now - d.getTime()) / 1000);
 
-    if (diffSec < 45) return 'Just now';
+    // 0–59 seconds (and negative diffs from slight client/server clock skew)
+    if (diffSec < 60) return 'just now';
+
+    // 1–59 minutes
     if (diffSec < 3600) {
-      const mins = Math.max(1, Math.floor(diffSec / 60));
-      return `${mins}m ago`;
+      const mins = Math.floor(diffSec / 60);
+      return `${mins} min ago`;
     }
+
+    // 1–23 hours
     if (diffSec < 86400) {
       const hours = Math.floor(diffSec / 3600);
       return `${hours}h ago`;
     }
+
+    // 1–6 days: "1d ago", "2d ago", ...
     const days = Math.floor(diffSec / 86400);
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days}d ago`;
+    if (days < 7) {
+      return `${days}d ago`;
+    }
+
+    // Older notifications
     return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
   } catch {
     return String(ts);
   }
 }
+
 
 /**
  * Parse notification title and extract clean title + separate status badge

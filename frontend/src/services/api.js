@@ -2013,13 +2013,23 @@ export async function updatePackage(pkg) {
 }
 
 export async function deletePackage(id) {
+  const cleanId = String(id || '').trim();
   const response = await apiFetch(API_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'delete_package', id })
+    body: JSON.stringify({ action: 'delete_package', id: cleanId, package_id: cleanId })
   });
   const data = await response.json();
-  if (!data.success) throw new Error(data.message || 'Failed to delete package');
+  if (!data.success) throw new Error(data.message || data.error || 'Failed to delete package');
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tripPackagesUpdated', { detail: { id: cleanId } }));
+    try {
+      const bc = new BroadcastChannel('tripgalileo_packages_sync');
+      bc.postMessage({ type: 'PACKAGES_CHANGED', id: cleanId });
+      bc.close();
+    } catch (e) {}
+  }
   return data;
 }
 
@@ -2105,8 +2115,8 @@ export async function createBooking(bookingData, options = {}) {
     pickup_location: bookingData.pickup_location || bookingData.pickup_loc || 'Goa',
     pickup_date: bookingData.pickup_date || '',
     pickup_time: bookingData.pickup_time || '10:00 AM',
-    drop_loc: bookingData.drop_loc || bookingData.drop_location || 'Goa',
-    drop_location: bookingData.drop_location || bookingData.drop_loc || 'Goa',
+    drop_loc: bookingData.drop_loc || bookingData.drop_location || bookingData.dropLoc || null,
+    drop_location: bookingData.drop_location || bookingData.drop_loc || bookingData.dropLoc || null,
     drop_date: bookingData.drop_date || '',
     drop_time: bookingData.drop_time || '10:00 AM',
     booking_days: bookingData.booking_days || 1,

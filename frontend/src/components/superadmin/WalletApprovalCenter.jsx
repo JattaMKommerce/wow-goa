@@ -159,18 +159,19 @@ function ManualReminderModal({ vendor, onClose, onSuccess }) {
   const [dispatchResults, setDispatchResults] = useState(null);
   const [errorNotice, setErrorNotice] = useState('');
 
+  useEffect(() => {
+    if (vendor) {
+      setCustomMessage(getVendorReminderDefaultMessage(vendor, vendor.max_negative_booking_limit || 2));
+      setDispatchResults(null);
+      setErrorNotice('');
+    }
+  }, [vendor]);
+
   if (!vendor) return null;
 
   let bal = Number(vendor.balance !== undefined ? vendor.balance : (vendor.wallet_balance || 0));
-  if (Object.is(bal, -0) || Math.abs(bal) < 0.001) bal = 0;
   const isNeg = bal < 0;
   const formattedBal = isNeg ? `-₹${Math.abs(bal).toLocaleString()}` : `₹${bal.toLocaleString()}`;
-
-  useEffect(() => {
-    setCustomMessage(getVendorReminderDefaultMessage(vendor, vendor.max_negative_booking_limit || 2));
-    setDispatchResults(null);
-    setErrorNotice('');
-  }, [vendor]);
 
   const toggleChannel = (ch) => {
     setChannels(prev => prev.includes(ch) ? prev.filter(c => c !== ch) : [...prev, ch]);
@@ -509,6 +510,11 @@ function WalletRechargeTab() {
       const data = await res.json();
       if (data.success) {
         alert(`Recharge ${status === 'Completed' ? 'approved' : 'rejected'} successfully.`);
+        window.dispatchEvent(new CustomEvent('vendor-wallet-updated', { detail: { id, status } }));
+        window.dispatchEvent(new CustomEvent('tripgalileo-notification-sync'));
+        try {
+          localStorage.setItem('tg_wallet_updated', Date.now().toString());
+        } catch (_) {}
         setRequests(prev => prev.map(r => r.id === id ? { ...r, status: status, rejection_reason: rejectionReason } : r));
         load();
       } else {

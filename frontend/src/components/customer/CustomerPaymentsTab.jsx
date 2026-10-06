@@ -10,7 +10,10 @@ export default function CustomerPaymentsTab({
   onOpenBookingDetails
 }) {
   // Bookings passed from CustomerPortalPage are already strictly isolated for the customer
-  const myBookings = Array.isArray(bookings) ? bookings : [];
+  const myBookings = React.useMemo(() => {
+    if (!Array.isArray(bookings)) return [];
+    return bookings.filter(b => !b.parent_booking_id || String(b.parent_booking_id).trim() === '');
+  }, [bookings]);
 
   const totalSpend = myBookings.reduce((sum, b) => sum + parseFloat(b.total_amount || b.amount || 0), 0);
   const totalPaid = myBookings.reduce((sum, b) => sum + parseFloat(b.paid_amount || b.total_paid || 0), 0);

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, X } from 'lucide-react';
 import * as api from '../../services/api';
 import NotificationSoundToggle from '../common/NotificationSoundToggle';
-import { handleIncomingNotifications, registerSeenNotifications, getRelativeTimeString, parseNotificationTitleAndStatus } from '../../utils/notificationSound';
+import { handleIncomingNotifications, registerSeenNotifications, getRelativeTimeString, parseNotificationTitleAndStatus, parseNotificationDate } from '../../utils/notificationSound';
 
 export default function VendorNotificationBell({
   currentUser,
@@ -100,7 +100,7 @@ export default function VendorNotificationBell({
           title: `${typeLabel} ${code}`,
           message: `${cust} — ${item} (${status} • ₹${Number(price).toLocaleString('en-IN')})`,
           is_read: isMarkedRead ? 1 : 0,
-          created_at: b.created_at || b.date || 'Recent'
+          created_at: b.created_at || 'Recent'
         };
       });
 
@@ -138,8 +138,8 @@ export default function VendorNotificationBell({
       });
 
       let finalItems = Array.from(mergedMap.values()).sort((a, b) => {
-        const timeA = new Date(a.created_at || 0).getTime() || 0;
-        const timeB = new Date(b.created_at || 0).getTime() || 0;
+        const timeA = parseNotificationDate(a.created_at)?.getTime() || 0;
+        const timeB = parseNotificationDate(b.created_at)?.getTime() || 0;
         return timeB - timeA;
       });
 

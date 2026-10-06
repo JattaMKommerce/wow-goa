@@ -20,6 +20,29 @@ export default function VendorRechargeReminderBanner({
 
       const balance = Number(data.balance || 0);
       const isNegative = balance < 0;
+      const isBlocked = Boolean(data.is_blocked) || (balance < 0 && Number(data.negative_booking_count || 0) >= Number(data.max_negative_bookings || 2));
+      const isSuspended = Number(data.services_suspended) === 1;
+      const isRestricted = isNegative || isBlocked || isSuspended;
+
+      // If the vendor is in good standing (balance >= 0, not blocked, not suspended):
+      // Do NOT show recharge required / negative balance warnings!
+      if (!isRestricted) {
+        // Only show if there is an active non-negative LOW_BALANCE alert below threshold
+        const threshold = Number(data.min_vendor_wallet_balance || 1000);
+        if (balance <= threshold && data.active_portal_alert && data.active_portal_alert.active && data.active_portal_alert.event_type === 'LOW_BALANCE') {
+          setAlertData({
+            alertId: data.active_portal_alert.alert_id,
+            type: 'LOW_BALANCE',
+            title: 'Low Wallet Balance Notice',
+            message: data.active_portal_alert.message || `Your vendor wallet balance is low (₹${balance.toLocaleString()}). Please recharge to prevent booking disruption.`,
+            balance,
+            createdAt: data.active_portal_alert.created_at
+          });
+          return;
+        }
+        setAlertData(null);
+        return;
+      }
 
       // 1. Active Portal Alert (e.g. MANUAL_REMINDER, ESCALATION_REMINDER, LOW_BALANCE)
       if (data.active_portal_alert && data.active_portal_alert.active) {
@@ -57,7 +80,7 @@ export default function VendorRechargeReminderBanner({
       }
 
       // 3. Fallback for negative balance without suspension
-      if (isNegative && Number(data.services_suspended) !== 1) {
+      if (isNegative && !isSuspended) {
         setAlertData({
           type: 'NEGATIVE_BALANCE',
           title: 'Negative Wallet Balance Notice',
@@ -80,11 +103,18 @@ export default function VendorRechargeReminderBanner({
     const handleSync = () => loadAlert();
     window.addEventListener('tripgalileo-notification-sync', handleSync);
     window.addEventListener('pms-notification-updated', handleSync);
+    window.addEventListener('vendor-wallet-updated', handleSync);
+    const handleStorage = (e) => {
+      if (e.key === 'tg_wallet_updated') handleSync();
+    };
+    window.addEventListener('storage', handleStorage);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('tripgalileo-notification-sync', handleSync);
       window.removeEventListener('pms-notification-updated', handleSync);
+      window.removeEventListener('vendor-wallet-updated', handleSync);
+      window.removeEventListener('storage', handleStorage);
     };
   }, [vendorId]);
 

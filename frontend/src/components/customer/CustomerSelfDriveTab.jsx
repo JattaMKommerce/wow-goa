@@ -26,6 +26,8 @@ export default function CustomerSelfDriveTab({
     const rawType = String(b.package_type || b.type || '').toLowerCase();
     const rawItem = String(b.item_name || b.package_name || b.vehicle_name || '').toLowerCase();
     const rawId = String(b.item_id || '').toLowerCase();
+    
+    // Strict isolation: Bikes never have driver service
     if (
       rawType === 'bike' || rawType.includes('bike') || rawType.includes('scooter') ||
       rawId.startsWith('bike') || rawId.startsWith('bk-') ||
@@ -33,34 +35,104 @@ export default function CustomerSelfDriveTab({
     ) {
       return false;
     }
+
+    // 1. Explicit driver service type
     const svcType = String(b.driver_service_type || '').toUpperCase().trim();
     if (['PICKUP', 'DROP', 'FULL'].includes(svcType)) return true;
     if (svcType === 'NONE') return false;
+
+    // 2. Explicit driver_required flag
     if (b.driver_required === 1 || b.driver_required === '1' || b.driver_required === true || b.driver_required === 'yes') return true;
-    if (b.assigned_driver_id && String(b.assigned_driver_id).trim() !== '') return true;
+    if (b.driver_required === 0 || b.driver_required === '0' || b.driver_required === false || b.driver_required === 'no') return false;
+
+    // 3. Assigned driver present
+    if (b.assigned_driver_id && String(b.assigned_driver_id).trim() !== '' && String(b.assigned_driver_id).trim() !== '0') return true;
+
+    // 4. Booking type or item name indicating driver vs self-drive
     const pkgType = String(b.package_type || b.type || '').toLowerCase();
     const itemName = String(b.item_name || b.package_name || '').toLowerCase();
-    if (pkgType.includes('with driver') || itemName.includes('with driver') || itemName.includes('with chauffeur')) return true;
+    if (pkgType.includes('with driver') || itemName.includes('with driver') || itemName.includes('with chauffeur') || pkgType === 'driver') return true;
+    if (pkgType.includes('self drive') || pkgType === 'selfdrive' || itemName.includes('self drive') || itemName.includes('self-drive')) return false;
+
+    return false;
+  };
+
+  const isBikeItem = (b) => {
+    if (!b) return false;
+    const type = String(b.package_type || b.type || '').toLowerCase();
+    const itemName = String(b.item_name || b.package_name || b.vehicle_name || '').toLowerCase();
+    const itemId = String(b.item_id || '').toLowerCase();
+    return (
+      type === 'bike' ||
+      type.includes('bike') ||
+      type.includes('scooter') ||
+      type.includes('two wheeler') ||
+      type.includes('two-wheeler') ||
+      itemId.startsWith('bike-') ||
+      itemId.startsWith('bike_') ||
+      itemId.startsWith('bk-') ||
+      itemName.includes('bike') ||
+      itemName.includes('scooter') ||
+      itemName.includes('activa') ||
+      itemName.includes('himalayan') ||
+      itemName.includes('bullet') ||
+      itemName.includes('jupiter') ||
+      itemName.includes('classic 350') ||
+      itemName.includes('fz-s') ||
+      itemName.includes('access 125') ||
+      itemName.includes('faschino') ||
+      itemName.includes('vespa') ||
+      itemName.includes('royal enfield') ||
+      itemName.includes('hunter 350') ||
+      itemName.includes('tvs')
+    );
+  };
+
+  const isCarItem = (b) => {
+    if (!b || isBikeItem(b)) return false;
+    const type = String(b.package_type || b.type || '').toLowerCase();
+    const itemName = String(b.item_name || b.package_name || b.vehicle_name || '').toLowerCase();
+    const itemId = String(b.item_id || '').toLowerCase();
+
+    // Exclude other categories and child bookings
+    if (b.parent_booking_id && String(b.parent_booking_id).trim() !== '') return false;
+    if (type === 'package' || type === 'trip package' || b.package_type === 'Trip Package') return false;
+    if (type.includes('craft') || itemName.includes('craft my trip') || itemId.includes('craft')) return false;
+    if (type === 'flight' || type.includes('flight') || itemName.includes('flight') || itemId.startsWith('fl-')) return false;
+    if (type === 'hotel' || type.includes('hotel') || Boolean(b.hotel_name && !b.vehicle_name && !b.car_included) || itemId.startsWith('hotel-')) return false;
+    if (type === 'activity' || type === 'sightseeing' || itemId.startsWith('act') || itemId.startsWith('sight')) return false;
+    if (itemId.startsWith('pkg-') || itemId.startsWith('package-') || itemId.startsWith('tp-')) return false;
+
+    if (itemId.startsWith('car-') || itemId.startsWith('car_') || itemId.startsWith('lux-')) return true;
+    if (
+      type === 'car' ||
+      type === 'cars' ||
+      type.includes('car rental') ||
+      type.includes('vehicle rental') ||
+      type === 'vehicle' ||
+      type === 'driver' ||
+      type === 'selfdrive' ||
+      type.includes('self drive')
+    ) return true;
+
+    const carKeywords = [
+      'car', 'thar', 'swift', 'creta', 'ertiga', 'fortuner', 'innova', 'cabriolet',
+      'audi', 'bmw', 'baleno', 'i20', 'scorpio', 'kia', 'seltos', 'verna', 'wagonr',
+      'celerio', 'dzire', 'altroz', 'nexon', 'xuv', 'harrier', 'tiago', 'venue',
+      'compass', 'mercedes', 'sedan', 'suv', 'hatchback', 'maruti', 'hyundai',
+      'mahindra', 'toyota', 'tata', 'mg hector', 'glanza'
+    ];
+    if (carKeywords.some(kw => itemName.includes(kw))) return true;
+
+    if (b.vehicle_name && !isBikeItem(b)) return true;
+
     return false;
   };
 
   const isSelfDriveHoliday = (b) => {
     if (!b) return false;
-    // Exclude bookings with driver service
-    if (hasDriverService(b)) return false;
-
-    const type = String(b.package_type || b.type || '').toLowerCase();
-    const itemName = String(b.item_name || b.package_name || '').toLowerCase();
-    const itemId = String(b.item_id || '').toLowerCase();
-
-    // Exclude other distinct service types
-    if (type.includes('craft') || itemName.includes('craft my trip') || itemId.includes('craft')) return false;
-    if (type === 'flight' || type.includes('flight') || itemName.includes('flight')) return false;
-    if (type === 'hotel' || type.includes('hotel') || Boolean(b.hotel_name && !b.vehicle_name && !b.car_included)) return false;
-    if (type === 'activity' || type === 'sightseeing' || itemId.startsWith('act') || itemId.startsWith('sight')) return false;
-
-    // Car, Bike, or Trip Package without driver
-    return true;
+    // Show ONLY CAR bookings where customer selected Self Drive / No driver required
+    return isCarItem(b) && !hasDriverService(b);
   };
 
   // Filter Self Drive Holiday bookings for current user

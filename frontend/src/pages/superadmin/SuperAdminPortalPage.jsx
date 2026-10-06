@@ -65,6 +65,7 @@ const SIDEBAR_GROUPS = [
   {
     label: 'Operations',
     items: [
+      { id: 'packages', label: 'Trip Packages', icon: <Compass size={15} /> },
       { id: 'vehicle_bookings', label: 'Vehicle Booking', icon: <Car size={15} /> },
       { id: 'hotel_bookings', label: 'Hotel Booking', icon: <Hotel size={15} /> },
       { id: 'hotel_booking_settings', label: 'Hotel Booking Settings', icon: <Hotel size={15} /> },
@@ -100,6 +101,7 @@ const SIDEBAR_GROUPS = [
 
 const PAGE_TITLES = {
   dashboard: 'ERP Dashboard',
+  packages: 'Trip Packages Management',
   admin_management: 'Admin Management',
   user_management: 'Global User Management',
   reviews: 'Customer Reviews & Ratings Management',
@@ -290,7 +292,12 @@ export default function SuperAdminPortalPage({
   onAddUser,
   onUpdateUser,
   onDeleteUser,
-  onLogout
+  onLogout,
+  allPackages = [],
+  onAddPackage,
+  onUpdatePackage,
+  onDeletePackage,
+  flights = []
 }) {
   const getInitialTab = () => {
     try {
@@ -316,6 +323,9 @@ export default function SuperAdminPortalPage({
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
+    if (typeof window !== 'undefined' && window.innerWidth < 992) {
+      setSidebarOpen(false);
+    }
     try {
       localStorage.setItem('superAdminActiveTab', tabId);
       const url = new URL(window.location.href);
@@ -335,7 +345,22 @@ export default function SuperAdminPortalPage({
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 992 : false);
+  const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 992 : true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 992;
+      setIsMobile(mobile);
+      if (mobile) {
+        setSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [superToasts, setSuperToasts] = useState([]);
   const [liveUsers, setLiveUsers] = useState(usersList?.length ? usersList : defaultUsers);
   const [liveBookings, setLiveBookings] = useState(bookings?.length ? bookings : defaultBookings);
@@ -834,18 +859,41 @@ export default function SuperAdminPortalPage({
   }
 
   return (
-    <div className="d-flex w-100" style={{ height: '100vh', background: '#0f1923', overflow: 'hidden' }}>
+    <div className="d-flex w-100 position-relative" style={{ height: '100vh', background: '#0f1923', overflow: 'hidden' }}>
+      {/* Mobile Off-canvas Backdrop */}
+      {isMobile && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(13, 27, 46, 0.65)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 1040
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       <div
         className="d-flex flex-column flex-shrink-0"
         style={{
-          width: sidebarOpen ? '260px' : '0px',
-          minWidth: sidebarOpen ? '260px' : '0px',
+          position: isMobile ? 'fixed' : 'relative',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: isMobile ? '260px' : (sidebarOpen ? '260px' : '0px'),
+          minWidth: isMobile ? '260px' : (sidebarOpen ? '260px' : '0px'),
+          maxWidth: isMobile ? '85vw' : 'none',
           height: '100vh',
           overflow: 'hidden',
           backgroundColor: '#0D1B2E',
           borderRight: '1px solid rgba(255,255,255,0.06)',
-          transition: 'all 0.3s ease',
+          transition: isMobile ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'width 0.3s ease, min-width 0.3s ease',
+          transform: isMobile ? (sidebarOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+          zIndex: isMobile ? 1050 : 'auto',
+          boxShadow: isMobile && sidebarOpen ? '4px 0 24px rgba(0,0,0,0.5)' : 'none',
+          flexShrink: 0
         }}
       >
         {/* Brand */}
@@ -889,7 +937,7 @@ export default function SuperAdminPortalPage({
       </div>
 
       {/* Main */}
-      <div className="flex-grow-1 d-flex flex-column" style={{ height: '100vh', overflow: 'hidden' }}>
+      <div className="flex-grow-1 d-flex flex-column" style={{ height: '100vh', overflow: 'hidden', minWidth: 0, width: '100%' }}>
         {/* Top Bar */}
         <header className="d-flex align-items-center justify-content-between px-4 flex-shrink-0" style={{ height: '56px', backgroundColor: '#0D1B2E', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="d-flex align-items-center gap-3">
@@ -1122,7 +1170,7 @@ export default function SuperAdminPortalPage({
         </header>
 
         {/* Content */}
-        <div className="flex-grow-1 overflow-auto" style={{ background: '#f0f2f5' }}>
+        <div className="flex-grow-1 overflow-auto" style={{ background: '#f0f2f5', minWidth: 0, width: '100%' }}>
           {activeTab === 'reviews' ? (
             <AdminReviewsManagement portalTitle="Super Admin Portal" onSelectTab={handleTabChange} />
           ) : (
@@ -1146,6 +1194,11 @@ export default function SuperAdminPortalPage({
               onUpdateUser={handlePortalUpdateUser}
               onDeleteUser={handlePortalDeleteUser}
               onApproveVendor={handlePortalApproveVendor}
+              allPackages={allPackages}
+              onAddPackage={onAddPackage}
+              onUpdatePackage={onUpdatePackage}
+              onDeletePackage={onDeletePackage}
+              flights={flights}
             />
           )}
         </div>

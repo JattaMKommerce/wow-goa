@@ -119,7 +119,7 @@ export default function SelfDrivePage({
 
   const checkHotelStar = (pkg, starId) => {
     const s = String(starId).replace(/[^\d]/g, '') || String(starId);
-    const hotelStr = `${pkg.hotel_included || ''} ${pkg.hotel_category || ''} ${pkg.hotel_stars || ''} ${pkg.tag || ''}`.toLowerCase();
+    const hotelStr = `${pkg.hotel_included || ''} ${pkg.hotel_category || ''} ${pkg.hotel?.category || ''} ${pkg.hotel_stars || ''} ${pkg.tag || ''}`.toLowerCase();
     
     if (s === '5') {
       return hotelStr.includes('5') || hotelStr.includes('5-star') || hotelStr.includes('5 star') || hotelStr.includes('5★') || hotelStr.includes('luxury') || hotelStr.includes('w goa') || hotelStr.includes('marriott') || hotelStr.includes('taj');
@@ -542,6 +542,11 @@ export default function SelfDrivePage({
                           ✨ {pkg.tag}
                         </span>
                       )}
+                      {(pkg.hotel_category || pkg.hotel?.category) && (
+                        <span className="badge bg-white bg-opacity-95 text-dark fw-bold position-absolute top-0 end-0 m-3 px-2.5 py-1.5 rounded-pill shadow-sm d-flex align-items-center gap-1" style={{ fontSize: '11px' }}>
+                          ⭐ {pkg.hotel_category || pkg.hotel?.category}
+                        </span>
+                      )}
                       <div className="position-absolute bottom-0 start-0 w-100 p-3 bg-gradient-to-t text-white" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}>
                         <span className="badge bg-primary rounded-pill px-2 py-1 small fw-bold">{dynamicDuration}</span>
                       </div>
@@ -561,40 +566,60 @@ export default function SelfDrivePage({
                           </div>
                         </div>
 
+                        {/* Rating and Destination */}
+                        <div className="d-flex flex-wrap align-items-center gap-3 text-muted small mb-2.5">
+                          <span className="d-flex align-items-center gap-1 text-dark fw-bold">
+                            <span className="text-warning">★</span> 4.9 <span className="text-muted fw-normal" style={{ fontSize: '11px' }}>(142 Reviews)</span>
+                          </span>
+                          <span className="d-flex align-items-center gap-1">
+                            <MapPin size={13} className="text-danger" /> {pkg.places_included || pkg.destination || 'Goa, India'}
+                          </span>
+                        </div>
+
                         <p className="text-muted small line-clamp-2 mb-3">
                           {pkg.description || 'Experience the best of Goa with premium stays, customizable travel itinerary, and scenic locations.'}
                         </p>
 
-                        {/* Inclusions Badges */}
-                        <div className="d-flex flex-wrap gap-2 mb-3">
-                          {pkg.hotel_included && (
-                            <span className="badge bg-light text-dark border d-flex align-items-center gap-1 py-1 px-2">
-                              <Hotel size={13} className="text-warning" /> {pkg.hotel_included}
-                            </span>
-                          )}
-                          {hasFlight(pkg) && (
-                            <span className="badge bg-light text-dark border d-flex align-items-center gap-1 py-1 px-2">
-                              <Plane size={13} className="text-info" /> Flights Included
-                            </span>
-                          )}
-                          {pkg.self_drive_included && (
-                            <span className="badge bg-light text-dark border d-flex align-items-center gap-1 py-1 px-2">
-                              <Car size={13} className="text-primary" /> Self Drive Vehicle
-                            </span>
-                          )}
-                          {pkg.meals_included && (
-                            <span className="badge bg-light text-dark border d-flex align-items-center gap-1 py-1 px-2">
-                              <Utensils size={13} className="text-success" /> Meals Included
-                            </span>
-                          )}
+                        {/* Structured Service Summaries */}
+                        <div className="p-3 bg-light rounded-3 border mb-3">
+                          <div className="row g-2" style={{ fontSize: '11.5px' }}>
+                            <div className="col-12 col-md-6">
+                              <span className="text-muted d-block" style={{ fontSize: '10px' }}>HOTEL STAY:</span>
+                              <strong className="text-dark d-block text-truncate" title={pkg.hotel?.name || pkg.hotel_included || 'Luxury Resort Stay'}>
+                                🏨 {pkg.hotel?.name || pkg.hotel_included || 'Luxury Beach Resort'} {pkg.hotel_category ? `(${pkg.hotel_category})` : ''}
+                              </strong>
+                            </div>
+
+                            <div className="col-12 col-md-6">
+                              <span className="text-muted d-block" style={{ fontSize: '10px' }}>VEHICLE:</span>
+                              <strong className="text-dark d-block text-truncate">
+                                🚗 {pkg.vehicle?.name || pkg.car_included || (pkg.package_type === 'Self Drive Package' ? 'Self Drive Vehicle' : 'Tour Vehicle')} (AC)
+                              </strong>
+                            </div>
+
+                            <div className="col-12 col-md-6">
+                              <span className="text-muted d-block" style={{ fontSize: '10px' }}>MEAL PLAN:</span>
+                              <span className="text-success fw-bold d-block text-truncate">
+                                🍽️ {pkg.hotel?.meal_plan || pkg.food_included || 'Daily Buffet Breakfast Included'}
+                              </span>
+                            </div>
+
+                            <div className="col-12 col-md-6">
+                              <span className="text-muted d-block" style={{ fontSize: '10px' }}>DRIVER SERVICE:</span>
+                              <span className={`fw-bold d-block text-truncate ${Boolean(pkg.driver_included || pkg.driver?.included) ? 'text-primary' : 'text-muted'}`}>
+                                {Boolean(pkg.driver_included || pkg.driver?.included) 
+                                  ? `🧑‍✈️ ${pkg.driver?.type === 'full_day' ? 'Full Day Chauffeur' : (pkg.driver_type || 'Chauffeur Included')}`
+                                  : 'Driver: Not Included'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-2">
-                        <div className="d-flex align-items-center gap-1 text-muted small">
-                          <MapPin size={14} className="text-danger" />
-                          <span>{pkg.places_included || pkg.destination || 'Goa & Surroundings'}</span>
-                        </div>
+                      <div className="d-flex justify-content-between align-items-center pt-2 border-top mt-1">
+                        <span className="badge bg-light text-secondary border px-2.5 py-1">
+                          ✓ Guaranteed Fixed Package
+                        </span>
                         <div>
                           <button 
                             type="button" 

@@ -683,7 +683,7 @@ class BookingService {
             $tenantId = $payload['tenant_id'] ?? ($actor['tenant_id'] ?? 'admin');
 
             $sqlMaster = "INSERT INTO bookings (
-                id, parent_booking_id, name, phone, email, license, pickup_loc, pickup_date, pickup_time, drop_date, drop_time,
+                id, parent_booking_id, name, phone, email, license, pickup_loc, drop_loc, pickup_date, pickup_time, drop_date, drop_time,
                 departure_date, return_date, check_in_date, check_out_date, duration, item_id, item_name,
                 booking_days, total_amount, amount_paid, remaining_amount, total_paid, status, payment_status,
                 customizations, created_at, payment_method, admin_id, driver_required, driver_charge,
@@ -704,7 +704,7 @@ class BookingService {
                 customer_country, customer_country_code, customer_category, customer_currency,
                 exchange_rate_used, converted_display_amount, currency_rate_timestamp
             ) VALUES (
-                ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?,
@@ -790,6 +790,7 @@ class BookingService {
                 $custEmail,
                 $rawLicense,
                 $payload['pickup_loc'] ?? ($payload['pickup_location'] ?? 'Goa'),
+                $payload['drop_loc'] ?? ($payload['drop_location'] ?? ($payload['driver_drop_loc'] ?? null)),
                 $depDate,
                 $payload['pickup_time'] ?? '10:00 AM',
                 $retDate,
@@ -1038,6 +1039,7 @@ class BookingService {
         string $tenantId
     ): array {
         $children = [];
+        $initStatus = $payload['status'] ?? 'Confirmed';
 
         // Fetch package details
         $stmtPkg = $pdo->prepare("SELECT * FROM packages WHERE id = ?");
@@ -1047,7 +1049,7 @@ class BookingService {
         $hotelName = $payload['hotel_name'] ?? ($pkg['hotel_included'] ?? '');
         $carName = $payload['car_name'] ?? ($pkg['car_included'] ?? '');
         $pickupDropInc = $payload['pickup_drop_included'] ?? ($pkg['pickup_drop_included'] ?? '');
-        $driverReq = (!empty($payload['driver_required']) || !empty($pickupDropInc));
+        $driverReq = (!empty($payload['driver_required']) || !empty($pickupDropInc) || !empty($pkg['driver_included']));
 
         // 1. Hotel Child Allocation (Only for packages with overnight stay >= 1 night)
         $stayNights = (!empty($pickupDate) && !empty($dropDate)) ? max(0, (int)round((strtotime($dropDate) - strtotime($pickupDate)) / 86400)) : 0;
@@ -1116,12 +1118,15 @@ class BookingService {
             }
 
             $childVehId = 'BK-V-' . strtoupper(substr(uniqid(), -6));
+            $childPickupLoc = $payload['pickup_loc'] ?? ($payload['pickup_location'] ?? 'Goa Airport');
+            $childDropLoc = $payload['drop_loc'] ?? ($payload['drop_location'] ?? null);
             $stmtInsV = $pdo->prepare("INSERT INTO bookings (
                 id, parent_booking_id, name, phone, email, item_id, item_name, type,
+                pickup_loc, drop_loc,
                 pickup_date, drop_date, departure_date, return_date, booking_days,
                 status, payment_status, total_amount, amount_paid, created_at, admin_id,
                 vendor_id, physical_unit_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'car', ?, ?, ?, ?, ?, ?, 'Paid', 0, 0, ?, ?, ?, ?)");
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'car', ?, ?, ?, ?, ?, ?, ?, ?, 'Paid', 0, 0, ?, ?, ?, ?)");
             $stmtInsV->execute([
                 $childVehId,
                 $masterBookingId,
@@ -1130,6 +1135,8 @@ class BookingService {
                 $custEmail,
                 $carId,
                 $car['name'] ?? $carName,
+                $childPickupLoc,
+                $childDropLoc,
                 $pickupDate,
                 $dropDate,
                 $pickupDate,
@@ -1147,15 +1154,17 @@ class BookingService {
         // 3. Driver Child Allocation
         if ($driverReq) {
             $childDriverId = 'BK-D-' . strtoupper(substr(uniqid(), -6));
-            $driverDays = $daysCount;
-            // Driver standard rates: ₹800/day (₹400 pickup + ₹400 drop)
-            $driverCharge = 800 * $driverDays;
+            $driverDays = max(1, $daysCount);
+            $driverEarning = !empty($pkg['driver_amount']) ? intval($pkg['driver_amount']) : (800 * $driverDays);
+            $driverCharge = (!empty($pkg['driver_pricing_type']) && $pkg['driver_pricing_type'] === 'additional_fee') ? $driverEarning : 0;
+            $driverServiceType = $payload['driver_service_type'] ?? ($pkg['driver_type'] ?? 'full_day');
+
             $stmtInsD = $pdo->prepare("INSERT INTO bookings (
                 id, parent_booking_id, name, phone, email, item_id, item_name, type,
-                pickup_date, drop_date, driver_required, driver_days, driver_charge,
+                pickup_date, drop_date, driver_required, driver_service_type, driver_days, driver_charge,
                 driver_earning, driver_job_status, driver_payment_status,
                 status, payment_status, total_amount, amount_paid, created_at, admin_id
-            ) VALUES (?, ?, ?, ?, ?, 'driver-transfer', 'Airport Transfer & Sightseeing Driver', 'driver', ?, ?, 1, ?, ?, ?, 'Pending', 'Pending', ?, 'Paid', 0, 0, ?, ?)");
+            ) VALUES (?, ?, ?, ?, ?, 'driver-transfer', 'Airport Transfer & Sightseeing Driver', 'driver', ?, ?, 1, ?, ?, ?, ?, 'Pending', 'Pending', ?, 'Paid', 0, 0, ?, ?)");
             $stmtInsD->execute([
                 $childDriverId,
                 $masterBookingId,
@@ -1164,9 +1173,10 @@ class BookingService {
                 $custEmail,
                 $pickupDate,
                 $dropDate,
+                $driverServiceType,
                 $driverDays,
                 $driverCharge,
-                $driverCharge,
+                $driverEarning,
                 $initStatus,
                 date('Y-m-d H:i:s'),
                 $tenantId

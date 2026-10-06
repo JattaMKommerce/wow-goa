@@ -10,8 +10,9 @@ export default function CustomerDriverTripsTab({
   bookings = [],
   onOpenBookingDetails
 }) {
-  // Filter bookings that requested a chauffeur / driver
+  // Filter bookings that requested a chauffeur / driver (excluding child bookings)
   const driverTrips = (bookings || []).filter(b => {
+    if (b.parent_booking_id && String(b.parent_booking_id).trim() !== '') return false;
     const rawType = String(b.package_type || b.type || '').toLowerCase();
     const rawItem = String(b.item_name || b.package_name || b.vehicle_name || '').toLowerCase();
     const rawId = String(b.item_id || '').toLowerCase();

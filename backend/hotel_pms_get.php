@@ -299,7 +299,7 @@ if ($resource === 'pms_stats' || $resource === 'pms_get_stats') {
     }
 
     $unread = count(array_filter($notifs, fn($n) => intval($n['is_read']) === 0));
-    echo json_encode(['success' => true, 'notifications' => $notifs, 'unread_count' => $unread]);
+    echo json_encode(['success' => true, 'notifications' => normalizeNotificationsList($notifs), 'unread_count' => $unread]);
     exit();
 
 } elseif ($resource === 'hotel_support_tickets' || $resource === 'pms_tickets' || $resource === 'pms_list_tickets') {

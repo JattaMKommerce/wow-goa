@@ -33,6 +33,11 @@ export default function AdminWalletRecharges({ vendors }) {
           status: status
         })
       });
+      window.dispatchEvent(new CustomEvent('vendor-wallet-updated', { detail: { id, status } }));
+      window.dispatchEvent(new CustomEvent('tripgalileo-notification-sync'));
+      try {
+        localStorage.setItem('tg_wallet_updated', Date.now().toString());
+      } catch (_) {}
       fetchData();
     } catch (e) {
       alert('Error: ' + e.message);

@@ -512,4 +512,432 @@ body.voucher-modal-active {
   }
 }
 
+/* On screen, the dedicated voucher print container is strictly hidden */
+.voucher-print-container,
+.checkout-step4-print-only {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* ==========================================================================
+   WOW GOA — AUTHORITATIVE PRINT STYLES FOR BOOKING VOUCHER (A4 PORTRAIT)
+   Guaranteed 100% clean, single-page A4 print without ambient UI bleed
+   ========================================================================== */
+@media print {
+  /* 1. Page Setup: Standard A4 Portrait */
+  @page {
+    size: A4 portrait;
+    margin: 6mm 8mm;
+  }
+
+  /* 2. Global Resets for Print Canvas */
+  html, body {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 3. Never display script, style, head, or meta tags under any circumstances */
+  head, script, style, link, meta {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* 4. Complete elimination of all ambient application UI in print */
+  header, footer, nav, .navbar, .site-header, .site-footer,
+  #hero-banner, .hero-section, .hero-subtitle, [class*="hero"],
+  #search, .booking-widget-wrapper, .booking-widget-card, [class*="booking-widget"], [class*="search-widget"],
+  .package-customization-flow,
+  .checkout-step4-screen-content,
+  .modal:not(.modal-backdrop-custom):not(.voucher-modal-backdrop),
+  .modal-backdrop:not(.modal-backdrop-custom):not(.voucher-modal-backdrop),
+  .no-print, .no-print * {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* 5. When any voucher or portal container is present or active on body, hide #root DOM entirely */
+  body:has(.voucher-print-container) > #root,
+  body:has(.voucher-modal-backdrop) > #root,
+  body:has(.modal-backdrop-custom) > #root,
+  body:has(.booking-voucher-document) > #root,
+  body:has(.invoice-modal-backdrop) > #root,
+  body.voucher-modal-active > #root,
+  body.voucher-print-active > #root {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 6. Dedicated voucher print container: Clean static block at top of print canvas */
+  .voucher-print-container,
+  .checkout-step4-print-only,
+  .voucher-print-container.d-none,
+  .checkout-step4-print-only.d-none,
+  .voucher-print-container[class*="d-none"],
+  .checkout-step4-print-only[class*="d-none"] {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    float: none !important;
+    clear: both !important;
+  }
+
+  /* 7. Modal backdrop unclipped print flow */
+  .modal-backdrop-custom,
+  .voucher-modal-backdrop {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow: visible !important;
+    z-index: auto !important;
+  }
+
+  .modal-backdrop-custom .card {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  .modal-backdrop-custom .card-body,
+  .modal-backdrop-custom .modal-voucher-scroll-body {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  /* 8. The Booking Voucher Document itself: clean, crisp, single A4 page fitting */
+  .booking-voucher-document {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 740px !important;
+    margin: 0 auto !important;
+    padding: 6px 12px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .booking-voucher-document * {
+    visibility: visible !important;
+  }
+
+  /* Explicitly prevent any style or script tag from rendering */
+  .booking-voucher-document style,
+  .voucher-print-container style,
+  style, script {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* 9. Compact box spacing inside print to guarantee single page fit */
+  .booking-voucher-document .border {
+    margin-bottom: 4px !important;
+    padding: 4px 8px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .booking-voucher-document table,
+  .booking-voucher-document tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .booking-voucher-document ol {
+    margin-bottom: 0 !important;
+  }
+}
+
+/* ==========================================================================
+   Trip Package Management Card Responsive Architecture
+   ========================================================================== */
+
+/* 1. Main Card Container */
+.pkg-mgmt-card {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  background: #ffffff;
+  border-radius: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box !important;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pkg-mgmt-card:hover {
+  border-color: rgba(255, 99, 51, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+}
+
+/* 2. Thumbnail Container & Image */
+.pkg-mgmt-card-thumb {
+  width: 100% !important;
+  height: 180px !important;
+  flex-shrink: 0 !important;
+  overflow: hidden;
+  background-color: #f1f5f9;
+}
+
+.pkg-mgmt-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 3. Inclusions Badges - Must wrap, never force width */
+.pkg-mgmt-badge {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  text-align: left !important;
+  line-height: 1.3 !important;
+  font-size: 0.72rem !important;
+  max-width: 100% !important;
+  font-weight: 500 !important;
+}
+
+/* 4. Content Area: Mobile Default (< 768px) */
+.pkg-mgmt-card-content {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 0.75rem 0.25rem 0.25rem 0.25rem;
+  gap: 0.75rem;
+}
+
+.pkg-mgmt-info-col {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.pkg-mgmt-bottom-bar {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  gap: 0.75rem;
+}
+
+.pkg-mgmt-price-col {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  padding: 0.6rem 0.85rem !important;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-sizing: border-box !important;
+}
+
+.pkg-mgmt-actions-col {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.45rem !important;
+  width: 100% !important;
+}
+
+.pkg-mgmt-actions-col .btn {
+  max-width: 100% !important;
+}
+
+/* 5. Tablet Reflow (768px to 1199.98px): Image left, Details right (Info top, Price+Actions bottom) */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .pkg-mgmt-card {
+    flex-direction: row !important;
+    align-items: stretch !important;
+  }
+
+  .pkg-mgmt-card-thumb {
+    width: 180px !important;
+    min-width: 180px !important;
+    max-width: 180px !important;
+    height: auto !important;
+    min-height: 160px !important;
+    border-radius: 0.5rem;
+  }
+
+  .pkg-mgmt-card-content {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    padding: 0 0 0 1rem !important;
+    gap: 0.75rem !important;
+    flex: 1 1 auto !important;
+  }
+
+  .pkg-mgmt-info-col {
+    flex: 1 1 auto !important;
+  }
+
+  .pkg-mgmt-bottom-bar {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.75rem !important;
+    padding-top: 0.75rem !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+    width: 100% !important;
+  }
+
+  .pkg-mgmt-price-col {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 0.75rem !important;
+    width: auto !important;
+    background: transparent !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  .pkg-mgmt-actions-col {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    width: auto !important;
+    margin-left: auto !important;
+  }
+}
+
+/* 6. Desktop 4-Section Layout (>= 1200px): | IMAGE | INFO / BADGES | PRICE | ACTIONS | */
+@media (min-width: 1200px) {
+  .pkg-mgmt-card {
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  .pkg-mgmt-card-thumb {
+    width: 190px !important;
+    min-width: 190px !important;
+    max-width: 190px !important;
+    height: 145px !important;
+    border-radius: 0.5rem;
+  }
+
+  .pkg-mgmt-card-content {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 0 0 0 1.25rem !important;
+    gap: 1.25rem !important;
+    flex: 1 1 0% !important;
+  }
+
+  .pkg-mgmt-info-col {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+  }
+
+  .pkg-mgmt-bottom-bar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+    gap: 1.25rem !important;
+    width: auto !important;
+  }
+
+  .pkg-mgmt-price-col {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    min-width: 130px !important;
+    width: auto !important;
+    padding: 0 1.25rem !important;
+    background: transparent !important;
+    border-left: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+  }
+
+  .pkg-mgmt-actions-col {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    min-width: 215px !important;
+    width: 215px !important;
+    gap: 0.45rem !important;
+  }
+}
+
+
 

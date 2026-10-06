@@ -299,7 +299,7 @@ export default function CustomerPortalPage({
 
     const allCandidateBookings = Array.from(bookingMap.values());
 
-    return allCandidateBookings.filter(b => {
+    const verifiedBookings = allCandidateBookings.filter(b => {
       const bCid = String(b.customer_id || '').trim().toLowerCase();
       const bPhone = String(b.customer_phone || b.phone || '').replace(/\D/g, '');
       const bEmail = String(b.customer_email || b.email || '').trim().toLowerCase();
@@ -313,7 +313,88 @@ export default function CustomerPortalPage({
 
       return false;
     });
-  }, [bookings, liveCustomerBookings, customerUser]);
+
+    // ─── MASTER & CHILD BOOKING GROUPING ARCHITECTURE ───
+    // Child bookings (with non-empty parent_booking_id) belong to their parent Trip Package.
+    // They must NEVER appear as separate customer bookings or inflate booking counts.
+    const childBookings = verifiedBookings.filter(b => Boolean(b.parent_booking_id && String(b.parent_booking_id).trim() !== ''));
+    const childrenByParent = new Map();
+    childBookings.forEach(c => {
+      const pId = String(c.parent_booking_id).trim();
+      if (!childrenByParent.has(pId)) childrenByParent.set(pId, []);
+      childrenByParent.get(pId).push(c);
+    });
+
+    // Master and Standalone bookings (bookings where parent_booking_id is empty/null)
+    const masterBookings = verifiedBookings.filter(b => !b.parent_booking_id || String(b.parent_booking_id).trim() === '');
+
+    return masterBookings.map(master => {
+      const mId = String(master.id || master.booking_id || '').trim();
+      const children = childrenByParent.get(mId) || [];
+      
+      const hotelChild = children.find(c => c.type === 'hotel' || String(c.id).startsWith('BK-H-'));
+      const vehicleChild = children.find(c => c.type === 'car' || c.type === 'vehicle' || String(c.id).startsWith('BK-V-'));
+      const driverChild = children.find(c => c.type === 'driver' || String(c.id).startsWith('BK-D-'));
+      const sightseeingChildren = children.filter(c => c.type === 'sightseeing' || String(c.id).startsWith('BK-S-'));
+      const activityChildren = children.filter(c => c.type === 'activity' || String(c.id).startsWith('BK-A-'));
+
+      const matchedPkg = (packages || []).find(p => 
+        (p && master.item_id && String(p.id).toLowerCase() === String(master.item_id).toLowerCase()) ||
+        (p && p.name && (p.name.toLowerCase() === String(master.item_name || '').toLowerCase() || p.name.toLowerCase() === String(master.package_name || '').toLowerCase()))
+      );
+
+      const isPkg = master.type === 'package' || 
+                    master.package_type === 'Trip Package' || 
+                    String(master.package_type || '').toLowerCase().includes('package') ||
+                    Boolean(matchedPkg);
+
+      if (!isPkg && children.length === 0) {
+        return master;
+      }
+
+      // Consolidate package master with its child components
+      return {
+        ...master,
+        type: 'package',
+        package_type: master.package_type || 'Trip Package',
+        child_bookings: children,
+        hotel_child: hotelChild,
+        vehicle_child: vehicleChild,
+        driver_child: driverChild,
+        sightseeing_children: sightseeingChildren,
+        activity_children: activityChildren,
+        
+        // Configured Hotel
+        hotel_name: master.hotel_name || hotelChild?.item_name || matchedPkg?.hotel_included || matchedPkg?.hotel?.name || 'Resort Stay Included',
+        hotel_category: master.hotel_category || matchedPkg?.hotel_category || matchedPkg?.hotel?.category || '4 Star',
+        room_type: master.room_type || master.hotel_room_type || matchedPkg?.hotel_room_type || matchedPkg?.hotel?.room_type || 'Deluxe Room',
+        meal_plan: master.meal_plan || matchedPkg?.food_included || matchedPkg?.hotel?.meal_plan || 'Daily Buffet Breakfast Included',
+        
+        // Configured Vehicle
+        vehicle_name: master.vehicle_name || vehicleChild?.item_name || matchedPkg?.car_included || matchedPkg?.vehicle?.name || 'Maruti Suzuki Swift',
+        vehicle_details: vehicleChild?.physical_unit_id ? `Assigned Unit: ${vehicleChild.physical_unit_id}` : (matchedPkg?.vehicle?.seats || 'AC Vehicle with Chauffeur'),
+        
+        // Configured Driver
+        driver_required: master.driver_required ?? (matchedPkg?.driver_included ? 1 : (driverChild ? 1 : 0)),
+        driver_service_type: master.driver_service_type || driverChild?.driver_service_type || (matchedPkg?.driver_type === 'full_day' ? 'Full Day Chauffeur' : 'Full Day Chauffeur'),
+        driver_status: driverChild?.assigned_driver_name ? `Assigned: ${driverChild.assigned_driver_name}` : (master.assigned_driver_name ? `Assigned: ${master.assigned_driver_name}` : '24/7 Local Concierge Assigned'),
+        assigned_driver_name: master.assigned_driver_name || driverChild?.assigned_driver_name,
+        assigned_driver_phone: master.assigned_driver_phone || driverChild?.assigned_driver_phone,
+        
+        // Configured Sightseeing & Activities
+        sightseeing_places: master.sightseeing_places || master.places_included || matchedPkg?.places_included || (matchedPkg?.sightseeing_custom_json ? (typeof matchedPkg.sightseeing_custom_json === 'string' ? JSON.parse(matchedPkg.sightseeing_custom_json).join(', ') : matchedPkg.sightseeing_custom_json.join(', ')) : 'Fort Aguada, Baga Beach, Anjuna Beach, Basilica of Bom Jesus, Mandovi River Cruise'),
+        activities_list: matchedPkg?.activity_custom_json ? (typeof matchedPkg.activity_custom_json === 'string' ? JSON.parse(matchedPkg.activity_custom_json) : matchedPkg.activity_custom_json) : (activityChildren.length > 0 ? activityChildren.map(a => a.item_name) : [{ name: 'Mandovi Sunset River Cruise', duration: '1 Hour' }]),
+        
+        // Configured Flight
+        flight_details: (master.flight_number || master.airline) ? `${master.airline || 'Flight'} ${master.flight_number}` : ((matchedPkg?.flights_included === '1' || matchedPkg?.flight_source === 'existing') ? 'Included Flight' : 'Without Flight'),
+        
+        // Configured Day-wise Itinerary
+        day_wise_itinerary: master.day_wise_itinerary || master.itinerary || matchedPkg?.day_wise_itinerary || matchedPkg?.itinerary,
+        
+        package_data: matchedPkg
+      };
+    });
+  }, [bookings, liveCustomerBookings, customerUser, packages]);
 
   // Helper to verify if a mobile number has ANY active or past bookings
   const findMatchingBooking = async (phoneToMatch) => {
@@ -723,7 +804,8 @@ export default function CustomerPortalPage({
         pickup_date: pDate,
         pickup_time: details.pickupTime || '10:00 AM',
         drop_date: dDate,
-        drop_location: details.dropLoc || details.pickupLoc || 'Goa Airport',
+        drop_loc: details.drop_loc || details.dropLoc || null,
+        drop_location: details.drop_location || details.dropLoc || null,
         drop_time: details.dropTime || '10:00 AM',
         item_id: directBookingItem?.id || 'custom',
         item_name: directBookingItem?.name || 'Trip Booking',

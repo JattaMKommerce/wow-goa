@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, ShieldCheck, Download, Printer, ArrowRight, Plane, Car, Hotel, MapPin, Calendar, Users, Phone, Mail, Compass, MessageCircle } from 'lucide-react';
 import { CashbackRewardCard } from '../../components/common/BookingConfirmationCard';
+import BookingVoucher from '../../components/common/BookingVoucher';
 
 export default function PackageCheckoutStep4({
   pkg,
@@ -29,12 +31,76 @@ export default function PackageCheckoutStep4({
   const step4Days = step4Nights + 1;
   const step4Duration = bookingRecord?.duration || `${step4Nights} Nights / ${step4Days} Days`;
 
-  const handlePrint = () => {
-    window.print();
+  const unifiedBookingRecord = {
+    id: bookingId,
+    booking_id: bookingId,
+    service_type: 'package',
+    type: 'package',
+    item_type: 'package',
+    item_name: pkg?.name || 'WOW GOA Holiday Tour Package',
+    package_name: pkg?.name || 'WOW GOA Holiday Tour Package',
+    customer_name: leadName,
+    guest_name: leadName,
+    customer_phone: contactPhone,
+    phone: contactPhone,
+    customer_email: contactEmail,
+    email: contactEmail,
+    pickup_date: pickupDate,
+    drop_date: dropDate,
+    duration: step4Duration,
+    booking_days: step4Days,
+    pickup_loc: 'Goa Airport / Railway Station / Hotel',
+    drop_loc: 'Goa Airport / Railway Station / Hotel',
+    total_amount: total,
+    amount_paid: amountPaid,
+    remaining_amount: balanceDue,
+    payment_status: balanceDue <= 0 ? 'Paid' : 'Pending',
+    payment_method: isAdvance ? '25% Advance Hold' : 'Online Payment',
+    status: 'Confirmed',
+    hotel_name: pkg?.hotel_included || 'Luxury Resort Accommodation',
+    created_at: new Date().toISOString(),
+    ...bookingRecord
+  };
+
+  useEffect(() => {
+    const handleBeforePrint = () => {
+      document.body.classList.add('voucher-print-active');
+    };
+    const handleAfterPrint = () => {
+      document.body.classList.remove('voucher-print-active');
+    };
+    window.addEventListener('beforeprint', handleBeforePrint);
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      document.body.classList.remove('voucher-print-active');
+      window.removeEventListener('beforeprint', handleBeforePrint);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, []);
+
+  const handlePrint = (e) => {
+    if (e) {
+      if (e.preventDefault) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+    }
+    document.body.classList.add('voucher-print-active');
+    const cleanup = () => {
+      document.body.classList.remove('voucher-print-active');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    try {
+      window.focus();
+    } catch (err) {}
+    setTimeout(() => {
+      window.print();
+      setTimeout(cleanup, 2000);
+    }, 50);
   };
 
   return (
-    <div className="container py-4" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <>
+      <div className="checkout-step4-screen-content container py-4" style={{ fontFamily: "'Inter', sans-serif" }}>
       
       {/* Top Breadcrumb / Done Navigation */}
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -46,22 +112,14 @@ export default function PackageCheckoutStep4({
         >
           ← Back to Packages
         </button>
-        <div className="d-flex gap-2">
-          <button 
-            type="button" 
-            onClick={handlePrint} 
-            className="btn btn-light border rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 text-dark"
-            style={{ fontSize: '0.85rem' }}
-          >
-            <Printer size={15} /> Print Receipt
-          </button>
+        <div>
           <button 
             type="button" 
             onClick={handlePrint} 
             className="btn btn-primary rounded-pill px-4 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-sm"
             style={{ background: '#00B8D9', borderColor: '#00B8D9', fontSize: '0.85rem' }}
           >
-            <Download size={15} /> Download Voucher
+            <Download size={15} /> Download / Print Voucher
           </button>
         </div>
       </div>
@@ -302,5 +360,14 @@ export default function PackageCheckoutStep4({
         </div>
       </div>
     </div>
+
+    {/* ─── Dedicated Voucher Print Container (Portalled to document.body for clean single-page print) ─── */}
+    {typeof document !== 'undefined' && document.body && createPortal(
+      <div className="voucher-print-container checkout-step4-print-only">
+        <BookingVoucher booking={unifiedBookingRecord} isModal={false} />
+      </div>,
+      document.body
+    )}
+  </>
   );
 }

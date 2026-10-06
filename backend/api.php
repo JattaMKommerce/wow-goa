@@ -161,6 +161,7 @@ if (!$connected) {
             "ALTER TABLE users ADD COLUMN last_active_at DATETIME DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN date_of_birth VARCHAR(50) DEFAULT NULL",
             "ALTER TABLE bookings ADD COLUMN date_of_birth VARCHAR(50) DEFAULT NULL",
+            "ALTER TABLE bookings ADD COLUMN drop_loc VARCHAR(255) DEFAULT NULL",
             "ALTER TABLE bookings ADD COLUMN driver_required INT DEFAULT 0",
             "ALTER TABLE bookings ADD COLUMN assigned_driver_id VARCHAR(50) DEFAULT NULL",
             "ALTER TABLE bookings ADD COLUMN driver_assigned_at DATETIME DEFAULT NULL",
@@ -729,6 +730,28 @@ function seedDatabaseIfEmpty($pdo) {
         "ALTER TABLE users ADD COLUMN status VARCHAR(50) DEFAULT 'active'",
         "ALTER TABLE vendors ADD COLUMN admin_id VARCHAR(100) DEFAULT 'admin'",
         "ALTER TABLE packages ADD COLUMN admin_id VARCHAR(100) DEFAULT 'admin'",
+        "ALTER TABLE packages ADD COLUMN status VARCHAR(50) DEFAULT 'published'",
+        "ALTER TABLE packages ADD COLUMN hotel_source VARCHAR(50) DEFAULT 'inventory'",
+        "ALTER TABLE packages ADD COLUMN hotel_inventory_id VARCHAR(50) DEFAULT NULL",
+        "ALTER TABLE packages ADD COLUMN hotel_selection_type VARCHAR(50) DEFAULT 'specific'",
+        "ALTER TABLE packages ADD COLUMN hotel_category VARCHAR(100) DEFAULT NULL",
+        "ALTER TABLE packages ADD COLUMN hotel_room_type VARCHAR(100) DEFAULT NULL",
+        "ALTER TABLE packages ADD COLUMN hotel_custom_json TEXT DEFAULT NULL",
+        "ALTER TABLE packages ADD COLUMN vehicle_source VARCHAR(50) DEFAULT 'inventory'",
+        "ALTER TABLE packages ADD COLUMN vehicle_inventory_id VARCHAR(50) DEFAULT NULL",
+        "ALTER TABLE packages ADD COLUMN vehicle_type VARCHAR(50) DEFAULT 'car'",
+        "ALTER TABLE packages ADD COLUMN vehicle_custom_json TEXT DEFAULT NULL",
+        "ALTER TABLE packages ADD COLUMN driver_included BOOLEAN DEFAULT 0",
+        "ALTER TABLE packages ADD COLUMN driver_type VARCHAR(50) DEFAULT NULL",
+        "ALTER TABLE packages ADD COLUMN driver_pricing_type VARCHAR(50) DEFAULT 'included'",
+        "ALTER TABLE packages ADD COLUMN driver_amount INT DEFAULT 0",
+        "ALTER TABLE packages ADD COLUMN sightseeing_custom_json TEXT DEFAULT NULL",
+        "ALTER TABLE packages ADD COLUMN activity_source VARCHAR(50) DEFAULT 'inventory'",
+        "ALTER TABLE packages ADD COLUMN activity_inventory_id VARCHAR(50) DEFAULT NULL",
+        "ALTER TABLE packages ADD COLUMN activity_custom_json TEXT DEFAULT NULL",
+        "ALTER TABLE packages ADD COLUMN flight_source VARCHAR(50) DEFAULT 'inventory'",
+        "ALTER TABLE packages ADD COLUMN flight_inventory_id VARCHAR(50) DEFAULT NULL",
+        "ALTER TABLE packages ADD COLUMN flight_custom_json TEXT DEFAULT NULL",
         "ALTER TABLE bookings ADD COLUMN admin_id VARCHAR(100) DEFAULT 'admin'",
         "ALTER TABLE hotels ADD COLUMN admin_id VARCHAR(100) DEFAULT 'admin'",
         "ALTER TABLE cars ADD COLUMN admin_id VARCHAR(100) DEFAULT 'admin'",
@@ -2486,7 +2509,7 @@ function createAuthoritativeNotification($pdo, $recipientUserId, $role, $type, $
     try {
         $notifId = 'notif_' . uniqid();
         $isSqlite = ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite');
-        $now = date('Y-m-d H:i:s');
+        $now = gmdate('Y-m-d H:i:s');
 
         if ($isSqlite) {
             $stmt = $pdo->prepare("INSERT INTO notifications (user_id, role, type, title, message, reference_type, reference_id, b2b_partner_id, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)");
@@ -4098,10 +4121,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode($data);
             exit;} elseif ($resource === 'packages') {
-            $stmt = $pdo->prepare("SELECT * FROM packages WHERE (admin_id = ? OR admin_id IS NULL OR admin_id = '' OR admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin') ORDER BY id ASC");
-            $stmt->execute([$tenant_id, $tenant_id, $tenant_id]);
+            $actor = authenticateRequest($pdo, false);
+            $isAdminOrSuper = ($actor && in_array(strtolower($actor['role'] ?? ''), ['admin', 'superadmin'])) || (isset($_GET['include_drafts']) && $_GET['include_drafts'] === '1');
+
+            $sql = "SELECT * FROM packages WHERE (admin_id = ? OR admin_id IS NULL OR admin_id = '' OR admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin')";
+            $params = [$tenant_id, $tenant_id, $tenant_id];
+
+            if (!$isAdminOrSuper) {
+                // Safeguard 2: For public/customer, treat (status = 'published' OR status IS NULL OR status = '') as visible
+                $sql .= " AND (LOWER(status) = 'published' OR status IS NULL OR status = '')";
+            }
+            $sql .= " ORDER BY id ASC";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
             foreach ($data as &$pkg) {
+                $pkg['status'] = (!empty($pkg['status']) && strtolower(trim($pkg['status'])) === 'draft') ? 'draft' : 'published';
+
                 $mainImg = $pkg['image'] ?? ($pkg['image_url'] ?? ($pkg['imageUrl'] ?? ''));
                 if (!$mainImg && !empty($pkg['images_json'])) {
                     $parsedImgs = json_decode($pkg['images_json'], true);
@@ -4127,7 +4164,198 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         $pkg['itinerary'] = $parsedItin;
                     }
                 }
+
+                // Normalized Hotel Component
+                $hotelSource = !empty($pkg['hotel_source']) ? $pkg['hotel_source'] : 'inventory';
+                $hotelCustom = !empty($pkg['hotel_custom_json']) ? (is_string($pkg['hotel_custom_json']) ? json_decode($pkg['hotel_custom_json'], true) : $pkg['hotel_custom_json']) : [];
+                $hotelName = $pkg['hotel_included'] ?? '';
+                if ($hotelSource === 'custom' && !empty($hotelCustom['name'])) {
+                    $hotelName = $hotelCustom['name'];
+                }
+
+                // Resolve actual hotel image (inventory or custom)
+                $hotelImage = null;
+                if ($hotelSource === 'custom') {
+                    $hotelImage = $hotelCustom['image'] ?? null;
+                } elseif (!empty($pkg['hotel_inventory_id'])) {
+                    $stmtH = $pdo->prepare("SELECT image FROM hotels WHERE id = ?");
+                    $stmtH->execute([$pkg['hotel_inventory_id']]);
+                    $hRow = $stmtH->fetch(PDO::FETCH_ASSOC);
+                    if (!empty($hRow['image'])) {
+                        $hotelImage = $hRow['image'];
+                    }
+                }
+                if (!$hotelImage && $hotelSource !== 'custom' && !empty($pkg['hotel_included'])) {
+                    $stmtHByName = $pdo->prepare("SELECT image FROM hotels WHERE name = ? LIMIT 1");
+                    $stmtHByName->execute([$pkg['hotel_included']]);
+                    $hNameRow = $stmtHByName->fetch(PDO::FETCH_ASSOC);
+                    if (!empty($hNameRow['image'])) {
+                        $hotelImage = $hNameRow['image'];
+                    }
+                }
+
+                $resolvedHotelCat = !empty($pkg['hotel_category']) ? $pkg['hotel_category'] : ($hotelCustom['category'] ?? null);
+                if (empty($resolvedHotelCat) && !empty($hRow['stars'])) {
+                    $resolvedHotelCat = $hRow['stars'] . ' Star';
+                }
+                if (empty($resolvedHotelCat) && !empty($pkg['hotel_included'])) {
+                    if (preg_match('/(\d)\s*[-]?\s*Star/i', $pkg['hotel_included'], $m)) {
+                        $resolvedHotelCat = $m[1] . ' Star';
+                    }
+                }
+                if (empty($resolvedHotelCat)) {
+                    $resolvedHotelCat = '4 Star';
+                }
+
+                $pkg['hotel'] = [
+                    'source' => $hotelSource,
+                    'id' => $pkg['hotel_inventory_id'] ?? null,
+                    'name' => $hotelName,
+                    'selection_type' => !empty($pkg['hotel_selection_type']) ? $pkg['hotel_selection_type'] : 'specific',
+                    'category' => $resolvedHotelCat,
+                    'room_type' => !empty($pkg['hotel_room_type']) ? $pkg['hotel_room_type'] : ($hotelCustom['room_type'] ?? null),
+                    'location' => $hotelCustom['location'] ?? null,
+                    'meal_plan' => $hotelCustom['meal_plan'] ?? ($pkg['food_included'] ?? null),
+                    'image' => $hotelImage,
+                    'description' => $hotelCustom['description'] ?? null,
+                    'custom_data' => $hotelCustom ?: null
+                ];
+                $pkg['hotel_included'] = $hotelName;
+                $pkg['hotel_category'] = $resolvedHotelCat;
+                $pkg['hotel_stars'] = $resolvedHotelCat;
+                $pkg['hotel_image'] = $hotelImage;
+
+                // Normalized Vehicle Component
+                $vehSource = !empty($pkg['vehicle_source']) ? $pkg['vehicle_source'] : 'inventory';
+                $vehType = !empty($pkg['vehicle_type']) ? $pkg['vehicle_type'] : 'car';
+                $vehCustom = !empty($pkg['vehicle_custom_json']) ? (is_string($pkg['vehicle_custom_json']) ? json_decode($pkg['vehicle_custom_json'], true) : $pkg['vehicle_custom_json']) : [];
+                $vehName = $pkg['car_included'] ?? '';
+                if ($vehSource === 'custom' && !empty($vehCustom['name'])) {
+                    $vehName = $vehCustom['name'];
+                }
+
+                // Resolve actual vehicle image (inventory car/bike or custom)
+                $vehImage = null;
+                if ($vehSource === 'custom') {
+                    $vehImage = $vehCustom['image'] ?? null;
+                } elseif (!empty($pkg['vehicle_inventory_id'])) {
+                    $vId = $pkg['vehicle_inventory_id'];
+                    $stmtC = $pdo->prepare("SELECT image FROM cars WHERE id = ?");
+                    $stmtC->execute([$vId]);
+                    $cRow = $stmtC->fetch(PDO::FETCH_ASSOC);
+                    if (!empty($cRow['image'])) {
+                        $vehImage = $cRow['image'];
+                    } else {
+                        $stmtB = $pdo->prepare("SELECT image FROM bikes WHERE id = ?");
+                        $stmtB->execute([$vId]);
+                        $bRow = $stmtB->fetch(PDO::FETCH_ASSOC);
+                        if (!empty($bRow['image'])) {
+                            $vehImage = $bRow['image'];
+                        }
+                    }
+                }
+                if (!$vehImage && $vehSource !== 'custom' && !empty($pkg['car_included'])) {
+                    $stmtCByName = $pdo->prepare("SELECT image FROM cars WHERE name = ? LIMIT 1");
+                    $stmtCByName->execute([$pkg['car_included']]);
+                    $cNameRow = $stmtCByName->fetch(PDO::FETCH_ASSOC);
+                    if (!empty($cNameRow['image'])) {
+                        $vehImage = $cNameRow['image'];
+                    } else {
+                        $stmtBByName = $pdo->prepare("SELECT image FROM bikes WHERE name = ? LIMIT 1");
+                        $stmtBByName->execute([$pkg['car_included']]);
+                        $bNameRow = $stmtBByName->fetch(PDO::FETCH_ASSOC);
+                        if (!empty($bNameRow['image'])) {
+                            $vehImage = $bNameRow['image'];
+                        }
+                    }
+                }
+
+                $pkg['vehicle'] = [
+                    'source' => $vehSource,
+                    'id' => $pkg['vehicle_inventory_id'] ?? null,
+                    'type' => $vehType,
+                    'name' => $vehName,
+                    'brand' => $vehCustom['brand'] ?? null,
+                    'model' => $vehCustom['model'] ?? null,
+                    'category' => $vehCustom['category'] ?? null,
+                    'transmission' => $vehCustom['transmission'] ?? null,
+                    'fuel' => $vehCustom['fuel'] ?? null,
+                    'seats' => $vehCustom['seats'] ?? null,
+                    'description' => $vehCustom['description'] ?? null,
+                    'image' => $vehImage,
+                    'custom_data' => $vehCustom ?: null
+                ];
+                $pkg['car_included'] = $vehName;
+                $pkg['vehicle_image'] = $vehImage;
+
+                // Sync resolved vehicle image into package gallery images (replace Thar/SUV placeholders)
+                if (!empty($vehImage)) {
+                    if (!empty($pkg['images']) && is_array($pkg['images'])) {
+                        $foundVehPlaceholder = false;
+                        foreach ($pkg['images'] as $idx => $img) {
+                            if (is_string($img) && (strpos($img, '1533473359331') !== false || strpos($img, '1533473359') !== false)) {
+                                $pkg['images'][$idx] = $vehImage;
+                                $foundVehPlaceholder = true;
+                                break;
+                            }
+                        }
+                        if (!$foundVehPlaceholder && !in_array($vehImage, $pkg['images'])) {
+                            if (count($pkg['images']) >= 3) {
+                                $pkg['images'][2] = $vehImage;
+                            } else {
+                                $pkg['images'][] = $vehImage;
+                            }
+                        }
+                    } else {
+                        $pkg['images'] = [$mainImg ?: $vehImage, $vehImage];
+                    }
+                    $pkg['images_json'] = json_encode($pkg['images']);
+                }
+
+                // Normalized Driver Service
+                $driverInc = (!empty($pkg['driver_included']) && ($pkg['driver_included'] == 1 || $pkg['driver_included'] === '1' || $pkg['driver_included'] === true)) ? 1 : 0;
+                $pkg['driver'] = [
+                    'included' => $driverInc,
+                    'type' => !empty($pkg['driver_type']) ? $pkg['driver_type'] : ($driverInc ? 'Full Day' : null),
+                    'pricing_type' => !empty($pkg['driver_pricing_type']) ? $pkg['driver_pricing_type'] : 'included',
+                    'amount' => intval($pkg['driver_amount'] ?? 0)
+                ];
+
+                // Normalized Sightseeing
+                $sightCustom = !empty($pkg['sightseeing_custom_json']) ? (is_string($pkg['sightseeing_custom_json']) ? json_decode($pkg['sightseeing_custom_json'], true) : $pkg['sightseeing_custom_json']) : [];
+                $pkg['sightseeing'] = [
+                    'places' => $pkg['places_included'] ?? '',
+                    'custom_items' => is_array($sightCustom) ? $sightCustom : []
+                ];
+
+                // Normalized Activity
+                $actSource = !empty($pkg['activity_source']) ? $pkg['activity_source'] : 'inventory';
+                $actCustom = !empty($pkg['activity_custom_json']) ? (is_string($pkg['activity_custom_json']) ? json_decode($pkg['activity_custom_json'], true) : $pkg['activity_custom_json']) : [];
+                $pkg['activity'] = [
+                    'source' => $actSource,
+                    'id' => $pkg['activity_inventory_id'] ?? null,
+                    'custom_items' => is_array($actCustom) ? $actCustom : []
+                ];
+
+                // Normalized Flight
+                $fltSource = !empty($pkg['flight_source']) ? $pkg['flight_source'] : 'inventory';
+                $fltCustom = !empty($pkg['flight_custom_json']) ? (is_string($pkg['flight_custom_json']) ? json_decode($pkg['flight_custom_json'], true) : $pkg['flight_custom_json']) : [];
+                $fltInc = !empty($pkg['flights_included']) ? $pkg['flights_included'] : null;
+                $pkg['flight'] = [
+                    'has_flight' => !empty($pkg['price_with_flight']) || (!empty($fltInc) && $fltInc !== '0'),
+                    'source' => $fltSource,
+                    'id' => $pkg['flight_inventory_id'] ?? null,
+                    'airline' => $fltCustom['airline'] ?? $fltInc,
+                    'flight_number' => $fltCustom['flight_number'] ?? null,
+                    'route' => $fltCustom['route'] ?? null,
+                    'departure' => $fltCustom['departure'] ?? null,
+                    'arrival' => $fltCustom['arrival'] ?? null,
+                    'flight_type' => $fltCustom['flight_type'] ?? null,
+                    'price' => isset($fltCustom['price']) ? intval($fltCustom['price']) : ($pkg['price_with_flight'] ? ($pkg['price_with_flight'] - $pkg['price']) : 0),
+                    'custom_data' => $fltCustom ?: null
+                ];
             }
+            unset($pkg);
             echo json_encode($data);
             exit;} elseif ($resource === 'vendor_cancellation_policies') {
             $vendorId = $_GET['vendor_id'] ?? '';
@@ -4735,7 +4963,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $cnt->execute([$targetId, $targetId]);
                 $unread = intval($cnt->fetch(PDO::FETCH_ASSOC)['unread'] ?? 0);
 
-                echo json_encode(['success' => true, 'notifications' => $notifs ?: [], 'unread_count' => $unread]);
+                echo json_encode(['success' => true, 'notifications' => normalizeNotificationsList($notifs), 'unread_count' => $unread]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'notifications' => [], 'unread_count' => 0]);
             }
@@ -4749,7 +4977,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $cnt->execute();
                 $unread = intval($cnt->fetch(PDO::FETCH_ASSOC)['unread'] ?? 0);
 
-                echo json_encode(['success' => true, 'notifications' => $notifs ?: [], 'unread_count' => $unread]);
+                echo json_encode(['success' => true, 'notifications' => normalizeNotificationsList($notifs), 'unread_count' => $unread]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'notifications' => [], 'unread_count' => 0]);
             }
@@ -4843,7 +5071,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $stmtC->execute($paramsCnt);
                 $unread = intval($stmtC->fetch(PDO::FETCH_ASSOC)['unread'] ?? 0);
 
-                echo json_encode(['success' => true, 'notifications' => $notifs ?: [], 'unread_count' => $unread]);
+                echo json_encode(['success' => true, 'notifications' => normalizeNotificationsList($notifs), 'unread_count' => $unread]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'notifications' => [], 'unread_count' => 0]);
             }
@@ -4923,7 +5151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $stmtC->execute($paramsCnt);
                 $unread = intval($stmtC->fetch(PDO::FETCH_ASSOC)['unread'] ?? 0);
 
-                echo "data: " . json_encode(['notifications' => $notifs ?: [], 'unread_count' => $unread]) . "\n\n";
+                echo "data: " . json_encode(['notifications' => normalizeNotificationsList($notifs), 'unread_count' => $unread]) . "\n\n";
                 ob_flush();
                 flush();
             } catch (Exception $e) {}
@@ -4944,7 +5172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $cnt->execute([$targetId, $targetId]);
                 $unread = intval($cnt->fetch(PDO::FETCH_ASSOC)['unread'] ?? 0);
 
-                echo "data: " . json_encode(['notifications' => $notifs ?: [], 'unread_count' => $unread]) . "\n\n";
+                echo "data: " . json_encode(['notifications' => normalizeNotificationsList($notifs), 'unread_count' => $unread]) . "\n\n";
                 ob_flush();
                 flush();
             } catch (Exception $e) {}
@@ -5725,16 +5953,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             } catch (Exception $e) {}
             $wallet['max_initial_reminders'] = $maxReminders;
 
-            // Fetch latest manual reminder if any
+            // Fetch latest manual reminder if any (only active if vendor is restricted/negative and not resolved by approved recharge)
             $stmtLastMan = $pdo->prepare("
                 SELECT id, title, message, created_at, reference_id
                 FROM notifications
                 WHERE (user_id = ? OR (role = 'vendor' AND user_id = ?))
                   AND type = 'MANUAL_WALLET_RECHARGE_REMINDER'
+                  AND is_read = 0
                 ORDER BY id DESC LIMIT 1
             ");
             $stmtLastMan->execute([$vendor_id, $vendor_id]);
-            $wallet['latest_manual_reminder'] = $stmtLastMan->fetch(PDO::FETCH_ASSOC) ?: null;
+            $lastMan = $stmtLastMan->fetch(PDO::FETCH_ASSOC) ?: null;
+
+            if ($lastMan) {
+                // If vendor is no longer in recharge-required / restricted state ($curBal >= 0 and not blocked and not suspended):
+                if ($curBal >= 0 && !$wallet['is_blocked'] && intval($wallet['services_suspended'] ?? 0) === 0) {
+                    $lastMan = null;
+                } else {
+                    // Check if an approved recharge was completed at or after this reminder
+                    $stmtRechAfter = $pdo->prepare("
+                        SELECT 1 FROM wallet_transactions 
+                        WHERE vendor_id = ? AND status = 'Completed' AND created_at >= ? 
+                        LIMIT 1
+                    ");
+                    $stmtRechAfter->execute([$vendor_id, $lastMan['created_at']]);
+                    if ($stmtRechAfter->fetch() && $curBal >= 0) {
+                        $lastMan = null;
+                    }
+                }
+            }
+            $wallet['latest_manual_reminder'] = $lastMan;
 
             $wallet['reactivation_status'] = $wallet['reactivation_status'] ?? null;
             $wallet['reactivation_requested_at'] = $wallet['reactivation_requested_at'] ?? null;
@@ -5873,12 +6121,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
 
             // Get assignments from bookings table
-            $stmtJobs = $pdo->prepare("SELECT b.id as booking_id, b.id, b.name as customer_name, b.phone as customer_phone, b.pickup_loc, b.pickup_date, b.pickup_time, b.drop_date, b.drop_time, b.item_name, b.item_id, b.total_amount, b.amount_paid, b.status as booking_status, b.driver_required, b.driver_service_type, b.driver_job_status, b.driver_assigned_at, b.driver_notes, b.driver_charge, b.driver_days, b.driver_earning, b.driver_payment_status, b.booking_days, b.created_at, b.created_at as booking_created_at FROM bookings b WHERE b.assigned_driver_id = ? OR b.assigned_driver_id = ? ORDER BY b.driver_assigned_at DESC");
+            $stmtJobs = $pdo->prepare("SELECT b.id as booking_id, b.id, b.name as customer_name, b.phone as customer_phone, b.pickup_loc, b.drop_loc, b.pickup_date, b.pickup_time, b.drop_date, b.drop_time, b.item_name, b.item_id, b.total_amount, b.amount_paid, b.status as booking_status, b.driver_required, b.driver_service_type, b.driver_job_status, b.driver_assigned_at, b.driver_notes, b.driver_charge, b.driver_days, b.driver_earning, b.driver_payment_status, b.booking_days, b.created_at, b.created_at as booking_created_at FROM bookings b WHERE b.assigned_driver_id = ? OR b.assigned_driver_id = ? ORDER BY b.driver_assigned_at DESC");
             $stmtJobs->execute([$driver['id'], $driver['email']]);
             $assignments = $stmtJobs->fetchAll(PDO::FETCH_ASSOC);
 
             // Get available unassigned jobs (Driver Service Type IN ('PICKUP', 'DROP', 'FULL') & Not yet assigned)
-            $stmtAvail = $pdo->query("SELECT b.id as booking_id, b.id, b.name as customer_name, b.phone as customer_phone, b.pickup_loc, b.pickup_date, b.pickup_time, b.drop_date, b.drop_time, b.item_name, b.item_id, b.total_amount, b.amount_paid, b.status as booking_status, b.driver_required, b.driver_service_type, b.driver_job_status, b.driver_charge, b.driver_days, b.driver_earning, b.driver_payment_status, b.booking_days, b.created_at, b.created_at as booking_created_at FROM bookings b WHERE (b.driver_service_type IN ('PICKUP', 'DROP', 'FULL') OR (b.driver_service_type IS NULL AND (b.driver_required = 1 OR b.driver_required = '1' OR b.driver_required = 'yes'))) AND (b.assigned_driver_id IS NULL OR b.assigned_driver_id = '') AND (b.status != 'Cancelled') ORDER BY b.created_at DESC");
+            $stmtAvail = $pdo->query("SELECT b.id as booking_id, b.id, b.name as customer_name, b.phone as customer_phone, b.pickup_loc, b.drop_loc, b.pickup_date, b.pickup_time, b.drop_date, b.drop_time, b.item_name, b.item_id, b.total_amount, b.amount_paid, b.status as booking_status, b.driver_required, b.driver_service_type, b.driver_job_status, b.driver_charge, b.driver_days, b.driver_earning, b.driver_payment_status, b.booking_days, b.created_at, b.created_at as booking_created_at FROM bookings b WHERE (b.driver_service_type IN ('PICKUP', 'DROP', 'FULL') OR (b.driver_service_type IS NULL AND (b.driver_required = 1 OR b.driver_required = '1' OR b.driver_required = 'yes'))) AND (b.assigned_driver_id IS NULL OR b.assigned_driver_id = '') AND (b.status != 'Cancelled') ORDER BY b.created_at DESC");
             $availableJobs = $stmtAvail->fetchAll(PDO::FETCH_ASSOC);
 
             // Calculate real stats
@@ -5985,7 +6233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ]);
             exit;
         } elseif ($resource === 'available_driver_jobs') {
-            $stmtAvail = $pdo->query("SELECT b.id as booking_id, b.id, b.name as customer_name, b.phone as customer_phone, b.pickup_loc, b.pickup_date, b.pickup_time, b.drop_date, b.drop_time, b.item_name, b.item_id, b.total_amount, b.amount_paid, b.status as booking_status, b.driver_required, b.driver_service_type, b.driver_job_status, b.driver_charge, b.driver_days, b.driver_earning, b.driver_payment_status, b.booking_days, b.created_at, b.created_at as booking_created_at FROM bookings b WHERE (b.driver_service_type IN ('PICKUP', 'DROP', 'FULL') OR (b.driver_service_type IS NULL AND (b.driver_required = 1 OR b.driver_required = '1' OR b.driver_required = 'yes'))) AND (b.assigned_driver_id IS NULL OR b.assigned_driver_id = '') AND (b.status != 'Cancelled') ORDER BY b.created_at DESC");
+            $stmtAvail = $pdo->query("SELECT b.id as booking_id, b.id, b.name as customer_name, b.phone as customer_phone, b.pickup_loc, b.drop_loc, b.pickup_date, b.pickup_time, b.drop_date, b.drop_time, b.item_name, b.item_id, b.total_amount, b.amount_paid, b.status as booking_status, b.driver_required, b.driver_service_type, b.driver_job_status, b.driver_charge, b.driver_days, b.driver_earning, b.driver_payment_status, b.booking_days, b.created_at, b.created_at as booking_created_at FROM bookings b WHERE (b.driver_service_type IN ('PICKUP', 'DROP', 'FULL') OR (b.driver_service_type IS NULL AND (b.driver_required = 1 OR b.driver_required = '1' OR b.driver_required = 'yes'))) AND (b.assigned_driver_id IS NULL OR b.assigned_driver_id = '') AND (b.status != 'Cancelled') ORDER BY b.created_at DESC");
             $availableJobs = $stmtAvail->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode($availableJobs ?: []);
             exit;
@@ -6002,7 +6250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $dId = $driver ? $driver['id'] : $driver_id;
             $dEmail = $driver ? $driver['email'] : $driver_id;
 
-            $stmtJobs = $pdo->prepare("SELECT b.id as booking_id, b.id, b.name as customer_name, b.phone as customer_phone, b.pickup_loc, b.pickup_date, b.pickup_time, b.drop_date, b.drop_time, b.item_name, b.item_id, b.total_amount, b.amount_paid, b.status as booking_status, b.driver_required, b.driver_job_status, b.driver_assigned_at, b.driver_notes, b.driver_charge, b.driver_days, b.driver_earning, b.driver_payment_status, b.booking_days, b.created_at FROM bookings b WHERE b.assigned_driver_id = ? OR b.assigned_driver_id = ? ORDER BY b.driver_assigned_at DESC");
+            $stmtJobs = $pdo->prepare("SELECT b.id as booking_id, b.id, b.name as customer_name, b.phone as customer_phone, b.pickup_loc, b.drop_loc, b.pickup_date, b.pickup_time, b.drop_date, b.drop_time, b.item_name, b.item_id, b.total_amount, b.amount_paid, b.status as booking_status, b.driver_required, b.driver_job_status, b.driver_assigned_at, b.driver_notes, b.driver_charge, b.driver_days, b.driver_earning, b.driver_payment_status, b.booking_days, b.created_at FROM bookings b WHERE b.assigned_driver_id = ? OR b.assigned_driver_id = ? ORDER BY b.driver_assigned_at DESC");
             $stmtJobs->execute([$dId, $dEmail]);
             $jobs = $stmtJobs->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode($jobs ?: []);
@@ -8788,6 +9036,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmtB = $pdo->prepare("SELECT balance FROM vendor_wallets WHERE vendor_id = ?");
                     $stmtB->execute([$vendor_id]);
                     $freshB = floatval($stmtB->fetchColumn() ?? 0.00);
+                    if ($freshB >= 0) {
+                        $pdo->prepare("UPDATE vendor_wallets SET negative_booking_count = 0, initial_reminders_sent = 0, last_reminder_at = NULL WHERE vendor_id = ?")->execute([$vendor_id]);
+                        $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE (user_id = ? OR (role = 'vendor' AND user_id = ?)) AND type IN ('MANUAL_WALLET_RECHARGE_REMINDER', 'ESCALATION_REMINDER', 'WALLET_REMINDER')")->execute([$vendor_id, $vendor_id]);
+                        $stmtOldLogs = $pdo->prepare("SELECT DISTINCT alert_id FROM vendor_wallet_alert_logs WHERE vendor_id = ?");
+                        $stmtOldLogs->execute([$vendor_id]);
+                        $oldIds = $stmtOldLogs->fetchAll(PDO::FETCH_COLUMN);
+                        $stmtInsD = $pdo->prepare("INSERT OR IGNORE INTO vendor_wallet_alert_dismissals (vendor_id, alert_id, dismissed_at) VALUES (?, ?, datetime('now'))");
+                        foreach ($oldIds as $oid) {
+                            if (!empty($oid)) $stmtInsD->execute([$vendor_id, $oid]);
+                        }
+                    }
                     VendorWalletAlertService::resetLowBalanceAlertState($pdo, $vendor_id, $freshB);
                 } catch (Exception $e) {}
             }
@@ -8861,6 +9120,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Update Vendor Wallet balance & negative booking count
                     $stmtUpdW = $pdo->prepare("UPDATE vendor_wallets SET balance = ?, negative_booking_count = ?, updated_at = datetime('now') WHERE vendor_id = ?");
                     $stmtUpdW->execute([$balanceAfter, $newNegCount, $vendorId]);
+
+                    // When balanceAfter >= 0: clear warning & reminder states
+                    if ($balanceAfter >= 0) {
+                        // Reset reminder counters in vendor_wallets
+                        $pdo->prepare("UPDATE vendor_wallets SET initial_reminders_sent = 0, last_reminder_at = NULL WHERE vendor_id = ?")->execute([$vendorId]);
+
+                        // Mark any previous recharge reminder notifications as read/resolved
+                        $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE (user_id = ? OR (role = 'vendor' AND user_id = ?)) AND type IN ('MANUAL_WALLET_RECHARGE_REMINDER', 'ESCALATION_REMINDER', 'WALLET_REMINDER')")->execute([$vendorId, $vendorId]);
+
+                        // Auto-dismiss past portal alert logs so they don't linger
+                        try {
+                            $stmtOldLogs = $pdo->prepare("SELECT DISTINCT alert_id FROM vendor_wallet_alert_logs WHERE vendor_id = ?");
+                            $stmtOldLogs->execute([$vendorId]);
+                            $oldIds = $stmtOldLogs->fetchAll(PDO::FETCH_COLUMN);
+                            $stmtInsD = $pdo->prepare("INSERT OR IGNORE INTO vendor_wallet_alert_dismissals (vendor_id, alert_id, dismissed_at) VALUES (?, ?, datetime('now'))");
+                            foreach ($oldIds as $oid) {
+                                if (!empty($oid)) $stmtInsD->execute([$vendorId, $oid]);
+                            }
+                        } catch (Exception $e) {}
+                    }
 
                     // Reset low-balance alert state if balance returned above minimum threshold
                     try {
@@ -9992,18 +10271,141 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $imagesJson = count($imagesList) > 0 ? json_encode($imagesList) : null;
 
-            $stmt = $pdo->prepare("INSERT INTO packages (id, name, duration, package_type, flights_included, food_included, pickup_drop_included, places_included, car_included, hotel_included, price, price_with_flight, description, tag, image, image_url, images_json, destination, is_flight_customizable, base_flight_price, is_cab_customizable, company_cab_price, pickup_drop_price, pickup_drop_image, day_wise_itinerary, cancellation_policy, highlights_json, inclusions_exclusions_json, advance_percentage, package_addons_json, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            // Structured components resolution
+            $status = (!empty($payload['status']) && strtolower(trim($payload['status'])) === 'draft') ? 'draft' : 'published';
+
+            // Hotel
+            $hotelSource = !empty($payload['hotel_source']) ? $payload['hotel_source'] : 'inventory';
+            $hotelInvId = !empty($payload['hotel_inventory_id']) ? $payload['hotel_inventory_id'] : null;
+            $hotelSelType = !empty($payload['hotel_selection_type']) ? $payload['hotel_selection_type'] : 'specific';
+            $hotelCategory = !empty($payload['hotel_category']) ? $payload['hotel_category'] : null;
+            $hotelRoomType = !empty($payload['hotel_room_type']) ? $payload['hotel_room_type'] : null;
+            $hotelCustomRaw = $payload['hotel_custom_json'] ?? ($payload['hotel_custom'] ?? ($payload['hotel_custom_data'] ?? null));
+            $hotelCustomJson = is_array($hotelCustomRaw) ? json_encode($hotelCustomRaw) : (is_string($hotelCustomRaw) ? $hotelCustomRaw : null);
+            $hotelIncluded = $payload['hotel_included'] ?? '';
+            if ($hotelSource === 'custom' && $hotelCustomRaw) {
+                $hDecoded = is_array($hotelCustomRaw) ? $hotelCustomRaw : json_decode($hotelCustomRaw, true);
+                if (!empty($hDecoded['name'])) {
+                    $hotelIncluded = $hDecoded['name'];
+                }
+            }
+
+            // Vehicle
+            $vehSource = !empty($payload['vehicle_source']) ? $payload['vehicle_source'] : 'inventory';
+            $vehInvId = !empty($payload['vehicle_inventory_id']) ? $payload['vehicle_inventory_id'] : null;
+            $vehType = !empty($payload['vehicle_type']) ? $payload['vehicle_type'] : 'car';
+            $vehCustomRaw = $payload['vehicle_custom_json'] ?? ($payload['vehicle_custom'] ?? ($payload['vehicle_custom_data'] ?? null));
+            $vehCustomJson = is_array($vehCustomRaw) ? json_encode($vehCustomRaw) : (is_string($vehCustomRaw) ? $vehCustomRaw : null);
+            $carIncluded = $payload['car_included'] ?? null;
+            if ($vehSource === 'custom' && $vehCustomRaw) {
+                $vDecoded = is_array($vehCustomRaw) ? $vehCustomRaw : json_decode($vehCustomRaw, true);
+                if (!empty($vDecoded['name'])) {
+                    $carIncluded = $vDecoded['name'];
+                }
+            }
+
+            // Sync actual vehicle image into package gallery images
+            $actualVehImg = null;
+            if ($vehSource === 'custom' && $vehCustomRaw) {
+                $vDecoded = is_array($vehCustomRaw) ? $vehCustomRaw : json_decode($vehCustomRaw, true);
+                if (!empty($vDecoded['image'])) $actualVehImg = $vDecoded['image'];
+            } elseif (!empty($vehInvId)) {
+                $stmtVehC = $pdo->prepare("SELECT image FROM cars WHERE id = ?");
+                $stmtVehC->execute([$vehInvId]);
+                $cR = $stmtVehC->fetch(PDO::FETCH_ASSOC);
+                if (!empty($cR['image'])) {
+                    $actualVehImg = $cR['image'];
+                } else {
+                    $stmtVehB = $pdo->prepare("SELECT image FROM bikes WHERE id = ?");
+                    $stmtVehB->execute([$vehInvId]);
+                    $bR = $stmtVehB->fetch(PDO::FETCH_ASSOC);
+                    if (!empty($bR['image'])) $actualVehImg = $bR['image'];
+                }
+            }
+            if ($actualVehImg && count($imagesList) > 0) {
+                $replacedVeh = false;
+                foreach ($imagesList as $k => $im) {
+                    if (is_string($im) && (strpos($im, '1533473359331') !== false || strpos($im, '1533473359') !== false)) {
+                        $imagesList[$k] = $actualVehImg;
+                        $replacedVeh = true;
+                        break;
+                    }
+                }
+                if (!$replacedVeh && !in_array($actualVehImg, $imagesList)) {
+                    if (count($imagesList) >= 3) {
+                        $imagesList[2] = $actualVehImg;
+                    } else {
+                        $imagesList[] = $actualVehImg;
+                    }
+                }
+                $imagesJson = json_encode($imagesList);
+            }
+
+            // Driver Service
+            $driverInc = (!empty($payload['driver_included']) && ($payload['driver_included'] == 1 || $payload['driver_included'] === '1' || $payload['driver_included'] === true)) ? 1 : 0;
+            $driverType = !empty($payload['driver_type']) ? $payload['driver_type'] : ($driverInc ? 'Full Day' : null);
+            $driverPricingType = !empty($payload['driver_pricing_type']) ? $payload['driver_pricing_type'] : 'included';
+            $driverAmount = isset($payload['driver_amount']) ? intval($payload['driver_amount']) : 0;
+
+            // Sightseeing
+            $sightCustomRaw = $payload['sightseeing_custom_json'] ?? ($payload['sightseeing_custom'] ?? null);
+            $sightCustomJson = is_array($sightCustomRaw) ? json_encode($sightCustomRaw) : (is_string($sightCustomRaw) ? $sightCustomRaw : null);
+
+            // Activity
+            $actSource = !empty($payload['activity_source']) ? $payload['activity_source'] : 'inventory';
+            $actInvId = !empty($payload['activity_inventory_id']) ? $payload['activity_inventory_id'] : null;
+            $actCustomRaw = $payload['activity_custom_json'] ?? ($payload['activity_custom'] ?? null);
+            $actCustomJson = is_array($actCustomRaw) ? json_encode($actCustomRaw) : (is_string($actCustomRaw) ? $actCustomRaw : null);
+
+            // Flight
+            $fltSource = !empty($payload['flight_source']) ? $payload['flight_source'] : 'inventory';
+            $fltInvId = !empty($payload['flight_inventory_id']) ? $payload['flight_inventory_id'] : null;
+            $fltCustomRaw = $payload['flight_custom_json'] ?? ($payload['flight_custom'] ?? null);
+            $fltCustomJson = is_array($fltCustomRaw) ? json_encode($fltCustomRaw) : (is_string($fltCustomRaw) ? $fltCustomRaw : null);
+            $flightsIncluded = isset($payload['flights_included']) ? $payload['flights_included'] : null;
+            if ($fltSource === 'custom' && $fltCustomRaw) {
+                $fDecoded = is_array($fltCustomRaw) ? $fltCustomRaw : json_decode($fltCustomRaw, true);
+                if (!empty($fDecoded['airline']) || !empty($fDecoded['flight_number'])) {
+                    $flightsIncluded = trim(($fDecoded['airline'] ?? '') . ' ' . ($fDecoded['flight_number'] ?? ''));
+                }
+            }
+
+            $stmt = $pdo->prepare("INSERT INTO packages (
+                id, name, duration, package_type, flights_included, food_included, pickup_drop_included, 
+                places_included, car_included, hotel_included, price, price_with_flight, description, 
+                tag, image, image_url, images_json, destination, is_flight_customizable, base_flight_price, 
+                is_cab_customizable, company_cab_price, pickup_drop_price, pickup_drop_image, 
+                day_wise_itinerary, cancellation_policy, highlights_json, inclusions_exclusions_json, 
+                advance_percentage, package_addons_json, admin_id,
+                status, hotel_source, hotel_inventory_id, hotel_selection_type, hotel_category, 
+                hotel_room_type, hotel_custom_json, vehicle_source, vehicle_inventory_id, 
+                vehicle_type, vehicle_custom_json, driver_included, driver_type, driver_pricing_type, 
+                driver_amount, sightseeing_custom_json, activity_source, activity_inventory_id, 
+                activity_custom_json, flight_source, flight_inventory_id, flight_custom_json
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, 
+                ?, ?, ?, ?, ?, ?, 
+                ?, ?, ?, ?, ?, ?, ?, 
+                ?, ?, ?, ?, 
+                ?, ?, ?, ?, 
+                ?, ?, ?,
+                ?, ?, ?, ?, ?, 
+                ?, ?, ?, ?, 
+                ?, ?, ?, ?, ?, 
+                ?, ?, ?, ?, 
+                ?, ?, ?, ?
+            )");
             $stmt->execute([
                 $pkgId,
                 $payload['name'],
                 $payload['duration'] ?? '3 Days / 2 Nights',
                 isset($payload['package_type']) ? $payload['package_type'] : 'Trip Package',
-                isset($payload['flights_included']) ? $payload['flights_included'] : null,
-                isset($payload['food_included']) ? $payload['food_included'] : null,
+                $flightsIncluded,
+                isset($payload['food_included']) ? $payload['food_included'] : ($payload['hotel_meal_plan'] ?? ($payload['meal_plan'] ?? null)),
                 isset($payload['pickup_drop_included']) ? $payload['pickup_drop_included'] : null,
                 isset($payload['places_included']) ? $payload['places_included'] : null,
-                isset($payload['car_included']) ? $payload['car_included'] : null,
-                isset($payload['hotel_included']) ? $payload['hotel_included'] : null,
+                $carIncluded,
+                $hotelIncluded,
                 intval($payload['price']),
                 isset($payload['price_with_flight']) ? intval($payload['price_with_flight']) : null,
                 $payload['description'] ?? '',
@@ -10018,19 +10420,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 isset($payload['company_cab_price']) ? intval($payload['company_cab_price']) : 0,
                 isset($payload['pickup_drop_price']) ? intval($payload['pickup_drop_price']) : 0,
                 isset($payload['pickup_drop_image']) ? $payload['pickup_drop_image'] : null,
-                isset($payload['day_wise_itinerary']) ? (is_array($payload['day_wise_itinerary']) ? json_encode($payload['day_wise_itinerary']) : $payload['day_wise_itinerary']) : null,
+                isset($payload['day_wise_itinerary']) ? (is_array($payload['day_wise_itinerary']) ? json_encode($payload['day_wise_itinerary']) : $payload['day_wise_itinerary']) : (isset($payload['itinerary_json']) ? (is_array($payload['itinerary_json']) ? json_encode($payload['itinerary_json']) : $payload['itinerary_json']) : null),
                 isset($payload['cancellation_policy']) ? $payload['cancellation_policy'] : null,
                 isset($payload['highlights_json']) ? (is_array($payload['highlights_json']) ? json_encode($payload['highlights_json']) : $payload['highlights_json']) : null,
                 isset($payload['inclusions_exclusions_json']) ? (is_array($payload['inclusions_exclusions_json']) ? json_encode($payload['inclusions_exclusions_json']) : $payload['inclusions_exclusions_json']) : null,
                 isset($payload['advance_percentage']) ? intval($payload['advance_percentage']) : 25,
                 isset($payload['package_addons_json']) ? (is_array($payload['package_addons_json']) ? json_encode($payload['package_addons_json']) : $payload['package_addons_json']) : null,
-                $tenant_id
+                $tenant_id,
+                $status,
+                $hotelSource,
+                $hotelInvId,
+                $hotelSelType,
+                $hotelCategory,
+                $hotelRoomType,
+                $hotelCustomJson,
+                $vehSource,
+                $vehInvId,
+                $vehType,
+                $vehCustomJson,
+                $driverInc,
+                $driverType,
+                $driverPricingType,
+                $driverAmount,
+                $sightCustomJson,
+                $actSource,
+                $actInvId,
+                $actCustomJson,
+                $fltSource,
+                $fltInvId,
+                $fltCustomJson
             ]);
             echo json_encode([
                 "success" => true,
                 "id" => $pkgId,
                 "message" => "Package created successfully.",
-                "package" => array_merge($payload, ['id' => $pkgId, 'image' => $primaryImage, 'imageUrl' => $primaryImage, 'image_url' => $primaryImage, 'images' => $imagesList])
+                "package" => array_merge($payload, [
+                    'id' => $pkgId, 
+                    'status' => $status,
+                    'image' => $primaryImage, 
+                    'imageUrl' => $primaryImage, 
+                    'image_url' => $primaryImage, 
+                    'images' => $imagesList,
+                    'hotel_included' => $hotelIncluded,
+                    'car_included' => $carIncluded,
+                    'flights_included' => $flightsIncluded
+                ])
             ]);
             exit;} elseif ($action === 'calculate_price') {
             // Server-side calculation to prevent frontend tampering
@@ -10303,10 +10737,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             echo json_encode(["success" => true, "message" => "Birthday offer updated for " . $tier]);
-            exit;} elseif ($action === 'delete_package') {
-            $stmt = $pdo->prepare("DELETE FROM packages WHERE id = ?");
-            $stmt->execute([$payload['id']]);
-            echo json_encode(["success" => true, "message" => "Package deleted.", "id" => $payload['id']]);
+            exit;
+        } elseif ($action === 'delete_package') {
+            $id = trim((string)($payload['id'] ?? ($payload['package_id'] ?? ($_GET['id'] ?? ($_POST['id'] ?? '')))));
+            if (!$id) {
+                http_response_code(400);
+                echo json_encode(["success" => false, "error" => "Missing package ID."]);
+                exit;
+            }
+            $stmt = $pdo->prepare("DELETE FROM packages WHERE id = ? OR name = ?");
+            $stmt->execute([$id, $id]);
+            $affected = $stmt->rowCount();
+            echo json_encode(["success" => true, "message" => "Package deleted.", "id" => $id, "affected" => $affected]);
             exit;} elseif ($action === 'update_package') {
             // Image resolution
             $imagesList = [];
@@ -10325,17 +10767,129 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $imagesJson = count($imagesList) > 0 ? json_encode($imagesList) : null;
 
-            $stmt = $pdo->prepare("UPDATE packages SET name=?, duration=?, package_type=?, flights_included=?, food_included=?, pickup_drop_included=?, places_included=?, car_included=?, hotel_included=?, price=?, price_with_flight=?, description=?, tag=?, image=?, image_url=?, images_json=?, destination=?, is_flight_customizable=?, base_flight_price=?, is_cab_customizable=?, company_cab_price=?, pickup_drop_price=?, pickup_drop_image=?, day_wise_itinerary=?, cancellation_policy=?, highlights_json=?, inclusions_exclusions_json=?, advance_percentage=?, package_addons_json=? WHERE id=?");
+            // Structured components resolution
+            $status = (!empty($payload['status']) && strtolower(trim($payload['status'])) === 'draft') ? 'draft' : 'published';
+
+            // Hotel
+            $hotelSource = !empty($payload['hotel_source']) ? $payload['hotel_source'] : 'inventory';
+            $hotelInvId = !empty($payload['hotel_inventory_id']) ? $payload['hotel_inventory_id'] : null;
+            $hotelSelType = !empty($payload['hotel_selection_type']) ? $payload['hotel_selection_type'] : 'specific';
+            $hotelCategory = !empty($payload['hotel_category']) ? $payload['hotel_category'] : null;
+            $hotelRoomType = !empty($payload['hotel_room_type']) ? $payload['hotel_room_type'] : null;
+            $hotelCustomRaw = $payload['hotel_custom_json'] ?? ($payload['hotel_custom'] ?? ($payload['hotel_custom_data'] ?? null));
+            $hotelCustomJson = is_array($hotelCustomRaw) ? json_encode($hotelCustomRaw) : (is_string($hotelCustomRaw) ? $hotelCustomRaw : null);
+            $hotelIncluded = $payload['hotel_included'] ?? '';
+            if ($hotelSource === 'custom' && $hotelCustomRaw) {
+                $hDecoded = is_array($hotelCustomRaw) ? $hotelCustomRaw : json_decode($hotelCustomRaw, true);
+                if (!empty($hDecoded['name'])) {
+                    $hotelIncluded = $hDecoded['name'];
+                }
+            }
+
+            // Vehicle
+            $vehSource = !empty($payload['vehicle_source']) ? $payload['vehicle_source'] : 'inventory';
+            $vehInvId = !empty($payload['vehicle_inventory_id']) ? $payload['vehicle_inventory_id'] : null;
+            $vehType = !empty($payload['vehicle_type']) ? $payload['vehicle_type'] : 'car';
+            $vehCustomRaw = $payload['vehicle_custom_json'] ?? ($payload['vehicle_custom'] ?? ($payload['vehicle_custom_data'] ?? null));
+            $vehCustomJson = is_array($vehCustomRaw) ? json_encode($vehCustomRaw) : (is_string($vehCustomRaw) ? $vehCustomRaw : null);
+            $carIncluded = $payload['car_included'] ?? null;
+            if ($vehSource === 'custom' && $vehCustomRaw) {
+                $vDecoded = is_array($vehCustomRaw) ? $vehCustomRaw : json_decode($vehCustomRaw, true);
+                if (!empty($vDecoded['name'])) {
+                    $carIncluded = $vDecoded['name'];
+                }
+            }
+
+            // Sync actual vehicle image into package gallery images
+            $actualVehImg = null;
+            if ($vehSource === 'custom' && $vehCustomRaw) {
+                $vDecoded = is_array($vehCustomRaw) ? $vehCustomRaw : json_decode($vehCustomRaw, true);
+                if (!empty($vDecoded['image'])) $actualVehImg = $vDecoded['image'];
+            } elseif (!empty($vehInvId)) {
+                $stmtVehC = $pdo->prepare("SELECT image FROM cars WHERE id = ?");
+                $stmtVehC->execute([$vehInvId]);
+                $cR = $stmtVehC->fetch(PDO::FETCH_ASSOC);
+                if (!empty($cR['image'])) {
+                    $actualVehImg = $cR['image'];
+                } else {
+                    $stmtVehB = $pdo->prepare("SELECT image FROM bikes WHERE id = ?");
+                    $stmtVehB->execute([$vehInvId]);
+                    $bR = $stmtVehB->fetch(PDO::FETCH_ASSOC);
+                    if (!empty($bR['image'])) $actualVehImg = $bR['image'];
+                }
+            }
+            if ($actualVehImg && count($imagesList) > 0) {
+                $replacedVeh = false;
+                foreach ($imagesList as $k => $im) {
+                    if (is_string($im) && (strpos($im, '1533473359331') !== false || strpos($im, '1533473359') !== false)) {
+                        $imagesList[$k] = $actualVehImg;
+                        $replacedVeh = true;
+                        break;
+                    }
+                }
+                if (!$replacedVeh && !in_array($actualVehImg, $imagesList)) {
+                    if (count($imagesList) >= 3) {
+                        $imagesList[2] = $actualVehImg;
+                    } else {
+                        $imagesList[] = $actualVehImg;
+                    }
+                }
+                $imagesJson = json_encode($imagesList);
+            }
+
+            // Driver Service
+            $driverInc = (!empty($payload['driver_included']) && ($payload['driver_included'] == 1 || $payload['driver_included'] === '1' || $payload['driver_included'] === true)) ? 1 : 0;
+            $driverType = !empty($payload['driver_type']) ? $payload['driver_type'] : ($driverInc ? 'Full Day' : null);
+            $driverPricingType = !empty($payload['driver_pricing_type']) ? $payload['driver_pricing_type'] : 'included';
+            $driverAmount = isset($payload['driver_amount']) ? intval($payload['driver_amount']) : 0;
+
+            // Sightseeing
+            $sightCustomRaw = $payload['sightseeing_custom_json'] ?? ($payload['sightseeing_custom'] ?? null);
+            $sightCustomJson = is_array($sightCustomRaw) ? json_encode($sightCustomRaw) : (is_string($sightCustomRaw) ? $sightCustomRaw : null);
+
+            // Activity
+            $actSource = !empty($payload['activity_source']) ? $payload['activity_source'] : 'inventory';
+            $actInvId = !empty($payload['activity_inventory_id']) ? $payload['activity_inventory_id'] : null;
+            $actCustomRaw = $payload['activity_custom_json'] ?? ($payload['activity_custom'] ?? null);
+            $actCustomJson = is_array($actCustomRaw) ? json_encode($actCustomRaw) : (is_string($actCustomRaw) ? $actCustomRaw : null);
+
+            // Flight
+            $fltSource = !empty($payload['flight_source']) ? $payload['flight_source'] : 'inventory';
+            $fltInvId = !empty($payload['flight_inventory_id']) ? $payload['flight_inventory_id'] : null;
+            $fltCustomRaw = $payload['flight_custom_json'] ?? ($payload['flight_custom'] ?? null);
+            $fltCustomJson = is_array($fltCustomRaw) ? json_encode($fltCustomRaw) : (is_string($fltCustomRaw) ? $fltCustomRaw : null);
+            $flightsIncluded = isset($payload['flights_included']) ? $payload['flights_included'] : null;
+            if ($fltSource === 'custom' && $fltCustomRaw) {
+                $fDecoded = is_array($fltCustomRaw) ? $fltCustomRaw : json_decode($fltCustomRaw, true);
+                if (!empty($fDecoded['airline']) || !empty($fDecoded['flight_number'])) {
+                    $flightsIncluded = trim(($fDecoded['airline'] ?? '') . ' ' . ($fDecoded['flight_number'] ?? ''));
+                }
+            }
+
+            $stmt = $pdo->prepare("UPDATE packages SET 
+                name=?, duration=?, package_type=?, flights_included=?, food_included=?, 
+                pickup_drop_included=?, places_included=?, car_included=?, hotel_included=?, 
+                price=?, price_with_flight=?, description=?, tag=?, image=?, image_url=?, 
+                images_json=?, destination=?, is_flight_customizable=?, base_flight_price=?, 
+                is_cab_customizable=?, company_cab_price=?, pickup_drop_price=?, pickup_drop_image=?, 
+                day_wise_itinerary=?, cancellation_policy=?, highlights_json=?, inclusions_exclusions_json=?, 
+                advance_percentage=?, package_addons_json=?,
+                status=?, hotel_source=?, hotel_inventory_id=?, hotel_selection_type=?, hotel_category=?, 
+                hotel_room_type=?, hotel_custom_json=?, vehicle_source=?, vehicle_inventory_id=?, 
+                vehicle_type=?, vehicle_custom_json=?, driver_included=?, driver_type=?, driver_pricing_type=?, 
+                driver_amount=?, sightseeing_custom_json=?, activity_source=?, activity_inventory_id=?, 
+                activity_custom_json=?, flight_source=?, flight_inventory_id=?, flight_custom_json=? 
+                WHERE id=?");
             $stmt->execute([
                 $payload['name'],
                 $payload['duration'] ?? '3 Days / 2 Nights',
                 isset($payload['package_type']) ? $payload['package_type'] : 'Trip Package',
-                isset($payload['flights_included']) ? $payload['flights_included'] : null,
-                isset($payload['food_included']) ? $payload['food_included'] : null,
+                $flightsIncluded,
+                isset($payload['food_included']) ? $payload['food_included'] : ($payload['hotel_meal_plan'] ?? ($payload['meal_plan'] ?? null)),
                 isset($payload['pickup_drop_included']) ? $payload['pickup_drop_included'] : null,
                 isset($payload['places_included']) ? $payload['places_included'] : null,
-                isset($payload['car_included']) ? $payload['car_included'] : null,
-                isset($payload['hotel_included']) ? $payload['hotel_included'] : null,
+                $carIncluded,
+                $hotelIncluded,
                 intval($payload['price']),
                 isset($payload['price_with_flight']) ? intval($payload['price_with_flight']) : null,
                 $payload['description'] ?? '',
@@ -10350,18 +10904,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 isset($payload['company_cab_price']) ? intval($payload['company_cab_price']) : 0,
                 isset($payload['pickup_drop_price']) ? intval($payload['pickup_drop_price']) : 0,
                 isset($payload['pickup_drop_image']) ? $payload['pickup_drop_image'] : null,
-                isset($payload['day_wise_itinerary']) ? (is_array($payload['day_wise_itinerary']) ? json_encode($payload['day_wise_itinerary']) : $payload['day_wise_itinerary']) : null,
+                isset($payload['day_wise_itinerary']) ? (is_array($payload['day_wise_itinerary']) ? json_encode($payload['day_wise_itinerary']) : $payload['day_wise_itinerary']) : (isset($payload['itinerary_json']) ? (is_array($payload['itinerary_json']) ? json_encode($payload['itinerary_json']) : $payload['itinerary_json']) : null),
                 isset($payload['cancellation_policy']) ? $payload['cancellation_policy'] : null,
                 isset($payload['highlights_json']) ? (is_array($payload['highlights_json']) ? json_encode($payload['highlights_json']) : $payload['highlights_json']) : null,
                 isset($payload['inclusions_exclusions_json']) ? (is_array($payload['inclusions_exclusions_json']) ? json_encode($payload['inclusions_exclusions_json']) : $payload['inclusions_exclusions_json']) : null,
                 isset($payload['advance_percentage']) ? intval($payload['advance_percentage']) : 25,
                 isset($payload['package_addons_json']) ? (is_array($payload['package_addons_json']) ? json_encode($payload['package_addons_json']) : $payload['package_addons_json']) : null,
+                $status,
+                $hotelSource,
+                $hotelInvId,
+                $hotelSelType,
+                $hotelCategory,
+                $hotelRoomType,
+                $hotelCustomJson,
+                $vehSource,
+                $vehInvId,
+                $vehType,
+                $vehCustomJson,
+                $driverInc,
+                $driverType,
+                $driverPricingType,
+                $driverAmount,
+                $sightCustomJson,
+                $actSource,
+                $actInvId,
+                $actCustomJson,
+                $fltSource,
+                $fltInvId,
+                $fltCustomJson,
                 $payload['id']
             ]);
             echo json_encode([
                 "success" => true,
                 "message" => "Package updated successfully.",
-                "package" => array_merge($payload, ['image' => $primaryImage, 'imageUrl' => $primaryImage, 'image_url' => $primaryImage, 'images' => $imagesList])
+                "package" => array_merge($payload, [
+                    'status' => $status,
+                    'image' => $primaryImage, 
+                    'imageUrl' => $primaryImage, 
+                    'image_url' => $primaryImage, 
+                    'images' => $imagesList,
+                    'hotel_included' => $hotelIncluded,
+                    'car_included' => $carIncluded,
+                    'flights_included' => $flightsIncluded
+                ])
             ]);
             exit;} elseif ($action === 'toggle_vehicle_availability') {
             $table = $payload['type'] === 'car' ? 'cars' : 'bikes';
@@ -14072,7 +14657,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$payload['vendor_id']]);
             $notifs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $unread = count(array_filter($notifs, fn($n) => !$n['is_read']));
-            echo json_encode(["success" => true, "notifications" => $notifs, "unread_count" => $unread]);
+            echo json_encode(["success" => true, "notifications" => normalizeNotificationsList($notifs), "unread_count" => $unread]);
             exit;} elseif ($action === 'pms_mark_notification_read') {
             $vId = $payload['vendor_id'] ?? ($payload['vendorId'] ?? 'u-5');
             if ($payload['all'] ?? false) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, CheckCircle, X, Check, Trash2, CheckCheck } from 'lucide-react';
 import * as api from '../../../services/api';
+import { getRelativeTimeString } from '../../../utils/notificationSound';
 
 const NOTIF_ICONS = { booking: '📅', payment: '💳', review: '⭐', system: '🔔', approval: '✅', alert: '⚠️' };
 const NOTIF_COLORS = { booking: '#6c5ce7', payment: '#00b894', review: '#FFC107', system: '#0984e3', approval: '#00b894', alert: '#e17055' };
@@ -114,12 +115,7 @@ export default function PMSNotifications({ currentUser, onNavigate, onNotificati
   const unread = notifications.filter(n => !n.is_read).length;
   const filtered = filter === 'All' ? notifications : filter === 'Unread' ? notifications.filter(n => !n.is_read) : notifications.filter(n => n.is_read);
 
-  const timeAgo = (dateStr) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    if (diff < 3600000) return `${Math.round(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.round(diff / 3600000)}h ago`;
-    return `${Math.round(diff / 86400000)}d ago`;
-  };
+  const timeAgo = (dateStr) => getRelativeTimeString(dateStr);
 
   return (
     <div className="p-4" style={{ background: '#f0f2f5', minHeight: '100%' }}>

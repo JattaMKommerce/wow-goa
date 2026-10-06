@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
-import { ArrowLeft, Plane, Car, Hotel, MapPin, X, Info, Tag, ExternalLink, CheckCircle, Sparkles, Clock, Utensils, Sunrise, Sun, Sunset, Moon, Compass, Calendar, ChevronRight, Shield } from 'lucide-react';
+import { ArrowLeft, Plane, Car, Hotel, MapPin, X, Info, Tag, ExternalLink, CheckCircle, Sparkles, Clock, Utensils, Sunrise, Sun, Sunset, Moon, Compass, Calendar, ChevronRight, Shield, Users } from 'lucide-react';
 import * as api from '../../services/api';
 import PackageCheckoutStep2 from './PackageCheckoutStep2';
 import PackageCheckoutStep3 from './PackageCheckoutStep3';
@@ -87,6 +87,7 @@ export default function PackageCustomizationPage({
   // Traveller Details State - restored from draft if present
   const [numAdults, setNumAdults] = useState(() => savedDraft?.numAdults || 2);
   const [numChildren, setNumChildren] = useState(() => savedDraft?.numChildren || 0);
+  const [numInfants, setNumInfants] = useState(() => savedDraft?.numInfants || 0);
   const [travellers, setTravellers] = useState(() => savedDraft?.travellers || [
     { type: 'Adult', firstName: '', lastName: '', gender: '', age: '', idType: 'Aadhaar' },
     { type: 'Adult', firstName: '', lastName: '', gender: '', age: '', idType: 'Aadhaar' }
@@ -139,6 +140,7 @@ export default function PackageCustomizationPage({
       sessionStorage.setItem('tg_customization_draft', JSON.stringify({
         numAdults,
         numChildren,
+        numInfants,
         travellers,
         contactEmail,
         contactPhone,
@@ -147,7 +149,7 @@ export default function PackageCustomizationPage({
         vehicleDropLoc
       }));
     } catch (e) {}
-  }, [numAdults, numChildren, travellers, contactEmail, contactPhone, drivingLicense, vehiclePickupLoc, vehicleDropLoc]);
+  }, [numAdults, numChildren, numInfants, travellers, contactEmail, contactPhone, drivingLicense, vehiclePickupLoc, vehicleDropLoc]);
 
   // Vehicle Filtering Logic
   const availableCars = (allCars || []).filter(c => Number(c.is_available) !== 0);
@@ -609,9 +611,12 @@ export default function PackageCustomizationPage({
       payment_status: isAdvance ? 'Partial' : 'Full',
       payment_mode: paymentMode,
       payment_method: 'Direct / UPI',
-      traveller_details_json: { adults: numAdults, children: numChildren, list: travellers, contactEmail, contactPhone },
+      traveller_details_json: { adults: numAdults, children: numChildren, infants: numInfants, list: travellers, contactEmail, contactPhone },
       price_breakdown_json: priceData,
-      customizations: JSON.stringify(customizations)
+      customizations: JSON.stringify(customizations),
+      driver_required: (pkg.driver_included || pkg.driver?.included || customizations?.driver_required) ? 1 : 0,
+      driver_service_type: pkg.driver_type || pkg.driver?.type || 'full_day',
+      driver_charge: (pkg.driver_pricing_type === 'additional_fee' ? (pkg.driver_amount || 0) : 0)
     };
 
     try {
@@ -684,7 +689,7 @@ export default function PackageCustomizationPage({
             }} 
             className="btn btn-link text-dark text-decoration-none p-0 mb-4 d-flex align-items-center gap-2 fw-bold"
           >
-            <ArrowLeft size={18} /> Back
+            <ArrowLeft size={18} /> Back to Package Details
           </button>
 
           {/* Package Header */}
@@ -942,8 +947,8 @@ export default function PackageCustomizationPage({
                         <div className="flex-grow-1">
                           <h6 className="fw-bold mb-1 text-dark">{selectedHotels[idx]?.name || day.hotel || pkg?.hotel_included || 'Luxury Beach Resort'}</h6>
                           <div className="d-flex gap-2 flex-wrap text-muted small">
-                            <span className="badge bg-white text-dark border">Standard Room</span>
-                            <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">✓ Breakfast Included</span>
+                            <span className="badge bg-white text-dark border">{selectedHotels[idx]?.room_type || pkg?.hotel?.room_type || 'Standard Room'}</span>
+                            <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">✓ {selectedHotels[idx]?.meal_plan || pkg?.hotel?.meal_plan || pkg?.food_included || 'Breakfast Included'}</span>
                             <span className="badge bg-white text-muted border">Free Cancellation</span>
                           </div>
                         </div>
@@ -1188,23 +1193,159 @@ export default function PackageCustomizationPage({
           )}
         </div>
 
-        {/* Right Column: Pricing & Checkout */}
+        {/* Right Column: Pricing, Live Customization Summary & Checkout */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm rounded position-sticky" style={{ top: '20px' }}>
-            <div className="p-4 border-bottom">
-              <span className="text-danger small fw-bold d-block text-decoration-line-through mb-1">₹{Math.round(totalPrice * 1.15).toLocaleString('en-IN')}</span>
-              <h3 className="fw-extrabold text-dark d-flex align-items-baseline gap-1 mb-1">
-                ₹{totalPrice.toLocaleString('en-IN')}
-              </h3>
-              <span className="text-muted text-xxs d-block">All-Inclusive Bundled Package Price</span>
+          <div className="card border-0 shadow-sm rounded-4 position-sticky overflow-hidden" style={{ top: '20px' }}>
+            
+            {/* Live Customization Summary Card (Section 5 Requirement) */}
+            <div className="p-3.5 bg-white border-bottom">
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <span className="text-uppercase fw-bold text-muted small" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>
+                  Trip Configuration Summary
+                </span>
+                <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-0.5 fw-bold" style={{ fontSize: '11px' }}>
+                  {durationDisplay}
+                </span>
+              </div>
+
+              {/* Package & Destination */}
+              <div className="mb-2.5 pb-2.5 border-bottom border-light">
+                <div className="fw-bold text-dark" style={{ fontSize: '14.5px', lineHeight: '1.3' }}>{pkg.name}</div>
+                <div className="text-muted small d-flex align-items-center gap-1 mt-0.5" style={{ fontSize: '12px' }}>
+                  <MapPin size={13} className="text-danger flex-shrink-0" />
+                  <span>{pkg.destination || 'Goa, India'}</span>
+                  <span className="mx-1">•</span>
+                  <span>{formatDisplayDate(activeDepDate)} → {formatDisplayDate(activeRetDate)}</span>
+                </div>
+              </div>
+
+              {/* Hotel Summary */}
+              <div className="mb-2 pb-2 border-bottom border-light">
+                <div className="d-flex align-items-start gap-2">
+                  <div className="p-1.5 rounded bg-warning bg-opacity-10 text-warning flex-shrink-0 mt-0.5">
+                    <Hotel size={14} />
+                  </div>
+                  <div className="flex-grow-1" style={{ fontSize: '12px' }}>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <strong className="text-dark">{pkg.hotel_included || 'Luxury Resort / Hotel'}</strong>
+                      <span className="badge bg-warning bg-opacity-25 text-dark fw-bold" style={{ fontSize: '10px' }}>
+                        ⭐ {pkg.hotel_category || pkg.hotel?.category || '4 Star'}
+                      </span>
+                    </div>
+                    <div className="text-muted text-xxs mt-0.5">
+                      <span>Room: {pkg.room_type || 'Standard / Deluxe'}</span>
+                      <span className="mx-1">•</span>
+                      <span>Meals: {pkg.food_included || 'Breakfast Included'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transport & Driver Summary */}
+              <div className="mb-2 pb-2 border-bottom border-light">
+                <div className="d-flex align-items-start gap-2">
+                  <div className="p-1.5 rounded bg-success bg-opacity-10 text-success flex-shrink-0 mt-0.5">
+                    <Car size={14} />
+                  </div>
+                  <div className="flex-grow-1" style={{ fontSize: '12px' }}>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <strong className="text-dark">
+                        {selectedSelfDriveVehicle?.name || (cabType === 'company' ? (pkg.car_included || 'Company Chauffeur Cab') : 'Self Drive Vehicle')}
+                      </strong>
+                      <span className="badge bg-light text-dark border fw-bold" style={{ fontSize: '10px' }}>
+                        {cabType === 'self-drive' ? 'Self Drive' : 'Chauffeur Cab'}
+                      </span>
+                    </div>
+                    <div className="text-muted text-xxs mt-0.5">
+                      {pkg.driver_included || pkg.driver?.included ? (
+                        <span className="text-success fw-semibold">✓ {pkg.driver_type || 'Dedicated Driver Included'}</span>
+                      ) : (
+                        <span>Self-drive / driver on request</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Flight Summary */}
+              <div className="mb-2 pb-2 border-bottom border-light">
+                <div className="d-flex align-items-center justify-content-between" style={{ fontSize: '12px' }}>
+                  <div className="d-flex align-items-center gap-1.5 text-muted">
+                    <Plane size={13} className="text-primary" />
+                    <span>Flight:</span>
+                  </div>
+                  <strong className={withFlight ? 'text-primary' : 'text-dark'}>
+                    {withFlight ? '✓ Flights Included' : 'No Flights (Land Only)'}
+                  </strong>
+                </div>
+              </div>
+
+              {/* Activities / Sightseeing */}
+              <div className="mb-2 pb-2 border-bottom border-light">
+                <div className="d-flex align-items-center justify-content-between" style={{ fontSize: '12px' }}>
+                  <div className="d-flex align-items-center gap-1.5 text-muted">
+                    <Compass size={13} className="text-info" />
+                    <span>Sightseeing:</span>
+                  </div>
+                  <strong className="text-dark">
+                    {activeItinerary.length} Day Tours • {numActivities} Activities
+                  </strong>
+                </div>
+              </div>
+
+              {/* Travelers Count */}
+              <div className="mb-1">
+                <div className="d-flex align-items-center justify-content-between" style={{ fontSize: '12px' }}>
+                  <div className="d-flex align-items-center gap-1.5 text-muted">
+                    <Users size={13} className="text-secondary" />
+                    <span>Travelers:</span>
+                  </div>
+                  <strong className="text-dark">
+                    {numAdults} Adult{numAdults > 1 ? 's' : ''}{numChildren > 0 ? `, ${numChildren} Child${numChildren > 1 ? 'ren' : ''}` : ''}{numInfants > 0 ? `, ${numInfants} Infant${numInfants > 1 ? 's' : ''}` : ''}
+                  </strong>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Price & Checkout Action */}
+            <div className="p-4 border-bottom bg-white">
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <span className="text-muted small">Base Package Price:</span>
+                <span className="small text-muted">₹{Number(resolvedPricing.price || 0).toLocaleString('en-IN')}</span>
+              </div>
+              {cabType === 'self-drive' && selectedSelfDriveVehicle && (
+                <div className="d-flex justify-content-between align-items-center mb-1 text-xxs text-muted">
+                  <span>Selected Vehicle:</span>
+                  <span>{selectedSelfDriveVehicle.name}</span>
+                </div>
+              )}
+              {totalPrice !== Number(resolvedPricing.price) && (
+                <div className="d-flex justify-content-between align-items-center mb-1 text-xxs text-primary fw-semibold">
+                  <span>Customization / Upgrades:</span>
+                  <span>{totalPrice > Number(resolvedPricing.price) ? `+₹${(totalPrice - Number(resolvedPricing.price)).toLocaleString('en-IN')}` : `-₹${(Number(resolvedPricing.price) - totalPrice).toLocaleString('en-IN')}`}</span>
+                </div>
+              )}
+              <div className="d-flex justify-content-between align-items-baseline mt-2 mb-1">
+                <span className="fw-bold text-dark">Total Package Amount:</span>
+                <h3 className="fw-extrabold text-primary mb-0 d-flex align-items-baseline gap-1">
+                  ₹{totalPrice.toLocaleString('en-IN')}
+                </h3>
+              </div>
+              <div className="d-flex justify-content-between align-items-center text-muted text-xxs mb-3">
+                <span>Hold with 25% Advance:</span>
+                <strong className="text-success">₹{Math.round((totalPrice * (pkg.advance_percentage || 25)) / 100).toLocaleString('en-IN')}</strong>
+              </div>
               
               <button 
                 type="button"
-                className="btn btn-primary w-100 py-3 rounded fw-bold text-white shadow-sm mt-4 text-uppercase tracking-wider"
+                className="btn btn-primary w-100 py-3 rounded-pill fw-bold text-white shadow-sm text-uppercase tracking-wider d-flex align-items-center justify-content-center gap-2"
                 onClick={handleProceedToTravellers}
                 disabled={isSelfDrivePackage && cabType === 'self-drive' && !selectedSelfDriveVehicle}
+                style={{ background: 'linear-gradient(135deg, #FF6333 0%, #FF8A00 100%)', borderColor: '#FF6333' }}
               >
-                Proceed to Traveller Details
+                <span>Proceed to Traveller Details</span>
+                <ChevronRight size={18} />
               </button>
             </div>
             
@@ -1265,6 +1406,8 @@ export default function PackageCustomizationPage({
           setNumAdults={setNumAdults} 
           numChildren={numChildren} 
           setNumChildren={setNumChildren}
+          numInfants={numInfants}
+          setNumInfants={setNumInfants}
           contactEmail={contactEmail}
           setContactEmail={setContactEmail}
           contactPhone={contactPhone}
@@ -1277,6 +1420,16 @@ export default function PackageCustomizationPage({
           setVehicleDropLoc={setVehicleDropLoc}
           departureDate={activeDepDate}
           returnDate={activeRetDate}
+          totalPrice={totalPrice}
+          basePrice={resolvedPricing.price}
+          advancePercentage={pkg.advance_percentage || 25}
+          advanceAmount={Math.round((totalPrice * (pkg.advance_percentage || 25)) / 100)}
+          customizations={customizations}
+          selectedVehicle={selectedSelfDriveVehicle || baselineVehicle || (pkg.car_included ? { name: pkg.car_included } : null)}
+          cabType={cabType}
+          withFlight={withFlight}
+          nights={nights}
+          days={days}
           onBack={() => {
             if (document.activeElement && typeof document.activeElement.blur === 'function') {
               document.activeElement.blur();
@@ -1303,6 +1456,7 @@ export default function PackageCustomizationPage({
           useWalletCashback={useWalletCashback}
           setUseWalletCashback={setUseWalletCashback}
           loyaltyInfo={loyaltyInfo}
+          isSubmitting={isSubmitting}
           onBack={() => {
             if (document.activeElement && typeof document.activeElement.blur === 'function') {
               document.activeElement.blur();

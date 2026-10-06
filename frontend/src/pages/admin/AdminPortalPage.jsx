@@ -32,6 +32,7 @@ import LeadManagement from '../../components/shared/LeadManagement';
 import AdminSubscriptionPanel from '../../components/admin/AdminSubscriptionPanel';
 import AdminDriverManagement from './AdminDriverManagement';
 import AdminReviewsManagement from './AdminReviewsManagement';
+import TripPackagesManagementView from '../../components/admin/TripPackagesManagementView';
 import NotificationSoundToggle from '../../components/common/NotificationSoundToggle';
 import { handleIncomingNotifications, registerSeenNotifications, getRelativeTimeString, parseNotificationTitleAndStatus } from '../../utils/notificationSound';
 
@@ -378,11 +379,29 @@ export default function AdminPortalPage({
       } else if (targetTab === 'overview') {
         window.history.replaceState(null, '', '/admin');
       }
+      if (typeof window !== 'undefined' && window.innerWidth < 992) {
+        setSidebarOpen(false);
+      }
     } catch (e) {}
   };
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 992 : false);
+  const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 992 : true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 992;
+      setIsMobile(mobile);
+      if (mobile) {
+        setSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [adminVehiclesInnerTab, setAdminVehiclesInnerTab] = useState('fleet');
   const [readNotifIds, setReadNotifIds] = useState(() => {
     try {
@@ -758,6 +777,8 @@ export default function AdminPortalPage({
             hotels={hotels}
             cars={cars}
             bikes={bikes}
+            packages={allPackages}
+            flights={flights}
             onRefreshBookings={loadAllAdminData}
             onNavigateToCalendar={() => handleTabChange('availability')}
             onNavigateToPayments={() => handleTabChange('payment')}
@@ -855,6 +876,21 @@ export default function AdminPortalPage({
       case 'reviews':
       case 'customer_reviews':
         return <AdminReviewsManagement portalTitle="Admin Portal" onSelectTab={handleTabChange} />;
+      case 'packages':
+      case 'admin_packages':
+        return (
+          <TripPackagesManagementView
+            packages={allPackages}
+            hotels={hotels}
+            cars={cars}
+            bikes={bikes}
+            flights={flights}
+            onAddPackage={onAddPackage}
+            onUpdatePackage={onUpdatePackage}
+            onDeletePackage={onDeletePackage}
+            portalTitle="Trip Packages Management"
+          />
+        );
       default:
         return (
           <div className="p-4">
@@ -870,6 +906,10 @@ export default function AdminPortalPage({
               onDeletePackage={onDeletePackage}
               activeTab={adminActiveTab}
               currentUser={currentUser}
+              cars={cars}
+              bikes={bikes}
+              hotels={hotels}
+              flights={flights}
             />
           </div>
         );
@@ -877,10 +917,44 @@ export default function AdminPortalPage({
   };
 
   return (
-    <div className="d-flex w-100" style={{ height: '100vh', background: '#f0f2f5', overflow: 'hidden' }}>
+    <div className="d-flex w-100 position-relative" style={{ height: '100vh', background: '#f0f2f5', overflow: 'hidden' }}>
+      {/* Mobile Off-canvas Backdrop */}
+      {isMobile && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(13, 27, 46, 0.65)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 1040
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       {currentUser?.status !== 'suspended' && (
-        <div className="d-flex flex-column flex-shrink-0" style={{ width: sidebarOpen ? '256px' : '0px', minWidth: sidebarOpen ? '256px' : '0px', height: '100vh', overflowY: 'auto', overflowX: 'hidden', backgroundColor: '#0D1B2E', borderRight: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.3s ease' }}>
+        <div
+          className="d-flex flex-column flex-shrink-0"
+          style={{
+            position: isMobile ? 'fixed' : 'relative',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: isMobile ? '260px' : (sidebarOpen ? '256px' : '0px'),
+            minWidth: isMobile ? '260px' : (sidebarOpen ? '256px' : '0px'),
+            maxWidth: isMobile ? '85vw' : 'none',
+            height: '100vh',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            backgroundColor: '#0D1B2E',
+            borderRight: '1px solid rgba(255,255,255,0.06)',
+            transition: isMobile ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'width 0.3s ease, min-width 0.3s ease',
+            transform: isMobile ? (sidebarOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+            zIndex: isMobile ? 1050 : 'auto',
+            boxShadow: isMobile && sidebarOpen ? '4px 0 24px rgba(0,0,0,0.5)' : 'none'
+          }}
+        >
           <div className="px-3 py-3 d-flex align-items-center gap-2 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <Compass size={22} style={{ color: '#FF6333' }} />
             <div>
@@ -902,7 +976,7 @@ export default function AdminPortalPage({
       )}
 
       {/* Main */}
-      <div className="flex-grow-1 d-flex flex-column" style={{ height: '100vh', overflow: 'hidden' }}>
+      <div className="flex-grow-1 d-flex flex-column" style={{ height: '100vh', overflow: 'hidden', minWidth: 0, width: '100%' }}>
         {/* Topbar */}
         <header className="d-flex align-items-center justify-content-between px-4 flex-shrink-0" style={{ height: '56px', backgroundColor: '#0D1B2E', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="d-flex align-items-center gap-3">
@@ -1125,7 +1199,7 @@ export default function AdminPortalPage({
         </header>
 
         {/* Content */}
-        <div className="flex-grow-1 overflow-auto">
+        <div className="flex-grow-1 overflow-auto" style={{ minWidth: 0, width: '100%' }}>
           {renderContent()}
         </div>
       </div>

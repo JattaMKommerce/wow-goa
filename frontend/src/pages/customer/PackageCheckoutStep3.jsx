@@ -13,6 +13,7 @@ export default function PackageCheckoutStep3({
   useWalletCashback = false,
   setUseWalletCashback = () => {},
   loyaltyInfo = null,
+  isSubmitting = false,
   onBack,
   onCheckout
 }) {
@@ -61,7 +62,7 @@ export default function PackageCheckoutStep3({
         }} 
         className="btn btn-link text-dark text-decoration-none p-0 mb-4 d-flex align-items-center gap-2 fw-bold"
       >
-        <ArrowLeft size={18} /> Back to Travellers
+        <ArrowLeft size={18} /> Back to Traveller Details
       </button>
 
       <div className="row justify-content-center">
@@ -238,14 +239,24 @@ export default function PackageCheckoutStep3({
                      </div>
 
                      <button 
-                       type="button" 
-                       className="btn btn-primary w-100 py-3 rounded-pill fw-bold text-white shadow d-flex justify-content-between align-items-center px-4 mt-2" 
-                       onClick={handleCheckoutClick}
-                       style={{ background: 'linear-gradient(90deg, #FF6333, #FF8A00)', borderColor: '#FF6333' }}
-                     >
-                         <span>Confirm &amp; Pay ₹{payableAmount.toLocaleString('en-IN')}</span>
-                         <ChevronRight size={18}/>
-                     </button>
+                        type="button" 
+                        className="btn btn-primary w-100 py-3 rounded-pill fw-bold text-white shadow d-flex justify-content-between align-items-center px-4 mt-2" 
+                        onClick={handleCheckoutClick}
+                        disabled={isSubmitting}
+                        style={{ background: 'linear-gradient(90deg, #FF6333, #FF8A00)', borderColor: '#FF6333', opacity: isSubmitting ? 0.75 : 1 }}
+                      >
+                          {isSubmitting ? (
+                            <span className="d-flex align-items-center gap-2 w-100 justify-content-center">
+                              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                              <span>Processing Booking...</span>
+                            </span>
+                          ) : (
+                            <>
+                              <span>Confirm &amp; Pay ₹{payableAmount.toLocaleString('en-IN')}</span>
+                              <ChevronRight size={18}/>
+                            </>
+                          )}
+                      </button>
 
                      {/* 10% Cashback Earning Preview */}
                      <div className="mt-2.5 p-2 rounded-3 text-center" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>

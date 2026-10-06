@@ -593,20 +593,37 @@ class VendorWalletAlertService {
             $lastManual = $stmtMan->fetch(PDO::FETCH_ASSOC);
 
             if ($lastManual) {
-                $alertId = $lastManual['alert_id'];
-                $stmtD = $pdo->prepare("SELECT 1 FROM vendor_wallet_alert_dismissals WHERE vendor_id = ? AND alert_id = ?");
-                $stmtD->execute([$vendorId, $alertId]);
-                if (!$stmtD->fetch()) {
-                    return [
-                        'active' => true,
-                        'alert_id' => $alertId,
-                        'vendor_id' => $vendorId,
-                        'balance' => $balance,
-                        'threshold' => $threshold,
-                        'event_type' => $lastManual['event_type'],
-                        'message' => $lastManual['payload_preview'] ?? '',
-                        'created_at' => $lastManual['created_at']
-                    ];
+                $isSuspended = intval($wallet['services_suspended'] ?? 0) === 1;
+                $isRestricted = ($balance < 0 || $isSuspended);
+
+                // Check if vendor has completed an approved recharge after this reminder was created
+                $stmtCompletedRecharge = $pdo->prepare("
+                    SELECT 1 FROM wallet_transactions 
+                    WHERE vendor_id = ? AND status = 'Completed' AND created_at >= ?
+                    LIMIT 1
+                ");
+                $stmtCompletedRecharge->execute([$vendorId, $lastManual['created_at']]);
+                $hasCompletedRechargeAfter = (bool)$stmtCompletedRecharge->fetch();
+
+                // If vendor is no longer restricted (balance >= 0 and not suspended), or if approved recharge occurred after reminder:
+                if (!$isRestricted || ($hasCompletedRechargeAfter && $balance >= 0)) {
+                    // Recharge required notice is resolved by successful recharge / non-negative balance
+                } else {
+                    $alertId = $lastManual['alert_id'];
+                    $stmtD = $pdo->prepare("SELECT 1 FROM vendor_wallet_alert_dismissals WHERE vendor_id = ? AND alert_id = ?");
+                    $stmtD->execute([$vendorId, $alertId]);
+                    if (!$stmtD->fetch()) {
+                        return [
+                            'active' => true,
+                            'alert_id' => $alertId,
+                            'vendor_id' => $vendorId,
+                            'balance' => $balance,
+                            'threshold' => $threshold,
+                            'event_type' => $lastManual['event_type'],
+                            'message' => $lastManual['payload_preview'] ?? '',
+                            'created_at' => $lastManual['created_at']
+                        ];
+                    }
                 }
             }
 

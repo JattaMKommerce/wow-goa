@@ -839,18 +839,33 @@ export default function App() {
     );
 
     if (isPackageItem) {
-      setSelectedBookingItem(item);
-      setActiveTab('customize');
-      try {
-        sessionStorage.setItem('tg_activeTab', 'customize');
-        sessionStorage.setItem('tg_selectedBookingItem', JSON.stringify(item));
-        sessionStorage.setItem('tg_selectedDetailItem', JSON.stringify(item));
-      } catch (e) {}
-      const isSelfDrivePkg = item.package_type === 'Self Drive Package' || (item.name && item.name.toLowerCase().includes('self drive'));
-      const basePath = isSelfDrivePkg ? '/self-drive' : '/packages';
-      const targetUrl = item?.id ? `${basePath}?package=${encodeURIComponent(item.id)}&step=customize` : `${basePath}?step=customize`;
-      window.history.pushState({}, '', targetUrl);
-      setCurrentPath(targetUrl);
+      if (isCustomization) {
+        setSelectedBookingItem(item);
+        setActiveTab('customize');
+        try {
+          sessionStorage.setItem('tg_activeTab', 'customize');
+          sessionStorage.setItem('tg_selectedBookingItem', JSON.stringify(item));
+          sessionStorage.setItem('tg_selectedDetailItem', JSON.stringify(item));
+        } catch (e) {}
+        const isSelfDrivePkg = item.package_type === 'Self Drive Package' || (item.name && item.name.toLowerCase().includes('self drive'));
+        const basePath = isSelfDrivePkg ? '/self-drive' : '/packages';
+        const targetUrl = item?.id ? `${basePath}?package=${encodeURIComponent(item.id)}&step=customize` : `${basePath}?step=customize`;
+        window.history.pushState({}, '', targetUrl);
+        setCurrentPath(targetUrl);
+      } else {
+        // Authoritative Fixed Package Booking Flow: Opens Package Details & Booking
+        setSelectedDetailItem(item);
+        setActiveTab('package-details');
+        try {
+          sessionStorage.setItem('tg_activeTab', 'package-details');
+          sessionStorage.setItem('tg_selectedDetailItem', JSON.stringify(item));
+        } catch (e) {}
+        const isSelfDrivePkg = item.package_type === 'Self Drive Package' || (item.name && item.name.toLowerCase().includes('self drive'));
+        const basePath = isSelfDrivePkg ? '/self-drive' : '/packages';
+        const targetUrl = item?.id ? `${basePath}?package=${encodeURIComponent(item.id)}` : basePath;
+        window.history.pushState({}, '', targetUrl);
+        setCurrentPath(targetUrl);
+      }
     } else {
       setSelectedBookingItem(item);
       setBookingDays(days);
@@ -1515,7 +1530,8 @@ export default function App() {
         pickup_date: pDate,
         pickup_time: extraDetails.pickupTime || pickupTime || '10:00 AM',
         drop_date: dDate,
-        drop_location: extraDetails.dropLoc || dropLoc || extraDetails.pickupLoc || pickupLoc || 'Goa Airport',
+        drop_loc: extraDetails.drop_loc || extraDetails.dropLoc || dropLoc || null,
+        drop_location: extraDetails.drop_location || extraDetails.dropLoc || dropLoc || null,
         drop_time: extraDetails.dropTime || dropTime || '10:00 AM',
         item_id: selectedBookingItem.id || 'custom',
         item_name: selectedBookingItem.name || selectedBookingItem.title || (isTripPkg ? 'Trip Package' : isActivity ? 'Goa Experience' : 'Trip Booking'),
@@ -1783,6 +1799,11 @@ export default function App() {
             onUpdateUser={handleUpdateUser}
             onDeleteUser={handleDeleteUser}
             onLogout={handleLogout}
+            allPackages={packages}
+            onAddPackage={handleAddPackage}
+            onUpdatePackage={handleUpdatePackage}
+            onDeletePackage={handleDeletePackage}
+            flights={flights}
           />
           <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLogin} />
         </>
@@ -2511,6 +2532,15 @@ export default function App() {
                 }, 50);
               }}
               onBook={handleOpenBooking}
+              allCars={cars}
+              allHotels={hotels}
+              currentUser={currentUser}
+              setActiveTab={setActiveTab}
+              onConfirmBooking={(createdRecord) => {
+                api.fetchBookings().then(fresh => {
+                  if (Array.isArray(fresh) && fresh.length > 0) setBookingsList(fresh);
+                }).catch(console.error);
+              }}
               onEnquire={(pkgItem, dates) => {
                 const prefilled = {
                   ...pkgItem,
