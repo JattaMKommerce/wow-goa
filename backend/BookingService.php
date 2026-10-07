@@ -1074,8 +1074,8 @@ class BookingService {
                 id, parent_booking_id, name, phone, email, item_id, item_name, type,
                 pickup_date, drop_date, check_in_date, check_out_date, booking_days,
                 status, payment_status, total_amount, amount_paid, created_at, admin_id,
-                vendor_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'hotel', ?, ?, ?, ?, ?, ?, 'Paid', 0, 0, ?, ?, ?)");
+                vendor_id, payment_method, payment_verification_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'hotel', ?, ?, ?, ?, ?, ?, 'Paid', 0, 0, ?, ?, ?, 'Package Included', 'Approved')");
             $stmtInsH->execute([
                 $childHotelId,
                 $masterBookingId,
@@ -1125,8 +1125,8 @@ class BookingService {
                 pickup_loc, drop_loc,
                 pickup_date, drop_date, departure_date, return_date, booking_days,
                 status, payment_status, total_amount, amount_paid, created_at, admin_id,
-                vendor_id, physical_unit_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'car', ?, ?, ?, ?, ?, ?, ?, ?, 'Paid', 0, 0, ?, ?, ?, ?)");
+                vendor_id, physical_unit_id, payment_method, payment_verification_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'car', ?, ?, ?, ?, ?, ?, ?, ?, 'Paid', 0, 0, ?, ?, ?, ?, 'Package Included', 'Approved')");
             $stmtInsV->execute([
                 $childVehId,
                 $masterBookingId,
@@ -1163,8 +1163,9 @@ class BookingService {
                 id, parent_booking_id, name, phone, email, item_id, item_name, type,
                 pickup_date, drop_date, driver_required, driver_service_type, driver_days, driver_charge,
                 driver_earning, driver_job_status, driver_payment_status,
-                status, payment_status, total_amount, amount_paid, created_at, admin_id
-            ) VALUES (?, ?, ?, ?, ?, 'driver-transfer', 'Airport Transfer & Sightseeing Driver', 'driver', ?, ?, 1, ?, ?, ?, ?, 'Pending', 'Pending', ?, 'Paid', 0, 0, ?, ?)");
+                status, payment_status, total_amount, amount_paid, created_at, admin_id,
+                payment_method, payment_verification_status
+            ) VALUES (?, ?, ?, ?, ?, 'driver-transfer', 'Airport Transfer & Sightseeing Driver', 'driver', ?, ?, 1, ?, ?, ?, ?, 'Pending', 'Pending', ?, 'Paid', 0, 0, ?, ?, 'Package Included', 'Approved')");
             $stmtInsD->execute([
                 $childDriverId,
                 $masterBookingId,
