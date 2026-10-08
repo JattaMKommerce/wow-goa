@@ -7,6 +7,7 @@ import {
 import { fetchPublicStorefront } from '../../services/api';
 import VendorBookingTrackerModal from '../../components/vendor/VendorBookingTrackerModal';
 import VendorStorefrontLeadModal from '../../components/vendor/VendorStorefrontLeadModal';
+import { getTodayDateStr, addDays, formatDisplayDate } from '../../utils/dateUtils';
 
 export default function PublicVendorStorefrontPage({ 
   slug, 
@@ -21,13 +22,40 @@ export default function PublicVendorStorefrontPage({
   const [showTrackerModal, setShowTrackerModal] = useState(initialShowTracker);
   const [showLeadModal, setShowLeadModal] = useState(false);
   
-  // Date filters
-  const [pickupDate, setPickupDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [dropDate, setDropDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 2);
-    return d.toISOString().split('T')[0];
-  });
+  // Date filters with guaranteed local date strings and minimum constraints
+  const todayStr = useMemo(() => getTodayDateStr(), []);
+  const [pickupDate, setPickupDate] = useState(() => getTodayDateStr());
+  const [dropDate, setDropDate] = useState(() => addDays(getTodayDateStr(), 2));
+
+  // Compute duration in days safely
+  const tripDays = useMemo(() => {
+    if (!pickupDate || !dropDate) return 1;
+    const [y1, m1, d1] = pickupDate.split('-').map(Number);
+    const [y2, m2, d2] = dropDate.split('-').map(Number);
+    const p = new Date(y1, m1 - 1, d1);
+    const d = new Date(y2, m2 - 1, d2);
+    const diff = Math.round((d - p) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 1;
+  }, [pickupDate, dropDate]);
+
+  // Safe handlers to prevent past dates and ensure dropDate is always >= pickupDate
+  const handlePickupChange = (newVal) => {
+    if (!newVal) return;
+    setPickupDate(newVal);
+    // If drop date is missing or on/before new pickup date, auto-advance drop date
+    if (!dropDate || dropDate <= newVal) {
+      setDropDate(addDays(newVal, 2));
+    }
+  };
+
+  const handleDropChange = (newVal) => {
+    if (!newVal) return;
+    if (newVal < pickupDate) {
+      setDropDate(pickupDate);
+    } else {
+      setDropDate(newVal);
+    }
+  };
 
   const site = storefront?.website;
   const inventory = storefront?.inventory || [];
@@ -160,14 +188,14 @@ export default function PublicVendorStorefrontPage({
       >
         <span className="d-flex align-items-center gap-1.5">
           <Gift size={14} className="text-warning" />
-          <span>Special Direct Offer: Claim <strong>₹500 Instant Discount &amp; Cashback</strong> on your booking with {site.site_title}!</span>
+          <span>Special Direct Offer: Claim <strong>Up To ₹500 Instant Discount &amp; Cashback</strong> on your booking with {site.site_title}!</span>
         </span>
         <button 
           type="button" 
           className="btn btn-warning text-dark btn-sm rounded-pill py-0.5 px-3 fw-bold text-xxs shadow-2xs transition-all"
           onClick={() => setShowLeadModal(true)}
         >
-          Claim ₹500 Discount →
+          Claim Up To ₹500 Discount →
         </button>
       </div>
 
@@ -234,29 +262,44 @@ export default function PublicVendorStorefrontPage({
           </p>
 
           {/* Quick Date Bar */}
-          <div className="bg-white rounded-4 p-2 shadow-lg d-inline-flex flex-wrap align-items-center justify-content-center gap-2 max-w-lg mx-auto" style={{ border: '1px solid rgba(0,0,0,0.1)' }}>
+          <div className="bg-white rounded-4 p-2.5 shadow-lg d-inline-flex flex-wrap align-items-center justify-content-center gap-2 max-w-lg mx-auto" style={{ border: '1px solid rgba(0,0,0,0.1)' }}>
             <div className="px-3 py-1 text-start">
-              <span className="text-muted d-block" style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase' }}>Pickup Date</span>
+              <span className="text-muted d-block" style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pickup Date</span>
               <input 
                 type="date" 
+                min={todayStr}
                 className="form-control form-control-sm border-0 p-0 fw-bold text-dark" 
+                style={{ width: '138px', cursor: 'pointer', fontSize: '0.92rem' }}
                 value={pickupDate}
-                onChange={(e) => setPickupDate(e.target.value)}
+                onChange={(e) => handlePickupChange(e.target.value)}
               />
+              <span className="text-primary fw-semibold d-block" style={{ fontSize: '0.72rem', marginTop: '-2px' }}>
+                {formatDisplayDate(pickupDate)}
+              </span>
             </div>
             <div className="vr d-none d-md-block my-2" />
             <div className="px-3 py-1 text-start">
-              <span className="text-muted d-block" style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase' }}>Drop Date</span>
+              <div className="d-flex align-items-center justify-content-between gap-1">
+                <span className="text-muted d-block" style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Drop Date</span>
+                <span className="badge rounded-pill bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-1.5 py-0.5 text-3xs fw-bold">
+                  {tripDays} Day{tripDays > 1 ? 's' : ''}
+                </span>
+              </div>
               <input 
                 type="date" 
+                min={pickupDate || todayStr}
                 className="form-control form-control-sm border-0 p-0 fw-bold text-dark" 
+                style={{ width: '138px', cursor: 'pointer', fontSize: '0.92rem' }}
                 value={dropDate}
-                onChange={(e) => setDropDate(e.target.value)}
+                onChange={(e) => handleDropChange(e.target.value)}
               />
+              <span className="text-primary fw-semibold d-block" style={{ fontSize: '0.72rem', marginTop: '-2px' }}>
+                {formatDisplayDate(dropDate)}
+              </span>
             </div>
             <button 
               type="button"
-              className="btn text-white rounded-pill px-4 py-2 fw-bold text-xs shadow-xs"
+              className="btn text-white rounded-pill px-4 py-2.5 fw-bold text-xs shadow-xs"
               style={{ background: primaryColor }}
               onClick={() => {
                 const el = document.getElementById('inventory-section');
@@ -378,7 +421,11 @@ export default function PublicVendorStorefrontPage({
                                 ...item,
                                 vendor_id: site.vendor_id,
                                 pickup_date: pickupDate,
-                                drop_date: dropDate
+                                drop_date: dropDate,
+                                pickupDate: pickupDate,
+                                dropDate: dropDate,
+                                days: tripDays,
+                                bookingDays: tripDays
                               });
                             }
                           }}

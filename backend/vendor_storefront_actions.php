@@ -511,9 +511,9 @@ if ($currentAction === 'track_vendor_booking' || $currentResource === 'track_ven
     $phone = trim($reqPayload['phone'] ?? ($_GET['phone'] ?? ''));
     $slug = trim($reqPayload['slug'] ?? ($_GET['slug'] ?? ''));
 
-    if (!$bookingId || !$phone) {
+    if (!$bookingId && !$phone) {
         http_response_code(400);
-        echo json_encode(["success" => false, "error" => "Please enter your Booking ID and registered Phone Number."]);
+        echo json_encode(["success" => false, "error" => "Please enter your Booking ID or registered Mobile Number."]);
         exit;
     }
 
@@ -526,62 +526,126 @@ if ($currentAction === 'track_vendor_booking' || $currentResource === 'track_ven
     $last4 = strlen($cleanPhone) >= 4 ? substr($cleanPhone, -4) : $cleanPhone;
 
     try {
-        // Query booking matching ID and phone flexibly
-        $sql = "SELECT * FROM bookings WHERE 
-            (
-                id = ? 
-                OR id = ? 
-                OR id LIKE ? 
-                OR id LIKE ? 
-                OR (? != '' AND id LIKE ?)
-            ) 
-            AND 
-            (
-                phone = ? 
-                OR phone LIKE ? 
-                OR phone LIKE ? 
-                OR phone LIKE ? 
-                OR (? != '' AND phone LIKE ?)
-                OR phone = ?
-            )";
+        $bookings = [];
 
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            $cleanBookingId,
-            $rawBookingId,
-            "%$cleanBookingId%",
-            "%$rawBookingId%",
-            $numericBookingId,
-            "%$numericBookingId%",
-            $cleanPhone,
-            "%$cleanPhone%",
-            "%$last10%",
-            "%$last4%",
-            $last10,
-            "%$last10%",
-            $phone
-        ]);
-        $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($cleanBookingId && $cleanPhone) {
+            // Case 1: Both Booking ID and Phone provided -> exact match
+            $sql = "SELECT * FROM bookings WHERE 
+                (
+                    id = ? 
+                    OR id = ? 
+                    OR id LIKE ? 
+                    OR id LIKE ? 
+                    OR (? != '' AND id LIKE ?)
+                ) 
+                AND 
+                (
+                    phone = ? 
+                    OR phone LIKE ? 
+                    OR phone LIKE ? 
+                    OR phone LIKE ? 
+                    OR (? != '' AND phone LIKE ?)
+                    OR phone = ?
+                )
+                ORDER BY id DESC";
 
-        if (!$booking) {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                $cleanBookingId,
+                $rawBookingId,
+                "%$cleanBookingId%",
+                "%$rawBookingId%",
+                $numericBookingId,
+                "%$numericBookingId%",
+                $cleanPhone,
+                "%$cleanPhone%",
+                "%$last10%",
+                "%$last4%",
+                $last10,
+                "%$last10%",
+                $phone
+            ]);
+            $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } elseif ($cleanPhone) {
+            // Case 2: Only Phone provided -> find all bookings for this customer
+            $sql = "SELECT * FROM bookings WHERE 
+                (
+                    phone = ? 
+                    OR phone LIKE ? 
+                    OR phone LIKE ? 
+                    OR phone LIKE ? 
+                    OR (? != '' AND phone LIKE ?)
+                    OR phone = ?
+                )
+                ORDER BY id DESC";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                $cleanPhone,
+                "%$cleanPhone%",
+                "%$last10%",
+                "%$last4%",
+                $last10,
+                "%$last10%",
+                $phone
+            ]);
+            $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } else {
+            // Case 3: Only Booking ID provided
+            $sql = "SELECT * FROM bookings WHERE 
+                (
+                    id = ? 
+                    OR id = ? 
+                    OR id LIKE ? 
+                    OR id LIKE ? 
+                    OR (? != '' AND id LIKE ?)
+                )
+                ORDER BY id DESC";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                $cleanBookingId,
+                $rawBookingId,
+                "%$cleanBookingId%",
+                "%$rawBookingId%",
+                $numericBookingId,
+                "%$numericBookingId%"
+            ]);
+            $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        if (empty($bookings)) {
             http_response_code(404);
-            echo json_encode(["success" => false, "error" => "No booking found matching ID $rawBookingId and phone $phone. Please check your booking details."]);
+            $searchDesc = $bookingId && $phone ? "ID $rawBookingId and mobile $phone" : ($phone ? "mobile $phone" : "Booking ID $rawBookingId");
+            echo json_encode(["success" => false, "error" => "No booking found matching $searchDesc. Please check your details."]);
             exit;
         }
 
-        // Fetch vendor website branding if available
+        // Fetch vendor website branding for the first booking
+        $primaryBooking = $bookings[0];
         $website = null;
-        if (!empty($booking['vendor_id'])) {
+        if (!empty($primaryBooking['vendor_id'])) {
             $wStmt = $pdo->prepare("SELECT site_title, phone, whatsapp_number, hotel_wifi_network, hotel_wifi_password, hotel_checkin_time, hotel_checkout_time, logo_url, banner_url, google_maps_url FROM vendor_websites WHERE vendor_id = ? LIMIT 1");
-            $wStmt->execute([$booking['vendor_id']]);
+            $wStmt->execute([$primaryBooking['vendor_id']]);
             $website = $wStmt->fetch(PDO::FETCH_ASSOC);
         }
 
-        echo json_encode([
-            "success" => true,
-            "booking" => $booking,
-            "website" => $website
-        ]);
+        if (count($bookings) > 1) {
+            echo json_encode([
+                "success" => true,
+                "multiple" => true,
+                "count" => count($bookings),
+                "bookings" => $bookings,
+                "booking" => $primaryBooking,
+                "website" => $website
+            ]);
+        } else {
+            echo json_encode([
+                "success" => true,
+                "booking" => $primaryBooking,
+                "website" => $website
+            ]);
+        }
         exit;
     } catch (Exception $e) {
         http_response_code(500);

@@ -120,10 +120,10 @@ export default function VendorStorefrontLeadModal({
               <Gift size={28} className="text-warning" />
             </div>
             <h4 className="fw-black mb-1 text-white font-heading" style={{ letterSpacing: '-0.3px' }}>
-              Claim ₹500 Trip Discount
+              Claim Up To ₹500 Trip Discount
             </h4>
             <p className="text-white-50 text-xs mb-0" style={{ maxWidth: '320px', margin: '0 auto' }}>
-              Unlock direct host pricing &amp; instant ₹500 cashback for your booking with <strong>{siteTitle}</strong>.
+              Unlock direct host pricing &amp; instant up to ₹500 cashback for your booking with <strong>{siteTitle}</strong>.
             </p>
           </div>
 
@@ -136,7 +136,7 @@ export default function VendorStorefrontLeadModal({
                 </div>
                 <h5 className="fw-black text-dark mb-1">Coupon Activated!</h5>
                 <p className="text-muted text-xs mb-3">
-                  Your special direct booking voucher has been applied. It will automatically deduct ₹500 when you book your {vendorType === 'hotel' ? 'stay' : 'vehicle'}!
+                  Your special direct booking voucher has been applied. It will automatically deduct up to ₹500 when you book your {vendorType === 'hotel' ? 'stay' : 'vehicle'}!
                 </p>
 
                 <div className="p-3 bg-light rounded-3 border mb-3 d-flex align-items-center justify-content-between">
@@ -144,7 +144,7 @@ export default function VendorStorefrontLeadModal({
                     <span className="text-muted text-xxs text-uppercase fw-bold d-block">Promo Code</span>
                     <span className="font-monospace fw-black fs-5 text-primary">{couponCode}</span>
                   </div>
-                  <span className="badge bg-success rounded-pill px-3 py-1.5 text-xs fw-bold">✓ ₹500 OFF</span>
+                  <span className="badge bg-success rounded-pill px-3 py-1.5 text-xs fw-bold">✓ Up To ₹500 OFF</span>
                 </div>
 
                 <button 
@@ -215,7 +215,7 @@ export default function VendorStorefrontLeadModal({
                   ) : (
                     <>
                       <Sparkles size={16} />
-                      <span>Claim ₹500 Discount Voucher</span>
+                      <span>Claim Up To ₹500 Discount Voucher</span>
                     </>
                   )}
                 </button>

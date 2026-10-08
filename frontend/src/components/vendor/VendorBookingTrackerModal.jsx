@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   X, Search, Car, Bike, Building, Phone, Key, Shield, MapPin, 
   CheckCircle2, Clock, AlertTriangle, Wifi, Navigation, Calendar, 
-  HelpCircle, ExternalLink, Loader2, Copy, Check, RefreshCw, RotateCcw
+  HelpCircle, ExternalLink, Loader2, Copy, Check, RefreshCw, RotateCcw,
+  ChevronRight, ArrowLeft
 } from 'lucide-react';
 import { trackVendorBooking } from '../../services/api';
+import { formatDisplayDate } from '../../utils/dateUtils';
 
 export default function VendorBookingTrackerModal({
   isOpen,
@@ -14,38 +16,24 @@ export default function VendorBookingTrackerModal({
   vendorSlug = '',
   vendorSite = null
 }) {
-  const [bookingId, setBookingId] = useState(() => {
-    if (initialBookingId) return initialBookingId;
-    try {
-      return sessionStorage.getItem('tg_tracked_booking_id') || localStorage.getItem('tg_tracked_booking_id') || '';
-    } catch (e) {
-      return '';
-    }
-  });
-
-  const [phone, setPhone] = useState(() => {
-    if (initialPhone) return initialPhone;
-    try {
-      return sessionStorage.getItem('tg_tracked_phone') || localStorage.getItem('tg_tracked_phone') || '';
-    } catch (e) {
-      return '';
-    }
-  });
+  const [bookingId, setBookingId] = useState(() => initialBookingId || '');
+  const [phone, setPhone] = useState(() => initialPhone || '');
 
   const [loading, setLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [trackingData, setTrackingData] = useState(null);
+  const [bookingList, setBookingList] = useState(null);
   const [copiedWifi, setCopiedWifi] = useState(false);
   const [lastUpdatedTime, setLastUpdatedTime] = useState(null);
 
   // Core Search / Auto-Poll Fetcher
-  const executeSearch = useCallback(async (isSilent = false) => {
-    const rawId = (bookingId || '').trim();
+  const executeSearch = useCallback(async (isSilent = false, explicitId = null) => {
+    const rawId = (explicitId !== null ? explicitId : (bookingId || '')).trim();
     const rawPhone = (phone || '').trim();
 
-    if (!rawId || !rawPhone) {
-      if (!isSilent) setError('Please enter both Booking ID and customer mobile number.');
+    if (!rawId && !rawPhone) {
+      if (!isSilent) setError('Please enter your Booking ID or registered Mobile Number.');
       return;
     }
 
@@ -61,21 +49,27 @@ export default function VendorBookingTrackerModal({
 
     try {
       const res = await trackVendorBooking(cleanId || rawId, rawPhone, vendorSlug);
-      if (res && res.success && res.booking) {
-        setTrackingData(res);
-        setError('');
-        setLastUpdatedTime(new Date().toLocaleTimeString());
+      if (res && res.success) {
+        if (res.multiple && Array.isArray(res.bookings) && res.bookings.length > 1 && !cleanId) {
+          // Multiple bookings found for this phone number! Present selection list
+          setBookingList(res.bookings);
+          setTrackingData(null);
+          setError('');
+        } else if (res.booking) {
+          setBookingList(null);
+          setTrackingData(res);
+          setError('');
+          setLastUpdatedTime(new Date().toLocaleTimeString());
 
-        // Persist tracked booking so refreshing the browser retains the details
-        try {
-          sessionStorage.setItem('tg_tracked_booking_id', cleanId || rawId);
-          sessionStorage.setItem('tg_tracked_phone', rawPhone);
-          localStorage.setItem('tg_tracked_booking_id', cleanId || rawId);
-          localStorage.setItem('tg_tracked_phone', rawPhone);
-        } catch (e) {}
+          // Persist tracked booking
+          try {
+            sessionStorage.setItem('tg_tracked_booking_id', res.booking.id || cleanId || rawId);
+            sessionStorage.setItem('tg_tracked_phone', res.booking.phone || rawPhone);
+          } catch (e) {}
+        }
       } else {
         if (!isSilent) {
-          setError(res?.error || 'No booking found matching your details. Please check ID and mobile number.');
+          setError(res?.error || 'No booking found matching your details. Please check ID or mobile number.');
         }
       }
     } catch (err) {
@@ -94,9 +88,26 @@ export default function VendorBookingTrackerModal({
     executeSearch(false);
   };
 
+  // Select a specific booking when multiple exist for this phone number
+  const handleSelectBooking = (selected) => {
+    setBookingId(selected.id);
+    setBookingList(null);
+    setTrackingData({
+      success: true,
+      booking: selected,
+      website: trackingData?.website || vendorSite
+    });
+    setLastUpdatedTime(new Date().toLocaleTimeString());
+    try {
+      sessionStorage.setItem('tg_tracked_booking_id', selected.id);
+      sessionStorage.setItem('tg_tracked_phone', selected.phone || phone);
+    } catch (e) {}
+  };
+
   // Explicit Track Another action: cleanly resets tracked result, form inputs, and storage
   const handleTrackAnother = () => {
     setTrackingData(null);
+    setBookingList(null);
     setBookingId('');
     setPhone('');
     setError('');
@@ -114,19 +125,19 @@ export default function VendorBookingTrackerModal({
     if (initialPhone) setPhone(initialPhone);
   }, [initialBookingId, initialPhone]);
 
-  // Auto-search once on modal open if bookingId and phone are already available
+  // Auto-search once on modal open if bookingId and/or phone are explicitly provided
   useEffect(() => {
-    if (isOpen && bookingId.trim() && phone.trim() && !trackingData) {
+    if (isOpen && (initialBookingId || (initialPhone && bookingId)) && !trackingData) {
       executeSearch(true);
     }
-  }, [isOpen, bookingId, phone, trackingData, executeSearch]);
+  }, [isOpen, initialBookingId, initialPhone, bookingId, trackingData, executeSearch]);
 
   // Real-time background auto-update polling (runs every 3.5 seconds without page reload)
   useEffect(() => {
     if (!isOpen || !trackingData) return;
 
     const interval = setInterval(() => {
-      executeSearch(true);
+      executeSearch(true, trackingData?.booking?.id);
     }, 3500);
 
     return () => clearInterval(interval);
@@ -247,7 +258,7 @@ export default function VendorBookingTrackerModal({
 
           <div className="modal-body p-4 p-md-5" style={{ background: '#F8FAFC' }}>
             {/* Search Input Form */}
-            {!trackingData && (
+            {!trackingData && !bookingList && (
               <form onSubmit={handleSearch} className="mb-3">
                 <div className="p-4 bg-white rounded-4 border shadow-xs mb-3">
                   <div className="d-flex align-items-center justify-content-between mb-3">
@@ -256,27 +267,27 @@ export default function VendorBookingTrackerModal({
                   </div>
                   <div className="row g-3">
                     <div className="col-md-6">
-                      <label className="form-label text-dark small fw-bold">Booking ID *</label>
+                      <label className="form-label text-dark small fw-bold">Booking ID (Optional)</label>
                       <input 
                         type="text" 
                         className="form-control rounded-3 py-2 px-3 fw-bold" 
-                        placeholder="e.g. #TG-927965 or TG-927965"
+                        placeholder="e.g. #TG-854020 or TG-854020"
                         value={bookingId}
                         onChange={(e) => setBookingId(e.target.value)}
                         autoFocus
                       />
-                      <span className="text-secondary" style={{ fontSize: '0.72rem' }}>Accepts ID with or without '#'</span>
+                      <span className="text-secondary" style={{ fontSize: '0.72rem' }}>Leave blank to see all bookings for your mobile</span>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label text-dark small fw-bold">Customer Mobile Number *</label>
+                      <label className="form-label text-dark small fw-bold">Customer Mobile Number</label>
                       <input 
                         type="text" 
                         className="form-control rounded-3 py-2 px-3 fw-bold" 
-                        placeholder="e.g. 911234567899 or 1234567899"
+                        placeholder="e.g. 915555555555 or 10-digit number"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                       />
-                      <span className="text-secondary" style={{ fontSize: '0.72rem' }}>10 digits or with +91 country code</span>
+                      <span className="text-secondary" style={{ fontSize: '0.72rem' }}>10 digits or with country code</span>
                     </div>
                   </div>
                   {error && (
@@ -296,6 +307,72 @@ export default function VendorBookingTrackerModal({
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* Multiple Bookings Selection View */}
+            {!trackingData && bookingList && bookingList.length > 0 && (
+              <div className="mb-3">
+                <div className="p-4 bg-white rounded-4 border shadow-xs mb-3">
+                  <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom flex-wrap gap-2">
+                    <div>
+                      <h6 className="fw-bold text-dark mb-0">Select Booking to Track</h6>
+                      <p className="text-muted text-xs mb-0">
+                        Found {bookingList.length} bookings registered under mobile <strong className="text-dark">{phone}</strong>
+                      </p>
+                    </div>
+                    <button 
+                      type="button" 
+                      className="btn btn-outline-secondary btn-sm rounded-pill px-3 py-1 text-xs d-flex align-items-center gap-1"
+                      onClick={() => { setBookingList(null); setError(''); }}
+                    >
+                      <ArrowLeft size={13} />
+                      <span>Back to Search</span>
+                    </button>
+                  </div>
+
+                  <div className="d-flex flex-column gap-2.5">
+                    {bookingList.map((b) => {
+                      const isComplete = b.status === 'Completed' || b.handover_status === 'Returned';
+                      return (
+                        <div 
+                          key={b.id}
+                          onClick={() => handleSelectBooking(b)}
+                          className="p-3 rounded-3 border bg-light d-flex align-items-center justify-content-between gap-3 transition-all"
+                          style={{ cursor: 'pointer', borderColor: '#E2E8F0' }}
+                        >
+                          <div className="d-flex align-items-center gap-3">
+                            <div className="rounded-circle p-2 bg-white border d-flex align-items-center justify-content-center text-primary shadow-xs">
+                              {b.type === 'hotel' ? <Building size={20} /> : (b.package_type?.toLowerCase().includes('bike') ? <Bike size={20} /> : <Car size={20} />)}
+                            </div>
+                            <div>
+                              <div className="d-flex align-items-center gap-2 flex-wrap">
+                                <span className="badge bg-dark rounded-pill px-2.5 py-0.5 text-xs font-monospace">#{b.id}</span>
+                                <span className="fw-bold text-dark fs-6">{b.item_name || b.name || 'Booking'}</span>
+                                <span className={`badge rounded-pill px-2 py-0.5 text-xs ${isComplete ? 'bg-success text-white' : 'bg-primary text-white'}`}>
+                                  {isComplete ? '✓ Completed' : (b.handover_status || b.status || 'Active')}
+                                </span>
+                              </div>
+                              <div className="text-muted text-xs mt-1">
+                                <span>Guest: <strong className="text-dark">{b.name}</strong></span>
+                                <span className="mx-2">•</span>
+                                <span>Travel: <strong className="text-dark">{formatDisplayDate(b.pickup_date)}</strong> to <strong className="text-dark">{formatDisplayDate(b.drop_date)}</strong></span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button 
+                            type="button" 
+                            className="btn btn-sm btn-primary rounded-pill px-3 py-1.5 text-xs fw-bold d-flex align-items-center gap-1 shadow-xs text-white flex-shrink-0"
+                          >
+                            <span>Track Live</span>
+                            <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Tracking Result View */}

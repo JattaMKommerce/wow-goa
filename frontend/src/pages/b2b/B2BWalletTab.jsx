@@ -450,15 +450,15 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
       >
         {isRechargeModalOpen && (
           <div className="modal-dialog modal-dialog-centered w-100 my-0" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-              <div className="modal-header border-bottom py-3 px-4 bg-light">
+            <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden bg-white text-dark" style={{ backgroundColor: '#ffffff', color: '#0F172A' }}>
+              <div className="modal-header border-bottom py-3 px-4 bg-white" style={{ backgroundColor: '#ffffff' }}>
                 <div className="d-flex align-items-center gap-2">
                   <span className="p-2 rounded-3 bg-warning text-dark">
                     <Plus size={16} />
                   </span>
                   <div>
                     <h6 className="modal-title fw-bold text-dark font-heading text-sm mb-0">Recharge Agent Wallet</h6>
-                    <p className="text-muted text-xxs mb-0">Direct instant wallet top-up for agency bookings</p>
+                    <p className="text-secondary text-xs mb-0">Direct instant wallet top-up for agency bookings</p>
                   </div>
                 </div>
                 <button
@@ -469,7 +469,7 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
               </div>
 
               <form onSubmit={handleRechargeSubmit}>
-                <div className="modal-body p-4">
+                <div className="modal-body p-4 bg-white" style={{ backgroundColor: '#ffffff', color: '#0F172A' }}>
                   {rechargeMessage.text && (
                     <div className={`alert alert-${rechargeMessage.type} py-2 px-3 rounded-3 text-xs mb-3 d-flex align-items-center gap-2`}>
                       {rechargeMessage.type === 'success' ? <CheckCircle size={15} /> : <AlertTriangle size={15} />}
@@ -478,18 +478,18 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
                   )}
 
                   {/* Current Balance Banner */}
-                  <div className="p-3 rounded-3 bg-light border mb-3.5 d-flex align-items-center justify-content-between">
+                  <div className="p-3 rounded-3 border mb-3.5 d-flex align-items-center justify-content-between" style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}>
                     <div>
-                      <span className="text-muted text-xxs d-block">Current Available Balance</span>
-                      <strong className="text-dark fs-6">₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                      <span className="text-secondary text-xs fw-semibold d-block mb-0.5">Current Available Balance</span>
+                      <strong className="text-dark fs-5 font-heading">₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
                     </div>
-                    <span className="badge bg-warning text-dark text-xxs fw-bold px-2 py-1 rounded-pill">
+                    <span className="badge bg-warning text-dark text-xs fw-bold px-2.5 py-1 rounded-pill">
                       Instant Credit
                     </span>
                   </div>
 
                   {/* Quick Amount Presets */}
-                  <label className="form-label text-xxs fw-bold text-muted text-uppercase mb-1.5">
+                  <label className="form-label text-xs fw-bold text-uppercase mb-1.5" style={{ color: '#334155', letterSpacing: '0.4px' }}>
                     Select Quick Amount
                   </label>
                   <div className="row g-2 mb-3">
@@ -498,9 +498,11 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
                         <button
                           type="button"
                           onClick={() => setRechargeAmount(amt)}
-                          className={`btn btn-sm w-100 py-2 rounded-3 text-xs fw-bold border ${
-                            rechargeAmount === amt ? 'btn-dark text-warning border-dark shadow-xs' : 'btn-light text-dark'
-                          }`}
+                          className="btn btn-sm w-100 py-2 rounded-3 text-xs fw-bold border transition-all"
+                          style={rechargeAmount === amt 
+                            ? { background: '#0F172A', color: '#F59E0B', borderColor: '#0F172A', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }
+                            : { background: '#F8FAFC', color: '#1E293B', borderColor: '#E2E8F0' }
+                          }
                         >
                           ₹{parseInt(amt).toLocaleString('en-IN')}
                         </button>
@@ -510,18 +512,19 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
 
                   {/* Custom Amount Input */}
                   <div className="mb-3">
-                    <label className="form-label text-xxs fw-bold text-muted text-uppercase mb-1">
+                    <label className="form-label text-xs fw-bold text-uppercase mb-1" style={{ color: '#334155', letterSpacing: '0.4px' }}>
                       Or Enter Custom Amount (₹) *
                     </label>
-                    <div className="input-group input-group-sm">
-                      <span className="input-group-text bg-white fw-bold">₹</span>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light fw-bold text-dark border" style={{ borderColor: '#CBD5E1' }}>₹</span>
                       <input
                         type="number"
                         min="500"
                         step="100"
                         value={rechargeAmount}
                         onChange={(e) => setRechargeAmount(e.target.value)}
-                        className="form-control form-control-sm text-sm fw-bold"
+                        className="form-control text-sm fw-bold border"
+                        style={{ borderColor: '#CBD5E1', color: '#0F172A', background: '#FFFFFF' }}
                         placeholder="e.g. 15000"
                         required
                       />
@@ -530,41 +533,47 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
 
                   {/* Payment Gateway / Method */}
                   <div className="mb-3">
-                    <label className="form-label text-xxs fw-bold text-muted text-uppercase mb-1.5">
+                    <label className="form-label text-xs fw-bold text-uppercase mb-1.5" style={{ color: '#334155', letterSpacing: '0.4px' }}>
                       Select Payment Gateway / Method
                     </label>
                     <div className="row g-2">
                       <div className="col-4">
                         <div 
                           onClick={() => setRechargeMethod('UPI')}
-                          className={`p-2.5 rounded-3 border text-center cursor-pointer ${
-                            rechargeMethod === 'UPI' ? 'border-primary bg-primary bg-opacity-10 text-primary fw-bold' : 'bg-white text-muted'
-                          }`}
+                          className="p-2.5 rounded-3 border text-center cursor-pointer transition-all"
+                          style={rechargeMethod === 'UPI' 
+                            ? { background: '#EFF6FF', borderColor: '#3B82F6', color: '#1D4ED8', fontWeight: 'bold' } 
+                            : { background: '#F8FAFC', borderColor: '#E2E8F0', color: '#475569' }
+                          }
                         >
-                          <span className="d-block text-xs">UPI Instant</span>
-                          <span className="text-3xs text-muted">GPay / PhonePe</span>
+                          <span className="d-block text-xs" style={{ color: rechargeMethod === 'UPI' ? '#1D4ED8' : '#0F172A', fontWeight: 700 }}>UPI Instant</span>
+                          <span className="text-3xs" style={{ color: rechargeMethod === 'UPI' ? '#2563EB' : '#64748B' }}>GPay / PhonePe</span>
                         </div>
                       </div>
                       <div className="col-4">
                         <div 
                           onClick={() => setRechargeMethod('Bank Transfer')}
-                          className={`p-2.5 rounded-3 border text-center cursor-pointer ${
-                            rechargeMethod === 'Bank Transfer' ? 'border-primary bg-primary bg-opacity-10 text-primary fw-bold' : 'bg-white text-muted'
-                          }`}
+                          className="p-2.5 rounded-3 border text-center cursor-pointer transition-all"
+                          style={rechargeMethod === 'Bank Transfer' 
+                            ? { background: '#EFF6FF', borderColor: '#3B82F6', color: '#1D4ED8', fontWeight: 'bold' } 
+                            : { background: '#F8FAFC', borderColor: '#E2E8F0', color: '#475569' }
+                          }
                         >
-                          <span className="d-block text-xs">Bank Transfer</span>
-                          <span className="text-3xs text-muted">NEFT / RTGS</span>
+                          <span className="d-block text-xs" style={{ color: rechargeMethod === 'Bank Transfer' ? '#1D4ED8' : '#0F172A', fontWeight: 700 }}>Bank Transfer</span>
+                          <span className="text-3xs" style={{ color: rechargeMethod === 'Bank Transfer' ? '#2563EB' : '#64748B' }}>NEFT / RTGS</span>
                         </div>
                       </div>
                       <div className="col-4">
                         <div 
                           onClick={() => setRechargeMethod('Razorpay')}
-                          className={`p-2.5 rounded-3 border text-center cursor-pointer ${
-                            rechargeMethod === 'Razorpay' ? 'border-primary bg-primary bg-opacity-10 text-primary fw-bold' : 'bg-white text-muted'
-                          }`}
+                          className="p-2.5 rounded-3 border text-center cursor-pointer transition-all"
+                          style={rechargeMethod === 'Razorpay' 
+                            ? { background: '#EFF6FF', borderColor: '#3B82F6', color: '#1D4ED8', fontWeight: 'bold' } 
+                            : { background: '#F8FAFC', borderColor: '#E2E8F0', color: '#475569' }
+                          }
                         >
-                          <span className="d-block text-xs">Card / NetBanking</span>
-                          <span className="text-3xs text-muted">Razorpay Gateway</span>
+                          <span className="d-block text-xs" style={{ color: rechargeMethod === 'Razorpay' ? '#1D4ED8' : '#0F172A', fontWeight: 700 }}>Card / NetBanking</span>
+                          <span className="text-3xs" style={{ color: rechargeMethod === 'Razorpay' ? '#2563EB' : '#64748B' }}>Razorpay Gateway</span>
                         </div>
                       </div>
                     </div>
@@ -572,22 +581,29 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
 
                   {/* Gateway Instructions Display */}
                   {rechargeMethod === 'UPI' && (
-                    <div className="p-3 rounded-3 bg-light border mb-3 text-xs">
+                    <div className="p-3 rounded-3 border mb-3 text-xs" style={{ background: '#F8FAFC', borderColor: '#E2E8F0' }}>
                       <strong className="d-block text-dark mb-1">UPI ID: tripgalileo@upi</strong>
-                      <span className="text-muted text-xxs">Pay using any UPI App (Google Pay, PhonePe, Paytm). Enter UTR / Txn Reference below.</span>
+                      <span className="text-secondary text-xs">Pay using any UPI App (Google Pay, PhonePe, Paytm). Enter UTR / Txn Reference below.</span>
                     </div>
                   )}
 
                   {rechargeMethod === 'Bank Transfer' && (
-                    <div className="p-3 rounded-3 bg-light border mb-3 text-xs">
+                    <div className="p-3 rounded-3 border mb-3 text-xs" style={{ background: '#F8FAFC', borderColor: '#E2E8F0' }}>
                       <strong className="d-block text-dark mb-0.5">Bank: HDFC Bank | Branch: Goa Main</strong>
-                      <span className="text-muted text-xxs d-block">Account No: 1234567890 | IFSC: HDFC0001234</span>
+                      <span className="text-secondary text-xs d-block">Account No: 1234567890 | IFSC: HDFC0001234</span>
+                    </div>
+                  )}
+
+                  {rechargeMethod === 'Razorpay' && (
+                    <div className="p-3 rounded-3 border mb-3 text-xs" style={{ background: '#F8FAFC', borderColor: '#E2E8F0' }}>
+                      <strong className="d-block text-dark mb-0.5">Online Payment Gateway</strong>
+                      <span className="text-secondary text-xs d-block">Instant automated credit via Credit/Debit Cards, NetBanking, or UPI.</span>
                     </div>
                   )}
 
                   {/* UTR / Reference ID */}
                   <div className="mb-2">
-                    <label className="form-label text-xxs fw-bold text-muted text-uppercase mb-1">
+                    <label className="form-label text-xs fw-bold text-uppercase mb-1" style={{ color: '#334155', letterSpacing: '0.4px' }}>
                       UTR / Payment Reference ID (Optional)
                     </label>
                     <input
@@ -595,15 +611,16 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
                       value={referenceId}
                       onChange={(e) => setReferenceId(e.target.value)}
                       placeholder="e.g. UTR12345678 or Txn Ref"
-                      className="form-control form-control-sm"
+                      className="form-control form-control-sm text-xs"
+                      style={{ borderColor: '#CBD5E1', color: '#0F172A', background: '#FFFFFF' }}
                     />
                   </div>
                 </div>
 
-                <div className="modal-footer border-top py-2.5 px-4 bg-light">
+                <div className="modal-footer border-top py-2.5 px-4 bg-light" style={{ backgroundColor: '#F8FAFC' }}>
                   <button
                     type="button"
-                    className="btn btn-sm btn-outline-secondary rounded-pill px-3 text-xs"
+                    className="btn btn-sm btn-outline-secondary rounded-pill px-3.5 text-xs fw-semibold"
                     onClick={() => setIsRechargeModalOpen(false)}
                     disabled={rechargeLoading}
                   >
