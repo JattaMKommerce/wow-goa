@@ -4,9 +4,11 @@ import {
   BookOpen, FilePlus, ConciergeBell, LogIn, LogOut as LogOutIcon, Users,
   Star, CreditCard, FileText, BarChart2, Bell, Headphones, UserCircle,
   Landmark, Settings, Activity, ChevronDown, ChevronRight, Menu, X,
-  Compass, LogOut, Shield, Sparkles, Trash2, CheckCheck, ArrowRight, Check
+  Compass, LogOut, Shield, Sparkles, Trash2, CheckCheck, ArrowRight, Check,
+  Globe
 } from 'lucide-react';
 import * as api from '../../services/api';
+import VendorStorefrontWizard from '../../components/vendor/VendorStorefrontWizard';
 
 // PMS Module Imports
 import PMSDashboard from './pms/PMSDashboard';
@@ -97,6 +99,12 @@ const SIDEBAR_GROUPS = [
     ]
   },
   {
+    label: 'Online Storefront',
+    items: [
+      { id: 'website_builder', label: 'My Website', icon: <Globe size={16} /> }
+    ]
+  },
+  {
     label: 'Account',
     items: [
       { id: 'profile', label: 'Vendor Profile', icon: <UserCircle size={16} /> },
@@ -126,6 +134,7 @@ const PAGE_TITLES = {
   payments: 'Booking Payments',
   payment_settings: 'Payment Settings',
   cancellation_policy: 'Cancellation Policy',
+  website_builder: 'My Website Storefront',
   settlements: 'Settlements',
   billing: 'Subscription & Billing',
   staff: 'Staff & Permissions',
@@ -370,6 +379,15 @@ export default function HotelVendorPortalPage({
       case 'wallet': return <VendorWallet currentUser={currentUser} />;
       case 'payment_settings': return <PMSPaymentSettings {...commonProps} />;
       case 'cancellation_policy': return <VendorCancellationPolicyManager currentUser={currentUser} serviceType="hotel" />;
+      case 'website_builder': 
+        return (
+          <VendorStorefrontWizard 
+            currentUser={currentUser} 
+            vendorType="hotel" 
+            inventory={vendorHotels} 
+            onExit={() => setActiveTab('dashboard')} 
+          />
+        );
       default: return <PMSDashboard {...commonProps} />;
     }
   };

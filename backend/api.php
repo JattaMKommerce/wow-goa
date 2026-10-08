@@ -3429,6 +3429,9 @@ function updateB2BBookingStatusTransitions($pdo, $bookingId, $newStatus, $actorI
     }
 }
 
+// Vendor Storefront & Live Handover / Stay Tracker Actions
+require_once __DIR__ . '/vendor_storefront_actions.php';
+
 // 2. Process GET Resources (Read Queries)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
@@ -13879,6 +13882,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($payment_status) {
                 $stmt = $pdo->prepare("UPDATE bookings SET payment_status = ? WHERE id = ?");
                 $stmt->execute([$payment_status, $payload['id']]);
+            }
+
+            // Sync handover status & inspection timestamps with workflow
+            if ($status) {
+                try {
+                    $nowTs = date('Y-m-d H:i:s');
+                    $stNorm = strtolower(trim($status));
+                    if ($stNorm === 'completed') {
+                        $pdo->prepare("UPDATE bookings SET handover_status = 'Returned', checkin_status = 'Checked Out', returned_at = COALESCE(returned_at, ?) WHERE id = ?")->execute([$nowTs, $payload['id']]);
+                    } elseif ($stNorm === 'pickup') {
+                        $pdo->prepare("UPDATE bookings SET handover_status = 'Handed Over', checkin_status = 'Checked In', handed_over_at = COALESCE(handed_over_at, ?) WHERE id = ?")->execute([$nowTs, $payload['id']]);
+                    } elseif ($stNorm === 'return') {
+                        $pdo->prepare("UPDATE bookings SET handover_status = 'Returned', returned_at = COALESCE(returned_at, ?) WHERE id = ?")->execute([$nowTs, $payload['id']]);
+                    }
+                } catch (Exception $hEx) {}
             }
 
             // Cascade status update to child bookings (if master package booking)

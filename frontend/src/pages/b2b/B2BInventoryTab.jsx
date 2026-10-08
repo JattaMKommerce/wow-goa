@@ -321,7 +321,7 @@ export default function B2BInventoryTab({
                 </>
               )}
             </div>
-            <span className="badge bg-light text-secondary border text-xxs d-none d-md-inline-block px-2.5 py-1 rounded-pill">
+            <span className="badge bg-light text-secondary border text-xs d-none d-md-inline-block px-2.5 py-1 rounded-pill">
               Admin Approved Active Mode
             </span>
           </div>
@@ -517,37 +517,37 @@ export default function B2BInventoryTab({
                         <h6 className="fw-bold text-dark font-heading mb-0 text-sm text-truncate pe-1" style={{ cursor: 'pointer' }} onClick={() => setDetailItem(item)}>{title}</h6>
                       </div>
 
-                      <div className="d-flex align-items-center gap-1 text-xxs text-muted mb-2">
-                        <MapPin size={11} className="text-warning flex-shrink-0" />
+                      <div className="d-flex align-items-center gap-1 text-xs text-muted mb-2">
+                        <MapPin size={13} className="text-warning flex-shrink-0" />
                         <span className="text-truncate">{location}</span>
                         {item.duration && (
                           <>
                             <span>•</span>
                             <span className="d-flex align-items-center gap-1">
-                              <Clock size={11} /> {item.duration}
+                              <Clock size={12} /> {item.duration}
                             </span>
                           </>
                         )}
                       </div>
 
-                      <p className="text-muted text-xxs line-clamp-2 mb-2 leading-relaxed">
+                      <p className="text-muted text-xs line-clamp-2 mb-2 leading-relaxed">
                         {item.description || item.short_desc || 'Rich inventory item with shared D2C/B2B database availability.'}
                       </p>
 
                       {/* Included Items Badges */}
                       <div className="d-flex flex-wrap gap-1 mb-2">
                         {item.hotel_included && (
-                          <span className="badge bg-light text-dark border text-3xs px-1.5 py-0.5">
+                          <span className="badge bg-light text-dark border text-xs px-2 py-0.5">
                             🏨 {item.hotel_included}
                           </span>
                         )}
                         {item.car_included && (
-                          <span className="badge bg-light text-dark border text-3xs px-1.5 py-0.5">
+                          <span className="badge bg-light text-dark border text-xs px-2 py-0.5">
                             🚗 {item.car_included}
                           </span>
                         )}
                         {item.category && (
-                          <span className="badge bg-light text-dark border text-3xs px-1.5 py-0.5">
+                          <span className="badge bg-light text-dark border text-xs px-2 py-0.5">
                             🏷️ {item.category}
                           </span>
                         )}
@@ -559,30 +559,30 @@ export default function B2BInventoryTab({
                       {mode === 'COMMISSION' ? (
                         <div className="p-2.5 rounded-3 bg-warning bg-opacity-10 border border-warning border-opacity-25 mb-2.5">
                           <div className="d-flex align-items-center justify-content-between mb-1">
-                            <span className="text-xxs text-muted">Customer Selling Price:</span>
+                            <span className="text-xs text-muted">Customer Selling Price:</span>
                             <span className="text-xs fw-bold text-dark">₹{(pricing.sellingPrice || 0).toLocaleString()}</span>
                           </div>
                           <div className="d-flex align-items-center justify-content-between mb-1 text-success">
-                            <span className="text-xxs fw-semibold">Agent Commission ({pricing.commPercent || 0}%):</span>
+                            <span className="text-xs fw-semibold">Agent Commission ({pricing.commPercent || 0}%):</span>
                             <span className="text-xs fw-bold">+₹{(pricing.commAmount || 0).toLocaleString()}</span>
                           </div>
                           <div className="d-flex align-items-center justify-content-between pt-1 border-top border-warning border-opacity-25">
-                            <span className="text-xxs fw-bold text-dark">Net Payout to WOW Goa:</span>
+                            <span className="text-xs fw-bold text-dark">Net Payout to WOW Goa:</span>
                             <span className="text-sm fw-black text-dark">₹{(pricing.netPayable || 0).toLocaleString()}</span>
                           </div>
                         </div>
                       ) : (
                         <div className="p-2.5 rounded-3 bg-primary bg-opacity-10 border border-primary border-opacity-25 mb-2.5">
                           <div className="d-flex align-items-center justify-content-between mb-1">
-                            <span className="text-xxs text-muted">Retail D2C Price:</span>
+                            <span className="text-xs text-muted">Retail D2C Price:</span>
                             <span className="text-xs text-muted text-decoration-line-through">₹{(pricing.sellingPrice || 0).toLocaleString()}</span>
                           </div>
                           <div className="d-flex align-items-center justify-content-between mb-1 text-primary">
-                            <span className="text-xxs fw-semibold">B2B Net Discount ({pricing.netDiscountPercent || 0}%):</span>
+                            <span className="text-xs fw-semibold">B2B Net Discount ({pricing.netDiscountPercent || 0}%):</span>
                             <span className="text-xs fw-bold">-₹{(pricing.discountAmount || 0).toLocaleString()}</span>
                           </div>
                           <div className="d-flex align-items-center justify-content-between pt-1 border-top border-primary border-opacity-25">
-                            <span className="text-xxs fw-bold text-dark">B2B Net Rate Payable:</span>
+                            <span className="text-xs fw-bold text-dark">B2B Net Rate Payable:</span>
                             <span className="text-sm fw-black text-primary">₹{(pricing.netPrice || 0).toLocaleString()}</span>
                           </div>
                         </div>
@@ -593,7 +593,7 @@ export default function B2BInventoryTab({
                         <button
                           type="button"
                           onClick={() => setDetailItem(item)}
-                          className="btn btn-outline-secondary btn-sm rounded-pill text-xxs px-2.5 py-1.5 d-flex align-items-center gap-1"
+                          className="btn btn-outline-secondary btn-sm rounded-pill text-xs px-2.5 py-1.5 d-flex align-items-center gap-1"
                         >
                           <Eye size={13} /> Details
                         </button>
@@ -1095,7 +1095,10 @@ export default function B2BInventoryTab({
                           </span>
                         </div>
                       </div>
-                      <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 text-3xs rounded-pill">
+                      <span 
+                        className="badge text-xs px-2.5 py-1 rounded-pill fw-bold"
+                        style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
+                      >
                         Instant Booking Debit
                       </span>
                     </div>

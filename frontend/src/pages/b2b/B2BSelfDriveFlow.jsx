@@ -455,25 +455,31 @@ export default function B2BSelfDriveFlow({ partner, activeMode, onBookingSuccess
   return (
     <div className="animate-fade-in pb-5">
       {/* Header Banner */}
-      <div className="p-4 rounded-4 mb-4 text-white position-relative overflow-hidden shadow-sm" style={{ background: 'linear-gradient(135deg, #0D1B2E 0%, #162E4C 100%)' }}>
+      <div 
+        className="p-4 rounded-4 mb-4 text-white position-relative overflow-hidden shadow-sm" 
+        style={{ 
+          background: 'linear-gradient(135deg, #0D1B2E 0%, #162E4C 100%)',
+          border: '1px solid rgba(255, 255, 255, 0.08)'
+        }}
+      >
         <div className="position-relative z-1">
           <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
             <div>
-              <div className="d-flex align-items-center gap-2 mb-1">
-                <span className="badge bg-warning text-dark text-xxs fw-bold px-2 py-0.5 rounded-pill">
+              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span className="badge bg-warning text-dark text-xs fw-bold px-2.5 py-1 rounded-pill">
                   B2B VEHICLE RESERVATIONS
                 </span>
-                <span className={`badge ${mode === 'COMMISSION' ? 'bg-warning text-dark' : 'bg-primary text-white'} text-xxs fw-bold px-2.5 py-0.5 rounded-pill`}>
+                <span className={`badge ${mode === 'COMMISSION' ? 'bg-warning text-dark' : 'bg-primary text-white'} text-xs fw-bold px-2.5 py-1 rounded-pill`}>
                   {mode === 'COMMISSION' ? 'Commission Mode (Standard)' : 'Non-Commission Mode (Net Wholesale)'}
                 </span>
               </div>
-              <h4 className="fw-bold mb-1 font-heading">Goa Self Drive Holiday & Rental Portal</h4>
-              <p className="text-white-50 text-xs mb-0">
-                Book premium hatchback, sedan, SUV & luxury vehicles across Goa airports and hotspots with live B2B rates.
+              <h4 className="fw-bold mb-1.5 font-heading fs-4" style={{ color: '#ffffff' }}>Goa Self Drive Holiday &amp; Rental Portal</h4>
+              <p className="small mb-0" style={{ color: '#f1f5f9', fontSize: '13.5px', lineHeight: '1.5' }}>
+                Book premium hatchback, sedan, SUV &amp; luxury vehicles across Goa airports and hotspots with live B2B rates.
               </p>
             </div>
             <div className="text-end d-none d-md-block">
-              <span className="text-white-50 text-xxs d-block">Authorized Agency</span>
+              <span className="text-xs d-block mb-0.5" style={{ color: '#cbd5e1' }}>Authorized Agency</span>
               <span className="fw-bold text-warning text-sm">{partner?.company_name || 'B2B Partner Agency'}</span>
             </div>
           </div>
@@ -753,30 +759,30 @@ export default function B2BSelfDriveFlow({ partner, activeMode, onBookingSuccess
                       {mode === 'COMMISSION' ? (
                         <div className="p-2.5 rounded-3 bg-warning bg-opacity-10 border border-warning border-opacity-25 mb-2.5">
                           <div className="d-flex align-items-center justify-content-between mb-1">
-                            <span className="text-xxs text-muted">Customer Selling Price:</span>
+                            <span className="text-xs text-muted">Customer Selling Price:</span>
                             <span className="text-xs fw-bold text-dark">₹{(pricing.sellingPrice || 0).toLocaleString()}</span>
                           </div>
                           <div className="d-flex align-items-center justify-content-between mb-1 text-success">
-                            <span className="text-xxs fw-semibold">Agent Commission ({pricing.commissionPercent || 0}%):</span>
+                            <span className="text-xs fw-semibold">Agent Commission ({pricing.commissionPercent || 0}%):</span>
                             <span className="text-xs fw-bold">+₹{(pricing.commissionAmount || 0).toLocaleString()}</span>
                           </div>
                           <div className="d-flex align-items-center justify-content-between pt-1 border-top border-warning border-opacity-25">
-                            <span className="text-xxs fw-bold text-dark">Net Payout to WOW Goa:</span>
+                            <span className="text-xs fw-bold text-dark">Net Payout to WOW Goa:</span>
                             <span className="text-sm fw-black text-dark">₹{(pricing.netPayable || 0).toLocaleString()}</span>
                           </div>
                         </div>
                       ) : (
                         <div className="p-2.5 rounded-3 bg-primary bg-opacity-10 border border-primary border-opacity-25 mb-2.5">
                           <div className="d-flex align-items-center justify-content-between mb-1">
-                            <span className="text-xxs text-muted">Retail D2C Price:</span>
+                            <span className="text-xs text-muted">Retail D2C Price:</span>
                             <span className="text-xs text-muted text-decoration-line-through">₹{(pricing.sellingPrice || 0).toLocaleString()}</span>
                           </div>
                           <div className="d-flex align-items-center justify-content-between mb-1 text-primary">
-                            <span className="text-xxs fw-semibold">B2B Net Discount ({pricing.netDiscountPercent || 0}%):</span>
+                            <span className="text-xs fw-semibold">B2B Net Discount ({pricing.netDiscountPercent || 0}%):</span>
                             <span className="text-xs fw-bold">-₹{(pricing.discountAmount || 0).toLocaleString()}</span>
                           </div>
                           <div className="d-flex align-items-center justify-content-between pt-1 border-top border-primary border-opacity-25">
-                            <span className="text-xxs fw-bold text-dark">B2B Net Rate Payable:</span>
+                            <span className="text-xs fw-bold text-dark">B2B Net Rate Payable:</span>
                             <span className="text-sm fw-black text-primary">₹{(pricing.netPrice || 0).toLocaleString()}</span>
                           </div>
                         </div>
@@ -786,7 +792,7 @@ export default function B2BSelfDriveFlow({ partner, activeMode, onBookingSuccess
                         <button
                           type="button"
                           onClick={() => setDetailVehicle(veh)}
-                          className="btn btn-outline-secondary btn-sm rounded-pill text-xxs px-3 py-2 d-flex align-items-center justify-content-center gap-1"
+                          className="btn btn-outline-secondary btn-sm rounded-pill text-xs px-3 py-2 d-flex align-items-center justify-content-center gap-1"
                         >
                           <Eye size={13} /> Details
                         </button>
@@ -1511,7 +1517,10 @@ export default function B2BSelfDriveFlow({ partner, activeMode, onBookingSuccess
                           </span>
                         </div>
                       </div>
-                      <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 text-3xs rounded-pill">
+                      <span 
+                        className="badge text-xs px-2.5 py-1 rounded-pill fw-bold"
+                        style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
+                      >
                         Instant Booking Debit
                       </span>
                     </div>

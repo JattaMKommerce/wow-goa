@@ -1160,7 +1160,7 @@
 }
 
 .text-xs {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .bg-success-light {
@@ -1219,12 +1219,49 @@
 }
 
 .btn-xs {
-  padding: 4px 8px;
-  font-size: 11px;
+  padding: 4px 10px;
+  font-size: 11.5px;
 }
 
 .text-xxs {
-  font-size: 9px;
+  font-size: 11.5px;
+}
+
+.text-3xs {
+  font-size: 11px;
+}
+
+/* Soft Badges & Bootstrap Badge Opacity Fallback Fix */
+.badge.bg-success[class*="bg-opacity-"],
+.badge.bg-success-subtle,
+.badge-soft-success {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border: 1px solid #a7f3d0 !important;
+}
+
+.badge.bg-primary[class*="bg-opacity-"],
+.badge.bg-primary-subtle,
+.badge-soft-primary {
+  background-color: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border: 1px solid #bfdbfe !important;
+}
+
+.badge.bg-warning[class*="bg-opacity-"],
+.badge.bg-warning-subtle,
+.badge-soft-warning {
+  background-color: #fffbeb !important;
+  color: #b45309 !important;
+  border: 1px solid #fde68a !important;
+}
+
+.badge.bg-danger[class*="bg-opacity-"],
+.badge.bg-danger-subtle,
+.badge-soft-danger {
+  background-color: #fef2f2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fecaca !important;
 }
 
 .hover-scale:hover {

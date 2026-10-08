@@ -25,7 +25,7 @@ function handleWindowWheel(e) {
 
   // If the wheel event is inside an active scrollable container, permit normal scrolling
   const scrollable = target.closest(
-    '.checkout-body, .modal-body, .activity-modal-body, .overflow-y-auto, .overflow-auto, .ai-chatbot-body, .custom-scrollbar, [data-scrollable="true"], .modal-dialog-scrollable .modal-content'
+    '.checkout-body, .modal-body, .activity-modal-body, .overflow-y-auto, .overflow-auto, .ai-chatbot-body, .custom-scrollbar, [data-scrollable="true"], .modal-dialog-scrollable .modal-content, .modal-voucher-scroll-body, .custom-voucher-scrollbar, .voucher-modal-backdrop, .booking-voucher-document'
   );
 
   if (!scrollable) {
@@ -40,7 +40,7 @@ function handleWindowTouch(e) {
 
   // If the touch event is inside an active scrollable container, permit normal scrolling
   const scrollable = target.closest(
-    '.checkout-body, .modal-body, .activity-modal-body, .overflow-y-auto, .overflow-auto, .ai-chatbot-body, .custom-scrollbar, [data-scrollable="true"], .modal-dialog-scrollable .modal-content'
+    '.checkout-body, .modal-body, .activity-modal-body, .overflow-y-auto, .overflow-auto, .ai-chatbot-body, .custom-scrollbar, [data-scrollable="true"], .modal-dialog-scrollable .modal-content, .modal-voucher-scroll-body, .custom-voucher-scrollbar, .voucher-modal-backdrop, .booking-voucher-document'
   );
 
   if (!scrollable) {

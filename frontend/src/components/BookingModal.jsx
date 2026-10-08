@@ -47,6 +47,8 @@ export default function BookingModal({
   setUserName,
   userPhone,
   setUserPhone,
+  userEmail,
+  setUserEmail,
   userLicense,
   setUserLicense,
   pickupLoc,
@@ -66,6 +68,9 @@ export default function BookingModal({
   if (!selectedBookingItem) return null;
   const { country, currency, category, isIndian, isForeign, setCountry, resetCountry } = useCustomerCurrency();
   const [bookingStep, setBookingStep] = useState('DETAILS'); // 'DETAILS' | 'PAYMENT'
+  const [internalEmail, setInternalEmail] = useState('');
+  const emailVal = userEmail !== undefined ? userEmail : internalEmail;
+  const setEmailVal = setUserEmail || setInternalEmail;
 
   const [modalPickupDate, setModalPickupDate] = useState(pickupDate || getTodayDateStr());
   const [modalDropDate, setModalDropDate] = useState(dropDate || addDays(pickupDate || getTodayDateStr(), bookingDays || 2));
@@ -501,6 +506,11 @@ export default function BookingModal({
       alert("Please enter a valid phone number with your country code.");
       return false;
     }
+    const cleanEmail = String(emailVal || '').trim();
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      alert("Please enter a valid Gmail / Email address (e.g. name@gmail.com). Your booking confirmation and official trip voucher will be emailed here.");
+      return false;
+    }
 
     const isVehicleItem = isCar || isBike || Boolean(addonVehicle);
     if (isVehicleItem) {
@@ -673,6 +683,8 @@ export default function BookingModal({
       : 'INTL_PENDING';
 
     handleConfirmBooking(e, paymentMethodToUse, {
+      email: emailVal,
+      customer_email: emailVal,
       pickupDate: modalPickupDate,
       dropDate: modalDropDate,
       pickupTime: modalPickupTime,
@@ -895,6 +907,28 @@ export default function BookingModal({
                         />
                         <small className="text-muted d-block mt-1" style={{ fontSize: '11px' }}>
                           Use this mobile number to log in to the Customer Portal & track your booking.
+                        </small>
+                      </div>
+
+                      <div className="mb-3 animate-fade-in">
+                        <label className="form-label small fw-bold d-flex align-items-center justify-content-between">
+                          <span>
+                            Email Address (Gmail) <span className="text-danger">*</span>
+                          </span>
+                          <span className="badge bg-primary-subtle text-primary border border-primary-subtle" style={{ fontSize: '10px' }}>
+                            Instant Voucher Emailed
+                          </span>
+                        </label>
+                        <input 
+                          type="email" 
+                          className="form-control" 
+                          placeholder="e.g. yourname@gmail.com"
+                          value={emailVal}
+                          onChange={(e) => setEmailVal(e.target.value)}
+                          required 
+                        />
+                        <small className="text-muted d-block mt-1" style={{ fontSize: '11px' }}>
+                          Official WOW GOA reservation voucher with pickup and vehicle details will be emailed here instantly.
                         </small>
                       </div>
 

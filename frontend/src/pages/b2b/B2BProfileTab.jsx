@@ -102,12 +102,12 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
             <div>
               <h5 className="fw-black text-dark font-heading mb-0.5">{partnerUser.company_name || partnerUser.name}</h5>
               <div className="d-flex align-items-center gap-2 flex-wrap">
-                <span className="badge bg-success text-white text-xxs fw-bold px-2.5 py-0.5 rounded-pill">
+                <span className="badge bg-success text-white text-xs fw-bold px-2.5 py-1 rounded-pill">
                   ✓ Active Agency Partner
                 </span>
-                <span className="text-muted text-xxs font-monospace">Agency ID: {partnerUser.id}</span>
+                <span className="text-muted text-xs font-monospace">Agency ID: {partnerUser.id}</span>
                 {partnerUser.initial_mode && (
-                  <span className="badge bg-light text-muted border text-xxs">
+                  <span className="badge bg-light text-muted border text-xs px-2.5 py-1 rounded-pill">
                     Registered Initial Mode: {partnerUser.initial_mode}
                   </span>
                 )}
@@ -293,14 +293,20 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
         <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom flex-wrap gap-2">
           <div>
             <h6 className="fw-bold text-dark font-heading mb-0">Authorized B2B Pricing Modes</h6>
-            <span className="text-muted text-xxs">Governed strictly by Admin verification in database.</span>
+            <span className="text-muted text-xs">Governed strictly by Admin verification in database.</span>
           </div>
           {hasCommission && hasNonCommission ? (
-            <span className="badge bg-success bg-opacity-15 text-success border border-success text-xxs px-2.5 py-1 rounded-pill fw-bold">
+            <span 
+              className="badge px-3 py-1.5 rounded-pill fw-bold text-xs"
+              style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
+            >
               ✓ Dual Mode Access Enabled
             </span>
           ) : (
-            <span className="badge bg-warning bg-opacity-20 text-dark border border-warning text-xxs px-2.5 py-1 rounded-pill fw-bold">
+            <span 
+              className="badge px-3 py-1.5 rounded-pill fw-bold text-xs"
+              style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }}
+            >
               Single Mode Approved
             </span>
           )}
@@ -341,7 +347,7 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
         <div className="row g-3">
           {/* Commission Mode Card */}
           <div className="col-12 col-md-6">
-            <div className={`p-3.5 rounded-3 border h-100 ${
+            <div className={`p-4 rounded-3 border h-100 ${
               hasCommission 
                 ? 'bg-warning bg-opacity-10 border-warning border-opacity-50' 
                 : 'bg-light border-light-subtle opacity-75'
@@ -352,12 +358,12 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
                   <span>Commission Mode</span>
                 </div>
                 {hasCommission ? (
-                  <span className="badge bg-success text-white text-xxs px-2 py-0.5 rounded-pill">
+                  <span className="badge bg-success text-white text-xs px-2.5 py-1 rounded-pill fw-bold">
                     ✓ Active
                   </span>
                 ) : (
-                  <span className="badge bg-secondary text-white text-xxs px-2 py-0.5 rounded-pill d-flex align-items-center gap-1">
-                    <Lock size={10} /> Locked
+                  <span className="badge bg-secondary text-white text-xs px-2.5 py-1 rounded-pill d-flex align-items-center gap-1">
+                    <Lock size={12} /> Locked
                   </span>
                 )}
               </div>
@@ -366,7 +372,7 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
                 {partnerUser.default_commission_rate ? `${partnerUser.default_commission_rate}%` : '10.00%'} Commission
               </div>
 
-              <p className="text-muted text-xxs mb-3 leading-relaxed">
+              <p className="text-muted text-xs mb-3 leading-relaxed">
                 Guest pays retail price; agency earns direct commission payout on every completed booking.
               </p>
 
@@ -374,7 +380,7 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
               {!hasCommission && (
                 <div>
                   {isPendingRequest && localReqMode === 'COMMISSION' ? (
-                    <button disabled className="btn btn-warning btn-sm w-100 rounded-pill text-xxs fw-bold py-1.5 opacity-75">
+                    <button disabled className="btn btn-warning btn-sm w-100 rounded-pill text-xs fw-bold py-1.5 opacity-75">
                       ⏳ Verification Pending
                     </button>
                   ) : (
@@ -382,10 +388,10 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
                       type="button"
                       disabled={requestLoading}
                       onClick={() => handleRequestMode('COMMISSION')}
-                      className="btn btn-dark btn-sm w-100 rounded-pill text-xxs fw-bold py-1.5 d-flex align-items-center justify-content-center gap-1"
+                      className="btn btn-dark btn-sm w-100 rounded-pill text-xs fw-bold py-1.5 d-flex align-items-center justify-content-center gap-1"
                     >
                       <span>Request Commission Access</span>
-                      <ArrowRight size={12} />
+                      <ArrowRight size={14} />
                     </button>
                   )}
                 </div>
@@ -395,7 +401,7 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
 
           {/* Non-Commission Mode Card */}
           <div className="col-12 col-md-6">
-            <div className={`p-3.5 rounded-3 border h-100 ${
+            <div className={`p-4 rounded-3 border h-100 ${
               hasNonCommission 
                 ? 'bg-primary bg-opacity-10 border-primary border-opacity-50' 
                 : 'bg-light border-light-subtle opacity-75'
@@ -406,12 +412,12 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
                   <span>Non-Commission Mode</span>
                 </div>
                 {hasNonCommission ? (
-                  <span className="badge bg-success text-white text-xxs px-2 py-0.5 rounded-pill">
+                  <span className="badge bg-success text-white text-xs px-2.5 py-1 rounded-pill fw-bold">
                     ✓ Active
                   </span>
                 ) : (
-                  <span className="badge bg-secondary text-white text-xxs px-2 py-0.5 rounded-pill d-flex align-items-center gap-1">
-                    <Lock size={10} /> Locked
+                  <span className="badge bg-secondary text-white text-xs px-2.5 py-1 rounded-pill d-flex align-items-center gap-1">
+                    <Lock size={12} /> Locked
                   </span>
                 )}
               </div>
@@ -420,7 +426,7 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
                 {partnerUser.default_net_discount_rate ? `${partnerUser.default_net_discount_rate}%` : '10.00%'} Wholesale Net
               </div>
 
-              <p className="text-muted text-xxs mb-3 leading-relaxed">
+              <p className="text-muted text-xs mb-3 leading-relaxed">
                 Direct wholesale net rates; agency applies its own markup to end travelers directly.
               </p>
 
@@ -428,7 +434,7 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
               {!hasNonCommission && (
                 <div>
                   {isPendingRequest && localReqMode === 'NON_COMMISSION' ? (
-                    <button disabled className="btn btn-primary btn-sm w-100 rounded-pill text-xxs fw-bold py-1.5 opacity-75">
+                    <button disabled className="btn btn-primary btn-sm w-100 rounded-pill text-xs fw-bold py-1.5 opacity-75">
                       ⏳ Verification Pending
                     </button>
                   ) : (
@@ -436,10 +442,10 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
                       type="button"
                       disabled={requestLoading}
                       onClick={() => handleRequestMode('NON_COMMISSION')}
-                      className="btn btn-primary btn-sm w-100 rounded-pill text-xxs fw-bold py-1.5 d-flex align-items-center justify-content-center gap-1"
+                      className="btn btn-primary btn-sm w-100 rounded-pill text-xs fw-bold py-1.5 d-flex align-items-center justify-content-center gap-1"
                     >
                       <span>Request Non-Commission Access</span>
-                      <ArrowRight size={12} />
+                      <ArrowRight size={14} />
                     </button>
                   )}
                 </div>
@@ -449,8 +455,11 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
         </div>
 
         {hasCommission && hasNonCommission && (
-          <div className="mt-3 p-2.5 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25 text-success text-xxs d-flex align-items-center gap-2">
-            <CheckCircle2 size={14} className="flex-shrink-0" />
+          <div 
+            className="mt-3 p-3 rounded-3 text-xs d-flex align-items-center gap-2 fw-medium"
+            style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
+          >
+            <CheckCircle2 size={16} className="flex-shrink-0" />
             <span>Congratulations! Your agency has active permissions for both Commission and Net Wholesale booking sections.</span>
           </div>
         )}
@@ -460,9 +469,9 @@ export default function B2BProfileTab({ partnerUser, onLogout, onPartnerRefresh 
       <div className="card border-0 shadow-sm rounded-4 p-4 bg-white">
         <div className="d-flex align-items-center gap-2 mb-2 text-dark fw-bold text-xs">
           <ShieldCheck size={16} className="text-success" />
-          <span>B2B Channel Compliance & Security Terms</span>
+          <span>B2B Channel Compliance &amp; Security Terms</span>
         </div>
-        <ul className="text-muted text-xxs mb-0 ps-3 leading-relaxed">
+        <ul className="text-muted text-xs mb-0 ps-3 leading-relaxed">
           <li className="mb-1">All bookings placed under your account carry authoritative B2B contract terms.</li>
           <li className="mb-1">Mode switching is governed strictly by administrator approval to preserve audit accuracy.</li>
           <li>Real-time notifications will update you the moment any mode requests or booking approvals occur.</li>

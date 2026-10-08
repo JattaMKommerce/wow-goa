@@ -13,6 +13,7 @@ import AdminB2BPortal from './b2b/AdminB2BPortal';
 import AdminCMS from './AdminCMS';
 import AdminCustomerManagement from './AdminCustomerManagement';
 import AdminBookingManagement from './AdminBookingManagement';
+import AdminStorefrontLeadsTab from './AdminStorefrontLeadsTab';
 import AdminActivitiesManagement from './AdminActivitiesManagement';
 import HotelVendorDashboard from '../vendor/HotelVendorDashboard';
 import VendorDashboard from '../vendor/VendorDashboard';
@@ -84,6 +85,7 @@ const SIDEBAR_GROUPS = [
     label: 'Customers',
     items: [
       { id: 'bookings', label: 'Booking Management', icon: <Calendar size={15} /> },
+      { id: 'storefront_leads', label: 'Storefront Visitor Leads', icon: <Compass size={15} /> },
       { id: 'reviews', label: 'Customer Reviews', icon: <Star size={15} /> },
       { id: 'lead_management', label: 'Lead Management (AI)', icon: <Users size={15} /> },
       { id: 'enquiries', label: 'Custom Enquiries', icon: <FileText size={15} /> },
@@ -782,8 +784,11 @@ export default function AdminPortalPage({
             onRefreshBookings={loadAllAdminData}
             onNavigateToCalendar={() => handleTabChange('availability')}
             onNavigateToPayments={() => handleTabChange('payment')}
+            onNavigateToLeads={() => handleTabChange('storefront_leads')}
           />
         );
+      case 'storefront_leads':
+        return <AdminStorefrontLeadsTab />;
       case 'leads':
       case 'lead_management':
         return <LeadManagement usersList={liveUsers} currentUser={currentUser} />;

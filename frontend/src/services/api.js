@@ -162,10 +162,13 @@ export async function fetchBikes(params = {}) {
 
 export async function fetchVehicleUnits(params = {}) {
   try {
+    const vId = typeof params === 'string' ? params : (params?.vehicle_id || '');
+    const vendId = typeof params === 'object' ? (params?.vendor_id || '') : '';
+    const status = typeof params === 'object' ? (params?.status || '') : '';
     let url = `${API_BASE}?resource=vehicle_units`;
-    if (params.vehicle_id) url += `&vehicle_id=${encodeURIComponent(params.vehicle_id)}`;
-    if (params.vendor_id) url += `&vendor_id=${encodeURIComponent(params.vendor_id)}`;
-    if (params.status) url += `&status=${encodeURIComponent(params.status)}`;
+    if (vId) url += `&vehicle_id=${encodeURIComponent(vId)}`;
+    if (vendId) url += `&vendor_id=${encodeURIComponent(vendId)}`;
+    if (status) url += `&status=${encodeURIComponent(status)}`;
     const res = await apiFetch(url);
     if (!res.ok) return [];
     const data = await res.json();
@@ -3887,4 +3890,194 @@ export async function fetchAdminReviewStats() {
   };
 }
 
+// ─── VENDOR DYNAMIC STOREFRONT & LIVE TRACKING SERVICES ───────────────────────
 
+/**
+ * Fetch vendor's website configuration for editing in the portal
+ */
+export async function fetchVendorWebsite(vendorId) {
+  try {
+    const res = await apiFetch(`${API_BASE}?action=get_vendor_website&vendor_id=${encodeURIComponent(vendorId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn('[API] fetchVendorWebsite error:', err.message);
+  }
+  return { success: false, error: 'Failed to load website settings' };
+}
+
+/**
+ * Save / Update vendor website configuration from the setup wizard
+ */
+export async function saveVendorWebsite(payload) {
+  try {
+    const res = await apiFetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save_vendor_website',
+        ...payload
+      })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.warn('[API] saveVendorWebsite error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Fetch public storefront data by custom slug
+ */
+export async function fetchPublicStorefront(slug) {
+  try {
+    const res = await apiFetch(`${API_BASE}?action=get_public_storefront&slug=${encodeURIComponent(slug)}`);
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+    const errData = await res.json().catch(() => ({}));
+    return { success: false, not_found: res.status === 404, error: errData.error || 'Failed to load storefront' };
+  } catch (err) {
+    console.warn('[API] fetchPublicStorefront error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Track booking details for customer on vendor's website
+ */
+export async function trackVendorBooking(bookingId, phone, slug = '') {
+  try {
+    const res = await apiFetch(`${API_BASE}?action=track_vendor_booking&booking_id=${encodeURIComponent(bookingId)}&phone=${encodeURIComponent(phone)}&slug=${encodeURIComponent(slug)}`);
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.warn('[API] trackVendorBooking error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Update vehicle handover details (car plate, start KM, fuel, deposit, agent)
+ */
+export async function updateBookingHandover(payload) {
+  try {
+    const res = await apiFetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update_booking_handover',
+        ...payload
+      })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.warn('[API] updateBookingHandover error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Update hotel check-in details (room number, checkin status, meal plan)
+ */
+export async function updateBookingCheckin(payload) {
+  try {
+    const res = await apiFetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update_booking_checkin',
+        ...payload
+      })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.warn('[API] updateBookingCheckin error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Dispatch booking voucher email to customer (automatic or manual resend)
+ */
+export async function sendBookingVoucherEmail(bookingId, recipientEmail = null) {
+  try {
+    const res = await apiFetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'send_booking_voucher_email',
+        booking_id: bookingId,
+        recipient_email: recipientEmail
+      })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.warn('[API] sendBookingVoucherEmail error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Record a storefront visitor lead (captures unbooked visitors with discount voucher)
+ */
+export async function recordStorefrontLead(payload) {
+  try {
+    const res = await apiFetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'record_storefront_lead',
+        ...payload
+      })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.warn('[API] recordStorefrontLead error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Fetch all storefront visitor leads (Admin & Super Admin ONLY)
+ */
+export async function fetchStorefrontLeads() {
+  try {
+    const res = await apiFetch(`${API_BASE}?action=get_storefront_leads`);
+    const data = await res.json();
+    return data?.success ? (data.leads || []) : [];
+  } catch (err) {
+    console.warn('[API] fetchStorefrontLeads error:', err.message);
+    return [];
+  }
+}
+
+/**
+ * Update notes or status on a storefront lead (Admin action)
+ */
+export async function updateStorefrontLead(leadId, notes) {
+  try {
+    const res = await apiFetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update_storefront_lead',
+        id: leadId,
+        notes: notes
+      })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.warn('[API] updateStorefrontLead error:', err.message);
+    return { success: false, error: err.message };
+  }
+}

@@ -40,8 +40,8 @@ export default function B2BReportsTab({ partnerUser }) {
       {/* Header Actions */}
       <div className="card border-0 shadow-sm rounded-4 p-3.5 mb-4 bg-white d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div>
-          <h5 className="fw-bold text-dark font-heading mb-1">Financial Statements & Commission Reports</h5>
-          <span className="text-muted text-xxs">Automated B2B statements generated for {partnerUser?.company_name || 'your agency'}</span>
+          <h5 className="fw-bold text-dark font-heading mb-1">Financial Statements &amp; Commission Reports</h5>
+          <span className="text-muted text-xs">Automated B2B statements generated for {partnerUser?.company_name || 'your agency'}</span>
         </div>
         <div className="d-flex gap-2">
           <button onClick={handlePrint} className="btn btn-outline-dark btn-sm rounded-pill px-3 text-xs d-flex align-items-center gap-1.5">
@@ -62,31 +62,31 @@ export default function B2BReportsTab({ partnerUser }) {
           <div className="row g-3 mb-4">
             <div className="col-md-4">
               <div className="card border-0 shadow-sm rounded-4 p-3.5 bg-white border-top border-4 border-success">
-                <div className="text-muted text-xxs fw-bold text-uppercase">Credited Commission</div>
+                <div className="text-muted text-xs fw-bold text-uppercase">Credited Commission</div>
                 <div className="fs-3 fw-black text-success font-heading mt-1">
                   ₹{Number(summary.total_commission_earned || 0).toLocaleString('en-IN')}
                 </div>
-                <div className="text-muted text-xxs mt-1">Completed bookings commission ready for payout</div>
+                <div className="text-muted text-xs mt-1">Completed bookings commission ready for payout</div>
               </div>
             </div>
 
             <div className="col-md-4">
               <div className="card border-0 shadow-sm rounded-4 p-3.5 bg-white border-top border-4 border-warning">
-                <div className="text-muted text-xxs fw-bold text-uppercase">Pending Commission</div>
+                <div className="text-muted text-xs fw-bold text-uppercase">Pending Commission</div>
                 <div className="fs-3 fw-black text-warning font-heading mt-1">
                   ₹{Number(summary.total_commission_pending || 0).toLocaleString('en-IN')}
                 </div>
-                <div className="text-muted text-xxs mt-1">Awaiting guest travel completion</div>
+                <div className="text-muted text-xs mt-1">Awaiting guest travel completion</div>
               </div>
             </div>
 
             <div className="col-md-4">
               <div className="card border-0 shadow-sm rounded-4 p-3.5 bg-white border-top border-4 border-primary">
-                <div className="text-muted text-xxs fw-bold text-uppercase">Total Sales Turnover</div>
+                <div className="text-muted text-xs fw-bold text-uppercase">Total Sales Turnover</div>
                 <div className="fs-3 fw-black text-dark font-heading mt-1">
                   ₹{Number(summary.total_sales_volume || 0).toLocaleString('en-IN')}
                 </div>
-                <div className="text-muted text-xxs mt-1">Gross reservation value through agency channel</div>
+                <div className="text-muted text-xs mt-1">Gross reservation value through agency channel</div>
               </div>
             </div>
           </div>

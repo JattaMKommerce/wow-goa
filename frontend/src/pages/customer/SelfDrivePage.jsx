@@ -525,30 +525,30 @@ export default function SelfDrivePage({
                   <div className="row g-0">
                     {/* Image Section */}
                     <div 
-                      className="col-md-4 position-relative cursor-pointer" 
-                      style={{ minHeight: '250px', cursor: 'pointer' }}
+                      className="col-md-4 position-relative cursor-pointer overflow-hidden" 
+                      style={{ minHeight: '260px', cursor: 'pointer' }}
                       onClick={() => onViewDetails(pkg)}
                       title={`View details of ${pkg.name}`}
                     >
                       <img 
                         src={pkg.imageUrl || pkg.image || pkg.image_url || 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=800&q=80'} 
                         alt={pkg.name} 
-                        className="w-100 h-100 object-fit-cover"
-                        style={{ minHeight: '250px', maxHeight: '300px' }}
+                        className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
+                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
                         onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=800&q=80'; }}
                       />
                       {pkg.tag && (
-                        <span className="badge bg-dark bg-opacity-75 text-white position-absolute top-0 start-0 m-3 px-3 py-2 rounded-pill shadow-sm" style={{ backdropFilter: 'blur(4px)', fontSize: '11px', letterSpacing: '0.5px' }}>
+                        <span className="badge bg-dark bg-opacity-75 text-white position-absolute top-0 start-0 m-3 px-3 py-2 rounded-pill shadow-sm" style={{ backdropFilter: 'blur(4px)', fontSize: '11px', letterSpacing: '0.5px', zIndex: 2 }}>
                           ✨ {pkg.tag}
                         </span>
                       )}
                       {(pkg.hotel_category || pkg.hotel?.category) && (
-                        <span className="badge bg-white bg-opacity-95 text-dark fw-bold position-absolute top-0 end-0 m-3 px-2.5 py-1.5 rounded-pill shadow-sm d-flex align-items-center gap-1" style={{ fontSize: '11px' }}>
+                        <span className="badge bg-white bg-opacity-95 text-dark fw-bold position-absolute top-0 end-0 m-3 px-2.5 py-1.5 rounded-pill shadow-sm d-flex align-items-center gap-1" style={{ fontSize: '11px', zIndex: 2 }}>
                           ⭐ {pkg.hotel_category || pkg.hotel?.category}
                         </span>
                       )}
-                      <div className="position-absolute bottom-0 start-0 w-100 p-3 bg-gradient-to-t text-white" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}>
-                        <span className="badge bg-primary rounded-pill px-2 py-1 small fw-bold">{dynamicDuration}</span>
+                      <div className="position-absolute bottom-0 start-0 w-100 p-3 text-white" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)', zIndex: 2 }}>
+                        <span className="badge bg-primary rounded-pill px-2.5 py-1 small fw-bold shadow-xs">{dynamicDuration}</span>
                       </div>
                     </div>
 

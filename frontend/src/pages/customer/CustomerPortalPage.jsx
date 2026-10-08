@@ -601,6 +601,7 @@ export default function CustomerPortalPage({
   const [lastConfirmedDirectBooking, setLastConfirmedDirectBooking] = useState(null);
   const [bookingUserName, setBookingUserName] = useState(customerUser?.name || '');
   const [bookingUserPhone, setBookingUserPhone] = useState(customerUser?.phone || '');
+  const [bookingUserEmail, setBookingUserEmail] = useState(customerUser?.email || '');
   const [bookingUserLicense, setBookingUserLicense] = useState('');
 
   // Authoritative Details View state (reusing canonical D2C details components)
@@ -784,6 +785,7 @@ export default function CustomerPortalPage({
     const details = (e && typeof e === 'object' && !e.preventDefault) ? e : extraDetails;
     try {
       const cleanDigits = String(bookingUserPhone || customerUser?.phone || '').replace(/\D/g, '');
+      const cleanEmail = String(details.email || details.customer_email || bookingUserEmail || customerUser?.email || '').trim();
       const pDate = details.pickupDate || getTodayDateStr();
       const dDate = details.dropDate || addDays(pDate, 2);
       const days = details.bookingDays || 2;
@@ -794,8 +796,8 @@ export default function CustomerPortalPage({
         customer_name: bookingUserName || customerUser?.name || 'Customer',
         phone: bookingUserPhone || customerUser?.phone || '',
         customer_phone: bookingUserPhone || customerUser?.phone || '',
-        email: customerUser?.email || `${cleanDigits || 'guest'}@customer.wowgoa.com`,
-        customer_email: customerUser?.email || `${cleanDigits || 'guest'}@customer.wowgoa.com`,
+        email: cleanEmail,
+        customer_email: cleanEmail,
         customer_id: customerUser?.id || `c_${cleanDigits || Date.now()}`,
         license: bookingUserLicense || details.license || '',
         date_of_birth: details.date_of_birth || customerUser?.date_of_birth || '',
@@ -1856,6 +1858,8 @@ export default function CustomerPortalPage({
           setUserName={setBookingUserName}
           userPhone={bookingUserPhone}
           setUserPhone={setBookingUserPhone}
+          userEmail={bookingUserEmail}
+          setUserEmail={setBookingUserEmail}
           userLicense={bookingUserLicense}
           setUserLicense={setBookingUserLicense}
           pickupLoc="Goa Airport (Dabolim / Mopa)"

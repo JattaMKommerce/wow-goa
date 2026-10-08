@@ -157,11 +157,11 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
       <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
         <div>
           <div className="d-flex align-items-center gap-2 mb-1">
-            <span className="badge bg-dark text-warning text-xxs fw-bold px-2 py-0.5 rounded-pill">
+            <span className="badge bg-dark text-warning text-xs fw-bold px-2.5 py-1 rounded-pill">
               PREPAID FINANCIAL LEDGER
             </span>
-            <span className="badge bg-success bg-opacity-10 text-success text-xxs fw-bold px-2 py-0.5 rounded-pill d-flex align-items-center gap-1">
-              <ShieldCheck size={11} /> 100% Secure & Atomic
+            <span className="badge text-xs fw-bold px-2.5 py-1 rounded-pill d-flex align-items-center gap-1" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>
+              <ShieldCheck size={13} /> 100% Secure &amp; Atomic
             </span>
           </div>
           <h4 className="fw-bold mb-1 font-heading text-dark">Agent Prepaid Wallet</h4>
@@ -212,7 +212,7 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
               <Wallet size={100} />
             </div>
             <div className="position-relative z-1">
-              <span className="text-white-50 text-xxs fw-bold text-uppercase tracking-wider d-block mb-1">
+              <span className="text-xs fw-bold text-uppercase tracking-wider d-block mb-1" style={{ color: '#cbd5e1' }}>
                 Available Wallet Balance
               </span>
               <h2 className="fw-bold mb-2 font-heading text-warning">
@@ -224,7 +224,7 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
               </div>
               <div className="d-flex align-items-center justify-content-between pt-1 text-xs">
                 <span className="text-white-50">Account Status:</span>
-                <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 text-3xs rounded-pill">
+                <span className="badge bg-success text-white text-xs px-2.5 py-0.5 rounded-pill fw-bold">
                   ACTIVE
                 </span>
               </div>
@@ -236,7 +236,7 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
         <div className="col-12 col-md-6 col-lg-4">
           <div className="card border-0 rounded-4 p-4 shadow-sm bg-white h-100 border">
             <div className="d-flex align-items-center justify-content-between mb-2">
-              <span className="text-muted text-xxs fw-bold text-uppercase tracking-wider">
+              <span className="text-muted text-xs fw-bold text-uppercase tracking-wider">
                 Total Purchasing Power
               </span>
               <span className="p-2 rounded-3 bg-light text-primary">
@@ -426,7 +426,10 @@ export default function B2BWalletTab({ partnerUser, onWalletUpdated }) {
                         <strong className="text-dark">₹{parseFloat(tx.balance_after || 0).toLocaleString('en-IN')}</strong>
                       </td>
                       <td className="text-center pe-4">
-                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 text-3xs px-2 py-0.5 rounded-pill">
+                        <span 
+                          className="badge text-xs px-2.5 py-1 rounded-pill fw-bold"
+                          style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
+                        >
                           {tx.status || 'COMPLETED'}
                         </span>
                       </td>

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import SuperAdminDashboard from './SuperAdminDashboard';
 import AdminReviewsManagement from '../admin/AdminReviewsManagement';
+import AdminStorefrontLeadsTab from '../admin/AdminStorefrontLeadsTab';
 import * as api from '../../services/api';
 import { 
   aiLeadsData as defaultAiLeads, 
@@ -60,6 +61,7 @@ const SIDEBAR_GROUPS = [
     items: [
       { id: 'vendor_management', label: 'Vendor Management', icon: <Building size={15} /> },
       { id: 'vendor_verification', label: 'KYC & Verification', icon: <CheckCircle size={15} /> },
+      { id: 'storefront_leads', label: 'Storefront Visitor Leads', icon: <Compass size={15} /> },
     ]
   },
   {
@@ -1173,6 +1175,8 @@ export default function SuperAdminPortalPage({
         <div className="flex-grow-1 overflow-auto" style={{ background: '#f0f2f5', minWidth: 0, width: '100%' }}>
           {activeTab === 'reviews' ? (
             <AdminReviewsManagement portalTitle="Super Admin Portal" onSelectTab={handleTabChange} />
+          ) : activeTab === 'storefront_leads' ? (
+            <AdminStorefrontLeadsTab />
           ) : (
             <SuperAdminDashboard
               activeTab={activeTab}

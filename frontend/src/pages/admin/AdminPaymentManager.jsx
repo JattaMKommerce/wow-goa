@@ -5,6 +5,7 @@ import {
   DollarSign, Landmark, Check, Send, Eye, FileText
 } from 'lucide-react';
 import * as api from '../../services/api';
+import { getBookingServiceType } from './AdminBookingManagement';
 
 export default function AdminPaymentManager({
   liveBookings = [],
@@ -46,7 +47,9 @@ export default function AdminPaymentManager({
       totalPlatformFees += platFee;
       totalVendorAmounts += vendAmt;
 
-      if (pVerif === 'Pending Verification' && (b.status || '').toLowerCase() !== 'cancelled') {
+      const sType = getBookingServiceType(b);
+      const isPlatformManaged = ['TRIP', 'ACTIVITY'].includes(sType);
+      if (isPlatformManaged && !b.parent_booking_id && b.customer_payment_utr && pVerif === 'Pending Verification' && (b.status || '').toLowerCase() !== 'cancelled') {
         pendingVerificationCount++;
       }
       if ((pVerif === 'Approved' || pVerif === 'Verified') && pPayout === 'Pending' && (b.status || '').toLowerCase() !== 'cancelled') {
@@ -74,7 +77,13 @@ export default function AdminPaymentManager({
       const isApprovedOrVerified = pVerif === 'Approved' || pVerif === 'Verified';
 
       // Tab Filtering
-      if (filterTab === 'pending_verification' && pVerif !== 'Pending Verification') return false;
+      if (filterTab === 'pending_verification') {
+        const sType = getBookingServiceType(b);
+        const isPlatformManaged = ['TRIP', 'ACTIVITY'].includes(sType);
+        if (!isPlatformManaged || b.parent_booking_id || !b.customer_payment_utr || pVerif !== 'Pending Verification') {
+          return false;
+        }
+      }
       if (filterTab === 'approved' && !isApprovedOrVerified) return false;
       if (filterTab === 'payout_pending' && (pPayout !== 'Pending' || !isApprovedOrVerified || isCancelled)) return false;
       if (filterTab === 'payout_settled' && pPayout !== 'Settled') return false;
@@ -436,8 +445,8 @@ export default function AdminPaymentManager({
                     {/* Action Buttons */}
                     <td className="px-3 py-2.5 text-end pe-3">
                       <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
-                        {/* If Pending Verification: Show Approve and Reject */}
-                        {verifStatus === 'Pending Verification' && !isCancelled && (
+                        {/* If Pending Verification: Show Approve and Reject ONLY for Platform trips & activities */}
+                        {['TRIP', 'ACTIVITY'].includes(getBookingServiceType(b)) && !b.parent_booking_id && b.customer_payment_utr && verifStatus === 'Pending Verification' && !isCancelled && (
                           <>
                             <button
                               type="button"

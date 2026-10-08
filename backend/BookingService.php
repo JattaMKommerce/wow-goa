@@ -992,7 +992,21 @@ class BookingService {
                 }
             } catch (Exception $ne) {}
 
-            // 13. Fetch Final Created Master Booking Record
+            // 13. Automated Voucher Email Dispatch to Customer
+            try {
+                if (!empty($custEmail) && stripos($custEmail, '@guest.wowgoa.com') === false && filter_var($custEmail, FILTER_VALIDATE_EMAIL)) {
+                    if (function_exists('dispatchBookingVoucherEmail')) {
+                        dispatchBookingVoucherEmail($pdo, $bookingId, $custEmail);
+                    } else if (file_exists(__DIR__ . '/vendor_storefront_actions.php')) {
+                        require_once __DIR__ . '/vendor_storefront_actions.php';
+                        if (function_exists('dispatchBookingVoucherEmail')) {
+                            dispatchBookingVoucherEmail($pdo, $bookingId, $custEmail);
+                        }
+                    }
+                }
+            } catch (Throwable $ve) {}
+
+            // 14. Fetch Final Created Master Booking Record
             $stmtFetch = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
             $stmtFetch->execute([$bookingId]);
             $createdRecord = $stmtFetch->fetch(PDO::FETCH_ASSOC);

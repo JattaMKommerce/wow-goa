@@ -5,6 +5,13 @@ import * as api from '../../../services/api';
 export default function PMSFrontDesk({ mode = 'arrivals', currentUser, vendorHotels, vendorBookings }) {
   const today = new Date().toISOString().split('T')[0];
   const [search, setSearch] = useState('');
+  const [checkinModal, setCheckinModal] = useState({
+    show: false,
+    booking: null,
+    assignedRoom: '',
+    checkinStatus: 'Checked In',
+    mealPlan: 'Continental Breakfast Included'
+  });
 
   const getBookings = () => {
     if (mode === 'arrivals') return vendorBookings.filter(b => b.pickup_date === today && b.status !== 'Cancelled');
@@ -120,24 +127,31 @@ export default function PMSFrontDesk({ mode = 'arrivals', currentUser, vendorHot
                     </div>
                   )}
 
+                  {/* Room assignment badge if set */}
+                  {b.assigned_room_no && (
+                    <div className="d-flex align-items-center justify-content-between px-2 py-1 mb-2 rounded-2" style={{ background: '#e8f5e9', border: '1px solid #c8e6c9' }}>
+                      <span className="text-success fw-bold" style={{ fontSize: '0.74rem' }}>🚪 Room: {b.assigned_room_no}</span>
+                      <span className="text-muted" style={{ fontSize: '0.68rem' }}>{b.meal_plan || 'EP'}</span>
+                    </div>
+                  )}
+
                   {/* Actions */}
                   <div className="d-flex gap-2 mt-auto pt-3" style={{ borderTop: '1px solid #f0f2f5' }}>
                     {mode === 'arrivals' && (
                       <button 
-                        onClick={async () => {
-                          try {
-                            await api.updateBookingStatus(b.id, 'Checked In');
-                            b.status = 'Checked In';
-                            window.dispatchEvent(new CustomEvent('new-booking-created'));
-                            alert(`Guest ${b.name} checked in successfully!`);
-                          } catch (err) {
-                            alert('Check-in failed: ' + err.message);
-                          }
+                        onClick={() => {
+                          setCheckinModal({
+                            show: true,
+                            booking: b,
+                            assignedRoom: b.assigned_room_no || '',
+                            checkinStatus: 'Checked In',
+                            mealPlan: b.meal_plan || 'Continental Breakfast Included'
+                          });
                         }}
                         className="btn btn-sm flex-grow-1 rounded-pill fw-bold" 
                         style={{ background: '#6c5ce7', color: '#fff', fontSize: '0.78rem' }}
                       >
-                        <LogIn size={12} className="me-1" /> Check In
+                        <LogIn size={12} className="me-1" /> Assign Room & Check In
                       </button>
                     )}
                     {mode === 'departures' && (
@@ -159,37 +173,145 @@ export default function PMSFrontDesk({ mode = 'arrivals', currentUser, vendorHot
                       </button>
                     )}
                     {mode === 'inhouse' && (
-                      <button 
-                        onClick={async () => {
-                          try {
-                            await api.updateBookingStatus(b.id, 'Completed');
-                            b.status = 'Completed';
-                            window.dispatchEvent(new CustomEvent('new-booking-created'));
-                            alert(`Stay completed for ${b.name}!`);
-                          } catch (err) {
-                            alert('Action failed: ' + err.message);
-                          }
-                        }}
-                        className="btn btn-sm flex-grow-1 rounded-pill fw-bold" 
-                        style={{ background: '#0984e3', color: '#fff', fontSize: '0.78rem' }}
-                      >
-                        <ConciergeBell size={12} className="me-1" /> Complete Stay
-                      </button>
+                      <>
+                        <button 
+                          onClick={() => {
+                            setCheckinModal({
+                              show: true,
+                              booking: b,
+                              assignedRoom: b.assigned_room_no || '',
+                              checkinStatus: b.checkin_status || 'Checked In',
+                              mealPlan: b.meal_plan || 'Continental Breakfast Included'
+                            });
+                          }}
+                          className="btn btn-sm rounded-pill fw-bold" 
+                          style={{ background: '#eef2ff', color: '#4f46e5', fontSize: '0.75rem' }}
+                        >
+                          Room #{b.assigned_room_no || 'Assign'}
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await api.updateBookingStatus(b.id, 'Completed');
+                              b.status = 'Completed';
+                              window.dispatchEvent(new CustomEvent('new-booking-created'));
+                              alert(`Stay completed for ${b.name}!`);
+                            } catch (err) {
+                              alert('Action failed: ' + err.message);
+                            }
+                          }}
+                          className="btn btn-sm flex-grow-1 rounded-pill fw-bold" 
+                          style={{ background: '#0984e3', color: '#fff', fontSize: '0.78rem' }}
+                        >
+                          <ConciergeBell size={12} className="me-1" /> Complete Stay
+                        </button>
+                      </>
                     )}
                     <button 
                       onClick={() => {
-                        alert(`Reservation Details:\nID: ${b.id}\nGuest: ${b.name}\nPhone: ${b.phone}\nCheck-in: ${b.pickup_date}\nCheck-out: ${b.drop_date}\nTotal: ₹${total.toLocaleString('en-IN')}\nStatus: ${b.status}`);
+                        alert(`Reservation Details:\nID: ${b.id}\nGuest: ${b.name}\nPhone: ${b.phone}\nRoom: ${b.assigned_room_no || 'Not Assigned'}\nCheck-in: ${b.pickup_date}\nCheck-out: ${b.drop_date}\nTotal: ₹${total.toLocaleString('en-IN')}\nStatus: ${b.status}`);
                       }}
                       className="btn btn-sm rounded-pill" 
                       style={{ background: '#f0f2f5', color: '#495057', fontSize: '0.78rem' }}
                     >
-                      View Booking
+                      View
                     </button>
                   </div>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Check-In / Room Assignment Modal */}
+      {checkinModal.show && checkinModal.booking && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
+          <div className="card border-0 rounded-4 shadow-lg p-4" style={{ maxWidth: '440px', width: '92%', background: '#fff' }}>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h5 className="fw-bold mb-0" style={{ color: '#0f172a' }}>🏨 Guest Check-In & Room</h5>
+                <small className="text-muted">Booking #{checkinModal.booking.id} • {checkinModal.booking.name}</small>
+              </div>
+              <button onClick={() => setCheckinModal({ show: false, booking: null, assignedRoom: '', checkinStatus: 'Checked In', mealPlan: '' })} className="btn-close" />
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label small fw-bold text-muted">Assigned Room Number / Suite</label>
+              <input 
+                type="text" 
+                className="form-control rounded-3" 
+                placeholder="e.g. Room 204 or Ocean Villa 3" 
+                value={checkinModal.assignedRoom} 
+                onChange={e => setCheckinModal(prev => ({ ...prev, assignedRoom: e.target.value }))}
+                autoFocus
+              />
+              <small className="text-muted" style={{ fontSize: '0.72rem' }}>This room number will immediately appear in the customer's live stay tracker.</small>
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label small fw-bold text-muted">Check-In Status</label>
+              <select 
+                className="form-select rounded-3" 
+                value={checkinModal.checkinStatus} 
+                onChange={e => setCheckinModal(prev => ({ ...prev, checkinStatus: e.target.value }))}
+              >
+                <option value="Checked In">Checked In (Guest arrived & keys handed)</option>
+                <option value="Room Ready">Room Ready (Awaiting Guest)</option>
+                <option value="Checked Out">Checked Out</option>
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="form-label small fw-bold text-muted">Meal Plan / Package</label>
+              <input 
+                type="text" 
+                className="form-control rounded-3" 
+                placeholder="e.g. Continental Breakfast Included" 
+                value={checkinModal.mealPlan} 
+                onChange={e => setCheckinModal(prev => ({ ...prev, mealPlan: e.target.value }))}
+              />
+            </div>
+
+            <div className="d-flex gap-2">
+              <button 
+                type="button" 
+                onClick={() => setCheckinModal({ show: false, booking: null, assignedRoom: '', checkinStatus: 'Checked In', mealPlan: '' })} 
+                className="btn btn-light rounded-pill flex-grow-1"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={async () => {
+                  try {
+                    await api.updateBookingCheckin({
+                      booking_id: checkinModal.booking.id,
+                      assigned_room_no: checkinModal.assignedRoom,
+                      checkin_status: checkinModal.checkinStatus,
+                      meal_plan: checkinModal.mealPlan
+                    });
+                    if (checkinModal.checkinStatus === 'Checked In') {
+                      await api.updateBookingStatus(checkinModal.booking.id, 'Checked In');
+                      checkinModal.booking.status = 'Checked In';
+                    }
+                    checkinModal.booking.assigned_room_no = checkinModal.assignedRoom;
+                    checkinModal.booking.checkin_status = checkinModal.checkinStatus;
+                    checkinModal.booking.meal_plan = checkinModal.mealPlan;
+                    window.dispatchEvent(new CustomEvent('new-booking-created'));
+                    setCheckinModal({ show: false, booking: null, assignedRoom: '', checkinStatus: 'Checked In', mealPlan: '' });
+                    alert(`Check-in and room details updated successfully!`);
+                  } catch (err) {
+                    alert('Update failed: ' + err.message);
+                  }
+                }} 
+                className="btn text-white rounded-pill flex-grow-1 fw-bold" 
+                style={{ background: '#6c5ce7' }}
+              >
+                Save & Check In
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

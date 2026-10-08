@@ -58,6 +58,7 @@ import B2BPortalPage from './pages/b2b/B2BPortalPage';
 import CustomerActivitiesTab from './components/customer/CustomerActivitiesTab';
 import VendorLoginPage from './pages/vendor/VendorLoginPage';
 import RoleAccessDeniedModal from './components/vendor/RoleAccessDeniedModal';
+import PublicVendorStorefrontPage from './pages/vendor/PublicVendorStorefrontPage';
 
 // Import Mock Data & API Service
 import { 
@@ -84,6 +85,8 @@ export default function App() {
     try {
       const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '/';
       // Derive tab directly from URL path — most reliable on refresh
+      if (p.startsWith('/v/')) return 'vendor-storefront';
+      if ((p === '/vehicle' || p === '/vehicles' || p.startsWith('/vehicle/') || p.startsWith('/vehicles/')) && p !== '/vehicle/login') return 'selfdrive';
       if (p.startsWith('/admin') || p === '/portal' || p.startsWith('/sub-admin') || p.startsWith('/subadmin') || p.startsWith('/superadmin') || p.startsWith('/super-admin') || p === '/vendor' || p === '/hotel-vendor' || p === '/flight-vendor' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login') return 'portal';
       if (p.startsWith('/b2b') || p === '/register' || p.startsWith('/vendor/register')) return 'b2b';
       if (p.startsWith('/driver')) return 'driver';
@@ -222,6 +225,7 @@ export default function App() {
   const [bookingDays, setBookingDays] = useState(2);
   const [userName, setUserName] = useState('');
   const [userPhone, setUserPhone] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [userLicense, setUserLicense] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastConfirmedBooking, setLastConfirmedBooking] = useState(null);
@@ -618,6 +622,10 @@ export default function App() {
     const syncTabFromUrl = () => {
       const p = window.location.pathname.toLowerCase();
       setCurrentPath(p);
+      if (p.startsWith('/v/')) {
+        setActiveTab('vendor-storefront');
+        return;
+      }
       const cleanPath = p.replace(/^\//, '').split('/')[0];
       let newTab = null;
       if (cleanPath === 'packages') {
@@ -646,7 +654,7 @@ export default function App() {
           newTab = 'packages';
         }
       }
-      else if (cleanPath === 'self-drive' || cleanPath === 'selfdrive' || cleanPath === '') {
+      else if (cleanPath === 'self-drive' || cleanPath === 'selfdrive' || cleanPath === 'vehicle' || cleanPath === 'vehicles' || cleanPath === '') {
         const urlParams = new URLSearchParams(window.location.search);
         const packageId = urlParams.get('package') || urlParams.get('id');
         const step = urlParams.get('step');
@@ -670,6 +678,11 @@ export default function App() {
           } catch (e) {}
         } else {
           newTab = 'selfdrive';
+          if (cleanPath === 'vehicle' || cleanPath === 'vehicles') {
+            setTimeout(() => {
+              document.getElementById('self-drive-categories')?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+          }
         }
       }
       else if (cleanPath === 'hotels') {
@@ -748,9 +761,8 @@ export default function App() {
 
   const handleTabChange = (newTab) => {
     let normalizedTab = newTab;
-    if (normalizedTab === 'self drive') normalizedTab = 'selfdrive';
+    if (normalizedTab === 'self drive' || normalizedTab === 'self-drive' || normalizedTab === 'vehicle' || normalizedTab === 'vehicles') normalizedTab = 'selfdrive';
     if (normalizedTab === 'trip packages') normalizedTab = 'packages';
-    if (normalizedTab === 'self-drive') normalizedTab = 'selfdrive';
     if (normalizedTab === 'craft' || normalizedTab === 'craft-my-trip') normalizedTab = 'craftmytrip';
     if (normalizedTab === 'my-trips' || normalizedTab === 'track-booking' || normalizedTab === 'my-bookings') normalizedTab = 'customer';
     if (normalizedTab === 'sightseeing' || normalizedTab === 'sightseeing-activities') normalizedTab = 'activities';
@@ -799,7 +811,16 @@ export default function App() {
     // Reset previous booking confirmation state completely
     setShowSuccess(false);
     setLastConfirmedBooking(null);
-    setUserPhone('');
+    try {
+      const savedPhone = localStorage.getItem('userPhone') || '';
+      const savedName = localStorage.getItem('userName') || '';
+      setUserPhone(savedPhone);
+      if (savedName && (!userName || userName === 'Guest')) {
+        setUserName(savedName);
+      }
+    } catch (_) {
+      setUserPhone('');
+    }
     if (resetCountry) resetCountry();
 
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
@@ -1463,8 +1484,13 @@ export default function App() {
     setShowSuccess(false);
     setLastConfirmedBooking(null);
     const cleanPhone = String(userPhone || '').replace(/\D/g, '');
+    const cleanEmail = String(extraDetails.email || extraDetails.customer_email || userEmail || currentUser?.email || '').trim();
     if (!userName || cleanPhone.length < 10) {
       alert("Please enter your name and a valid 10-digit mobile phone number for booking confirmation & tracking.");
+      return;
+    }
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      alert("Please enter a valid Gmail / Email address (e.g. name@gmail.com). Your booking confirmation and official trip voucher will be sent here.");
       return;
     }
     const pDate = extraDetails.pickupDate || pickupDate;
@@ -1514,7 +1540,7 @@ export default function App() {
       }
       
       const customerId = currentUser?.id || `c_${cleanPhone || Date.now()}`;
-      const customerEmail = currentUser?.email || `${cleanPhone || 'guest'}@guest.wowgoa.com`;
+      const customerEmail = cleanEmail;
 
       const payload = {
         name: userName,
@@ -1646,6 +1672,72 @@ export default function App() {
           <p className="text-muted small">Loading packages and verified inventory</p>
         </div>
       </div>
+    );
+  }
+
+  // ─── DYNAMIC VENDOR STOREFRONT & TRACKER ROUTING (/v/:slug) ────────────────
+  if (path.startsWith('/v/')) {
+    const cleanPath = path.substring(3);
+    const segments = cleanPath.split('/').filter(Boolean);
+    const slug = segments[0] ? segments[0].split('?')[0] : '';
+    const isTrack = segments[1] === 'track';
+    return (
+      <>
+        <PublicVendorStorefrontPage
+          slug={slug}
+          initialShowTracker={isTrack}
+          onBook={(item) => handleOpenBooking(item)}
+          onNavigateHome={() => {
+            window.history.pushState(null, '', '/');
+            setCurrentPath('/');
+            handleTabChange('selfdrive');
+          }}
+        />
+
+        {/* Dynamic Storefront Checkout Modals */}
+        {selectedBookingItem && (
+          (String(selectedBookingItem?.id).startsWith('hotel-') || selectedBookingItem.property_type || selectedBookingItem.stars || selectedBookingItem.type === 'hotel') ? (
+            <HotelBookingModal
+              selectedBookingItem={selectedBookingItem}
+              setSelectedBookingItem={setSelectedBookingItem}
+              pickupDate={pickupDate}
+              dropDate={dropDate}
+              bookingDays={bookingDays}
+            />
+          ) : (
+            <BookingModal
+              key={selectedBookingItem ? `${selectedBookingItem.id || selectedBookingItem.name}_${lastConfirmedBooking?.id || 'new'}` : 'closed'}
+              selectedBookingItem={selectedBookingItem}
+              setSelectedBookingItem={setSelectedBookingItem}
+              onCloseModal={handleCloseBookingModal}
+              showSuccess={Boolean(showSuccess && lastConfirmedBooking)}
+              setShowSuccess={setShowSuccess}
+              userName={userName}
+              setUserName={setUserName}
+              userPhone={userPhone}
+              setUserPhone={setUserPhone}
+              userEmail={userEmail}
+              setUserEmail={setUserEmail}
+              userLicense={userLicense}
+              setUserLicense={setUserLicense}
+              pickupLoc={pickupLoc}
+              dropLoc={dropLoc}
+              setDropLoc={setDropLoc}
+              pickupDate={pickupDate}
+              pickupTime={pickupTime}
+              dropDate={dropDate}
+              dropTime={dropTime}
+              bookingDays={bookingDays}
+              handleConfirmBooking={handleConfirmBooking}
+              lastConfirmedBooking={lastConfirmedBooking}
+              setLastConfirmedBooking={setLastConfirmedBooking}
+              allPackages={packages}
+              allCars={cars}
+              allBikes={bikes}
+            />
+          )
+        )}
+      </>
     );
   }
 
@@ -2776,6 +2868,8 @@ export default function App() {
             setUserName={setUserName}
             userPhone={userPhone}
             setUserPhone={setUserPhone}
+            userEmail={userEmail}
+            setUserEmail={setUserEmail}
             userLicense={userLicense}
             setUserLicense={setUserLicense}
             pickupLoc={pickupLoc}

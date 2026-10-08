@@ -59,9 +59,9 @@ export default function B2BCustomersTab({ partnerUser }) {
         <div className="p-3.5 border-bottom d-flex justify-content-between align-items-center">
           <div>
             <h6 className="fw-bold text-dark mb-0 font-heading">Partner Guest Directory</h6>
-            <span className="text-muted text-xxs">All travelers and guests who booked tours with your agency</span>
+            <span className="text-muted text-xs">All travelers and guests who booked tours with your agency</span>
           </div>
-          <span className="badge bg-light text-dark text-xxs fw-bold px-2.5 py-1 rounded-pill">
+          <span className="badge bg-light text-dark text-xs fw-bold px-2.5 py-1 rounded-pill">
             {customers.length} Unique Guests
           </span>
         </div>

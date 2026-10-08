@@ -2,7 +2,7 @@ import React from 'react';
 import { MessageCircle } from 'lucide-react';
 
 export default function WhatsAppWidget() {
-  const whatsappUrl = "https://api.whatsapp.com/send/?phone=919513700902&text=start&type=phone_number&app_absent=0";
+  const whatsappUrl = "https://api.whatsapp.com/send/?phone=917676573476&text=Hi%20TripGalileo&type=phone_number&app_absent=0";
 
   return (
     <a 

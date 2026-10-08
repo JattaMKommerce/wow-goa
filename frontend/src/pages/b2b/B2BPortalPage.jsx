@@ -226,51 +226,51 @@ export default function B2BPortalPage({
         {/* Scrollable Navigation List */}
         <div className="p-3 overflow-y-auto flex-grow-1 custom-sidebar-scroll">
           {/* Dashboard Link */}
-          <nav className="nav flex-column gap-1 mb-3">
+          <nav className="nav flex-column gap-1.5 mb-3">
             <button
               onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }}
-              className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+              className={`nav-link text-start rounded-3 px-3 py-2.5 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
                 activeTab === 'dashboard' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
               }`}
             >
-              <LayoutDashboard size={16} />
+              <LayoutDashboard size={17} />
               <span>B2B Dashboard</span>
             </button>
           </nav>
 
           {/* COMMISSION MODE SECTION (Case 1 & Case 3) */}
           {hasCommission && (
-            <div className="mb-3">
-              <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5 d-flex align-items-center justify-content-between">
+            <div className="mb-3 pb-1">
+              <div className="text-muted fw-bold text-uppercase px-2 mb-2 d-flex align-items-center justify-content-between" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>
                 <span>💰 Commission Channel</span>
-                <span className="badge bg-warning text-dark text-3xs font-monospace">ACTIVE</span>
+                <span className="badge bg-warning text-dark px-2 py-0.5 rounded-pill font-monospace" style={{ fontSize: '10px' }}>ACTIVE</span>
               </div>
-              <nav className="nav flex-column gap-1">
+              <nav className="nav flex-column gap-1.5">
                 <button
                   onClick={() => { setActiveTab('commission_services'); setSidebarOpen(false); }}
-                  className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                  className={`nav-link text-start rounded-3 px-3 py-2.5 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
                     activeTab === 'commission_services' ? 'bg-warning text-dark fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
                   }`}
                 >
-                  <Compass size={15} />
+                  <Compass size={16} />
                   <span>Commission Inventory</span>
                 </button>
                 <button
                   onClick={() => { setActiveTab('commission_bookings'); setSidebarOpen(false); }}
-                  className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                  className={`nav-link text-start rounded-3 px-3 py-2.5 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
                     activeTab === 'commission_bookings' ? 'bg-warning text-dark fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
                   }`}
                 >
-                  <FileText size={15} />
+                  <FileText size={16} />
                   <span>Commission Bookings</span>
                 </button>
                 <button
                   onClick={() => { setActiveTab('commission_reports'); setSidebarOpen(false); }}
-                  className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                  className={`nav-link text-start rounded-3 px-3 py-2.5 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
                     activeTab === 'commission_reports' ? 'bg-warning text-dark fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
                   }`}
                 >
-                  <TrendingUp size={15} />
+                  <TrendingUp size={16} />
                   <span>Commission Earnings</span>
                 </button>
               </nav>
@@ -279,28 +279,28 @@ export default function B2BPortalPage({
 
           {/* NON-COMMISSION (NET) SECTION (Case 2 & Case 3) */}
           {hasNonCommission && (
-            <div className="mb-3">
-              <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5 d-flex align-items-center justify-content-between">
+            <div className="mb-3 pb-1">
+              <div className="text-muted fw-bold text-uppercase px-2 mb-2 d-flex align-items-center justify-content-between" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>
                 <span>🏷️ Non-Commission Channel</span>
-                <span className="badge bg-primary text-white text-3xs font-monospace">ACTIVE</span>
+                <span className="badge bg-primary text-white px-2 py-0.5 rounded-pill font-monospace" style={{ fontSize: '10px' }}>ACTIVE</span>
               </div>
-              <nav className="nav flex-column gap-1">
+              <nav className="nav flex-column gap-1.5">
                 <button
                   onClick={() => { setActiveTab('non_commission_services'); setSidebarOpen(false); }}
-                  className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                  className={`nav-link text-start rounded-3 px-3 py-2.5 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
                     activeTab === 'non_commission_services' ? 'bg-primary text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
                   }`}
                 >
-                  <Compass size={15} />
+                  <Compass size={16} />
                   <span>Net Wholesale Inventory</span>
                 </button>
                 <button
                   onClick={() => { setActiveTab('non_commission_bookings'); setSidebarOpen(false); }}
-                  className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+                  className={`nav-link text-start rounded-3 px-3 py-2.5 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
                     activeTab === 'non_commission_bookings' ? 'bg-primary text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
                   }`}
                 >
-                  <FileText size={15} />
+                  <FileText size={16} />
                   <span>Net Wholesale Bookings</span>
                 </button>
               </nav>
@@ -309,71 +309,71 @@ export default function B2BPortalPage({
 
           {/* CASE 4: ONE APPROVED, SECOND MODE PENDING REVIEW */}
           {!hasNonCommission && isPendingMode && requestedMode === 'NON_COMMISSION' && (
-            <div className="mb-3">
-              <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5">
+            <div className="mb-3 pb-1">
+              <div className="text-muted fw-bold text-uppercase px-2 mb-2" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>
                 <span>🏷️ Non-Commission Channel</span>
               </div>
               <button
                 onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
-                className="nav-link text-start rounded-3 px-3 py-2 text-xs text-muted border border-dashed border-warning bg-warning bg-opacity-10 d-flex align-items-center gap-2 w-100"
+                className="nav-link text-start rounded-3 px-3 py-2.5 text-xs text-muted border border-dashed border-warning bg-warning bg-opacity-10 d-flex align-items-center gap-2 w-100"
                 title="Non-Commission Mode is pending admin review"
               >
-                <Clock size={14} className="text-warning flex-shrink-0" />
+                <Clock size={15} className="text-warning flex-shrink-0" />
                 <span className="text-truncate">Pending Admin Review</span>
               </button>
             </div>
           )}
 
           {!hasCommission && isPendingMode && requestedMode === 'COMMISSION' && (
-            <div className="mb-3">
-              <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5">
+            <div className="mb-3 pb-1">
+              <div className="text-muted fw-bold text-uppercase px-2 mb-2" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>
                 <span>💰 Commission Channel</span>
               </div>
               <button
                 onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
-                className="nav-link text-start rounded-3 px-3 py-2 text-xs text-muted border border-dashed border-warning bg-warning bg-opacity-10 d-flex align-items-center gap-2 w-100"
+                className="nav-link text-start rounded-3 px-3 py-2.5 text-xs text-muted border border-dashed border-warning bg-warning bg-opacity-10 d-flex align-items-center gap-2 w-100"
                 title="Commission Mode is pending admin review"
               >
-                <Clock size={14} className="text-warning flex-shrink-0" />
+                <Clock size={15} className="text-warning flex-shrink-0" />
                 <span className="text-truncate">Pending Admin Review</span>
               </button>
             </div>
           )}
 
           {/* COMMON OPERATIONS */}
-          <div className="text-muted text-xxs fw-bold text-uppercase px-2 mb-1.5">Agency Management</div>
-          <nav className="nav flex-column gap-1">
+          <div className="text-muted fw-bold text-uppercase px-2 mb-2" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>Agency Management</div>
+          <nav className="nav flex-column gap-1.5">
             <button
               onClick={() => { setActiveTab('customers'); setSidebarOpen(false); }}
-              className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+              className={`nav-link text-start rounded-3 px-3 py-2.5 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
                 activeTab === 'customers' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
               }`}
             >
-              <Users size={15} />
+              <Users size={16} />
               <span>Guest Directory</span>
             </button>
             <button
               onClick={() => { setActiveTab('wallet'); setSidebarOpen(false); }}
-              className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center justify-content-between ${
+              className={`nav-link text-start rounded-3 px-3 py-2.5 text-xs fw-semibold border-0 d-flex align-items-center justify-content-between ${
                 activeTab === 'wallet' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
               }`}
             >
               <div className="d-flex align-items-center gap-2.5">
-                <Wallet size={15} className="text-warning" />
+                <Wallet size={16} className="text-warning" />
                 <span>Agent Wallet</span>
               </div>
-              <span className="badge bg-warning text-dark text-3xs font-monospace">
+              <span className="badge bg-warning text-dark px-2 py-1 rounded-pill font-monospace fw-bold" style={{ fontSize: '11px' }}>
                 ₹{parseFloat(partnerUser?.wallet_balance || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </span>
             </button>
             <button
               onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
-              className={`nav-link text-start rounded-3 px-3 py-2 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
+              className={`nav-link text-start rounded-3 px-3 py-2.5 text-xs fw-semibold border-0 d-flex align-items-center gap-2.5 ${
                 activeTab === 'profile' ? 'bg-dark text-white fw-bold shadow-xs' : 'text-muted bg-transparent hover-bg-light'
               }`}
             >
-              <User size={15} />
-              <span>Partner Profile & Modes</span>
+              <User size={16} />
+              <span>Partner Profile &amp; Modes</span>
             </button>
           </nav>
         </div>
@@ -430,27 +430,28 @@ export default function B2BPortalPage({
           {/* Right Header: Approved Mode Indicator + Notification Bell + Agency Profile */}
           <div className="d-flex align-items-center gap-2 gap-sm-2.5">
             {/* Database Approved Mode Indicator (No free switching) */}
-            <div className="d-none d-md-flex align-items-center gap-1.5">
+            <div className="d-none d-md-flex align-items-center gap-1.5 flex-shrink-0">
               {hasCommission && hasNonCommission ? (
                 <span 
-                  className="badge text-xxs px-2.5 py-1 rounded-pill fw-bold"
+                  className="badge text-xs px-2.5 py-1.5 rounded-pill fw-bold text-nowrap shadow-2xs"
                   style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
+                  title="Dual Mode Active: Agency has permission for Commission & Net Wholesale booking sections"
                 >
-                  ✓ Dual Mode Active (Commission + Net)
+                  ✓ Dual Mode Active <span className="d-none d-xl-inline">(Commission + Net)</span>
                 </span>
               ) : hasCommission ? (
                 <span 
-                  className="badge text-xxs px-2.5 py-1 rounded-pill fw-bold"
+                  className="badge text-xs px-2.5 py-1.5 rounded-pill fw-bold text-nowrap shadow-2xs"
                   style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }}
                 >
-                  💰 Commission Mode Approved
+                  💰 Commission Mode
                 </span>
               ) : hasNonCommission ? (
                 <span 
-                  className="badge text-xxs px-2.5 py-1 rounded-pill fw-bold"
+                  className="badge text-xs px-2.5 py-1.5 rounded-pill fw-bold text-nowrap shadow-2xs"
                   style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
                 >
-                  🏷️ Non-Commission Net Mode Approved
+                  🏷️ Net Wholesale Mode
                 </span>
               ) : null}
             </div>
@@ -458,22 +459,22 @@ export default function B2BPortalPage({
             {/* Main D2C Site Link */}
             <button 
               onClick={onNavigateHome}
-              className="btn btn-outline-secondary btn-sm rounded-pill px-2.5 py-1 text-xxs d-none d-sm-flex align-items-center gap-1"
+              className="btn btn-outline-secondary btn-sm rounded-pill px-3 py-1.5 text-xs d-none d-sm-flex align-items-center gap-1.5"
             >
-              <Globe size={13} />
+              <Globe size={14} />
               <span>Main D2C Site</span>
             </button>
 
             {/* Prepaid Wallet Quick Balance Pill */}
             <div 
               onClick={() => setActiveTab('wallet')}
-              className="cursor-pointer d-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-light border hover-bg-warning-subtle transition-all"
+              className="cursor-pointer d-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border hover-bg-warning-subtle transition-all shadow-2xs"
               style={{ cursor: 'pointer' }}
               title="Click to view Agent Prepaid Wallet & Statement"
             >
-              <Wallet size={14} className="text-warning flex-shrink-0" />
-              <span className="text-xxs text-muted fw-semibold d-none d-md-inline">Wallet:</span>
-              <strong className="text-dark text-xs">
+              <Wallet size={15} className="text-warning flex-shrink-0" />
+              <span className="text-xs text-muted fw-semibold d-none d-md-inline">Wallet:</span>
+              <strong className="text-dark text-xs fw-bold font-monospace">
                 ₹{parseFloat(partnerUser.wallet_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </strong>
             </div>
@@ -493,18 +494,18 @@ export default function B2BPortalPage({
             {/* Agency User Pill */}
             <div 
               onClick={() => setActiveTab('profile')}
-              className="d-flex align-items-center gap-2 p-1 pe-3 bg-light rounded-pill border"
+              className="d-flex align-items-center gap-2 p-1.5 pe-3 bg-light rounded-pill border shadow-2xs"
               style={{ cursor: 'pointer' }}
             >
-              <div className="rounded-circle bg-warning text-dark fw-bold d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', fontSize: '0.75rem' }}>
+              <div className="rounded-circle bg-warning text-dark fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '30px', height: '30px', fontSize: '0.8rem' }}>
                 {(partnerUser.company_name || partnerUser.name || 'A')[0]?.toUpperCase()}
               </div>
-              <div className="d-none d-sm-block text-start" style={{ lineHeight: '1.1' }}>
-                <div className="fw-bold text-dark text-xxs text-truncate" style={{ maxWidth: '120px' }}>
+              <div className="d-none d-sm-block text-start" style={{ lineHeight: '1.2' }}>
+                <div className="fw-bold text-dark text-xs text-truncate" style={{ maxWidth: '160px' }}>
                   {partnerUser.company_name || partnerUser.name}
                 </div>
-                <div className="text-muted text-xxs" style={{ fontSize: '0.62rem' }}>
-                  Agent ID: {partnerUser.id?.substring(0, 10)}
+                <div className="text-muted" style={{ fontSize: '11px' }}>
+                  Agent ID: {partnerUser.id || 'N/A'}
                 </div>
               </div>
             </div>
@@ -512,7 +513,7 @@ export default function B2BPortalPage({
             {/* Logout */}
             <button 
               onClick={handleLogout}
-              className="btn btn-outline-danger btn-sm rounded-circle p-1.5 border-0"
+              className="btn btn-outline-danger btn-sm rounded-circle p-1.5 border-0 d-flex align-items-center justify-content-center"
               title="Logout Agency"
             >
               <LogOut size={16} />

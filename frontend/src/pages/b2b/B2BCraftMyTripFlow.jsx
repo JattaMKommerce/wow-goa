@@ -818,7 +818,10 @@ export default function B2BCraftMyTripFlow({ partner, activeMode, onBookingSucce
                           </span>
                         )}
                         {(selectedHotel.preselected_rate_plan?.name || selectedHotel.preselected_rate_plan?.meal_plan_label) && (
-                          <span className="ms-1 badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                          <span 
+                            className="ms-1 badge text-xs px-2 py-0.5 rounded-pill fw-semibold"
+                            style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
+                          >
                             🍴 {selectedHotel.preselected_rate_plan.name || selectedHotel.preselected_rate_plan.meal_plan_label}
                           </span>
                         )}
@@ -1410,7 +1413,10 @@ export default function B2BCraftMyTripFlow({ partner, activeMode, onBookingSucce
                         <div className="text-muted text-3xs">Available Balance: ₹{financialSnapshot.walletBalance.toLocaleString('en-IN')}</div>
                       </div>
                     </div>
-                    <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 text-3xs px-2.5 py-1 rounded-pill">
+                    <span 
+                      className="badge text-xs px-2.5 py-1 rounded-pill fw-bold"
+                      style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
+                    >
                       Instant Wallet Debit
                     </span>
                   </div>

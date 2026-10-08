@@ -56,21 +56,21 @@ export default function B2BBookingsTab({ partnerUser, forcedMode = null }) {
     const s = (status || 'pending').toLowerCase();
     switch (s) {
       case 'completed':
-        return <span className="badge bg-success text-white text-xxs px-2.5 py-1 rounded-pill fw-semibold">✓ Completed</span>;
+        return <span className="badge bg-success text-white text-xs px-2.5 py-1 rounded-pill fw-semibold">✓ Completed</span>;
       case 'confirmed':
-        return <span className="badge bg-primary text-white text-xxs px-2.5 py-1 rounded-pill fw-semibold">✓ Confirmed</span>;
+        return <span className="badge bg-primary text-white text-xs px-2.5 py-1 rounded-pill fw-semibold">✓ Confirmed</span>;
       case 'checked in':
-        return <span className="badge bg-info text-dark text-xxs px-2.5 py-1 rounded-pill fw-semibold">🏨 Checked In</span>;
+        return <span className="badge bg-info text-dark text-xs px-2.5 py-1 rounded-pill fw-semibold">🏨 Checked In</span>;
       case 'checked out':
-        return <span className="badge bg-secondary text-white text-xxs px-2.5 py-1 rounded-pill fw-semibold">Checked Out</span>;
+        return <span className="badge bg-secondary text-white text-xs px-2.5 py-1 rounded-pill fw-semibold">Checked Out</span>;
       case 'cancelled':
-        return <span className="badge bg-danger text-white text-xxs px-2.5 py-1 rounded-pill fw-semibold">✕ Cancelled</span>;
+        return <span className="badge bg-danger text-white text-xs px-2.5 py-1 rounded-pill fw-semibold">✕ Cancelled</span>;
       case 'rejected':
-        return <span className="badge bg-danger text-white text-xxs px-2.5 py-1 rounded-pill fw-semibold">✕ Rejected</span>;
+        return <span className="badge bg-danger text-white text-xs px-2.5 py-1 rounded-pill fw-semibold">✕ Rejected</span>;
       case 'pending':
-        return <span className="badge bg-warning text-dark text-xxs px-2.5 py-1 rounded-pill fw-semibold">⏳ Pending</span>;
+        return <span className="badge bg-warning text-dark text-xs px-2.5 py-1 rounded-pill fw-semibold">⏳ Pending</span>;
       default:
-        return <span className="badge bg-warning text-dark text-xxs px-2.5 py-1 rounded-pill fw-semibold">⏳ {status || 'Pending'}</span>;
+        return <span className="badge bg-warning text-dark text-xs px-2.5 py-1 rounded-pill fw-semibold">⏳ {status || 'Pending'}</span>;
     }
   };
 
@@ -80,9 +80,9 @@ export default function B2BBookingsTab({ partnerUser, forcedMode = null }) {
       case 'credited':
       case 'settled':
       case 'paid':
-        return <span className="badge bg-success text-white text-xxs px-2 py-0.5 rounded-pill">Credited</span>;
+        return <span className="badge bg-success text-white text-xs px-2.5 py-1 rounded-pill fw-semibold">Credited</span>;
       default:
-        return <span className="badge bg-secondary text-white text-xxs px-2 py-0.5 rounded-pill">Accrued (Pending)</span>;
+        return <span className="badge bg-secondary text-white text-xs px-2.5 py-1 rounded-pill">Accrued (Pending)</span>;
     }
   };
 
@@ -93,10 +93,10 @@ export default function B2BBookingsTab({ partnerUser, forcedMode = null }) {
         <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
           <div>
             <div className="d-flex align-items-center gap-2 mb-1">
-              <span className={`badge ${activeMode === 'COMMISSION' ? 'bg-warning text-dark' : 'bg-primary text-white'} text-xxs fw-bold px-2.5 py-0.5 rounded-pill`}>
+              <span className={`badge ${activeMode === 'COMMISSION' ? 'bg-warning text-dark' : 'bg-primary text-white'} text-xs fw-bold px-2.5 py-1 rounded-pill`}>
                 {activeMode === 'COMMISSION' ? 'COMMISSION BOOKINGS' : 'NET WHOLESALE BOOKINGS'}
               </span>
-              <span className="badge bg-light text-muted border text-xxs">
+              <span className="badge bg-light text-muted border text-xs px-2.5 py-1 rounded-pill">
                 Isolated B2B Channel
               </span>
             </div>

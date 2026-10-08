@@ -1097,7 +1097,8 @@ export default function BookingVoucher({
   if (isModal) {
     const modalContent = (
       <div 
-        className="modal-backdrop-custom voucher-modal-backdrop"
+        className="modal-backdrop-custom voucher-modal-backdrop overflow-hidden"
+        data-scrollable="true"
         style={{
           position: 'fixed',
           top: 0,
@@ -1108,12 +1109,11 @@ export default function BookingVoucher({
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
           zIndex: 99999,
-          overflowY: 'auto',
-          overflowX: 'hidden',
           padding: '16px',
           display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'center'
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden'
         }}
         onClick={onClose}
       >
@@ -1122,12 +1122,14 @@ export default function BookingVoucher({
           style={{
             width: '100%',
             maxWidth: '820px',
-            minHeight: '92vh',
+            height: '92vh',
+            maxHeight: 'calc(100vh - 32px)',
             display: 'flex',
             flexDirection: 'column',
             background: '#ffffff',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
-            margin: '24px auto 40px auto'
+            margin: '0 auto',
+            position: 'relative'
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -1194,10 +1196,18 @@ export default function BookingVoucher({
             </div>
           </div>
 
-          {/* ─── Modal Body containing the A4 Document ─── */}
+          {/* ─── Modal Body containing the A4 Document (Scrollable with custom scrollbar) ─── */}
           <div 
-            className="modal-voucher-scroll-body flex-grow-1 p-2 p-md-3" 
-            style={{ background: '#f1f5f9' }}
+            className="modal-voucher-scroll-body custom-voucher-scrollbar overflow-y-auto flex-grow-1 p-2 p-md-3" 
+            data-scrollable="true"
+            style={{ 
+              background: '#f1f5f9',
+              minHeight: 0,
+              flex: '1 1 auto',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              WebkitOverflowScrolling: 'touch'
+            }}
           >
             {content}
           </div>

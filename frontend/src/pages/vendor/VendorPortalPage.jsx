@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   Compass, LogOut, Car, Shield, LayoutDashboard, Calendar,
   Wallet, BarChart2, Settings, CreditCard, Users, DollarSign,
-  ChevronDown, ChevronRight, Menu
+  ChevronDown, ChevronRight, Menu, Globe
 } from 'lucide-react';
 import VehiclePMSDashboard from './vehicle-pms/VehiclePMSDashboard';
 import VehicleFleetManagement from './vehicle-pms/VehicleFleetManagement';
 import VehicleBookingManagement from './vehicle-pms/VehicleBookingManagement';
 import VehicleCustomerManagement from './vehicle-pms/VehicleCustomerManagement';
+import VendorStorefrontWizard from '../../components/vendor/VendorStorefrontWizard';
 import VehicleFleetCalendar from './vehicle-pms/VehicleFleetCalendar';
 import VehiclePricing from './vehicle-pms/VehiclePricing';
 import VendorWallet from '../../components/vendor/VendorWallet';
@@ -52,6 +53,12 @@ const SIDEBAR_GROUPS = [
     label: 'Insights',
     items: [
       { id: 'reports', label: 'Reports', icon: <BarChart2 size={15} /> },
+    ]
+  },
+  {
+    label: 'Online Storefront',
+    items: [
+      { id: 'website_builder', label: 'My Website', icon: <Globe size={15} /> },
     ]
   },
   {
@@ -214,6 +221,15 @@ export default function VendorPortalPage({
         return <VendorCancellationPolicyManager currentUser={currentUser} serviceType="vehicle" />;
       case 'reports':
         return <VehicleReports cars={vendorCars} bikes={vendorBikes} bookings={bookings} onNavigate={handleNavigate} />;
+      case 'website_builder':
+        return (
+          <VendorStorefrontWizard
+            currentUser={currentUser}
+            vendorType="vehicle"
+            inventory={[...vendorCars, ...vendorBikes]}
+            onExit={() => handleNavigate('dashboard')}
+          />
+        );
       case 'settings':
         return <VehicleVendorProfileSettings currentUser={currentUser} />;
       default:
