@@ -1789,39 +1789,39 @@ export default function SearchWidget({
                   <span className="d-flex align-items-center gap-1"><SlidersHorizontal size={13} className="text-secondary" /> Cab Class</span>
                   <ChevronDown size={14} />
                 </span>
-                <div className="input-block-val text-truncate" title="All Categories Available">
-                  All Cabs
+                <div className="input-block-val text-truncate" title="All Seater Options">
+                  All Seaters
                 </div>
-                <span className="input-block-sub">Dzire, Ertiga & Innova Crysta</span>
+                <span className="input-block-sub">4, 6, 7 & 8+ Seater Cabs</span>
 
                 {activeDropdown === 'tx-class' && (
                   <div className="tg-popover-card shadow-xl p-3" style={{ width: '280px' }} onClick={e => e.stopPropagation()}>
                     <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
-                      <span className="fw-bold text-dark small">Available Cab Classes</span>
+                      <span className="fw-bold text-dark small">Select Seater Capacity</span>
                       <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
                     </div>
 
                     <div className="d-flex flex-column gap-2 small">
-                      <div className="p-2 rounded border bg-light d-flex justify-content-between align-items-center">
+                      <div className="p-2 rounded border bg-light d-flex justify-content-between align-items-center cursor-pointer" onClick={() => setActiveDropdown(null)}>
                         <div>
-                          <div className="fw-bold">Sedan (4 Seater)</div>
-                          <div className="text-muted" style={{ fontSize: '11px' }}>Swift Dzire, Etios</div>
+                          <div className="fw-bold">4 Seater Cabs</div>
+                          <div className="text-muted" style={{ fontSize: '11px' }}>Swift Dzire, Etios, Amaze</div>
                         </div>
                         <span className="badge bg-dark">From ₹1,600</span>
                       </div>
-                      <div className="p-2 rounded border d-flex justify-content-between align-items-center">
+                      <div className="p-2 rounded border d-flex justify-content-between align-items-center cursor-pointer" onClick={() => setActiveDropdown(null)}>
                         <div>
-                          <div className="fw-bold">MUV (6 Seater)</div>
-                          <div className="text-muted" style={{ fontSize: '11px' }}>Maruti Ertiga</div>
+                          <div className="fw-bold">6 & 7 Seater Cabs</div>
+                          <div className="text-muted" style={{ fontSize: '11px' }}>Ertiga, Innova Crysta, Carens</div>
                         </div>
                         <span className="badge bg-dark">From ₹2,100</span>
                       </div>
-                      <div className="p-2 rounded border d-flex justify-content-between align-items-center">
+                      <div className="p-2 rounded border d-flex justify-content-between align-items-center cursor-pointer" onClick={() => setActiveDropdown(null)}>
                         <div>
-                          <div className="fw-bold">Executive SUV</div>
-                          <div className="text-muted" style={{ fontSize: '11px' }}>Innova Crysta (Captain Seats)</div>
+                          <div className="fw-bold">8+ Seater Maxi Cabs</div>
+                          <div className="text-muted" style={{ fontSize: '11px' }}>Urbania, Tempo Travellers & Vans</div>
                         </div>
-                        <span className="badge bg-warning text-dark fw-bold">From ₹2,900</span>
+                        <span className="badge bg-warning text-dark fw-bold">From ₹3,800</span>
                       </div>
                     </div>
                   </div>

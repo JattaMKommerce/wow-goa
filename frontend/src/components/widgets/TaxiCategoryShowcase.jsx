@@ -3,13 +3,13 @@ import {
   ChevronLeft, ChevronRight, Car, Users, Crown, Star, Camera
 } from 'lucide-react';
 
-// ─── CURATED TAXI FLEET DATA (Matching Self Drive Architecture) ─────────────────
-const DEFAULT_COMFORT_SEDANS = [
+// ─── 1. 4 SEATER CABS (Sedans & Compacts for 1-4 Passengers) ───────────────────
+const DEFAULT_FOUR_SEATERS = [
   {
     id: 'tx-def-dzire',
     name: 'Maruti Suzuki Dzire',
     category: 'Sedan',
-    badge: 'Popular Choice',
+    badge: 'Popular 4 Seater',
     price: 1600,
     rating: 4.85,
     image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80',
@@ -24,7 +24,7 @@ const DEFAULT_COMFORT_SEDANS = [
     id: 'tx-def-etios',
     name: 'Toyota Platinum Etios',
     category: 'Sedan',
-    badge: 'Extra Legroom',
+    badge: 'Extra Boot Space',
     price: 1600,
     rating: 4.8,
     image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=600&q=80',
@@ -39,7 +39,7 @@ const DEFAULT_COMFORT_SEDANS = [
     id: 'tx-def-amaze',
     name: 'Honda Amaze Executive',
     category: 'Sedan',
-    badge: 'Smooth Ride',
+    badge: 'Smooth Comfort',
     price: 1700,
     rating: 4.75,
     image: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=600&q=80',
@@ -54,7 +54,7 @@ const DEFAULT_COMFORT_SEDANS = [
     id: 'tx-def-aura',
     name: 'Hyundai Aura',
     category: 'Compact Sedan',
-    badge: 'Clean AC',
+    badge: 'Chilled AC',
     price: 1650,
     rating: 4.7,
     image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80',
@@ -67,9 +67,9 @@ const DEFAULT_COMFORT_SEDANS = [
   },
   {
     id: 'tx-def-tigor-ev',
-    name: 'Tata Tigor EV (Green Cab)',
+    name: 'Tata Tigor EV',
     category: 'Electric Sedan',
-    badge: 'Zero Emission',
+    badge: 'Green Electric',
     price: 1800,
     rating: 4.9,
     image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
@@ -84,7 +84,7 @@ const DEFAULT_COMFORT_SEDANS = [
     id: 'tx-def-ciaz',
     name: 'Maruti Suzuki Ciaz',
     category: 'Premium Sedan',
-    badge: 'Executive',
+    badge: 'Executive 4 Seater',
     price: 1950,
     rating: 4.85,
     image: 'https://images.unsplash.com/photo-1555353540-64580b51c258?auto=format&fit=crop&w=600&q=80',
@@ -94,15 +94,31 @@ const DEFAULT_COMFORT_SEDANS = [
     ac: true,
     fullDayRate: 3800,
     type: 'taxi'
+  },
+  {
+    id: 'tx-def-mercedes-e',
+    name: 'Mercedes-Benz E-Class VIP',
+    category: 'Luxury Sedan',
+    badge: 'VIP 4 Seater',
+    price: 8500,
+    rating: 5.0,
+    image: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=600&q=80',
+    seating: '4 Seater',
+    luggage: '3 Bags',
+    fuel: 'Petrol',
+    ac: true,
+    fullDayRate: 15000,
+    type: 'taxi'
   }
 ];
 
-const DEFAULT_FAMILY_MUVS = [
+// ─── 2. 6 & 7 SEATER CABS (Family MUVs & SUVs for 5-7 Passengers) ──────────────
+const DEFAULT_SIX_SEVEN_SEATERS = [
   {
     id: 'tx-def-ertiga',
     name: 'Maruti Suzuki Ertiga',
     category: 'Family MUV',
-    badge: 'Family Favorite',
+    badge: 'Popular 6-7 Seater',
     price: 2100,
     rating: 4.9,
     image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=600&q=80',
@@ -114,10 +130,25 @@ const DEFAULT_FAMILY_MUVS = [
     type: 'taxi'
   },
   {
+    id: 'tx-def-innova-crysta',
+    name: 'Toyota Innova Crysta',
+    category: 'Executive SUV',
+    badge: '7 Seater Prime',
+    price: 2900,
+    rating: 4.95,
+    image: 'https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=600&q=80',
+    seating: '7 Seater',
+    luggage: '4 Bags',
+    fuel: 'Diesel',
+    ac: true,
+    fullDayRate: 5500,
+    type: 'taxi'
+  },
+  {
     id: 'tx-def-carens',
     name: 'Kia Carens Luxury',
     category: 'Premium MUV',
-    badge: 'Modern Interior',
+    badge: '6-7 Seater Comfort',
     price: 2400,
     rating: 4.85,
     image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80',
@@ -129,10 +160,25 @@ const DEFAULT_FAMILY_MUVS = [
     type: 'taxi'
   },
   {
+    id: 'tx-def-hycross',
+    name: 'Toyota Innova Hycross',
+    category: 'Lounge SUV',
+    badge: '7 Seater Hybrid',
+    price: 3400,
+    rating: 5.0,
+    image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
+    seating: '6-7 Seater',
+    luggage: '4 Bags',
+    fuel: 'Strong Hybrid',
+    ac: true,
+    fullDayRate: 6200,
+    type: 'taxi'
+  },
+  {
     id: 'tx-def-rumion',
     name: 'Toyota Rumion',
-    category: 'Comfort MUV',
-    badge: 'Reliable Toyota',
+    category: 'Family MUV',
+    badge: '7 Seater',
     price: 2200,
     rating: 4.8,
     image: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=600&q=80',
@@ -147,7 +193,7 @@ const DEFAULT_FAMILY_MUVS = [
     id: 'tx-def-marazzo',
     name: 'Mahindra Marazzo',
     category: 'Spacious MUV',
-    badge: 'Extra Space',
+    badge: '7 Seater Extra Legroom',
     price: 2300,
     rating: 4.75,
     image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80',
@@ -159,9 +205,28 @@ const DEFAULT_FAMILY_MUVS = [
     type: 'taxi'
   },
   {
+    id: 'tx-def-fortuner',
+    name: 'Toyota Fortuner 4x4 VIP',
+    category: 'VIP Luxury SUV',
+    badge: '7 Seater VIP',
+    price: 5500,
+    rating: 5.0,
+    image: 'https://images.unsplash.com/photo-1567818735868-e71b99932e29?auto=format&fit=crop&w=600&q=80',
+    seating: '7 Seater',
+    luggage: '5 Bags',
+    fuel: 'Diesel',
+    ac: true,
+    fullDayRate: 9800,
+    type: 'taxi'
+  }
+];
+
+// ─── 3. 8+ SEATER MAXI CABS (Mini Vans & Coaches for 8-17 Passengers) ───────────
+const DEFAULT_MAXI_GROUP_SEATERS = [
+  {
     id: 'tx-def-urbania',
-    name: 'Force Urbania Executive',
-    category: 'Group Van',
+    name: 'Force Urbania Mini Coach',
+    category: 'Maxi Cab',
     badge: '10-12 Seater',
     price: 4500,
     rating: 4.95,
@@ -172,83 +237,65 @@ const DEFAULT_FAMILY_MUVS = [
     ac: true,
     fullDayRate: 7500,
     type: 'taxi'
-  }
-];
-
-const DEFAULT_VIP_FLEET = [
+  },
   {
-    id: 'tx-def-innova-crysta',
-    name: 'Toyota Innova Crysta',
-    category: 'Executive SUV',
-    badge: 'Executive VIP',
-    price: 2900,
-    rating: 4.95,
-    image: 'https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=600&q=80',
-    seating: '7 Seater',
-    luggage: '4 Bags',
+    id: 'tx-def-traveller-12',
+    name: 'Force Tempo Traveller',
+    category: 'Group Van',
+    badge: '12-14 Seater',
+    price: 5200,
+    rating: 4.9,
+    image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80',
+    seating: '12-14 Seater',
+    luggage: '10 Bags',
     fuel: 'Diesel',
     ac: true,
-    fullDayRate: 5500,
+    fullDayRate: 8500,
     type: 'taxi'
   },
   {
-    id: 'tx-def-hycross',
-    name: 'Toyota Innova Hycross Hybrid',
-    category: 'VIP Lounge SUV',
-    badge: 'Ottoman Seats',
-    price: 3400,
+    id: 'tx-def-winger',
+    name: 'Tata Winger Executive',
+    category: 'Maxi Van',
+    badge: '9-10 Seater',
+    price: 3800,
+    rating: 4.8,
+    image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=600&q=80',
+    seating: '9-10 Seater',
+    luggage: '6 Bags',
+    fuel: 'Diesel',
+    ac: true,
+    fullDayRate: 6500,
+    type: 'taxi'
+  },
+  {
+    id: 'tx-def-urbania-17',
+    name: 'Force Urbania Prime Coach',
+    category: 'Large Group Coach',
+    badge: '17 Seater',
+    price: 6500,
+    rating: 4.95,
+    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80',
+    seating: '17 Seater',
+    luggage: '14 Bags',
+    fuel: 'Diesel',
+    ac: true,
+    fullDayRate: 10500,
+    type: 'taxi'
+  },
+  {
+    id: 'tx-def-traveller-maharaja',
+    name: 'Tempo Traveller Maharaja VIP',
+    category: 'VIP Luxury Van',
+    badge: '12 Seater Recliner',
+    price: 6000,
     rating: 5.0,
     image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
-    seating: '6 Seater',
-    luggage: '4 Bags',
-    fuel: 'Strong Hybrid',
-    ac: true,
-    fullDayRate: 6200,
-    type: 'taxi'
-  },
-  {
-    id: 'tx-def-fortuner',
-    name: 'Toyota Fortuner 4x4 VIP',
-    category: 'Luxury VIP SUV',
-    badge: 'Presidential',
-    price: 5500,
-    rating: 5.0,
-    image: 'https://images.unsplash.com/photo-1567818735868-e71b99932e29?auto=format&fit=crop&w=600&q=80',
-    seating: '6 Seater',
-    luggage: '5 Bags',
+    seating: '12 Seater',
+    luggage: '10 Bags',
     fuel: 'Diesel',
     ac: true,
     fullDayRate: 9800,
-    type: 'taxi'
-  },
-  {
-    id: 'tx-def-mercedes-e',
-    name: 'Mercedes-Benz E-Class',
-    category: 'Ultra Luxury Sedan',
-    badge: 'VIP Escort',
-    price: 8500,
-    rating: 5.0,
-    image: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=600&q=80',
-    seating: '4 Seater',
-    luggage: '3 Bags',
-    fuel: 'Petrol',
-    ac: true,
-    fullDayRate: 15000,
-    type: 'taxi'
-  },
-  {
-    id: 'tx-def-bmw-5',
-    name: 'BMW 5 Series Chauffeur',
-    category: 'Luxury Sedan',
-    badge: 'Executive',
-    price: 8000,
-    rating: 4.95,
-    image: 'https://images.unsplash.com/photo-1555353540-64580b51c258?auto=format&fit=crop&w=600&q=80',
-    seating: '4 Seater',
-    luggage: '3 Bags',
-    fuel: 'Diesel',
-    ac: true,
-    fullDayRate: 14000,
     type: 'taxi'
   }
 ];
@@ -531,7 +578,7 @@ function TaxiCategoryRow({
   );
 }
 
-// ─── MAIN TAXI CATEGORY SHOWCASE COMPONENT ────────────────────────────────────
+// ─── MAIN TAXI CATEGORY SHOWCASE COMPONENT (Organized Strictly by Seaters) ─────
 export default function TaxiCategoryShowcase({
   tripMode = 'one_way',
   onBookTaxi,
@@ -540,37 +587,37 @@ export default function TaxiCategoryShowcase({
   return (
     <section className="sd-category-showcase-section" id="taxi-categories">
       <div className="container px-md-3">
-        {/* Row 1: Comfort Sedans (Deep Navy Gradient) */}
+        {/* Row 1: 4 Seater Cabs (Blue Gradient) */}
         <TaxiCategoryRow
-          badgeGradient="linear-gradient(135deg, #0B192C 0%, #1E3E62 100%)"
+          badgeGradient="linear-gradient(135deg, #0284C7 0%, #2563EB 100%)"
           badgeIcon={Car}
-          badgeTitle="Comfort Sedans"
-          badgeSubtitle="Swift Dzire, Etios & Compacts"
-          vehicles={DEFAULT_COMFORT_SEDANS}
+          badgeTitle="4 Seater Cabs"
+          badgeSubtitle="Sedans & Hatchbacks • 1-4 Guests"
+          vehicles={DEFAULT_FOUR_SEATERS}
           tripMode={tripMode}
           onBookTaxi={onBookTaxi}
           onViewDetails={onViewDetails}
         />
 
-        {/* Row 2: Family MUVs (Signature Wow Goa Orange Gradient) */}
+        {/* Row 2: 6 & 7 Seater Cabs (Signature Orange Gradient) */}
         <TaxiCategoryRow
           badgeGradient="linear-gradient(135deg, #FF6026 0%, #FF833E 100%)"
           badgeIcon={Users}
-          badgeTitle="Family MUVs"
-          badgeSubtitle="Ertiga, Carens & 7-Seaters"
-          vehicles={DEFAULT_FAMILY_MUVS}
+          badgeTitle="6 & 7 Seater Cabs"
+          badgeSubtitle="Family MUVs & SUVs • 5-7 Guests"
+          vehicles={DEFAULT_SIX_SEVEN_SEATERS}
           tripMode={tripMode}
           onBookTaxi={onBookTaxi}
           onViewDetails={onViewDetails}
         />
 
-        {/* Row 3: Luxury & VIP (Midnight Executive Gradient) */}
+        {/* Row 3: 8+ Seater Maxi Cabs (Purple / Luxury Violet Gradient) */}
         <TaxiCategoryRow
-          badgeGradient="linear-gradient(135deg, #1A1A2E 0%, #16213E 100%)"
+          badgeGradient="linear-gradient(135deg, #7C3AED 0%, #9333EA 100%)"
           badgeIcon={Crown}
-          badgeTitle="Luxury & VIP"
-          badgeSubtitle="Innova Crysta, Fortuner & Executive"
-          vehicles={DEFAULT_VIP_FLEET}
+          badgeTitle="8+ Seater Maxi Cabs"
+          badgeSubtitle="Mini Vans & Coaches • 8-17 Guests"
+          vehicles={DEFAULT_MAXI_GROUP_SEATERS}
           tripMode={tripMode}
           onBookTaxi={onBookTaxi}
           onViewDetails={onViewDetails}
