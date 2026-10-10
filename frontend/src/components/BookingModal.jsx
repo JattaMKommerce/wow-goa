@@ -10,7 +10,7 @@ import BookingConfirmationCard from './common/BookingConfirmationCard';
 import StaticQRPaymentCard from './common/StaticQRPaymentCard';
 import VendorCancellationPolicyCard from './common/VendorCancellationPolicyCard';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
-import InternationalPhoneInput from './common/InternationalPhoneInput';
+import InternationalPhoneInput, { CountryFlag } from './common/InternationalPhoneInput';
 import CurrencyPriceDisplay from './common/CurrencyPriceDisplay';
 import { useCustomerCurrency } from '../context/CustomerCurrencyContext';
 import { parsePhoneNumber, extractPhoneString } from '../utils/countryCurrencyData';
@@ -92,6 +92,8 @@ export default function BookingModal({
   const [vendorCancellationPolicy, setVendorCancellationPolicy] = useState(null);
   const [policyAgreed, setPolicyAgreed] = useState(false);
   const [staticQrReference, setStaticQrReference] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [idempotencyKey, setIdempotencyKey] = useState(() => 'idem_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11));
 
   const modalBodyRef = useRef(null);
 
@@ -100,6 +102,8 @@ export default function BookingModal({
     setBookingStep('DETAILS');
     setPolicyAgreed(false);
     setStaticQrReference('');
+    setIsSubmitting(false);
+    setIdempotencyKey('idem_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11));
     if (resetCountry) resetCountry();
     if (onCloseModal && typeof onCloseModal === 'function') {
       onCloseModal();
@@ -619,8 +623,9 @@ export default function BookingModal({
     modalBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleConfirmBookingSubmit = (e) => {
+  const handleConfirmBookingSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
+    if (isSubmitting) return;
 
     if (!policyAgreed) {
       alert("Please review and acknowledge the vendor cancellation policy checkbox before confirming your booking.");
@@ -634,118 +639,125 @@ export default function BookingModal({
       }
     }
 
-    const finalPickupLocResolved = driverPickupLoc === 'Custom Address' ? driverPickupCustomLoc : driverPickupLoc;
-    const finalDropLocResolved = driverDropLoc === 'Custom Address' ? driverDropCustomLoc : driverDropLoc;
-    const finalFullDayStartLocResolved = driverFullDayStartLoc === 'Custom Address' ? driverFullDayCustomStartLoc : driverFullDayStartLoc;
-    const finalFullDayEndLocResolved = driverFullDayEndLoc === 'Custom Address' ? driverFullDayCustomEndLoc : driverFullDayEndLoc;
+    setIsSubmitting(true);
 
-    const resolvedDriverPickupDate = driverPickupDate || modalPickupDate;
-    const resolvedDriverDropDate = driverDropDate || modalDropDate;
-    const resolvedDriverFullDayStart = driverFullDayStart || modalPickupDate;
-    const resolvedDriverFullDayEnd = driverFullDayEnd || modalDropDate;
+    try {
+      const finalPickupLocResolved = driverPickupLoc === 'Custom Address' ? driverPickupCustomLoc : driverPickupLoc;
+      const finalDropLocResolved = driverDropLoc === 'Custom Address' ? driverDropCustomLoc : driverDropLoc;
+      const finalFullDayStartLocResolved = driverFullDayStartLoc === 'Custom Address' ? driverFullDayCustomStartLoc : driverFullDayStartLoc;
+      const finalFullDayEndLocResolved = driverFullDayEndLoc === 'Custom Address' ? driverFullDayCustomEndLoc : driverFullDayEndLoc;
 
-    const resolvedDriverPickupTime = driverPickupTime || modalPickupTime || '10:00 AM';
-    const resolvedDriverDropTime = driverDropTime || modalDropTime || '10:00 AM';
+      const resolvedDriverPickupDate = driverPickupDate || modalPickupDate;
+      const resolvedDriverDropDate = driverDropDate || modalDropDate;
+      const resolvedDriverFullDayStart = driverFullDayStart || modalPickupDate;
+      const resolvedDriverFullDayEnd = driverFullDayEnd || modalDropDate;
 
-    const driverDetailsPayload = {
-      enabled: Boolean(driverRequired && (driverPickupEnabled || driverDropEnabled || driverFullDayEnabled)),
-      pickup: {
-        enabled: driverPickupEnabled,
-        date: resolvedDriverPickupDate,
-        time: resolvedDriverPickupTime,
-        location: finalPickupLocResolved
-      },
-      drop: {
-        enabled: driverDropEnabled,
-        date: resolvedDriverDropDate,
-        time: resolvedDriverDropTime,
-        location: finalDropLocResolved
-      },
-      fullDay: {
-        enabled: driverFullDayEnabled,
-        startDate: resolvedDriverFullDayStart,
-        endDate: resolvedDriverFullDayEnd,
-        daysCount: driverFullDayDaysCount,
-        startLocation: finalFullDayStartLocResolved,
-        endLocation: finalFullDayEndLocResolved
-      },
-      dutyStartTime: "09:00",
-      dutyEndTime: "19:00",
-      dutyDescription: "8–10 Hours Local Daily Duty",
-      totalCharge: driverTotalCharge
-    };
+      const resolvedDriverPickupTime = driverPickupTime || modalPickupTime || '10:00 AM';
+      const resolvedDriverDropTime = driverDropTime || modalDropTime || '10:00 AM';
 
-    const paymentMethodToUse = isIndian 
-      ? 'Static QR (UPI)' 
-      : 'International Online Payment Gateway (Pending Integration)';
-    const paymentRefToUse = isIndian 
-      ? staticQrReference 
-      : 'INTL_PENDING';
+      const driverDetailsPayload = {
+        enabled: Boolean(driverRequired && (driverPickupEnabled || driverDropEnabled || driverFullDayEnabled)),
+        pickup: {
+          enabled: driverPickupEnabled,
+          date: resolvedDriverPickupDate,
+          time: resolvedDriverPickupTime,
+          location: finalPickupLocResolved
+        },
+        drop: {
+          enabled: driverDropEnabled,
+          date: resolvedDriverDropDate,
+          time: resolvedDriverDropTime,
+          location: finalDropLocResolved
+        },
+        fullDay: {
+          enabled: driverFullDayEnabled,
+          startDate: resolvedDriverFullDayStart,
+          endDate: resolvedDriverFullDayEnd,
+          daysCount: driverFullDayDaysCount,
+          startLocation: finalFullDayStartLocResolved,
+          endLocation: finalFullDayEndLocResolved
+        },
+        dutyStartTime: "09:00",
+        dutyEndTime: "19:00",
+        dutyDescription: "8–10 Hours Local Daily Duty",
+        totalCharge: driverTotalCharge
+      };
 
-    handleConfirmBooking(e, paymentMethodToUse, {
-      email: emailVal,
-      customer_email: emailVal,
-      pickupDate: modalPickupDate,
-      dropDate: modalDropDate,
-      pickupTime: modalPickupTime,
-      dropTime: modalDropTime,
-      pickupLoc: modalPickupLoc,
-      dropLoc: modalDropLoc,
-      pickup_loc: modalPickupLoc,
-      pickup_location: modalPickupLoc,
-      drop_loc: modalDropLoc,
-      drop_location: modalDropLoc,
-      bookingDays: calculatedDays,
-      total_members: totalMembers,
-      guests: totalMembers,
-      totalMembers: totalMembers,
-      driver_required: (!isBike && driverRequired) ? 1 : 0,
-      driver_service_type: (!isBike && driverRequired) ? driverServiceType : null,
-      driver_charge: (!isBike && driverRequired) ? driverTotalCharge : 0,
-      driver_days: (!isBike && driverRequired) ? totalDriverServiceDays : 0,
-      driver_earning: (!isBike && driverRequired) ? driverTotalCharge : 0,
-      driver_payment_status: 'Pending',
-      driver_pickup_enabled: driverPickupEnabled ? 1 : 0,
-      driver_pickup_date: resolvedDriverPickupDate,
-      driver_pickup_time: resolvedDriverPickupTime,
-      driver_pickup_loc: finalPickupLocResolved,
-      driver_drop_enabled: driverDropEnabled ? 1 : 0,
-      driver_drop_date: resolvedDriverDropDate,
-      driver_drop_time: resolvedDriverDropTime,
-      driver_drop_loc: finalDropLocResolved,
-      driver_fullday_enabled: driverFullDayEnabled ? 1 : 0,
-      driver_fullday_start: resolvedDriverFullDayStart,
-      driver_fullday_end: resolvedDriverFullDayEnd,
-      driver_fullday_days: driverFullDayDaysCount,
-      driver_details: driverDetailsPayload,
-      date_of_birth: userDob,
-      wallet_amount_used: appliedWalletAmount,
-      tier_discount_applied: tierDiscount,
-      customer_tier_at_booking: customerTier,
-      customizations: {
-        ...(typeof selectedBookingItem.customizations === 'object' ? selectedBookingItem.customizations : {}),
-        platinum_upgrade_requested: isPlatinumEligible && platinumPerkChoice === 'upgrade',
-        platinum_perk_choice: isPlatinumEligible ? platinumPerkChoice : null
-      },
-      subtotal,
-      tax,
-      fee,
-      total,
-      amount_paid: finalPayable,
-      total_amount: total,
-      customer_payment: finalPayable,
-      payment_method: paymentMethodToUse,
-      payment_reference: paymentRefToUse,
-      payment_verification_status: 'Pending Verification',
-      status: 'Pending',
-      vendor_payout_status: 'Pending',
-      cancellation_acknowledged: 1,
-      vendor_id: selectedBookingItem.vendor_id || selectedBookingItem.vendorId || null,
-      customer_country: country?.name || 'India',
-      customer_country_code: country?.code || 'IN',
-      customer_currency: currency || 'INR',
-      customer_category: category || (isIndian ? 'INDIAN' : 'FOREIGN')
-    });
+      const paymentMethodToUse = isIndian 
+        ? 'Static QR (UPI)' 
+        : 'International Online Payment Gateway (Pending Integration)';
+      const paymentRefToUse = isIndian 
+        ? staticQrReference 
+        : 'INTL_PENDING';
+
+      await handleConfirmBooking(e, paymentMethodToUse, {
+        idempotency_key: idempotencyKey,
+        email: emailVal,
+        customer_email: emailVal,
+        pickupDate: modalPickupDate,
+        dropDate: modalDropDate,
+        pickupTime: modalPickupTime,
+        dropTime: modalDropTime,
+        pickupLoc: modalPickupLoc,
+        dropLoc: modalDropLoc,
+        pickup_loc: modalPickupLoc,
+        pickup_location: modalPickupLoc,
+        drop_loc: modalDropLoc,
+        drop_location: modalDropLoc,
+        bookingDays: calculatedDays,
+        total_members: totalMembers,
+        guests: totalMembers,
+        totalMembers: totalMembers,
+        driver_required: (!isBike && driverRequired) ? 1 : 0,
+        driver_service_type: (!isBike && driverRequired) ? driverServiceType : null,
+        driver_charge: (!isBike && driverRequired) ? driverTotalCharge : 0,
+        driver_days: (!isBike && driverRequired) ? totalDriverServiceDays : 0,
+        driver_earning: (!isBike && driverRequired) ? driverTotalCharge : 0,
+        driver_payment_status: 'Pending',
+        driver_pickup_enabled: driverPickupEnabled ? 1 : 0,
+        driver_pickup_date: resolvedDriverPickupDate,
+        driver_pickup_time: resolvedDriverPickupTime,
+        driver_pickup_loc: finalPickupLocResolved,
+        driver_drop_enabled: driverDropEnabled ? 1 : 0,
+        driver_drop_date: resolvedDriverDropDate,
+        driver_drop_time: resolvedDriverDropTime,
+        driver_drop_loc: finalDropLocResolved,
+        driver_fullday_enabled: driverFullDayEnabled ? 1 : 0,
+        driver_fullday_start: resolvedDriverFullDayStart,
+        driver_fullday_end: resolvedDriverFullDayEnd,
+        driver_fullday_days: driverFullDayDaysCount,
+        driver_details: driverDetailsPayload,
+        date_of_birth: userDob,
+        wallet_amount_used: appliedWalletAmount,
+        tier_discount_applied: tierDiscount,
+        customer_tier_at_booking: customerTier,
+        customizations: {
+          ...(typeof selectedBookingItem.customizations === 'object' ? selectedBookingItem.customizations : {}),
+          platinum_upgrade_requested: isPlatinumEligible && platinumPerkChoice === 'upgrade',
+          platinum_perk_choice: isPlatinumEligible ? platinumPerkChoice : null
+        },
+        subtotal,
+        tax,
+        fee,
+        total,
+        amount_paid: finalPayable,
+        total_amount: total,
+        customer_payment: finalPayable,
+        payment_method: paymentMethodToUse,
+        payment_reference: paymentRefToUse,
+        payment_verification_status: 'Pending Verification',
+        status: 'Pending',
+        vendor_payout_status: 'Pending',
+        cancellation_acknowledged: 1,
+        vendor_id: selectedBookingItem.vendor_id || selectedBookingItem.vendorId || null,
+        customer_country: country?.name || 'India',
+        customer_country_code: country?.code || 'IN',
+        customer_currency: currency || 'INR',
+        customer_category: category || (isIndian ? 'INDIAN' : 'FOREIGN')
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isConfirmed = Boolean(showSuccess && lastConfirmedBooking);
@@ -1596,7 +1608,7 @@ export default function BookingModal({
                   <div className="p-3 mb-3 rounded-3 border" style={{ background: isIndian ? '#f0fdf4' : '#eff6ff', borderColor: isIndian ? '#bbf7d0' : '#bfdbfe' }}>
                     <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                       <div className="d-flex align-items-center gap-2">
-                        <span className="fs-5">{country?.flag || (isIndian ? '🇮🇳' : '🌐')}</span>
+                        <CountryFlag country={country || { code: isIndian ? 'IN' : 'IN' }} size={22} />
                         <div>
                           <div className="fw-bold text-dark text-sm">{country?.name || 'Customer Country'}</div>
                           <div className="text-muted text-xxs">Identified from phone dial code ({country?.dial_code || '+91'})</div>
@@ -1670,17 +1682,24 @@ export default function BookingModal({
                         const isVendorPaymentConfigured = Boolean(
                           activeVendorPayment && (activeVendorPayment.qr_image_url || activeVendorPayment.upi_id)
                         );
-                        const isSubmitDisabled = !policyAgreed || !staticQrReference || !isVendorPaymentConfigured;
+                        const isSubmitDisabled = isSubmitting || !policyAgreed || !staticQrReference || !isVendorPaymentConfigured;
 
                         return (
                           <button 
                             type="button" 
                             onClick={handleConfirmBookingSubmit}
-                            className="btn w-100 py-2.5 fw-bold text-white shadow-sm mt-3" 
+                            className="btn w-100 py-2.5 fw-bold text-white shadow-sm mt-3 d-flex align-items-center justify-content-center" 
                             style={{ background: '#FFC107', opacity: isSubmitDisabled ? 0.65 : 1 }}
                             disabled={isSubmitDisabled}
                           >
-                            Confirm &amp; Reserve Booking (₹{finalPayable.toLocaleString('en-IN')})
+                            {isSubmitting ? (
+                              <>
+                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                                Confirming Booking...
+                              </>
+                            ) : (
+                              `Confirm & Reserve Booking (₹${finalPayable.toLocaleString('en-IN')})`
+                            )}
                           </button>
                         );
                       })()}
@@ -1714,11 +1733,18 @@ export default function BookingModal({
                       <button 
                         type="button" 
                         onClick={handleConfirmBookingSubmit}
-                        className="btn w-100 py-2.5 fw-bold text-white shadow-sm mt-3" 
-                        style={{ background: '#FF6333', opacity: !policyAgreed ? 0.65 : 1 }}
-                        disabled={!policyAgreed}
+                        className="btn w-100 py-2.5 fw-bold text-white shadow-sm mt-3 d-flex align-items-center justify-content-center" 
+                        style={{ background: '#FF6333', opacity: (!policyAgreed || isSubmitting) ? 0.65 : 1 }}
+                        disabled={!policyAgreed || isSubmitting}
                       >
-                        Confirm &amp; Reserve Booking (<CurrencyPriceDisplay amountInr={finalPayable} size="sm" color="#ffffff" />)
+                        {isSubmitting ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                            Confirming Booking...
+                          </>
+                        ) : (
+                          <>Confirm &amp; Reserve Booking (<CurrencyPriceDisplay amountInr={finalPayable} size="sm" color="#ffffff" />)</>
+                        )}
                       </button>
                     </>
                   )}

@@ -4,6 +4,7 @@ import {
   Car, Hotel, Plane, Eye, EyeOff 
 } from 'lucide-react';
 import * as api from '../../services/api';
+import ForgotPasswordModal from '../../components/ForgotPasswordModal';
 
 const VENDOR_LOGIN_CONFIG = {
   vehicle: {
@@ -52,6 +53,7 @@ export default function VendorLoginPage({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -184,6 +186,20 @@ export default function VendorLoginPage({
                 </div>
               </div>
 
+              <div className="text-end mb-3">
+                <a
+                  href="#forgot"
+                  className="text-xs fw-bold text-decoration-none cursor-pointer"
+                  style={{ color: '#FF6500' }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowForgotPassword(true);
+                  }}
+                >
+                  Forgot Password?
+                </a>
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -228,6 +244,19 @@ export default function VendorLoginPage({
       <div className="container py-3 text-center text-white-50 text-xxs">
         © {new Date().getFullYear()} WOW GOA Operator Network. All rights reserved.
       </div>
+
+      {showForgotPassword && (
+        <ForgotPasswordModal
+          isOpen={showForgotPassword}
+          onClose={() => setShowForgotPassword(false)}
+          initialIdentifier={username}
+          onSuccessReturnToLogin={(usedId) => {
+            if (usedId) setUsername(usedId);
+            setPassword('');
+            setShowForgotPassword(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -6,7 +6,7 @@
 
 export const COUNTRIES = [
   // High-frequency inbound tourist countries for Goa & India
-  { code: 'IN', name: 'India', dialCode: '+91', flag: '🇮🇳', currency: 'INR', symbol: '₹', decimals: 0, placeholder: '98765 43210' },
+  { code: 'IN', name: 'India', dialCode: '+91', flag: '🇮🇳', currency: 'INR', symbol: '₹', decimals: 0, placeholder: 'Enter 10-digit mobile number' },
   { code: 'US', name: 'United States', dialCode: '+1', flag: '🇺🇸', currency: 'USD', symbol: '$', decimals: 2, placeholder: '(555) 000-0000' },
   { code: 'GB', name: 'United Kingdom', dialCode: '+44', flag: '🇬🇧', currency: 'GBP', symbol: '£', decimals: 2, placeholder: '7911 123456' },
   { code: 'AE', name: 'United Arab Emirates', dialCode: '+971', flag: '🇦🇪', currency: 'AED', symbol: 'AED', decimals: 2, placeholder: '50 123 4567' },
@@ -241,10 +241,9 @@ export function formatNationalNumber(digits, countryCode = 'IN') {
     return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 10)}`;
   }
 
-  // India (10 digits)
+  // India (standard 10 continuous digits)
   if (cCode === 'IN') {
-    if (d.length <= 5) return d;
-    return `${d.slice(0, 5)} ${d.slice(5, 10)}`;
+    return d.slice(0, 10);
   }
 
   // United Kingdom (10-11 digits)

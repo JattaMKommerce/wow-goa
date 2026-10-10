@@ -198,6 +198,13 @@ if (!function_exists('formatWebsiteRow')) {
         } else {
             $row['featured_items'] = [];
         }
+
+        if (empty($row['site_title']) || strtolower(trim($row['site_title'])) === 'abc' || strtolower(trim($row['site_title'])) === 'test') {
+            $row['site_title'] = !empty($row['slug']) ? ucwords(str_replace('-', ' ', $row['slug'])) : 'Goa Royal Rentals';
+        }
+        if (empty($row['banner_url'])) {
+            $row['banner_url'] = 'https://images.pexels.com/photos/6348018/pexels-photo-6348018.jpeg?auto=compress&cs=tinysrgb&w=1600';
+        }
         return $row;
     }
 }

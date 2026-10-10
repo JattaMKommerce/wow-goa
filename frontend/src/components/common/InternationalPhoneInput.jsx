@@ -12,6 +12,41 @@ import {
 } from '../../utils/countryCurrencyData';
 import { useCustomerCurrency } from '../../context/CustomerCurrencyContext';
 
+export function CountryFlag({ country, size = 15, className = '' }) {
+  const [hasError, setHasError] = useState(false);
+  const code = String(country?.code || country || 'IN').toLowerCase();
+
+  if (!hasError && code) {
+    return (
+      <img
+        src={`https://flagcdn.com/w40/${code}.png`}
+        srcSet={`https://flagcdn.com/w80/${code}.png 2x`}
+        width={Math.round(size * 1.35)}
+        height={size}
+        alt={country?.name || code.toUpperCase()}
+        onError={() => setHasError(true)}
+        className={`flex-shrink-0 ${className}`}
+        style={{
+          objectFit: 'cover',
+          border: '1px solid rgba(0,0,0,0.15)',
+          display: 'inline-block',
+          verticalAlign: 'middle',
+          borderRadius: '2px'
+        }}
+      />
+    );
+  }
+
+  return (
+    <span 
+      className="badge bg-light text-dark border font-monospace px-1 py-0 flex-shrink-0"
+      style={{ fontSize: '10px', lineHeight: '14px', borderRadius: '3px' }}
+    >
+      {String(country?.code || country || 'IN').toUpperCase()}
+    </span>
+  );
+}
+
 export default function InternationalPhoneInput({
   value = '',
   onChange,
@@ -59,6 +94,7 @@ export default function InternationalPhoneInput({
   });
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -255,28 +291,44 @@ export default function InternationalPhoneInput({
 
   return (
     <div className="position-relative w-100" ref={dropdownRef}>
-      <div className={`input-group ${className}`} style={{ borderRadius: '8px' }}>
+      <div 
+        className={`d-flex align-items-center w-100 bg-white border ${className}`}
+        style={{ 
+          borderRadius: '8px',
+          borderColor: isFocused ? '#2563eb' : '#cbd5e1',
+          boxShadow: isFocused ? '0 0 0 3px rgba(37, 99, 235, 0.15)' : 'none',
+          transition: 'all 0.15s ease',
+          background: disabled ? '#f8fafc' : '#ffffff'
+        }}
+      >
         {/* Country Selector Button */}
         <button
           type="button"
-          className="btn btn-light border d-flex align-items-center gap-1.5 px-2.5 py-2 text-start flex-shrink-0"
+          className="btn btn-light border-0 d-flex align-items-center flex-shrink-0 px-2.5 py-2 text-start"
           style={{
             background: '#f8fafc',
-            borderColor: '#cbd5e1',
-            borderTopLeftRadius: '8px',
-            borderBottomLeftRadius: '8px',
-            fontSize: '0.85rem',
+            fontSize: '0.875rem',
             color: '#1e293b',
-            zIndex: 3
+            gap: '6px',
+            borderTopLeftRadius: '7px',
+            borderBottomLeftRadius: '7px',
+            borderTopRightRadius: '0px',
+            borderBottomRightRadius: '0px',
+            zIndex: 2
           }}
           onClick={() => !disabled && setDropdownOpen(!dropdownOpen)}
           disabled={disabled}
           title={`Selected country: ${selectedCountry.name} (${selectedCountry.dialCode})`}
         >
-          <span style={{ fontSize: '1.15rem', lineHeight: 1 }}>{selectedCountry.flag}</span>
-          <span className="fw-bold font-monospace text-xs" style={{ color: '#0f172a' }}>{selectedCountry.dialCode}</span>
+          <CountryFlag country={selectedCountry} size={15} />
+          <span className="fw-bold font-monospace text-xs" style={{ color: '#0f172a' }}>
+            {selectedCountry.dialCode}
+          </span>
           <ChevronDown size={13} className="text-muted ms-0.5 opacity-75" />
         </button>
+
+        {/* Subtle Vertical Divider */}
+        <div style={{ width: '1px', height: '24px', backgroundColor: '#e2e8f0', flexShrink: 0 }} />
 
         {/* National Mobile Number Input */}
         <input
@@ -284,17 +336,17 @@ export default function InternationalPhoneInput({
           type="tel"
           id={id}
           name={name}
-          className="form-control text-sm py-2 px-3 fw-medium"
+          className="form-control border-0 shadow-none text-sm py-2 px-3 fw-medium flex-grow-1"
           style={{
-            borderColor: '#cbd5e1',
-            borderTopRightRadius: '8px',
-            borderBottomRightRadius: '8px',
             fontSize: '0.9rem',
-            color: '#0f172a'
+            color: '#0f172a',
+            background: 'transparent'
           }}
-          placeholder={placeholder || selectedCountry.placeholder || 'Mobile number'}
+          placeholder={placeholder || (selectedCountry.code === 'IN' ? 'Enter 10-digit mobile number' : selectedCountry.placeholder || 'Mobile number')}
           value={displayValue}
           onChange={handleNumberChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           required={required}
           disabled={disabled}
           autoFocus={autoFocus}
@@ -328,7 +380,7 @@ export default function InternationalPhoneInput({
                 ref={searchInputRef}
                 type="text"
                 className="form-control border-start-0 text-xs"
-                placeholder="Search country or code (e.g. +44, UK, US)..."
+                placeholder="Search country or code (e.g. India, +91, US)..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
@@ -355,7 +407,7 @@ export default function InternationalPhoneInput({
                   onClick={() => handleSelectCountry(c)}
                 >
                   <div className="d-flex align-items-center gap-2 text-truncate">
-                    <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>{c.flag}</span>
+                    <CountryFlag country={c} size={15} />
                     <span className="text-dark text-truncate">{c.name}</span>
                   </div>
                   <div className="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
@@ -381,13 +433,27 @@ export default function InternationalPhoneInput({
 
       {/* Auto-detected Currency Notification Badge */}
       {showCurrencyBadge && selectedCountry && (
-        <div className="d-flex align-items-center justify-content-between mt-1 text-xxs text-muted px-1">
-          <span className="d-flex align-items-center gap-1">
-            <Globe size={11} className="text-primary" />
-            <span>Country: <strong className="text-dark">{selectedCountry.name}</strong></span>
+        <div className="d-flex align-items-center flex-wrap gap-2 mt-1.5 px-0.5" style={{ fontSize: '11.5px' }}>
+          <span className="d-inline-flex align-items-center gap-1 text-muted">
+            <Globe size={12} className="text-primary opacity-80" />
+            <span style={{ color: '#475569' }}>Country:</span>
+            <strong className="text-dark fw-semibold">{selectedCountry.name}</strong>
           </span>
-          <span className="badge rounded-pill" style={{ background: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1' }}>
-            Currency: <strong className="text-primary">{selectedCountry.currency} ({selectedCountry.symbol})</strong>
+          <span className="text-muted opacity-40">•</span>
+          <span className="d-inline-flex align-items-center gap-1 text-muted">
+            <span style={{ color: '#475569' }}>Currency:</span>
+            <span 
+              className="badge rounded-pill fw-semibold font-monospace"
+              style={{
+                background: '#eff6ff',
+                color: '#1d4ed8',
+                border: '1px solid #bfdbfe',
+                fontSize: '10.5px',
+                padding: '2px 8px'
+              }}
+            >
+              {selectedCountry.currency} ({selectedCountry.symbol})
+            </span>
           </span>
         </div>
       )}

@@ -229,12 +229,30 @@ export default function BikesPage({
                   <div className="card-body p-3 d-flex flex-column justify-content-between">
                     <div>
                       <h5 className="fw-bold text-dark mb-1 font-heading">{bike.name}</h5>
-                      <div className="d-flex align-items-center gap-2 text-muted small mb-3 flex-wrap">
+                      <div className="d-flex align-items-center gap-2 text-muted small mb-2 flex-wrap">
                         {bike.engine && <span>⚡ {bike.engine}</span>}
                         {bike.engine && bike.fuel && <span>•</span>}
                         {bike.fuel && <span>⛽ {bike.fuel}</span>}
                         {(bike.engine || bike.fuel) && <span>•</span>}
                         <span>📍 {bike.location || 'Goa Delivery'}</span>
+                      </div>
+
+                      {/* Rental Trust Badges */}
+                      <div className="d-flex flex-wrap gap-1 mb-3">
+                        <span className="badge bg-light text-dark border px-2 py-1 text-xxs fw-semibold">
+                          🪖 {bike.helmets_included !== undefined && bike.helmets_included !== null && bike.helmets_included !== '' ? bike.helmets_included : 2} Helmets
+                        </span>
+                        <span className="badge bg-light text-dark border px-2 py-1 text-xxs fw-semibold">
+                          💰 ₹{Number(bike.security_deposit || 1000).toLocaleString('en-IN')} Deposit
+                        </span>
+                        <span className="badge bg-light text-success border px-2 py-1 text-xxs fw-semibold">
+                          🛣️ {bike.km_limit || 'Unlimited Kms'}
+                        </span>
+                        {(bike.has_mobile_holder == 1 || bike.has_mobile_holder === true || bike.has_mobile_holder === '1') && (
+                          <span className="badge bg-light text-primary border px-2 py-1 text-xxs fw-semibold">
+                            📱 Phone Mount
+                          </span>
+                        )}
                       </div>
                     </div>
 

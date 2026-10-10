@@ -19,6 +19,8 @@ import CustomerSupportTab from '../../components/customer/CustomerSupportTab';
 import CustomerActivitiesTab from '../../components/customer/CustomerActivitiesTab';
 import BookingModal from '../../components/BookingModal';
 import HotelBookingModal from '../../components/HotelBookingModal';
+import InternationalPhoneInput from '../../components/common/InternationalPhoneInput';
+import { getCountryByCode, parsePhoneNumber } from '../../utils/countryCurrencyData';
 import BookingVoucher from '../../components/common/BookingVoucher';
 import CarDetailsPage from './CarDetailsPage';
 import BikeDetailsPage from './BikeDetailsPage';
@@ -120,7 +122,20 @@ export default function CustomerPortalPage({
       return '';
     }
   });
+  const [selectedCountry, setSelectedCountry] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('customer_login_phone') || '';
+      if (stored) {
+        const parsed = parsePhoneNumber(stored, 'IN');
+        return parsed.country || getCountryByCode('IN');
+      }
+    } catch (e) {}
+    return getCountryByCode('IN');
+  });
   const [otpStep, setOtpStep] = useState('phone'); // 'phone' | 'otp'
+  const [loginEmail, setLoginEmail] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [needsEmailInput, setNeedsEmailInput] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('8520');
   const [otpExpiry, setOtpExpiry] = useState(null);
@@ -396,25 +411,31 @@ export default function CustomerPortalPage({
     });
   }, [bookings, liveCustomerBookings, customerUser, packages]);
 
-  // Helper to verify if a mobile number has ANY active or past bookings
-  const findMatchingBooking = async (phoneToMatch) => {
+  // Helper to verify if a mobile number or email has ANY active or past bookings
+  const findMatchingBooking = async (phoneToMatch, emailToMatch = '') => {
     const clean = String(phoneToMatch || '').replace(/\D/g, '');
-    if (!clean || clean.length < 10) return null;
-    const cleanLast10 = clean.slice(-10);
+    const cleanEmail = String(emailToMatch || '').trim().toLowerCase();
+    if (!clean && !cleanEmail) return null;
+    const cleanLast10 = clean.length >= 10 ? clean.slice(-10) : clean;
 
     const searchInList = (list) => {
       if (!Array.isArray(list)) return null;
       return list.find(b => {
         const bPhone = String(b.customer_phone || b.phone || b.contact || '').replace(/\D/g, '');
-        if (!bPhone || bPhone.length < 10) return false;
-        const bLast10 = bPhone.slice(-10);
-        return bPhone === clean || bLast10 === cleanLast10;
+        const bEmail = String(b.customer_email || b.email || '').trim().toLowerCase();
+        if (cleanEmail && bEmail && bEmail === cleanEmail) return true;
+        if (clean && bPhone) {
+          if (bPhone === clean) return true;
+          if (cleanLast10 && bPhone.endsWith(cleanLast10)) return true;
+          if (bPhone.length >= 10 && clean.endsWith(bPhone.slice(-10))) return true;
+        }
+        return false;
       });
     };
 
-    // 1. Check live bookings from database by verified mobile number first!
+    // 1. Check live bookings from database by verified mobile number / email first!
     try {
-      const serverBookings = await api.fetchCustomerBookings(clean);
+      const serverBookings = await api.fetchCustomerBookings({ phone: clean, email: cleanEmail });
       if (Array.isArray(serverBookings) && serverBookings.length > 0) {
         setLiveCustomerBookings(serverBookings);
         const match = searchInList(serverBookings) || serverBookings[0];
@@ -445,17 +466,19 @@ export default function CustomerPortalPage({
     } catch (e) {}
 
     // 5. Query dedicated customer booking existence check
-    try {
-      const exists = await api.checkCustomerBookingExists(clean);
-      if (exists) {
-        return { phone: clean, customer_name: 'Valued Guest', status: 'Confirmed' };
-      }
-    } catch (e) {}
+    if (clean && clean.length >= 7) {
+      try {
+        const exists = await api.checkCustomerBookingExists(clean);
+        if (exists) {
+          return { phone: clean, customer_name: 'Valued Guest', status: 'Confirmed' };
+        }
+      } catch (e) {}
+    }
 
     // 6. Check recently used session phone
     try {
       const sessionPhone = String(sessionStorage.getItem('customer_login_phone') || localStorage.getItem('customer_login_phone') || '').replace(/\D/g, '');
-      if (sessionPhone && (sessionPhone === clean || sessionPhone.endsWith(cleanLast10))) {
+      if (sessionPhone && (sessionPhone === clean || (cleanLast10 && sessionPhone.endsWith(cleanLast10)))) {
         return { id: `BK-${Date.now()}`, phone: clean, customer_name: 'Valued Guest', status: 'Confirmed' };
       }
     } catch (e) {}
@@ -465,9 +488,36 @@ export default function CustomerPortalPage({
 
   const handleSendOtp = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    const cleanDigits = loginPhone.replace(/\D/g, '');
-    if (!cleanDigits || cleanDigits.length < 10) {
-      setLoginError('Please enter a valid 10-digit registered mobile number.');
+    const isIndian = (selectedCountry?.code || 'IN') === 'IN';
+    const parsed = parsePhoneNumber(loginPhone, selectedCountry?.code || 'IN');
+    const rawDigits = String(loginPhone || '').replace(/\D/g, '');
+    const nationalDigits = parsed.nationalNumber || rawDigits;
+    const cleanE164 = parsed.e164 || (rawDigits ? (isIndian ? `+91${rawDigits.slice(-10)}` : `+${rawDigits}`) : '');
+
+    const hasPhone = nationalDigits && nationalDigits.length >= 7;
+    const hasEmail = loginEmail && loginEmail.includes('@');
+
+    if (!hasPhone && !hasEmail) {
+      if (isIndian) {
+        setLoginError('Please enter a valid 10-digit registered mobile number or email address.');
+      } else {
+        setLoginError(`Please enter a valid mobile number for ${selectedCountry?.name || 'your country'} or your registered email.`);
+      }
+      return;
+    }
+
+    if (hasPhone && isIndian && nationalDigits.length !== 10) {
+      setLoginError('Please enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+
+    if (hasPhone && !isIndian && (nationalDigits.length < 7 || nationalDigits.length > 15)) {
+      setLoginError(`Please enter a valid mobile number for ${selectedCountry?.name || 'your country'}.`);
+      return;
+    }
+
+    if (needsEmailInput && (!loginEmail || !loginEmail.includes('@'))) {
+      setLoginError('Please enter a valid Gmail / email address to receive your verification code.');
       return;
     }
 
@@ -475,26 +525,43 @@ export default function CustomerPortalPage({
     setLoginError('');
 
     try {
-      // STRICT CHECK: Verify that this mobile number was used when booking
-      const matchedBooking = await findMatchingBooking(cleanDigits);
+      // 1. Call backend to send real OTP via Gmail SMTP
+      const phoneToSend = cleanE164 || rawDigits;
+      const res = await api.sendCustomerOtp(phoneToSend, loginEmail.trim());
 
-      if (!matchedBooking) {
-        setLoginError('No booking found for this mobile number. Access is only allowed for the mobile number used when booking your trip.');
-        setCheckingPhone(false);
-        return;
+      if (res && res.success) {
+        setMaskedEmail(res.masked_email || res.email);
+        setOtpStep('otp');
+        setOtpCode('');
+        setOtpTimer(45);
+        setLoginError('');
+      } else if (res && res.needs_email) {
+        setNeedsEmailInput(true);
+        setLoginError('Please enter your Gmail address below to receive the verification code.');
+      } else {
+        // Fallback: check matching booking locally
+        const matchedBooking = await findMatchingBooking(phoneToSend, loginEmail.trim());
+        if (!matchedBooking) {
+          setLoginError(res?.error || 'No booking found for this mobile number or email. Access is only allowed for registered travelers.');
+        } else if (!loginEmail && !matchedBooking.email) {
+          setNeedsEmailInput(true);
+          setLoginError('Please enter your Gmail address below to receive the verification code.');
+        } else {
+          const emailToSend = loginEmail || matchedBooking.email;
+          const retryRes = await api.sendCustomerOtp(phoneToSend, emailToSend);
+          if (retryRes && retryRes.success) {
+            setMaskedEmail(retryRes.masked_email || retryRes.email);
+            setOtpStep('otp');
+            setOtpCode('');
+            setOtpTimer(45);
+            setLoginError('');
+          } else {
+            setLoginError(retryRes?.error || res?.error || 'Unable to send OTP to Gmail. Please try again.');
+          }
+        }
       }
-
-      // Generate fresh simulated 4-digit OTP code (invalidates any previous OTP)
-      const code = String(Math.floor(1000 + Math.random() * 9000));
-      setGeneratedOtp(code);
-      // Set 5-minute expiry
-      setOtpExpiry(Date.now() + 5 * 60 * 1000);
-      setOtpStep('otp');
-      setOtpCode('');
-      setOtpTimer(45);
-      setLoginError('');
     } catch (err) {
-      setLoginError('Unable to verify mobile number. Please try again.');
+      setLoginError('Unable to send verification OTP. Please try again.');
     } finally {
       setCheckingPhone(false);
     }
@@ -502,7 +569,10 @@ export default function CustomerPortalPage({
 
   const handleVerifyOtp = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    const cleanDigits = loginPhone.replace(/\D/g, '');
+    const isIndian = (selectedCountry?.code || 'IN') === 'IN';
+    const parsed = parsePhoneNumber(loginPhone, selectedCountry?.code || 'IN');
+    const rawDigits = String(loginPhone || '').replace(/\D/g, '');
+    const phoneToSend = parsed.e164 || (rawDigits ? (isIndian ? `+91${rawDigits.slice(-10)}` : `+${rawDigits}`) : '');
     const entered = otpCode.trim();
 
     if (!entered) {
@@ -510,44 +580,52 @@ export default function CustomerPortalPage({
       return;
     }
 
-    // Check expiry
-    if (otpExpiry && Date.now() > otpExpiry) {
-      setLoginError('Verification code has expired. Please click Resend OTP to request a fresh code.');
-      return;
-    }
-
-    // Verify OTP against generated code (or master demo code)
-    if (entered !== generatedOtp && entered !== '1234' && entered !== '8520') {
-      setLoginError('Incorrect verification code. Please enter the valid 4-digit OTP.');
-      return;
-    }
-
-    // Strictly ensure matching booking exists
-    const match = await findMatchingBooking(cleanDigits);
-    if (!match) {
-      setLoginError('Access denied. No active booking found for this mobile number.');
-      return;
-    }
-
-    const userObj = {
-      id: match.customer_id || `c_${cleanDigits}`,
-      name: match.customer_name || match.name || `Traveler ${cleanDigits.slice(-4)}`,
-      username: match.customer_name || match.name || cleanDigits,
-      phone: cleanDigits,
-      email: match.customer_email || match.email || `${cleanDigits}@customer.wowgoa.com`,
-      city: match.pickup_location || 'Goa',
-      role: 'customer'
-    };
-
-    setCustomerUser(userObj);
-    try {
-      localStorage.setItem('customerUser', JSON.stringify(userObj));
-      sessionStorage.removeItem('customer_login_phone');
-    } catch (err) {}
+    setCheckingPhone(true);
     setLoginError('');
-    setOtpStep('phone');
-    // Immediately fetch all bookings for this verified customer mobile
-    refreshCustomerBookings(cleanDigits);
+
+    try {
+      const res = await api.verifyCustomerOtp(phoneToSend, loginEmail.trim(), entered);
+      if (res && res.success && res.customer) {
+        setCustomerUser(res.customer);
+        try {
+          localStorage.setItem('customerUser', JSON.stringify(res.customer));
+          sessionStorage.removeItem('customer_login_phone');
+        } catch (err) {}
+        setLoginError('');
+        setOtpStep('phone');
+        refreshCustomerBookings(phoneToSend || res.customer.phone);
+      } else {
+        // Backup master code
+        if (entered === '1234') {
+          const match = await findMatchingBooking(phoneToSend, loginEmail.trim());
+          if (match) {
+            const userObj = {
+              id: match.customer_id || `c_${phoneToSend.replace(/\D/g, '')}`,
+              name: match.customer_name || match.name || 'Valued Traveler',
+              username: match.customer_name || match.name || phoneToSend,
+              phone: match.phone || phoneToSend,
+              email: loginEmail || match.customer_email || match.email || 'guest@wowgoa.com',
+              city: match.pickup_location || 'Goa',
+              role: 'customer'
+            };
+            setCustomerUser(userObj);
+            try {
+              localStorage.setItem('customerUser', JSON.stringify(userObj));
+              sessionStorage.removeItem('customer_login_phone');
+            } catch (err) {}
+            setLoginError('');
+            setOtpStep('phone');
+            refreshCustomerBookings(phoneToSend || userObj.phone);
+            return;
+          }
+        }
+        setLoginError(res?.error || 'Incorrect verification code. Please check your Gmail.');
+      }
+    } catch (err) {
+      setLoginError('Unable to verify OTP. Please try again.');
+    } finally {
+      setCheckingPhone(false);
+    }
   };
 
   const handleCustomerLogout = () => {
@@ -1466,22 +1544,48 @@ export default function CustomerPortalPage({
 
                     <form onSubmit={handleSendOtp}>
                       <div className="mb-3 text-start">
-                        <label className="form-label text-xs fw-bold text-muted">Registered Mobile Number</label>
-                        <div className="input-group">
-                          <span className="input-group-text bg-light text-muted fw-bold text-xs border-end-0">
-                            🇮🇳 +91
+                        <label className="form-label text-xs fw-bold text-muted d-flex justify-content-between align-items-center mb-1">
+                          <span>Registered Mobile Number *</span>
+                          <span className="text-muted fw-normal" style={{ fontSize: '11px' }}>
+                            {selectedCountry?.name || 'India'} ({selectedCountry?.dialCode || '+91'})
                           </span>
-                          <input 
-                            type="tel"
-                            maxLength={10}
-                            className="form-control form-control-lg text-sm rounded-end-3"
-                            placeholder="e.g. 9876543210"
-                            value={loginPhone}
-                            onChange={(e) => setLoginPhone(e.target.value.replace(/\D/g, ''))}
-                            autoFocus
-                            required
-                          />
-                        </div>
+                        </label>
+                        <InternationalPhoneInput
+                          id="customer-login-phone"
+                          value={loginPhone}
+                          onChange={(val) => {
+                            const str = val ? String(val) : '';
+                            setLoginPhone(str);
+                            if (val && val.target && val.target.country) {
+                              setSelectedCountry(val.target.country);
+                            }
+                          }}
+                          onCountryChange={(cntry) => {
+                            setSelectedCountry(cntry);
+                          }}
+                          defaultCountryCode={selectedCountry?.code || 'IN'}
+                          showCurrencyBadge={false}
+                          placeholder={selectedCountry?.code === 'IN' ? 'Enter 10-digit mobile number' : `e.g. ${selectedCountry?.placeholder || 'Mobile number'}`}
+                          autoFocus
+                        />
+                      </div>
+
+                      <div className="mb-3 text-start">
+                        <label className="form-label text-xs fw-bold text-muted d-flex justify-content-between">
+                          <span>Gmail / Email for OTP Delivery</span>
+                          {needsEmailInput && <span className="text-danger fw-bold">* Required</span>}
+                        </label>
+                        <input 
+                          type="email"
+                          className="form-control text-sm rounded-3 py-2"
+                          placeholder="e.g. yourname@gmail.com"
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          required={needsEmailInput}
+                        />
+                        <span className="text-muted" style={{ fontSize: '0.68rem' }}>
+                          We will send a 4-digit verification code to this email address.
+                        </span>
                       </div>
 
                       <button 
@@ -1492,11 +1596,11 @@ export default function CustomerPortalPage({
                         {checkingPhone ? (
                           <>
                             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                            <span>Verifying Registered Booking...</span>
+                            <span>Sending Verification Code...</span>
                           </>
                         ) : (
                           <>
-                            <span>Send Verification OTP</span>
+                            <span>Send Verification Code</span>
                             <ArrowRight size={14} />
                           </>
                         )}
@@ -1506,29 +1610,10 @@ export default function CustomerPortalPage({
                 ) : (
                   <>
                     <h4 className="fw-black text-dark mb-1 font-heading">Enter Verification Code</h4>
-                    <p className="text-muted text-xs mb-3">
-                      We have sent a 4-digit verification code to <strong className="text-dark">+91 {loginPhone}</strong>
+                    <p className="text-muted text-xs mb-4">
+                      We sent a 4-digit verification code to <strong className="text-dark">{maskedEmail || loginEmail || (loginPhone ? (loginPhone.startsWith('+') ? loginPhone : `+91 ${loginPhone}`) : 'your mobile')}</strong>
                       {' '}<button type="button" onClick={() => { setOtpStep('phone'); setLoginError(''); }} className="btn btn-link p-0 text-warning text-xs fw-bold">Change</button>
                     </p>
-
-                    {/* Simulated OTP Notification Banner */}
-                    <div className="card bg-light border border-warning border-opacity-25 rounded-3 p-3 mb-3 text-start">
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div>
-                          <div className="text-xxs text-muted fw-bold text-uppercase">One-Time Password (OTP)</div>
-                          <div className="fw-black text-dark font-heading tracking-wider" style={{ fontSize: '18px' }}>
-                            {generatedOtp}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-warning text-dark fw-bold text-xxs rounded-pill px-3 py-1 shadow-sm"
-                          onClick={() => setOtpCode(generatedOtp)}
-                        >
-                          ⚡ Auto-Fill Code
-                        </button>
-                      </div>
-                    </div>
 
                     {loginError && (
                       <div className="alert alert-danger py-2 px-3 text-xs mb-3 rounded-3 text-start">

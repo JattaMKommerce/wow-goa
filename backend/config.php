@@ -49,6 +49,15 @@ if (!date_default_timezone_get() || date_default_timezone_get() !== 'UTC') {
 }
 
 /**
+ * Cross-database INSERT IGNORE / INSERT OR IGNORE syntax helper.
+ */
+function sqlInsertIgnore(PDO $pdo, string $table, string $cols, string $values): string {
+    $driver = strtolower((string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+    $keyword = ($driver === 'mysql') ? 'INSERT IGNORE INTO' : 'INSERT OR IGNORE INTO';
+    return "$keyword $table ($cols) VALUES ($values)";
+}
+
+/**
  * Format notification timestamp into standard ISO-8601 UTC string (e.g. 2026-10-01T12:17:00.000Z).
  * Interprets database timestamps (stored in UTC) as UTC and appends explicit 'Z' timezone.
  */

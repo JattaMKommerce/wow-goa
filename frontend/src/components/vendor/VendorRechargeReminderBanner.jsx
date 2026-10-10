@@ -24,13 +24,30 @@ export default function VendorRechargeReminderBanner({
       const isSuspended = Number(data.services_suspended) === 1;
       const isRestricted = isNegative || isBlocked || isSuspended;
 
+      const updateAlertData = (newAlert) => {
+        setAlertData(prev => {
+          if (!prev && !newAlert) return null;
+          if (!prev || !newAlert) return newAlert;
+          if (
+            prev.alertId === newAlert.alertId &&
+            prev.notifId === newAlert.notifId &&
+            prev.type === newAlert.type &&
+            prev.message === newAlert.message &&
+            prev.balance === newAlert.balance
+          ) {
+            return prev;
+          }
+          return newAlert;
+        });
+      };
+
       // If the vendor is in good standing (balance >= 0, not blocked, not suspended):
       // Do NOT show recharge required / negative balance warnings!
       if (!isRestricted) {
         // Only show if there is an active non-negative LOW_BALANCE alert below threshold
         const threshold = Number(data.min_vendor_wallet_balance || 1000);
         if (balance <= threshold && data.active_portal_alert && data.active_portal_alert.active && data.active_portal_alert.event_type === 'LOW_BALANCE') {
-          setAlertData({
+          updateAlertData({
             alertId: data.active_portal_alert.alert_id,
             type: 'LOW_BALANCE',
             title: 'Low Wallet Balance Notice',
@@ -40,13 +57,13 @@ export default function VendorRechargeReminderBanner({
           });
           return;
         }
-        setAlertData(null);
+        updateAlertData(null);
         return;
       }
 
       // 1. Active Portal Alert (e.g. MANUAL_REMINDER, ESCALATION_REMINDER, LOW_BALANCE)
       if (data.active_portal_alert && data.active_portal_alert.active) {
-        setAlertData({
+        updateAlertData({
           alertId: data.active_portal_alert.alert_id,
           type: data.active_portal_alert.event_type || 'MANUAL_REMINDER',
           title: data.active_portal_alert.event_type === 'MANUAL_REMINDER' 
@@ -66,7 +83,7 @@ export default function VendorRechargeReminderBanner({
         const notif = data.latest_manual_reminder;
         const dismissedKey = `dismissed_manual_reminder_${vendorId}_${notif.id}`;
         if (!localStorage.getItem(dismissedKey)) {
-          setAlertData({
+          updateAlertData({
             notifId: notif.id,
             alertId: notif.reference_id,
             type: 'MANUAL_REMINDER',
@@ -81,7 +98,7 @@ export default function VendorRechargeReminderBanner({
 
       // 3. Fallback for negative balance without suspension
       if (isNegative && !isSuspended) {
-        setAlertData({
+        updateAlertData({
           type: 'NEGATIVE_BALANCE',
           title: 'Negative Wallet Balance Notice',
           message: `Your current wallet balance is -₹${Math.abs(balance).toLocaleString()}. Please recharge your wallet to maintain service operations.`,
@@ -91,7 +108,7 @@ export default function VendorRechargeReminderBanner({
         return;
       }
 
-      setAlertData(null);
+      updateAlertData(null);
     } catch (err) {
       console.warn('Error loading vendor alert:', err);
     }
@@ -99,7 +116,7 @@ export default function VendorRechargeReminderBanner({
 
   useEffect(() => {
     loadAlert();
-    const interval = setInterval(loadAlert, 10000);
+    const interval = setInterval(loadAlert, 20000);
     const handleSync = () => loadAlert();
     window.addEventListener('tripgalileo-notification-sync', handleSync);
     window.addEventListener('pms-notification-updated', handleSync);

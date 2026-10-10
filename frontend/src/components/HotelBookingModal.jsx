@@ -10,7 +10,7 @@ import BookingConfirmationCard from './common/BookingConfirmationCard';
 import StaticQRPaymentCard from './common/StaticQRPaymentCard';
 import VendorCancellationPolicyCard from './common/VendorCancellationPolicyCard';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
-import InternationalPhoneInput from './common/InternationalPhoneInput';
+import InternationalPhoneInput, { CountryFlag } from './common/InternationalPhoneInput';
 import CurrencyPriceDisplay from './common/CurrencyPriceDisplay';
 import { useCustomerCurrency } from '../context/CustomerCurrencyContext';
 import { parsePhoneNumber, extractPhoneString } from '../utils/countryCurrencyData';
@@ -52,11 +52,13 @@ export default function HotelBookingModal({
   const [modalCheckOutDate, setModalCheckOutDate] = useState(initialCheckOut);
   const [checkInTime, setCheckInTime] = useState('02:00 PM');
   const [checkOutTime, setCheckOutTime] = useState('11:00 AM');
+  const [idempotencyKey, setIdempotencyKey] = useState(() => 'idem_htl_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11));
 
   const modalBodyRef = useRef(null);
 
   // Authoritative Modal Teardown & Reset: clears country/currency state and closes modal
   const handleHotelModalClose = () => {
+    setIdempotencyKey('idem_htl_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11));
     if (resetCountry) resetCountry();
     setSelectedBookingItem(null);
   };
@@ -497,7 +499,8 @@ export default function HotelBookingModal({
   const projectedCashback = Math.round(finalTotalPayable * 0.10);
 
   const handleConfirmBooking = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+    if (isProcessing) return;
     if (!selectedRoom) return alert("Please select a room first.");
     
     const cleanGuestPhone = String(guestPhone || '').replace(/\D/g, '');
@@ -575,6 +578,7 @@ export default function HotelBookingModal({
       const customerEmail = guestEmail || `${cleanGuestPhone || 'guest'}@hotel.wowgoa.com`;
 
       const bookingPayload = {
+        idempotency_key: idempotencyKey,
         name: guestName,
         customer_name: guestName,
         phone: cleanGuestPhone,
@@ -1222,7 +1226,7 @@ export default function HotelBookingModal({
         <div className="p-3 mb-3 rounded-3 border" style={{ background: isIndian ? '#f0fdf4' : '#eff6ff', borderColor: isIndian ? '#bbf7d0' : '#bfdbfe' }}>
           <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
             <div className="d-flex align-items-center gap-2">
-              <span className="fs-5">{country?.flag || (isIndian ? '🇮🇳' : '🌐')}</span>
+              <CountryFlag country={country || { code: isIndian ? 'IN' : 'IN' }} size={22} />
               <div>
                 <div className="fw-bold text-dark text-sm">{country?.name || 'Customer Country'}</div>
                 <div className="text-muted text-xxs">Identified from phone dial code ({country?.dial_code || '+91'})</div>

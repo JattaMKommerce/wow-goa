@@ -6,6 +6,7 @@ import {
   Users, ChevronDown
 } from 'lucide-react';
 import * as api from '../../services/api';
+import ForgotPasswordModal from '../../components/ForgotPasswordModal';
 
 export default function DriverLoginPage({ onLoginSuccess, onNavigateHome }) {
   const [activeTab, setActiveTab] = useState('login'); // 'login' | 'signup'
@@ -14,6 +15,7 @@ export default function DriverLoginPage({ onLoginSuccess, onNavigateHome }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Login Form State (Clean Blank)
   const [loginPhone, setLoginPhone] = useState('');
@@ -280,11 +282,11 @@ export default function DriverLoginPage({ onLoginSuccess, onNavigateHome }) {
                   </div>
                   <a
                     href="#forgot"
-                    className="text-decoration-none small fw-bold"
+                    className="text-decoration-none small fw-bold cursor-pointer"
                     style={{ color: '#FF5A1F', fontSize: '0.8rem' }}
                     onClick={(e) => {
                       e.preventDefault();
-                      alert('Please contact Wow Goa Operations Admin (+91 98765 43210) to reset your driver password.');
+                      setShowForgotPassword(true);
                     }}
                   >
                     Forgot Password?
@@ -568,6 +570,20 @@ export default function DriverLoginPage({ onLoginSuccess, onNavigateHome }) {
         </div>
 
       </div>
+
+      {showForgotPassword && (
+        <ForgotPasswordModal
+          isOpen={showForgotPassword}
+          onClose={() => setShowForgotPassword(false)}
+          initialIdentifier={loginPhone}
+          onSuccessReturnToLogin={(usedId) => {
+            if (usedId) setLoginPhone(usedId);
+            setLoginPassword('');
+            setSuccessMsg('Password reset successfully! Please sign in with your new password.');
+            setShowForgotPassword(false);
+          }}
+        />
+      )}
 
     </div>
   );

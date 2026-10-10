@@ -120,7 +120,7 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
     return_odometer: '',
     handover_fuel: '100% Full Tank',
     return_fuel: '100% Full Tank',
-    deposit_amount: 0,
+    deposit_amount: '',
     deposit_status: 'Paid via UPI',
     delivery_agent_name: '',
     delivery_agent_phone: ''
@@ -212,8 +212,8 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
       return_odometer: b.return_odometer !== null && b.return_odometer !== undefined ? b.return_odometer : '',
       handover_fuel: b.handover_fuel || '100% Full Tank',
       return_fuel: b.return_fuel || (b.handover_fuel || '100% Full Tank'),
-      deposit_amount: b.deposit_amount !== undefined ? b.deposit_amount : 0,
-      deposit_status: b.deposit_status || (Number(b.deposit_amount) > 0 ? 'Paid via UPI' : 'Not Required / ₹0'),
+      deposit_amount: b.deposit_amount !== undefined && b.deposit_amount !== null && b.deposit_amount !== '' && Number(b.deposit_amount) > 0 ? b.deposit_amount : '',
+      deposit_status: b.deposit_status || (Number(b.deposit_amount) > 0 ? 'Paid via UPI' : 'Unpaid'),
       delivery_agent_name: b.delivery_agent_name || '',
       delivery_agent_phone: b.delivery_agent_phone || ''
     });
@@ -1344,7 +1344,7 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
 
                       return (
                         <div className="d-flex align-items-center gap-2">
-                          <h5 className="modal-title fw-bold mb-0">
+                          <h5 className="modal-title fw-bold mb-0 text-white" style={{ color: '#ffffff' }}>
                             {isModalCompleted 
                               ? 'Vehicle Handover & Completed Inspection Record' 
                               : isModalHandedOver 
@@ -1455,9 +1455,27 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
                       <span className="input-group-text">₹</span>
                       <input 
                         type="number" 
+                        min="0"
                         className="form-control" 
-                        value={handoverForm.deposit_amount}
-                        onChange={e => setHandoverForm(f => ({ ...f, deposit_amount: parseFloat(e.target.value) || 0 }))}
+                        placeholder="0"
+                        value={handoverForm.deposit_amount !== undefined && handoverForm.deposit_amount !== null ? handoverForm.deposit_amount : ''}
+                        onFocus={e => {
+                          if (e.target.value === '0') {
+                            e.target.select();
+                          }
+                        }}
+                        onChange={e => {
+                          let val = e.target.value;
+                          if (val === '') {
+                            setHandoverForm(f => ({ ...f, deposit_amount: '' }));
+                            return;
+                          }
+                          // Remove leading zeros when followed by other digits (e.g. "02000" -> "2000", "05" -> "5")
+                          if (/^0\d+/.test(val)) {
+                            val = val.replace(/^0+/, '');
+                          }
+                          setHandoverForm(f => ({ ...f, deposit_amount: val }));
+                        }}
                       />
                       <select 
                         className="form-select"
@@ -1600,7 +1618,8 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
                     try {
                       const res = await updateBookingHandover({
                         booking_id: handoverModalBooking.id,
-                        ...handoverForm
+                        ...handoverForm,
+                        deposit_amount: handoverForm.deposit_amount === '' ? 0 : (parseFloat(handoverForm.deposit_amount) || 0)
                       });
                       if (res && res.success && res.booking) {
                         setHandoverMsg('Handover details updated and synced with customer live tracker!');

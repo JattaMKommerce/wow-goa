@@ -22,8 +22,8 @@ export default function CustomerCancellationModal({
     setError('');
     api.calculateCancellationRefund(booking.id)
       .then(res => {
-        if (res && res.status === 'success') {
-          setCalculation(res);
+        if (res && (res.status === 'success' || res.refund_percentage !== undefined || res.calculation)) {
+          setCalculation(res.calculation || res);
         } else {
           setError(res?.message || 'Failed to calculate refund.');
         }
@@ -47,7 +47,7 @@ export default function CustomerCancellationModal({
     setError('');
     try {
       const res = await api.customerCancelBooking(booking.id, finalReason);
-      if (res && res.status === 'success') {
+      if (res && (res.status === 'success' || res.success)) {
         setSuccess(true);
         setTimeout(() => {
           if (onCancelled) onCancelled(res);

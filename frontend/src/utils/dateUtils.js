@@ -1,50 +1,59 @@
 /**
  * Date utility helpers for Hotel & Travel booking date validation
+ * Standardized on Indian Standard Time (IST, Asia/Kolkata, UTC+05:30)
+ * for all Goa travel services, preventing client-side timezone shifting bugs.
  */
 
 /**
- * Returns today's date in YYYY-MM-DD format (local timezone)
+ * Returns today's date in YYYY-MM-DD format in Indian Standard Time (Asia/Kolkata)
  */
 export function getTodayDateStr() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    return formatter.format(new Date());
+  } catch (e) {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 }
 
 /**
- * Returns date + 1 day in YYYY-MM-DD format
+ * Returns date + 1 day in YYYY-MM-DD format without timezone shift
  */
 export function getNextDayDateStr(dateStr) {
-  if (!dateStr) return getTodayDateStr();
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  if (isNaN(date.getTime())) return getTodayDateStr();
-  date.setDate(date.getDate() + 1);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return addDays(dateStr, 1);
 }
 
 /**
- * Adds N days to a date string in YYYY-MM-DD format
+ * Adds N days to a date string in YYYY-MM-DD format using pure calendar math (no DST/timezone shifts)
  */
 export function addDays(dateStr, numDays = 1) {
   if (!dateStr) return getTodayDateStr();
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
+  const m = String(dateStr).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!m) return getTodayDateStr();
+  const y = parseInt(m[1], 10);
+  const mo = parseInt(m[2], 10) - 1;
+  const d = parseInt(m[3], 10);
+  // Anchor at UTC noon to avoid any midnight timezone rollover
+  const date = new Date(Date.UTC(y, mo, d, 12, 0, 0));
   if (isNaN(date.getTime())) return getTodayDateStr();
-  date.setDate(date.getDate() + numDays);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  date.setUTCDate(date.getUTCDate() + numDays);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
 /**
- * Checks if a given date string is in the past (before today)
+ * Checks if a given date string is in the past (before today in IST)
  */
 export function isPastDate(dateStr) {
   if (!dateStr) return false;
@@ -82,32 +91,82 @@ export function validateBookingDates(checkIn, checkOut, options = { allowSameDay
   return { valid: true, error: null };
 }
 
-/**
- * Formats YYYY-MM-DD for display (e.g. "Wed, 26 Aug 2026")
- */
-export function formatDisplayDate(dateStr) {
-  if (!dateStr) return '';
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  if (isNaN(date.getTime())) return dateStr;
-  return date.toLocaleDateString('en-IN', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  });
-}
-
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /**
- * Consistently formats booking dates and times to "11 Sep 2026 • 10:00 AM" format
+ * Formats YYYY-MM-DD for display (e.g. "Wed, 26 Aug 2026") strictly anchored in IST
+ */
+export function formatDisplayDate(dateStr) {
+  if (!dateStr) return '';
+  const str = String(dateStr).trim();
+  const m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) {
+    const y = parseInt(m[1], 10);
+    const mo = parseInt(m[2], 10) - 1;
+    const d = parseInt(m[3], 10);
+    // Anchor at UTC noon to avoid any timezone rollback
+    const date = new Date(Date.UTC(y, mo, d, 12, 0, 0));
+    return date.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  }
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  }
+  return str;
+}
+
+/**
+ * Formats an instant UTC timestamp (created_at, updated_at, etc.) into Indian Standard Time (IST)
+ */
+export function formatUtcToIST(utcString, options = {}) {
+  if (!utcString) return '';
+  try {
+    const str = String(utcString).trim();
+    if (str === 'Recent' || str === 'Just now' || str === 'just now') return str;
+    // Add explicit Z if plain SQL format without offset (e.g. "2026-10-08 14:30:00")
+    const isoStr = (!str.includes('Z') && !/[+-]\d{2}:?\d{2}$/.test(str)) ? str.replace(' ', 'T') + 'Z' : str;
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return str;
+    return d.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      ...options
+    });
+  } catch (e) {
+    return String(utcString);
+  }
+}
+
+/**
+ * Consistently formats booking dates and times to "11 Sep 2026 • 10:00 AM" format in IST
  */
 export function formatBookingDateTime(dateStr, timeStr = '') {
   if (!dateStr) return 'Scheduled';
   
   let datePart = String(dateStr).trim();
   let timePart = String(timeStr || '').trim();
+
+  // If full ISO timestamp with Z or timezone, convert directly via formatUtcToIST
+  if (datePart.includes('T') && (datePart.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(datePart))) {
+    return formatUtcToIST(datePart);
+  }
 
   if (datePart.includes(' at ')) {
     const parts = datePart.split(' at ');

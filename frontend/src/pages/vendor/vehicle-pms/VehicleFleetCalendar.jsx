@@ -1011,7 +1011,7 @@ export default function VehicleFleetCalendar({ cars = [], bikes = [], bookings =
                     <Calendar size={20} />
                   </div>
                   <div>
-                    <h5 className="modal-title fw-bold mb-0">Booking #{viewBookingModal.id}</h5>
+                    <h5 className="modal-title fw-bold mb-0 text-white" style={{ color: '#ffffff' }}>Booking #{viewBookingModal.id}</h5>
                     <span className="text-white-50 small">Reservation details and customer information</span>
                   </div>
                 </div>

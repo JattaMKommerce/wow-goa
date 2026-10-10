@@ -396,11 +396,29 @@ export async function fetchBookings() {
   return list;
 }
 
-export async function fetchCustomerBookings(mobile) {
-  const clean = String(mobile || '').replace(/\D/g, '');
+export async function fetchCustomerBookings(identifier) {
+  let query = '';
+  let clean = '';
+  if (typeof identifier === 'object' && identifier !== null) {
+    const parts = [];
+    if (identifier.phone || identifier.mobile) {
+      clean = String(identifier.phone || identifier.mobile).replace(/\D/g, '');
+      parts.push(`mobile=${encodeURIComponent(clean)}`);
+    }
+    if (identifier.email) {
+      parts.push(`email=${encodeURIComponent(String(identifier.email).trim().toLowerCase())}`);
+    }
+    query = parts.join('&');
+  } else if (typeof identifier === 'string' && identifier.includes('@')) {
+    query = `email=${encodeURIComponent(identifier.trim().toLowerCase())}`;
+  } else {
+    clean = String(identifier || '').replace(/\D/g, '');
+    query = `mobile=${encodeURIComponent(clean)}`;
+  }
+
   let list = [];
   try {
-    const res = await apiFetch(`${API_BASE}?resource=bookings&mobile=${encodeURIComponent(clean)}`);
+    const res = await apiFetch(`${API_BASE}?resource=bookings&${query}`);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -425,9 +443,15 @@ export async function fetchCustomerBookings(mobile) {
   try {
     const localBookings = JSON.parse(localStorage.getItem('local_bookings') || '[]');
     const cleanLast10 = clean.length >= 10 ? clean.slice(-10) : clean;
+    const reqEmail = typeof identifier === 'string' && identifier.includes('@') ? identifier.trim().toLowerCase() : (identifier?.email ? String(identifier.email).trim().toLowerCase() : '');
     const matched = localBookings.filter(b => {
       const bPhone = String(b.customer_phone || b.phone || '').replace(/\D/g, '');
-      return bPhone === clean || (cleanLast10 && bPhone.endsWith(cleanLast10));
+      const bEmail = String(b.customer_email || b.email || '').trim().toLowerCase();
+      if (reqEmail && bEmail && bEmail === reqEmail) return true;
+      if (clean && bPhone) {
+        return bPhone === clean || (cleanLast10 && bPhone.endsWith(cleanLast10));
+      }
+      return false;
     });
     const existingIds = new Set(list.map(b => String(b.id || b.booking_id)));
     const uniqueLocal = matched.filter(b => !existingIds.has(String(b.id || b.booking_id)));
@@ -439,7 +463,7 @@ export async function fetchCustomerBookings(mobile) {
 
 export async function checkCustomerBookingExists(mobile) {
   const clean = String(mobile || '').replace(/\D/g, '');
-  if (!clean || clean.length < 10) return false;
+  if (!clean || clean.length < 7) return false;
   try {
     const res = await apiFetch(`${API_BASE}?resource=check_customer_booking_exists&mobile=${encodeURIComponent(clean)}`);
     if (res.ok) {
@@ -1425,6 +1449,86 @@ export async function loginUser(username, password) {
   throw new Error("Invalid username or password. Check credentials.");
 }
 
+export async function requestPasswordReset(identifier) {
+  const cleanId = (identifier || '').trim();
+  if (!cleanId) {
+    throw new Error('Please provide your registered Email or Mobile number.');
+  }
+
+  const res = await apiFetch(`${API_BASE}?action=forgot_password_request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: cleanId })
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to request password reset. Please check your credentials.');
+  }
+
+  return data;
+}
+
+export async function verifyResetOtp(identifier, otp, resetToken) {
+  const cleanId = (identifier || '').trim();
+  const cleanOtp = (otp || '').trim();
+
+  if (!cleanOtp) {
+    throw new Error('Please enter the 6-digit verification code.');
+  }
+
+  const res = await apiFetch(`${API_BASE}?action=verify_reset_otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      identifier: cleanId,
+      otp: cleanOtp,
+      reset_token: resetToken || ''
+    })
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Invalid or expired verification code.');
+  }
+
+  return data;
+}
+
+export async function submitPasswordReset(identifier, otp, resetToken, newPassword, confirmPassword) {
+  const cleanId = (identifier || '').trim();
+  const cleanOtp = (otp || '').trim();
+  const cleanNewPass = (newPassword || '').trim();
+  const cleanConfirmPass = (confirmPassword || '').trim();
+
+  if (!cleanNewPass || cleanNewPass.length < 6) {
+    throw new Error('Password must be at least 6 characters long.');
+  }
+
+  if (cleanNewPass !== cleanConfirmPass) {
+    throw new Error('Password and confirmation password do not match.');
+  }
+
+  const res = await apiFetch(`${API_BASE}?action=reset_password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      identifier: cleanId,
+      otp: cleanOtp,
+      reset_token: resetToken || '',
+      new_password: cleanNewPass,
+      confirm_password: cleanConfirmPass
+    })
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to update password. Please try again.');
+  }
+
+  return data;
+}
+
 export async function updateOnlineStatus(userId, isOnline = 1) {
   try {
     const res = await apiFetch(`${API_BASE}?action=update_online_status`, {
@@ -1438,6 +1542,25 @@ export async function updateOnlineStatus(userId, isOnline = 1) {
     return { success: false };
   }
 }
+
+export async function sendCustomerOtp(phone, email = '') {
+  const res = await apiFetch(`${API_BASE}?action=send_customer_otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, email })
+  });
+  return await res.json().catch(() => ({ success: false, error: 'Network error sending OTP.' }));
+}
+
+export async function verifyCustomerOtp(phone, email = '', otp) {
+  const res = await apiFetch(`${API_BASE}?action=verify_customer_otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, email, otp })
+  });
+  return await res.json().catch(() => ({ success: false, error: 'Network error verifying OTP.' }));
+}
+
 
 export async function registerUser(userData) {
   const newUserId = userData.id || `u-${Date.now()}`;
@@ -3726,7 +3849,7 @@ export async function calculateCancellationRefund(bookingId, cancellationDatetim
   if (!res.ok || !data.success) {
     throw new Error(data.error || 'Failed to calculate cancellation refund.');
   }
-  return data.calculation;
+  return { status: 'success', success: true, ...data.calculation, calculation: data.calculation };
 }
 
 export async function customerCancelBooking(bookingId, reason = '') {
@@ -3743,7 +3866,7 @@ export async function customerCancelBooking(bookingId, reason = '') {
   if (!res.ok || !data.success) {
     throw new Error(data.error || 'Failed to cancel booking.');
   }
-  return data;
+  return { status: 'success', success: true, ...data };
 }
 
 // ─── WOW GOA CUSTOMER REVIEWS & RATINGS API ─────────────────────────────────

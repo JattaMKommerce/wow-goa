@@ -47,10 +47,18 @@ export default function VendorCancellationPolicyCard({
                   {rules.map((rule, idx) => {
                     let windowDesc = rule.rule_description;
                     if (!windowDesc) {
-                      if (rule.maximum_hours_before === null || rule.maximum_hours_before === undefined) {
-                        windowDesc = `More than ${rule.minimum_hours_before} hours before service`;
+                      const minH = parseInt(rule.minimum_hours_before, 10);
+                      const maxH = rule.maximum_hours_before !== null && rule.maximum_hours_before !== undefined && rule.maximum_hours_before !== '' ? parseInt(rule.maximum_hours_before, 10) : null;
+                      const minD = Math.round((minH / 24.0) * 10) / 10;
+                      const maxD = maxH !== null ? Math.round((maxH / 24.0) * 10) / 10 : null;
+                      if (minH < 0) {
+                        windowDesc = 'After service starts: No refund';
+                      } else if (maxH === null) {
+                        windowDesc = `More than ${minD} days before service`;
+                      } else if (minH === 0) {
+                        windowDesc = `Within 24 hours of service`;
                       } else {
-                        windowDesc = `${rule.minimum_hours_before} to ${rule.maximum_hours_before} hours before service`;
+                        windowDesc = `${minD} to ${maxD} days before service`;
                       }
                     }
                     const refundAmt = Math.round(vendorAmountEstimate * (parseFloat(rule.refund_percentage || 0) / 100.0));

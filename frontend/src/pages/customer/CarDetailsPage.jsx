@@ -91,6 +91,17 @@ export default function CarDetailsPage({
   const ratingVal = parseFloat(car.rating || 4.8);
   const seatingCapacity = parseInt(car?.seating, 10) || 4;
 
+  const depositAmount = car?.security_deposit !== undefined && car?.security_deposit !== null && car?.security_deposit !== '' 
+    ? Number(car.security_deposit) 
+    : 3000;
+  const kmAllowance = car?.km_limit || 'Unlimited Kilometres';
+  const fuelRule = car?.fuel_policy || 'Same-to-Same';
+  const hasAc = car?.has_ac === 0 || car?.has_ac === false || car?.has_ac === '0' ? false : true;
+  const hasFastag = car?.has_fastag === 0 || car?.has_fastag === false || car?.has_fastag === '0' ? false : true;
+  const luggageCap = car?.luggage_capacity || '2 Large Bags + 2 Hand Bags';
+  const permitLabel = car?.permit_type || 'Commercial Self-Drive (Black Plate)';
+  const deliveryLocations = car?.delivery_options || 'Goa Airports (Mopa/Dabolim), Railway Stations & Hotel Handover';
+
   const handleBookNowClick = () => {
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
       document.activeElement.blur();
@@ -242,6 +253,61 @@ export default function CarDetailsPage({
           {/* Left Column: Specifications, Driver Options & Rental Policies */}
           <div className="col-12 col-lg-8">
 
+            {/* Rental Highlights & Trust Badges */}
+            <div className="bg-white rounded-4 shadow-sm p-3.5 mb-4 border" style={{ borderColor: '#E2E8F0' }}>
+              <div className="row g-2.5">
+                <div className="col-6 col-md-3">
+                  <div className="p-2.5 rounded-3 bg-light border text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                    <span className="fs-5 mb-1">{hasAc ? '❄️' : '💨'}</span>
+                    <span className="text-muted text-xxs text-uppercase fw-bold">Air Conditioning</span>
+                    <span className="fw-bold text-dark text-xs">{hasAc ? 'Powerful AC' : 'Non-AC'}</span>
+                  </div>
+                </div>
+
+                <div className="col-6 col-md-3">
+                  <div className="p-2.5 rounded-3 bg-light border text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                    <span className="fs-5 mb-1">💰</span>
+                    <span className="text-muted text-xxs text-uppercase fw-bold">Security Deposit</span>
+                    <span className="fw-bold text-dark text-xs">₹{depositAmount.toLocaleString('en-IN')} (Refundable)</span>
+                  </div>
+                </div>
+
+                <div className="col-6 col-md-3">
+                  <div className="p-2.5 rounded-3 bg-light border text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                    <span className="fs-5 mb-1">🛣️</span>
+                    <span className="text-muted text-xxs text-uppercase fw-bold">KM Limit</span>
+                    <span className="fw-bold text-dark text-xs">{kmAllowance}</span>
+                  </div>
+                </div>
+
+                <div className="col-6 col-md-3">
+                  <div className="p-2.5 rounded-3 bg-light border text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                    <span className="fs-5 mb-1">🛡️</span>
+                    <span className="text-muted text-xxs text-uppercase fw-bold">Goa Permit</span>
+                    <span className="fw-bold text-dark text-xs">{permitLabel.includes('Black') ? 'Black Plate Legal' : 'Verified Permit'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Extra amenity tags */}
+              <div className="d-flex flex-wrap gap-2 pt-3 mt-3 border-top text-xs">
+                {hasFastag && (
+                  <span className="badge bg-light text-dark border px-2.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1">
+                    ⚡ FASTag Toll Enabled
+                  </span>
+                )}
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1">
+                  🧳 {luggageCap}
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1">
+                  ⛽ {fuelRule} Fuel Policy
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1">
+                  ✈️ {deliveryLocations}
+                </span>
+              </div>
+            </div>
+
             {/* Vehicle Specifications Grid */}
             <div className="bg-white rounded-4 shadow-sm p-4 mb-4 border" style={{ borderColor: '#E2E8F0' }}>
               <h5 className="fw-bold text-dark font-heading mb-3 d-flex align-items-center gap-2">
@@ -278,15 +344,15 @@ export default function CarDetailsPage({
                   <div className="border rounded-3 p-3 text-center bg-light h-100 d-flex flex-column justify-content-center">
                     <Wind className="text-primary mb-1.5 mx-auto" size={24} />
                     <span className="text-muted text-xxs text-uppercase fw-bold">Air Conditioning</span>
-                    <span className="fw-bold text-dark fs-6 mt-1">Air Conditioned</span>
+                    <span className="fw-bold text-dark fs-6 mt-1">{hasAc ? 'Chilled AC' : 'Non-AC'}</span>
                   </div>
                 </div>
 
                 <div className="col-6 col-sm-4">
                   <div className="border rounded-3 p-3 text-center bg-light h-100 d-flex flex-column justify-content-center">
                     <Sparkles className="text-primary mb-1.5 mx-auto" size={24} />
-                    <span className="text-muted text-xxs text-uppercase fw-bold">Fuel Economy / Mileage</span>
-                    <span className="fw-bold text-dark fs-6 mt-1">{car.mileage || 'Standard Fuel Economy'}</span>
+                    <span className="text-muted text-xxs text-uppercase fw-bold">Fuel Economy</span>
+                    <span className="fw-bold text-dark fs-6 mt-1">{car.mileage || 'Standard Mileage'}</span>
                   </div>
                 </div>
 
@@ -295,6 +361,102 @@ export default function CarDetailsPage({
                     <ShieldCheck className="text-primary mb-1.5 mx-auto" size={24} />
                     <span className="text-muted text-xxs text-uppercase fw-bold">Insurance Status</span>
                     <span className="fw-bold text-dark fs-6 mt-1">Comprehensive Included</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* How Renting Works: 3 Simple Steps */}
+            <div className="bg-white rounded-4 shadow-sm p-4 mb-4 border" style={{ borderColor: '#E2E8F0' }}>
+              <h5 className="fw-bold text-dark font-heading mb-3 d-flex align-items-center gap-2">
+                <Clock size={20} className="text-primary" />
+                How To Rent This Car in Goa
+              </h5>
+
+              <div className="row g-3">
+                <div className="col-12 col-md-4">
+                  <div className="p-3 rounded-3 bg-light border h-100 position-relative">
+                    <span className="badge bg-primary text-white rounded-circle p-2 fw-bold d-inline-flex align-items-center justify-content-center mb-2" style={{ width: '28px', height: '28px' }}>
+                      1
+                    </span>
+                    <h6 className="fw-bold text-dark mb-1">Book &amp; Lock Dates</h6>
+                    <p className="text-muted text-xs mb-0">
+                      Reserve online with instant confirmation. Host details &amp; pickup coordination are sent to your WhatsApp.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-4">
+                  <div className="p-3 rounded-3 bg-light border h-100 position-relative">
+                    <span className="badge bg-primary text-white rounded-circle p-2 fw-bold d-inline-flex align-items-center justify-content-center mb-2" style={{ width: '28px', height: '28px' }}>
+                      2
+                    </span>
+                    <h6 className="fw-bold text-dark mb-1">Doorstep Handover</h6>
+                    <p className="text-muted text-xs mb-0">
+                      Meet executive at Airport (Mopa GOX / Dabolim GOI) or hotel. Verify DL, complete quick walkaround video &amp; take keys.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-4">
+                  <div className="p-3 rounded-3 bg-light border h-100 position-relative">
+                    <span className="badge bg-success text-white rounded-circle p-2 fw-bold d-inline-flex align-items-center justify-content-center mb-2" style={{ width: '28px', height: '28px' }}>
+                      3
+                    </span>
+                    <h6 className="fw-bold text-dark mb-1">Return &amp; Get Deposit</h6>
+                    <p className="text-muted text-xs mb-0">
+                      Hand over keys at your departure point. Your ₹{depositAmount.toLocaleString('en-IN')} deposit is refunded immediately on the spot.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Handover Document Checklist */}
+            <div className="bg-white rounded-4 shadow-sm p-4 mb-4 border" style={{ borderColor: '#E2E8F0' }}>
+              <h5 className="fw-bold text-dark font-heading mb-3 d-flex align-items-center gap-2">
+                <ShieldCheck size={20} className="text-success" />
+                Mandatory Handover Document Checklist
+              </h5>
+
+              <div className="row g-3 text-xs">
+                <div className="col-12 col-md-6">
+                  <div className="d-flex align-items-start gap-2.5 p-2.5 rounded-3 bg-light border">
+                    <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong className="text-dark d-block">Original Physical Driving License</strong>
+                      <span className="text-muted">Primary driver must present original 4-wheeler DL (min 1 year driving experience). Phone photos not permitted.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-6">
+                  <div className="d-flex align-items-start gap-2.5 p-2.5 rounded-3 bg-light border">
+                    <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong className="text-dark d-block">Government Photo ID</strong>
+                      <span className="text-muted">Original Aadhaar Card or Passport required for identity check and rental agreement generation.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-6">
+                  <div className="d-flex align-items-start gap-2.5 p-2.5 rounded-3 bg-light border">
+                    <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong className="text-dark d-block">Age Eligibility (21+ Years)</strong>
+                      <span className="text-muted">For four-wheelers, renter must be at least 21 years old with a clean driving record.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-6">
+                  <div className="d-flex align-items-start gap-2.5 p-2.5 rounded-3 bg-light border">
+                    <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong className="text-dark d-block">Refundable Security Deposit</strong>
+                      <span className="text-muted">Deposit of ₹{depositAmount.toLocaleString('en-IN')} is paid at handover and refunded 100% at return.</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -349,7 +511,7 @@ export default function CarDetailsPage({
 
               <div className="row g-2.5">
                 {[
-                  'Powerful Climate Control Air Conditioning',
+                  hasAc ? 'Powerful Climate Control Air Conditioning' : 'Standard Ventilation System',
                   'Bluetooth & USB Music Entertainment System',
                   'Dual Front Airbags & ABS Safety Braking',
                   'Power Steering with Smooth Handling',
@@ -379,9 +541,19 @@ export default function CarDetailsPage({
                 <div className="d-flex align-items-start gap-2.5">
                   <CheckCircle size={18} className="text-primary flex-shrink-0 mt-0.5" />
                   <div>
-                    <strong className="text-dark text-xs d-block">Original Documents Required</strong>
+                    <strong className="text-dark text-xs d-block">Goa Commercial Tourist Permit</strong>
                     <span className="text-muted text-xs">
-                      The primary driver must present a valid physical Driving License (minimum 1 year old) along with an original government photo ID (Aadhaar or Passport) during vehicle pickup.
+                      This car operates under a 100% legal {permitLabel} compliant with the Goa Motor Vehicles Act (Rent-a-Cab Scheme).
+                    </span>
+                  </div>
+                </div>
+
+                <div className="d-flex align-items-start gap-2.5">
+                  <CheckCircle size={18} className="text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-dark text-xs d-block">Kilometre Allowance</strong>
+                    <span className="text-muted text-xs">
+                      {kmAllowance}. Travel freely from Arambol and Vagator in the North down to Palolem and Agonda in South Goa.
                     </span>
                   </div>
                 </div>
@@ -391,7 +563,7 @@ export default function CarDetailsPage({
                   <div>
                     <strong className="text-dark text-xs d-block">Refundable Security Deposit</strong>
                     <span className="text-muted text-xs">
-                      A standard refundable security deposit is collected at delivery and refunded immediately upon vehicle return in good condition.
+                      A refundable security deposit of ₹{depositAmount.toLocaleString('en-IN')} is collected at handover and refunded immediately upon return inspection.
                     </span>
                   </div>
                 </div>
@@ -399,7 +571,7 @@ export default function CarDetailsPage({
                 <div className="d-flex align-items-start gap-2.5">
                   <CheckCircle size={18} className="text-primary flex-shrink-0 mt-0.5" />
                   <div>
-                    <strong className="text-dark text-xs d-block">Fuel Policy (Same-to-Same)</strong>
+                    <strong className="text-dark text-xs d-block">Fuel Policy ({fuelRule})</strong>
                     <span className="text-muted text-xs">
                       The car is handed over with an indicated fuel level. Please return the car with the exact same fuel level. Fuel costs are borne by the renter.
                     </span>
@@ -478,8 +650,12 @@ export default function CarDetailsPage({
                   <span className="fw-semibold text-dark">₹{gstAmount.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="d-flex justify-content-between text-muted">
-                  <span>Unlimited Kilometres</span>
-                  <span className="text-success fw-semibold">FREE</span>
+                  <span>Kilometre Allowance</span>
+                  <span className="text-success fw-semibold">{kmAllowance}</span>
+                </div>
+                <div className="d-flex justify-content-between text-muted">
+                  <span>Air Conditioning</span>
+                  <span className="text-success fw-semibold">{hasAc ? 'Included (Chilled AC)' : 'Non-AC'}</span>
                 </div>
                 <div className="d-flex justify-content-between text-muted">
                   <span>Doorstep Airport / Hotel Delivery</span>
@@ -490,10 +666,21 @@ export default function CarDetailsPage({
                 
                 <div className="d-flex justify-content-between align-items-baseline">
                   <div>
-                    <span className="fw-bold text-dark fs-6 d-block">Estimated Total</span>
+                    <span className="fw-bold text-dark fs-6 d-block">Booking Total</span>
                     <span className="text-muted text-xxs">All taxes &amp; fees included</span>
                   </div>
                   <span className="fw-black text-primary fs-4">₹{estimatedTotal.toLocaleString('en-IN')}</span>
+                </div>
+
+                {/* Refundable Security Deposit Notice */}
+                <div className="p-2.5 rounded-3 bg-light border mt-1">
+                  <div className="d-flex justify-content-between align-items-center mb-0.5">
+                    <span className="fw-bold text-dark text-xxs">Refundable Security Deposit:</span>
+                    <span className="badge bg-success bg-opacity-10 text-success fw-bold text-xxs">₹{depositAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                  <span className="text-muted text-xxs d-block" style={{ fontSize: '10px' }}>
+                    Collected at vehicle key handover &amp; 100% refunded immediately upon vehicle return.
+                  </span>
                 </div>
               </div>
 

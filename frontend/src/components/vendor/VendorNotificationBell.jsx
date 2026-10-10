@@ -169,9 +169,17 @@ export default function VendorNotificationBell({
         };
       });
 
-      setNotifications(normalizedItems);
+      setNotifications(prev => {
+        if (
+          prev.length === normalizedItems.length &&
+          prev.every((item, idx) => item.id === normalizedItems[idx].id && item.is_read === normalizedItems[idx].is_read)
+        ) {
+          return prev;
+        }
+        return normalizedItems;
+      });
       const unread = normalizedItems.filter(x => !x.is_read).length;
-      setUnreadCount(unread);
+      setUnreadCount(prev => prev === unread ? prev : unread);
 
       // Trigger notification sound only for genuinely new unread notifications
       if (isInitialLoadRef.current) {
@@ -204,7 +212,7 @@ export default function VendorNotificationBell({
 
   useEffect(() => {
     refreshNotifications();
-    const timer = setInterval(refreshNotifications, 3500);
+    const timer = setInterval(refreshNotifications, 15000);
 
     const handleSync = () => {
       try {

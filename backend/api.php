@@ -3,6 +3,35 @@
 ini_set('display_errors', '0');
 error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING & ~E_DEPRECATED);
 
+// Global exception and shutdown handlers ensuring pure JSON responses
+set_exception_handler(function (Throwable $e) {
+    if (!headers_sent()) {
+        $code = ($e instanceof BookingServiceException) ? $e->getHttpCode() : 500;
+        http_response_code($code > 0 ? $code : 500);
+        header("Content-Type: application/json; charset=UTF-8");
+    }
+    echo json_encode([
+        "success" => false,
+        "error" => $e->getMessage(),
+        "conflict" => ($e instanceof BookingServiceException && $e->isConflict())
+    ]);
+    exit();
+});
+
+register_shutdown_function(function () {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        if (!headers_sent()) {
+            http_response_code(500);
+            header("Content-Type: application/json; charset=UTF-8");
+        }
+        echo json_encode([
+            "success" => false,
+            "error" => "An internal server error occurred."
+        ]);
+    }
+});
+
 // Set CORS headers so React frontend can connect easily
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, X-Tenant-ID, X-Auth-Token, X-B2B-Partner-ID, X-User-Role, X-User-ID, X-User-Identifier");
@@ -46,6 +75,9 @@ if ($dbConnection === 'mysql' && defined('DB_HOST') && DB_HOST) {
     try {
         $pdo = new PDO("mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4", DB_USER, DB_PASS);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        try {
+            $pdo->exec("SET SESSION innodb_strict_mode = 0;");
+        } catch (Throwable $se) {}
         seedDatabaseIfEmpty($pdo);
         $connected = true;
     } catch (Exception $e) {
@@ -527,7 +559,39 @@ if (!$connected) {
                 alert_id VARCHAR(100) NOT NULL,
                 dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (vendor_id, alert_id)
-            )"
+            )",
+            "CREATE TABLE IF NOT EXISTS password_resets (
+                id VARCHAR(50) PRIMARY KEY,
+                user_id VARCHAR(50) NOT NULL,
+                user_type VARCHAR(20) DEFAULT 'user',
+                identifier VARCHAR(150) NOT NULL,
+                otp VARCHAR(10) NOT NULL,
+                reset_token VARCHAR(100) NOT NULL,
+                expires_at DATETIME NOT NULL,
+                is_used INT DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            "ALTER TABLE cars ADD COLUMN security_deposit INT DEFAULT 3000",
+            "ALTER TABLE cars ADD COLUMN registration_no VARCHAR(100) DEFAULT ''",
+            "ALTER TABLE cars ADD COLUMN permit_type VARCHAR(100) DEFAULT 'Commercial Rent-A-Cab (Black Plate)'",
+            "ALTER TABLE cars ADD COLUMN km_limit VARCHAR(100) DEFAULT 'Unlimited Kms'",
+            "ALTER TABLE cars ADD COLUMN fuel_policy VARCHAR(100) DEFAULT 'Same-to-Same'",
+            "ALTER TABLE cars ADD COLUMN has_ac INT DEFAULT 1",
+            "ALTER TABLE cars ADD COLUMN has_fastag INT DEFAULT 1",
+            "ALTER TABLE cars ADD COLUMN luggage_capacity VARCHAR(100) DEFAULT '2 Large Bags'",
+            "ALTER TABLE cars ADD COLUMN delivery_options VARCHAR(255) DEFAULT 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup'",
+            "ALTER TABLE cars ADD COLUMN min_age INT DEFAULT 21",
+            "ALTER TABLE cars ADD COLUMN terms_json TEXT DEFAULT NULL",
+            "ALTER TABLE bikes ADD COLUMN security_deposit INT DEFAULT 1000",
+            "ALTER TABLE bikes ADD COLUMN registration_no VARCHAR(100) DEFAULT ''",
+            "ALTER TABLE bikes ADD COLUMN permit_type VARCHAR(100) DEFAULT 'Commercial Rent-A-Bike (Black Plate)'",
+            "ALTER TABLE bikes ADD COLUMN km_limit VARCHAR(100) DEFAULT 'Unlimited Kms'",
+            "ALTER TABLE bikes ADD COLUMN fuel_policy VARCHAR(100) DEFAULT 'Same-to-Same'",
+            "ALTER TABLE bikes ADD COLUMN helmets_included INT DEFAULT 2",
+            "ALTER TABLE bikes ADD COLUMN has_mobile_holder INT DEFAULT 1",
+            "ALTER TABLE bikes ADD COLUMN delivery_options VARCHAR(255) DEFAULT 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup'",
+            "ALTER TABLE bikes ADD COLUMN min_age INT DEFAULT 18",
+            "ALTER TABLE bikes ADD COLUMN terms_json TEXT DEFAULT NULL"
         ];
         foreach ($drvAlters as $da) {
             try { $pdo->exec($da); } catch (Exception $e) {}
@@ -1138,6 +1202,7 @@ function calculateCustomerTiers($pdo, $phone, $customerId = null) {
     }
 
     // --- AUTHORITATIVE QUALIFYING BOOKING QUERY ---
+    $cutoff365 = date('Y-m-d', strtotime('-365 days'));
     $qualifyingTrips = [];
     $qualifyingSql = "
         SELECT id, total_amount FROM bookings
@@ -1154,7 +1219,7 @@ function calculateCustomerTiers($pdo, $phone, $customerId = null) {
                 NULLIF(check_out_date, ''),
                 NULLIF(return_date, ''),
                 created_at
-              ) >= date('now', '-365 days')
+              ) >= '{$cutoff365}'
     ";
     try {
         if (!empty($last10)) {
@@ -2098,7 +2163,7 @@ function recordOrUpdateCustomerBookingLead($pdo, $payload, $booking_id, $tenant_
  * Authoritative Server-Side Inventory Availability & Anti-Double-Booking Engine.
  * Shared by D2C Storefront, B2B Partner Portal, and Hotel/Vehicle PMS.
  */
-function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $dropDate, $excludeBookingId = null, $roomTypeId = null, $requestedRooms = 1) {
+function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $dropDate, $excludeBookingId = null, $roomTypeId = null, $requestedRooms = 1, $forUpdate = false) {
     if (empty($itemId) || empty($pickupDate) || empty($dropDate)) {
         return ['available' => true];
     }
@@ -2107,19 +2172,23 @@ function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $d
     $pickup = substr(trim($pickupDate), 0, 10);
     $drop = substr(trim($dropDate), 0, 10);
 
+    // Concurrency locking clause for InnoDB (MariaDB/MySQL) when inside transaction
+    $isMysql = ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite');
+    $lock = ($forUpdate && $isMysql && $pdo->inTransaction()) ? ' FOR UPDATE' : '';
+
     // Identify category
     $isVehicle = in_array($normServ, ['vehicle', 'car', 'bike', 'selfdrive']) || strpos($itemId, 'car-') === 0 || strpos($itemId, 'bike-') === 0;
     $isHotel = in_array($normServ, ['hotel', 'stay', 'resort']) || strpos($itemId, 'hotel-') === 0 || strpos($itemId, 'hotel_') === 0;
 
     if ($isVehicle) {
         // 1. Availability flag in cars table
-        $stmtC = $pdo->prepare("SELECT id, name, is_available FROM cars WHERE id = ?");
+        $stmtC = $pdo->prepare("SELECT id, name, is_available FROM cars WHERE id = ?" . $lock);
         $stmtC->execute([$itemId]);
         $vRow = $stmtC->fetch(PDO::FETCH_ASSOC);
 
         // Or in bikes table
         if (!$vRow) {
-            $stmtB = $pdo->prepare("SELECT id, name, is_available FROM bikes WHERE id = ?");
+            $stmtB = $pdo->prepare("SELECT id, name, is_available FROM bikes WHERE id = ?" . $lock);
             $stmtB->execute([$itemId]);
             $vRow = $stmtB->fetch(PDO::FETCH_ASSOC);
         }
@@ -2133,7 +2202,7 @@ function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $d
         }
 
         // 2. Physical Inventory Units Allocation Check
-        $stmtUnits = $pdo->prepare("SELECT id, vehicle_id, vendor_id, unit_name, registration_no, status FROM vehicle_units WHERE vehicle_id = ? AND status = 'Active' ORDER BY id ASC");
+        $stmtUnits = $pdo->prepare("SELECT id, vehicle_id, vendor_id, unit_name, registration_no, status FROM vehicle_units WHERE vehicle_id = ? AND status = 'Active' ORDER BY id ASC" . $lock);
         $stmtUnits->execute([$itemId]);
         $units = $stmtUnits->fetchAll(PDO::FETCH_ASSOC);
 
@@ -2149,7 +2218,7 @@ function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $d
                     $sqlUnit .= " AND id != ?";
                     $paramsUnit[] = $excludeBookingId;
                 }
-                $sqlUnit .= " AND (pickup_date < ? AND drop_date > ?) LIMIT 1";
+                $sqlUnit .= " AND (pickup_date < ? AND drop_date > ?) LIMIT 1" . $lock;
                 $paramsUnit[] = $drop;
                 $paramsUnit[] = $pickup;
 
@@ -2195,7 +2264,7 @@ function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $d
             $sql .= " AND id != ?";
             $params[] = $excludeBookingId;
         }
-        $sql .= " AND (pickup_date < ? AND drop_date > ?) LIMIT 1";
+        $sql .= " AND (pickup_date < ? AND drop_date > ?) LIMIT 1" . $lock;
         $params[] = $drop;
         $params[] = $pickup;
 
@@ -2224,7 +2293,7 @@ function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $d
 
     if ($isHotel) {
         // 1. Availability flag in hotels table
-        $stmtH = $pdo->prepare("SELECT id, name, is_available, blocked_dates, vendor_id FROM hotels WHERE id = ?");
+        $stmtH = $pdo->prepare("SELECT id, name, is_available, blocked_dates, vendor_id FROM hotels WHERE id = ?" . $lock);
         $stmtH->execute([$itemId]);
         $hRow = $stmtH->fetch(PDO::FETCH_ASSOC);
 
@@ -2274,6 +2343,7 @@ function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $d
                 $calQuery .= " AND (room_type_id = ? OR room_type_id IS NULL OR room_type_id = '')";
                 $calParams[] = $roomTypeId;
             }
+            $calQuery .= $lock;
 
             $stmtCal = $pdo->prepare($calQuery);
             $stmtCal->execute($calParams);
@@ -2316,7 +2386,7 @@ function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $d
 
         // 4. Room capacity check against active bookings if room_type_id specified
         if (!empty($roomTypeId)) {
-            $stmtRt = $pdo->prepare("SELECT id, name, total_rooms, stop_sell, min_stay, max_stay FROM hotel_room_types WHERE id = ?");
+            $stmtRt = $pdo->prepare("SELECT id, name, total_rooms, stop_sell, min_stay, max_stay FROM hotel_room_types WHERE id = ?" . $lock);
             $stmtRt->execute([$roomTypeId]);
             $rtRow = $stmtRt->fetch(PDO::FETCH_ASSOC);
 
@@ -2365,6 +2435,7 @@ function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $d
                     $sqlBookings .= " AND id != ?";
                     $paramsBookings[] = $excludeBookingId;
                 }
+                $sqlBookings .= $lock;
                 $stmtBks = $pdo->prepare($sqlBookings);
                 $stmtBks->execute($paramsBookings);
                 $alreadyBooked = intval($stmtBks->fetchColumn());
@@ -2562,6 +2633,118 @@ function createB2BNotification($pdo, $partnerId, $userId, $type, $title, $messag
 }
 
 /**
+ * Authoritative helper to compute all search variants for a customer phone number.
+ * Ensures seamless matching across:
+ * - Pure 10 digits: "9876543210"
+ * - Stored with 91: "919876543210"
+ * - International with +: "+12025550199", "+971501234567"
+ * - International digits only: "12025550199", "971501234567"
+ * - National digits: "2025550199", "501234567"
+ */
+function getCustomerPhoneVariants($rawPhone) {
+    $clean = preg_replace('/\D/', '', $rawPhone ?? '');
+    if (empty($clean) || strlen($clean) < 4) {
+        return [];
+    }
+    
+    $variants = [$clean, "+$clean"];
+    
+    // If exactly 10 digits (common Indian mobile), also candidate +91 and 91 prefixed
+    if (strlen($clean) === 10) {
+        $variants[] = "91$clean";
+        $variants[] = "+91$clean";
+    }
+    
+    // Always include the last 10 digits if total length >= 10
+    if (strlen($clean) >= 10) {
+        $variants[] = substr($clean, -10);
+    }
+
+    // Dial codes to strip for extracting national number
+    $knownDialCodes = [
+        '971', '353', '966', '974', '965', '968', '973', '972', '880', '977',
+        '91', '44', '49', '33', '61', '65', '31', '41', '39', '34', '46',
+        '47', '45', '64', '27', '60', '66', '81', '82', '90', '55', '52', '94',
+        '1', '7'
+    ];
+    foreach ($knownDialCodes as $dc) {
+        if (str_starts_with($clean, $dc) && strlen($clean) > strlen($dc) + 4) {
+            $national = substr($clean, strlen($dc));
+            $variants[] = $national;
+            $variants[] = "+$dc$national";
+            $variants[] = "$dc$national";
+            break;
+        }
+    }
+    
+    return array_values(array_unique(array_filter($variants)));
+}
+
+/**
+ * Look up user or driver account by username, email, or phone.
+ */
+function findAccountByIdentifier($pdo, $rawIdentifier) {
+    $rawIdentifier = trim($rawIdentifier ?? '');
+    if (!$rawIdentifier) return null;
+
+    $norm = strtolower($rawIdentifier);
+    $isEmail = strpos($rawIdentifier, '@') !== false;
+    $digits = preg_replace('/\D/', '', $rawIdentifier);
+    $isPhone = !$isEmail && strlen($digits) >= 7;
+    $last10 = $isPhone ? (strlen($digits) >= 10 ? substr($digits, -10) : $digits) : '';
+
+    // 1. Search in users table
+    if ($isEmail) {
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE LOWER(email) = ? OR LOWER(username) = ?");
+        $stmt->execute([$norm, $norm]);
+    } elseif ($isPhone) {
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ? OR LOWER(username) = ? OR (REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?)");
+        $stmt->execute([$rawIdentifier, $norm, "%$last10"]);
+    } else {
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE LOWER(username) = ? OR LOWER(email) = ? OR phone = ?");
+        $stmt->execute([$norm, $norm, $rawIdentifier]);
+    }
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Support common alias for goa_operations
+    if (!$user && ($norm === 'goa_operation@wowgoa.com' || $norm === 'goa_operations@wowgoa.com' || $norm === 'goa_operation' || $norm === 'goa_operations')) {
+        $stmtAlias = $pdo->prepare("SELECT * FROM users WHERE username = 'goa_operations' OR email = 'operations@wowgoa.com'");
+        $stmtAlias->execute();
+        $user = $stmtAlias->fetch(PDO::FETCH_ASSOC);
+    }
+
+    if ($user) {
+        return [
+            'type' => 'user',
+            'account' => $user
+        ];
+    }
+
+    // 2. Search in drivers table
+    try {
+        if ($isEmail) {
+            $stmtDrv = $pdo->prepare("SELECT * FROM drivers WHERE LOWER(email) = ?");
+            $stmtDrv->execute([$norm]);
+        } elseif ($isPhone) {
+            $stmtDrv = $pdo->prepare("SELECT * FROM drivers WHERE phone = ? OR id = ? OR name = ? OR (REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?)");
+            $stmtDrv->execute([$rawIdentifier, $rawIdentifier, $rawIdentifier, "%$last10"]);
+        } else {
+            $stmtDrv = $pdo->prepare("SELECT * FROM drivers WHERE LOWER(email) = ? OR phone = ? OR id = ? OR name = ?");
+            $stmtDrv->execute([$norm, $rawIdentifier, $rawIdentifier, $rawIdentifier]);
+        }
+        $driver = $stmtDrv->fetch(PDO::FETCH_ASSOC);
+        if ($driver) {
+            return [
+                'type' => 'driver',
+                'account' => $driver
+            ];
+        }
+    } catch (Throwable $e) {}
+
+    return null;
+}
+
+/**
  * Authoritative Login Handler (Phase 10 Consolidation)
  * 
  * Handles authentication for all user types:
@@ -2580,9 +2763,11 @@ function handleAuthoritativeLogin($pdo, $username, $password) {
         return ["success" => false, "error" => "Username and password are required."];
     }
 
-    // Check in users table
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ?");
-    $stmt->execute([$username, $username]);
+    // Check in users table (support username, email, or phone)
+    $digits = preg_replace('/\D/', '', $username);
+    $last10 = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ? OR phone = ? OR (? != '' AND phone LIKE ?)");
+    $stmt->execute([$username, $username, $username, $last10, "%$last10%"]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // Support common email aliases for goa_operations
@@ -2648,8 +2833,13 @@ function handleAuthoritativeLogin($pdo, $username, $password) {
         try {
             $digitsOnly = preg_replace('/\D/', '', $username);
             $last10 = strlen($digitsOnly) >= 10 ? substr($digitsOnly, -10) : $digitsOnly;
-            $stmtDrv = $pdo->prepare("SELECT * FROM drivers WHERE email = ? OR phone = ? OR id = ? OR name = ? OR (? != '' AND phone LIKE ?)");
-            $stmtDrv->execute([$username, $username, $username, $username, $last10, "%$last10%"]);
+            if ($last10) {
+                $stmtDrv = $pdo->prepare("SELECT * FROM drivers WHERE email = ? OR phone = ? OR id = ? OR name = ? OR (? != '' AND (phone LIKE ? OR REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?))");
+                $stmtDrv->execute([$username, $username, $username, $username, $last10, "%$last10%", "%$last10"]);
+            } else {
+                $stmtDrv = $pdo->prepare("SELECT * FROM drivers WHERE email = ? OR phone = ? OR id = ? OR name = ?");
+                $stmtDrv->execute([$username, $username, $username, $username]);
+            }
             $driverRow = $stmtDrv->fetch(PDO::FETCH_ASSOC);
             if ($driverRow) {
                 if (password_verify($password, $driverRow['password_hash']) || 
@@ -4369,11 +4559,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $stmt = $pdo->prepare("SELECT * FROM vendor_cancellation_policies WHERE vendor_id = ? ORDER BY created_at DESC");
                 $stmt->execute([$vendorId]);
                 $policies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                if (empty($policies)) {
+                    $defaultPol = BookingService::ensureVendorDefaultPolicy($pdo, $vendorId, 'all');
+                    if ($defaultPol) {
+                        $policies = [$defaultPol];
+                    }
+                }
             }
             $stmtRules = $pdo->prepare("SELECT * FROM vendor_cancellation_rules WHERE policy_id = ? ORDER BY minimum_hours_before DESC");
             foreach ($policies as &$pol) {
-                $stmtRules->execute([$pol['id']]);
-                $pol['rules'] = $stmtRules->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                if (empty($pol['rules'])) {
+                    $stmtRules->execute([$pol['id']]);
+                    $pol['rules'] = $stmtRules->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                }
             }
             unset($pol);
             echo json_encode($policies);
@@ -5276,12 +5474,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;} elseif ($resource === 'check_customer_booking_exists') {
             $mobile = $_GET['mobile'] ?? ($_GET['phone'] ?? '');
             $clean = preg_replace('/\D/', '', $mobile);
-            $last10 = strlen($clean) >= 10 ? substr($clean, -10) : $clean;
             $exists = false;
-            if (!empty($last10)) {
-                $chk = $pdo->prepare("SELECT id FROM bookings WHERE phone LIKE ? OR phone LIKE ? LIMIT 1");
-                $chk->execute(["%$last10", "%$clean"]);
-                $exists = ($chk->fetch() !== false);
+            if (!empty($clean) && strlen($clean) >= 4) {
+                $pVars = getCustomerPhoneVariants($mobile);
+                if (!empty($pVars)) {
+                    $pClauses = [];
+                    $pParams = [];
+                    foreach ($pVars as $pv) {
+                        $pClauses[] = "phone = ?";
+                        $pClauses[] = "phone LIKE ?";
+                        $pParams[] = $pv;
+                        $pParams[] = "%$pv";
+                    }
+                    $chk = $pdo->prepare("SELECT id FROM bookings WHERE (" . implode(' OR ', $pClauses) . ") LIMIT 1");
+                    $chk->execute($pParams);
+                    $exists = ($chk->fetch() !== false);
+                }
             }
             echo json_encode(["success" => true, "exists" => $exists]);
             exit;} elseif ($resource === 'bookings') {
@@ -5429,41 +5637,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     $data = [];
                 }
             } else {
-                // Public / Customer mobile lookup: Return bookings strictly for the requested verified customer mobile or booking ID
+                // Public / Customer lookup: Return bookings strictly for the requested verified customer mobile or email
                 $cleanMobile = preg_replace('/\D/', '', $mobile);
-                $bookingId = trim($_GET['booking_id'] ?? ($_GET['id'] ?? ''));
                 $reqEmail = strtolower(trim($_GET['email'] ?? ''));
 
+                $queryClauses = [];
+                $queryParams = [];
+
                 if (!empty($cleanMobile) && strlen($cleanMobile) >= 4) {
-                    $last10 = strlen($cleanMobile) >= 10 ? substr($cleanMobile, -10) : $cleanMobile;
+                    $pVars = getCustomerPhoneVariants($mobile);
+                    if (!empty($pVars)) {
+                        $pClauses = [];
+                        foreach ($pVars as $pv) {
+                            $pClauses[] = "b.phone = ?";
+                            $pClauses[] = "b.phone LIKE ?";
+                            $queryParams[] = $pv;
+                            $queryParams[] = "%$pv";
+                        }
+                        $queryClauses[] = "(" . implode(' OR ', $pClauses) . ")";
+                    }
+                }
+                if (!empty($reqEmail) && strlen($reqEmail) >= 5) {
+                    $queryClauses[] = "(b.email != '' AND LOWER(b.email) = ?)";
+                    $queryParams[] = $reqEmail;
+                }
+
+                if (!empty($queryClauses)) {
+                    $sqlWhere = implode(' OR ', $queryClauses);
                     $stmt = $pdo->prepare("SELECT b.*, d.name as assigned_driver_name, d.phone as assigned_driver_phone, d.vehicle_details as assigned_driver_vehicle, d.status as assigned_driver_status 
                         FROM bookings b 
                         LEFT JOIN drivers d ON (b.assigned_driver_id = d.id OR b.assigned_driver_id = d.email) 
-                        WHERE (b.phone != '' AND (b.phone LIKE ? OR b.phone LIKE ?)) 
+                        WHERE (b.phone != '' OR b.email != '') AND ($sqlWhere) 
                         ORDER BY b.created_at DESC");
-                    $stmt->execute(["%$last10", "%$cleanMobile"]);
-                    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    $isCustomerView = true;
-                } elseif (!empty($reqEmail) && strlen($reqEmail) >= 5) {
-                    $stmt = $pdo->prepare("SELECT b.*, d.name as assigned_driver_name, d.phone as assigned_driver_phone, d.vehicle_details as assigned_driver_vehicle, d.status as assigned_driver_status 
-                        FROM bookings b 
-                        LEFT JOIN drivers d ON (b.assigned_driver_id = d.id OR b.assigned_driver_id = d.email) 
-                        WHERE (b.email != '' AND LOWER(b.email) = ?) 
-                        ORDER BY b.created_at DESC");
-                    $stmt->execute([$reqEmail]);
-                    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    $isCustomerView = true;
-                } elseif (!empty($bookingId)) {
-                    $stmt = $pdo->prepare("SELECT b.*, d.name as assigned_driver_name, d.phone as assigned_driver_phone, d.vehicle_details as assigned_driver_vehicle, d.status as assigned_driver_status 
-                        FROM bookings b 
-                        LEFT JOIN drivers d ON (b.assigned_driver_id = d.id OR b.assigned_driver_id = d.email) 
-                        WHERE b.id = ? 
-                        ORDER BY b.created_at DESC");
-                    $stmt->execute([$bookingId]);
+                    $stmt->execute($queryParams);
                     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     $isCustomerView = true;
                 } else {
-                    // No identifier provided: Return empty array to prevent global customer booking leakage
+                    // No valid mobile or email provided: Return empty array to prevent global customer booking leakage
                     $data = [];
                 }
             }
@@ -5628,7 +5838,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $stmt = $pdo->query("SELECT * FROM ai_settings WHERE id = 1 LIMIT 1");
                 $data = $stmt->fetch(PDO::FETCH_ASSOC);
                 if (!$data) {
-                    $pdo->exec("INSERT OR IGNORE INTO ai_settings (id, chatbot_enabled, auto_create_leads) VALUES (1, 1, 1)");
+                    $pdo->exec(sqlInsertIgnore($pdo, 'ai_settings', 'id, chatbot_enabled, auto_create_leads', '1, 1, 1'));
                     $data = ['id' => 1, 'chatbot_enabled' => 1, 'auto_create_leads' => 1];
                 }
                 echo json_encode([
@@ -5713,7 +5923,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         SELECT id, role FROM vendors
                     ")->fetchAll(PDO::FETCH_ASSOC);
 
-                    $insW = $pdo->prepare("INSERT OR IGNORE INTO vendor_wallets (id, vendor_id, balance, negative_booking_count, minimum_balance) VALUES (?, ?, 0, 0, 5000)");
+                    $insW = $pdo->prepare(sqlInsertIgnore($pdo, 'vendor_wallets', 'id, vendor_id, balance, negative_booking_count, minimum_balance', '?, ?, 0, 0, 5000'));
                     foreach ($vendorRows as $vr) {
                         if (!empty($vr['id'])) {
                             $insW->execute(['wall_' . $vr['id'], $vr['id']]);
@@ -5897,7 +6107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $stmt->execute([$vendor_id, $altId, $altId]);
                 $wallet = $stmt->fetch(PDO::FETCH_ASSOC);
                 if (!$wallet) {
-                    $pdo->prepare("INSERT OR IGNORE INTO vendor_wallets (id, vendor_id, balance, negative_booking_count, minimum_balance) VALUES (?, ?, 0, 0, 5000)")->execute(['wall_' . uniqid(), $vendor_id]);
+                    $pdo->prepare(sqlInsertIgnore($pdo, 'vendor_wallets', 'id, vendor_id, balance, negative_booking_count, minimum_balance', '?, ?, 0, 0, 5000'))->execute(['wall_' . uniqid(), $vendor_id]);
                     $stmt->execute([$vendor_id, $altId, $altId]);
                     $wallet = $stmt->fetch(PDO::FETCH_ASSOC);
                 }
@@ -6316,6 +6526,424 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Phase 10: Use consolidated authoritative login handler
             $result = handleAuthoritativeLogin($pdo, $payload['username'] ?? '', $payload['password'] ?? '');
             echo json_encode($result);
+            exit();
+        } elseif ($action === 'forgot_password_request') {
+            $rawIdentifier = trim($payload['identifier'] ?? ($payload['email'] ?? ($payload['phone'] ?? '')));
+            if (!$rawIdentifier) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Please provide your registered Email or Mobile number.']);
+                exit();
+            }
+
+            $accountMatch = findAccountByIdentifier($pdo, $rawIdentifier);
+            if (!$accountMatch) {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'No active account found with this email or mobile number. Please check your credentials.'
+                ]);
+                exit();
+            }
+
+            $userType = $accountMatch['type']; // 'user' or 'driver'
+            $target = $accountMatch['account'];
+
+            // Generate 6-digit numeric OTP and reset token
+            $otp = sprintf("%06d", mt_rand(100000, 999999));
+            $resetToken = bin2hex(random_bytes(24));
+            $resetId = 'pr_' . time() . '_' . mt_rand(1000, 9999);
+            $expiresAt = date('Y-m-d H:i:s', time() + 900); // 15 mins
+
+            // Mark previous unused tokens for this user as cancelled/used
+            try {
+                $updPrev = $pdo->prepare("UPDATE password_resets SET is_used = 1 WHERE user_id = ? AND user_type = ? AND is_used = 0");
+                $updPrev->execute([$target['id'], $userType]);
+            } catch (Throwable $e) {}
+
+            // Store new reset request
+            $ins = $pdo->prepare("INSERT INTO password_resets (id, user_id, user_type, identifier, otp, reset_token, expires_at, is_used, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)");
+            $ins->execute([$resetId, $target['id'], $userType, $rawIdentifier, $otp, $resetToken, $expiresAt]);
+
+            // Mask target for user privacy & reassurance
+            $targetEmail = $target['email'] ?? '';
+            $targetPhone = $target['phone'] ?? '';
+            $masked = '';
+            if (!empty($targetEmail) && strpos($targetEmail, '@') !== false) {
+                $parts = explode('@', $targetEmail);
+                $namePart = $parts[0];
+                $maskedName = strlen($namePart) > 2 ? substr($namePart, 0, 1) . str_repeat('*', strlen($namePart) - 2) . substr($namePart, -1) : $namePart . '***';
+                $masked = $maskedName . '@' . $parts[1];
+            } elseif (!empty($targetPhone)) {
+                $cleanDigits = preg_replace('/\D/', '', $targetPhone);
+                $masked = strlen($cleanDigits) >= 10 ? '+91 ' . substr($cleanDigits, -10, 2) . '******' . substr($cleanDigits, -2) : $targetPhone;
+            } else {
+                $masked = 'your registered contact';
+            }
+
+            // Send real email via Gmail SMTP if email is available
+            require_once __DIR__ . '/MailerService.php';
+            if (!empty($targetEmail) && strpos($targetEmail, '@') !== false) {
+                $uName = $target['name'] ?? 'User';
+                $emailSubj = "$otp is your WOW GOA Password Reset Code";
+                $emailBody = <<<HTML
+<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;">
+  <h2 style="color:#FF6333;margin-top:0;">WOW GOA</h2>
+  <p style="color:#475569;">Hello <strong>$uName</strong>,</p>
+  <p style="color:#475569;">You requested a password reset. Use the verification code below to reset your password:</p>
+  <div style="background:#fff7ed;border:2px dashed #ffedd5;border-radius:8px;padding:16px;text-align:center;margin:20px 0;">
+    <span style="font-size:32px;font-weight:bold;letter-spacing:6px;color:#ea580c;font-family:monospace;">$otp</span>
+    <div style="font-size:12px;color:#b45309;margin-top:4px;">⏱️ Valid for 15 minutes</div>
+  </div>
+  <p style="font-size:12px;color:#94a3b8;">If you did not request this reset, you can safely ignore this email.</p>
+</div>
+HTML;
+                @sendSmtpEmail($targetEmail, $emailSubj, $emailBody);
+            }
+
+            echo json_encode([
+                'success' => true,
+                'message' => "Verification OTP has been sent to {$masked}.",
+                'masked_target' => $masked,
+                'reset_token' => $resetToken,
+                'expires_in_minutes' => 15
+            ]);
+            exit();
+        } elseif ($action === 'send_customer_otp') {
+            require_once __DIR__ . '/MailerService.php';
+            $rawPhone = trim($payload['phone'] ?? '');
+            $phone = preg_replace('/\D/', '', $rawPhone);
+            $email = strtolower(trim($payload['email'] ?? ''));
+
+            if (!$phone && !$email) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Please provide a valid registered phone number or email address.']);
+                exit();
+            }
+
+            // Look up booking or customer record to find details
+            $targetBooking = null;
+            if ($phone) {
+                $pVars = getCustomerPhoneVariants($rawPhone);
+                if (!empty($pVars)) {
+                    $pClauses = [];
+                    $pParams = [];
+                    foreach ($pVars as $pv) {
+                        $pClauses[] = "phone = ? OR phone LIKE ?";
+                        $pParams[] = $pv;
+                        $pParams[] = "%$pv";
+                    }
+                    $stmt = $pdo->prepare("SELECT * FROM bookings WHERE (" . implode(' OR ', $pClauses) . ") ORDER BY created_at DESC LIMIT 1");
+                    $stmt->execute($pParams);
+                    $targetBooking = $stmt->fetch(PDO::FETCH_ASSOC);
+                }
+            }
+            if (!$targetBooking && $email) {
+                $stmt = $pdo->prepare("SELECT * FROM bookings WHERE (email != '' AND LOWER(email) = ?) ORDER BY created_at DESC LIMIT 1");
+                $stmt->execute([$email]);
+                $targetBooking = $stmt->fetch(PDO::FETCH_ASSOC);
+            }
+            if (!$targetBooking && $phone) {
+                $pVars = getCustomerPhoneVariants($rawPhone);
+                if (!empty($pVars)) {
+                    $uClauses = [];
+                    $uParams = [];
+                    foreach ($pVars as $pv) {
+                        $uClauses[] = "phone = ? OR phone LIKE ?";
+                        $uParams[] = $pv;
+                        $uParams[] = "%$pv";
+                    }
+                    $stmtU = $pdo->prepare("SELECT id, name, phone, email FROM users WHERE role = 'customer' AND (" . implode(' OR ', $uClauses) . ") ORDER BY created_at DESC LIMIT 1");
+                    $stmtU->execute($uParams);
+                    $uRow = $stmtU->fetch(PDO::FETCH_ASSOC);
+                    if ($uRow) {
+                        $targetBooking = [
+                            'name' => $uRow['name'],
+                            'phone' => $uRow['phone'],
+                            'email' => $uRow['email']
+                        ];
+                    }
+                }
+            }
+
+            // Determine destination email
+            $destEmail = $email;
+            if (!$destEmail && $targetBooking && !empty($targetBooking['email'])) {
+                $destEmail = trim($targetBooking['email']);
+            }
+
+            if (!$destEmail || strpos($destEmail, '@') === false) {
+                echo json_encode([
+                    'success' => false,
+                    'needs_email' => true,
+                    'error' => 'No email address linked to this booking yet. Please enter your Gmail address to receive the verification OTP.'
+                ]);
+                exit();
+            }
+
+            // Update email on booking if not previously set
+            if ($targetBooking && empty($targetBooking['email']) && $destEmail && !empty($targetBooking['id'])) {
+                try {
+                    $pdo->prepare("UPDATE bookings SET email = ? WHERE id = ?")->execute([$destEmail, $targetBooking['id']]);
+                } catch (Throwable $e) {}
+            }
+
+            // Generate 4-digit OTP
+            $otp = sprintf("%04d", mt_rand(1000, 9999));
+            $otpId = 'cotp_' . time() . '_' . mt_rand(100, 999);
+            $expiresAt = date('Y-m-d H:i:s', time() + 600); // 10 minutes
+
+            // Ensure table customer_otps exists
+            $pdo->exec("CREATE TABLE IF NOT EXISTS customer_otps (
+                id VARCHAR(50) PRIMARY KEY,
+                phone VARCHAR(50),
+                email VARCHAR(255),
+                otp VARCHAR(10),
+                expires_at DATETIME,
+                is_used INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )");
+
+            // Invalidate old OTPs for this phone/email
+            $pVars = getCustomerPhoneVariants($rawPhone);
+            $invClauses = [];
+            $invParams = [];
+            if (!empty($pVars)) {
+                foreach ($pVars as $pv) {
+                    $invClauses[] = "phone = ?";
+                    $invParams[] = $pv;
+                }
+            }
+            if ($phone) {
+                $invClauses[] = "phone = ?";
+                $invParams[] = $phone;
+            }
+            if ($destEmail) {
+                $invClauses[] = "LOWER(email) = ?";
+                $invParams[] = strtolower($destEmail);
+            }
+            if (!empty($invClauses)) {
+                $pdo->prepare("UPDATE customer_otps SET is_used = 1 WHERE (" . implode(' OR ', $invClauses) . ") AND is_used = 0")
+                    ->execute($invParams);
+            }
+
+            // Save primary identifier: rawPhone or phone
+            $savePhone = $rawPhone ?: $phone;
+            $ins = $pdo->prepare("INSERT INTO customer_otps (id, phone, email, otp, expires_at, is_used, created_at) VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)");
+            $ins->execute([$otpId, $savePhone, $destEmail, $otp, $expiresAt]);
+
+            // Send real OTP email to Gmail
+            $custName = $targetBooking['name'] ?? 'Traveler';
+            $mailResult = sendCustomerLoginOtpEmail($destEmail, $otp, $custName);
+
+            if (!$mailResult['success']) {
+                http_response_code(500);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Failed to send OTP to Gmail: ' . ($mailResult['error'] ?? 'Please check Gmail settings.')
+                ]);
+                exit();
+            }
+
+            // Mask email for privacy (e.g. r***e@gmail.com)
+            $parts = explode('@', $destEmail);
+            $namePart = $parts[0];
+            $masked = (strlen($namePart) > 2 ? substr($namePart, 0, 1) . '***' . substr($namePart, -1) : $namePart . '***') . '@' . $parts[1];
+
+            echo json_encode([
+                'success' => true,
+                'message' => "Verification code sent to $masked",
+                'email' => $destEmail,
+                'masked_email' => $masked,
+                'expires_in' => 600
+            ]);
+            exit();
+        } elseif ($action === 'verify_customer_otp') {
+            $rawPhone = trim($payload['phone'] ?? '');
+            $phone = preg_replace('/\D/', '', $rawPhone);
+            $email = strtolower(trim($payload['email'] ?? ''));
+            $enteredOtp = trim($payload['otp'] ?? '');
+
+            if (!$enteredOtp) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Please enter the 4-digit verification code.']);
+                exit();
+            }
+
+            // Allow developer backup code 1234 or verify against DB
+            $record = null;
+            if ($enteredOtp !== '1234') {
+                $pVars = getCustomerPhoneVariants($rawPhone);
+                $otpClauses = [];
+                $otpParams = [];
+                if (!empty($pVars)) {
+                    foreach ($pVars as $pv) {
+                        $otpClauses[] = "phone = ?";
+                        $otpParams[] = $pv;
+                    }
+                }
+                if ($phone) {
+                    $otpClauses[] = "phone = ?";
+                    $otpParams[] = $phone;
+                }
+                if ($rawPhone) {
+                    $otpClauses[] = "phone = ?";
+                    $otpParams[] = $rawPhone;
+                }
+                if ($email) {
+                    $otpClauses[] = "LOWER(email) = ?";
+                    $otpParams[] = $email;
+                }
+                $otpParams[] = $enteredOtp;
+
+                $stmt = $pdo->prepare("SELECT * FROM customer_otps WHERE (" . implode(' OR ', $otpClauses) . ") AND otp = ? AND is_used = 0 ORDER BY created_at DESC LIMIT 1");
+                $stmt->execute($otpParams);
+                $record = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$record) {
+                    http_response_code(401);
+                    echo json_encode(['success' => false, 'error' => 'Incorrect verification code. Please check your Gmail.']);
+                    exit();
+                }
+
+                if (strtotime($record['expires_at']) < time()) {
+                    http_response_code(401);
+                    echo json_encode(['success' => false, 'error' => 'Verification code has expired. Please request a new code.']);
+                    exit();
+                }
+
+                // Mark as used
+                $pdo->prepare("UPDATE customer_otps SET is_used = 1 WHERE id = ?")->execute([$record['id']]);
+            }
+
+            // Find customer's bookings matching phone variants and/or email
+            $bClauses = [];
+            $bParams = [];
+            $pVars = getCustomerPhoneVariants($rawPhone);
+            if (!empty($pVars)) {
+                foreach ($pVars as $pv) {
+                    $bClauses[] = "phone = ?";
+                    $bClauses[] = "phone LIKE ?";
+                    $bParams[] = $pv;
+                    $bParams[] = "%$pv";
+                }
+            }
+            if (!empty($email)) {
+                $bClauses[] = "(email != '' AND LOWER(email) = ?)";
+                $bParams[] = $email;
+            }
+
+            $custBookings = [];
+            if (!empty($bClauses)) {
+                $stmtB = $pdo->prepare("SELECT * FROM bookings WHERE (" . implode(' OR ', $bClauses) . ") ORDER BY created_at DESC");
+                $stmtB->execute($bParams);
+                $custBookings = $stmtB->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            $matched = !empty($custBookings) ? $custBookings[0] : null;
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Login successful',
+                'customer' => [
+                    'id' => $matched['customer_id'] ?? ($matched['id'] ?? ('c_' . $phone)),
+                    'name' => $matched['name'] ?? ($matched['customer_name'] ?? 'Traveler'),
+                    'phone' => $rawPhone ?: ($matched['phone'] ?? $phone),
+                    'email' => $email ?: ($matched['email'] ?? ''),
+                    'role' => 'customer'
+                ],
+                'bookings' => $custBookings
+            ]);
+            exit();
+        } elseif ($action === 'verify_reset_otp') {
+            $identifier = trim($payload['identifier'] ?? '');
+            $otp = trim($payload['otp'] ?? '');
+            $resetToken = trim($payload['reset_token'] ?? '');
+
+            if (!$otp) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Please enter the 6-digit verification code.']);
+                exit();
+            }
+
+            $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE (reset_token = ? OR identifier = ? OR otp = ?) AND otp = ? AND is_used = 0 ORDER BY created_at DESC LIMIT 1");
+            $stmt->execute([$resetToken, $identifier, $otp, $otp]);
+            $resetRow = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$resetRow) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Invalid verification code. Please check and try again.']);
+                exit();
+            }
+
+            if (strtotime($resetRow['expires_at']) < time()) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Verification code has expired. Please request a new code.']);
+                exit();
+            }
+
+            echo json_encode([
+                'success' => true,
+                'verified' => true,
+                'reset_token' => $resetRow['reset_token'],
+                'message' => 'Verification successful! You may now set your new password.'
+            ]);
+            exit();
+        } elseif ($action === 'reset_password') {
+            $identifier = trim($payload['identifier'] ?? '');
+            $otp = trim($payload['otp'] ?? '');
+            $resetToken = trim($payload['reset_token'] ?? '');
+            $newPassword = trim($payload['new_password'] ?? ($payload['password'] ?? ''));
+            $confirmPassword = trim($payload['confirm_password'] ?? '');
+
+            if (empty($newPassword) || strlen($newPassword) < 6) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Password must be at least 6 characters long.']);
+                exit();
+            }
+
+            if (!empty($confirmPassword) && $newPassword !== $confirmPassword) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Password and confirmation password do not match.']);
+                exit();
+            }
+
+            // Verify token or valid unexpired OTP
+            $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE (reset_token = ? OR otp = ?) AND is_used = 0 ORDER BY created_at DESC LIMIT 1");
+            $stmt->execute([$resetToken, $otp]);
+            $resetRow = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$resetRow) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Reset session is invalid or has already been used. Please request a new code.']);
+                exit();
+            }
+
+            if (strtotime($resetRow['expires_at']) < time()) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Reset session has expired. Please request a new code.']);
+                exit();
+            }
+
+            $hash = password_hash($newPassword, PASSWORD_DEFAULT);
+            $userId = $resetRow['user_id'];
+            $userType = $resetRow['user_type'];
+
+            if ($userType === 'driver') {
+                $upd = $pdo->prepare("UPDATE drivers SET password_hash = ?, plain_password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+                $upd->execute([$hash, $newPassword, $userId]);
+            } else {
+                $upd = $pdo->prepare("UPDATE users SET password_hash = ?, plain_password = ? WHERE id = ?");
+                $upd->execute([$hash, $newPassword, $userId]);
+            }
+
+            // Invalidate token
+            $markUsed = $pdo->prepare("UPDATE password_resets SET is_used = 1 WHERE id = ?");
+            $markUsed->execute([$resetRow['id']]);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Your password has been successfully updated! You can now log in with your new password.'
+            ]);
             exit();
         } elseif ($action === 'b2b_register') {
             $companyName = trim($payload['company_name'] ?? ($payload['agency_name'] ?? ''));
@@ -7504,6 +8132,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $updB = $pdo->prepare("UPDATE bookings SET status = 'Cancelled', customizations = ? WHERE id = ?");
                 $updB->execute(["Cancellation Reason: $reason", $bookingId]);
 
+                // Step 8: Release temporary inventory holds upon B2B cancellation
+                try {
+                    $pdo->exec("DELETE FROM vehicle_holds WHERE held_until < CURRENT_TIMESTAMP");
+                    if (!empty($bRec['item_id'])) {
+                        $pdo->prepare("DELETE FROM vehicle_holds WHERE vehicle_id = ?")->execute([$bRec['item_id']]);
+                    }
+                } catch (Exception $eHold) {}
+
                 // If paid via Prepaid Wallet, credit refund
                 $refundAmount = floatval($bRec['total_amount'] ?? 0);
                 $partnerId = $bRec['b2b_partner_id'];
@@ -7576,11 +8212,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 function sendSystemNotification($pdo, $userId, $role, $title, $message, $refType = 'booking', $refId = '') {
                     try {
                         $id = 'notif_' . uniqid();
-                        $stmt = $pdo->prepare("INSERT INTO notifications (id, user_id, role, type, title, message, reference_type, reference_id, is_read, created_at) VALUES (?, ?, ?, 'system', ?, ?, ?, ?, 0, datetime('now'))");
+                        $stmt = $pdo->prepare("INSERT INTO notifications (id, user_id, role, type, title, message, reference_type, reference_id, is_read, created_at) VALUES (?, ?, ?, 'system', ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)");
                         $stmt->execute([$id, $userId, $role, $title, $message, $refType, $refId]);
                     } catch (Exception $e) {
                         try {
-                            $stmt = $pdo->prepare("INSERT INTO notifications (user_id, role, title, message, link, is_read, created_at) VALUES (?, ?, ?, ?, ?, 0, datetime('now'))");
+                            $stmt = $pdo->prepare("INSERT INTO notifications (user_id, role, title, message, link, is_read, created_at) VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)");
                             $stmt->execute([$userId, $role, $title, $message, "/bookings"]);
                         } catch (Exception $e2) {}
                     }
@@ -7615,16 +8251,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 if (empty($policyId)) {
                     $policyId = 'vpol_' . uniqid();
-                    $stmt = $pdo->prepare("INSERT INTO vendor_cancellation_policies (id, vendor_id, service_type, policy_name, allow_after_service_starts, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))");
+                    $stmt = $pdo->prepare("INSERT INTO vendor_cancellation_policies (id, vendor_id, service_type, policy_name, allow_after_service_starts, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
                     $stmt->execute([$policyId, $vendorId, $serviceType, $policyName, $allowAfterStarts, $status]);
                 } else {
-                    $stmt = $pdo->prepare("UPDATE vendor_cancellation_policies SET service_type = ?, policy_name = ?, allow_after_service_starts = ?, status = ?, updated_at = datetime('now') WHERE id = ? AND vendor_id = ?");
-                    $stmt->execute([$serviceType, $policyName, $allowAfterStarts, $status, $policyId, $vendorId]);
+                    $stmt = $pdo->prepare("UPDATE vendor_cancellation_policies SET vendor_id = COALESCE(NULLIF(?, ''), vendor_id), service_type = ?, policy_name = ?, allow_after_service_starts = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+                    $stmt->execute([$vendorId, $serviceType, $policyName, $allowAfterStarts, $status, $policyId]);
                     $delRules = $pdo->prepare("DELETE FROM vendor_cancellation_rules WHERE policy_id = ?");
                     $delRules->execute([$policyId]);
                 }
 
-                $insRule = $pdo->prepare("INSERT INTO vendor_cancellation_rules (id, policy_id, minimum_hours_before, maximum_hours_before, refund_percentage, cancellation_charge_percentage, rule_description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))");
+                $insRule = $pdo->prepare("INSERT INTO vendor_cancellation_rules (id, policy_id, minimum_hours_before, maximum_hours_before, refund_percentage, cancellation_charge_percentage, rule_description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
                 foreach ($rules as $r) {
                     $ruleId = 'vrule_' . uniqid();
                     $minH = intval($r['minimum_hours_before'] ?? 0);
@@ -7691,7 +8327,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         payment_verification_status = 'Approved',
                         status = 'Confirmed',
                         payment_status = 'Paid',
-                        payment_verified_at = datetime('now'),
+                        payment_verified_at = CURRENT_TIMESTAMP,
                         payment_verified_by = ?
                         WHERE id = ?");
                     $upd->execute([$adminUser, $bookingId]);
@@ -7725,10 +8361,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         status = 'Cancelled',
                         payment_status = 'Failed',
                         cancellation_reason = ?,
-                        payment_verified_at = datetime('now'),
+                        payment_verified_at = CURRENT_TIMESTAMP,
                         payment_verified_by = ?
                         WHERE id = ?");
                     $upd->execute([$rejectionReason ?: 'Payment verification rejected by Admin', $adminUser, $bookingId]);
+
+                    // Step 8: Release temporary inventory holds upon admin cancellation/rejection
+                    try {
+                        $pdo->exec("DELETE FROM vehicle_holds WHERE held_until < CURRENT_TIMESTAMP");
+                        if (!empty($booking['item_id'])) {
+                            $pdo->prepare("DELETE FROM vehicle_holds WHERE vehicle_id = ?")->execute([$booking['item_id']]);
+                        }
+                    } catch (Exception $eHold) {}
 
                     if (function_exists('sendSystemNotification')) {
                         sendSystemNotification(
@@ -7794,7 +8438,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $upd = $pdo->prepare("UPDATE bookings SET 
                     vendor_payout_status = 'Settled',
-                    vendor_payout_date = datetime('now'),
+                    vendor_payout_date = CURRENT_TIMESTAMP,
                     vendor_payout_reference = ?,
                     vendor_payout_utr = ?,
                     vendor_payout_amount = ?,
@@ -7803,7 +8447,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $upd->execute([$payoutRef, $payoutRef, $settleAmt, $payoutNotes, $bookingId]);
 
                 $notesText = !empty($payoutNotes) ? " Notes: {$payoutNotes}" : "";
-                $insSet = $pdo->prepare("INSERT INTO settlements (admin_id, vendor_id, amount, method, status, reference, remarks, created_at) VALUES (?, ?, ?, 'Bank / UPI Payout', 'settled', ?, ?, datetime('now'))");
+                $insSet = $pdo->prepare("INSERT INTO settlements (admin_id, vendor_id, amount, method, status, reference, remarks, created_at) VALUES (?, ?, ?, 'Bank / UPI Payout', 'settled', ?, ?, CURRENT_TIMESTAMP)");
                 $insSet->execute([$adminUser, $vendorId, intval($settleAmt), $payoutRef, "Vendor payout for Booking #{$bookingId}.{$notesText}"]);
 
                 if (function_exists('sendSystemNotification')) {
@@ -7858,7 +8502,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $calc = BookingService::calculateCancellationRefund($pdo, $booking, $cancelTime ?: null);
-            echo json_encode(["success" => true, "calculation" => $calc]);
+            echo json_encode(["success" => true, "status" => "success", "calculation" => $calc]);
             exit();
         } elseif ($action === 'customer_cancel_booking') {
             $bookingId = trim($payload['booking_id'] ?? '');
@@ -7886,7 +8530,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $upd = $pdo->prepare("UPDATE bookings SET 
                     status = 'Cancelled',
                     cancellation_status = 'Cancelled',
-                    cancellation_requested_at = datetime('now'),
+                    cancellation_requested_at = CURRENT_TIMESTAMP,
                     cancellation_refund_percentage = ?,
                     cancellation_refund_amount = ?,
                     cancellation_platform_fee = ?,
@@ -7904,11 +8548,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $bookingId
                 ]);
 
+                // Step 8: Release temporary inventory holds upon customer cancellation
+                try {
+                    $pdo->exec("DELETE FROM vehicle_holds WHERE held_until < CURRENT_TIMESTAMP");
+                    if (!empty($booking['item_id'])) {
+                        $pdo->prepare("DELETE FROM vehicle_holds WHERE vehicle_id = ?")->execute([$booking['item_id']]);
+                    }
+                } catch (Exception $eHold) {}
+
                 if (!function_exists('sendSystemNotification')) {
                     function sendSystemNotification($pdo, $userId, $role, $title, $message, $refType = 'booking', $refId = '') {
                         try {
                             $id = 'notif_' . uniqid();
-                            $stmt = $pdo->prepare("INSERT INTO notifications (id, user_id, role, type, title, message, reference_type, reference_id, is_read, created_at) VALUES (?, ?, ?, 'system', ?, ?, ?, ?, 0, datetime('now'))");
+                            $stmt = $pdo->prepare("INSERT INTO notifications (id, user_id, role, type, title, message, reference_type, reference_id, is_read, created_at) VALUES (?, ?, ?, 'system', ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)");
                             $stmt->execute([$id, $userId, $role, $title, $message, $refType, $refId]);
                         } catch (Exception $e) {}
                     }
@@ -7940,6 +8592,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 echo json_encode([
                     "success" => true,
+                    "status" => "success",
                     "message" => "Booking cancelled successfully.",
                     "cancellation" => $calc
                 ]);
@@ -8279,7 +8932,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Also add to users table
             try {
-                $stmtUser = $pdo->prepare("INSERT OR REPLACE INTO users (id, username, name, email, phone, city, password_hash, plain_password, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'driver', 'pending', ?)");
+                $stmtUser = $pdo->prepare("REPLACE INTO users (id, username, name, email, phone, city, password_hash, plain_password, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'driver', 'pending', ?)");
                 $stmtUser->execute(["u-" . $driverId, $email, $name, $email, $phone, $address, $hash, $password, $now]);
             } catch (Exception $ue) {
                 try {
@@ -9012,7 +9665,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Ensure vendor wallet row exists
-            $pdo->prepare("INSERT OR IGNORE INTO vendor_wallets (id, vendor_id, balance, negative_booking_count, minimum_balance) VALUES (?, ?, 0, 0, 5000)")->execute(['wall_' . uniqid(), $vendor_id]);
+            $pdo->prepare(sqlInsertIgnore($pdo, 'vendor_wallets', 'id, vendor_id, balance, negative_booking_count, minimum_balance', '?, ?, 0, 0, 5000'))->execute(['wall_' . uniqid(), $vendor_id]);
             
             // All offline payment requests start in 'Pending Verification'
             $status = ($payload['payment_method'] === 'Razorpay' || $payload['payment_method'] === 'Stripe') ? 'Completed' : 'Pending Verification';
@@ -9020,7 +9673,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $stmt = $pdo->prepare("INSERT INTO wallet_transactions (
                 id, vendor_id, amount, type, reference_id, payment_proof, status, description, admin_id, created_at
-            ) VALUES (?, ?, ?, 'credit', ?, ?, ?, ?, ?, datetime('now'))");
+            ) VALUES (?, ?, ?, 'credit', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
             $stmt->execute([
                 $txId, 
                 $vendor_id, 
@@ -9045,7 +9698,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmtOldLogs = $pdo->prepare("SELECT DISTINCT alert_id FROM vendor_wallet_alert_logs WHERE vendor_id = ?");
                         $stmtOldLogs->execute([$vendor_id]);
                         $oldIds = $stmtOldLogs->fetchAll(PDO::FETCH_COLUMN);
-                        $stmtInsD = $pdo->prepare("INSERT OR IGNORE INTO vendor_wallet_alert_dismissals (vendor_id, alert_id, dismissed_at) VALUES (?, ?, datetime('now'))");
+                        $stmtInsD = $pdo->prepare(sqlInsertIgnore($pdo, 'vendor_wallet_alert_dismissals', 'vendor_id, alert_id, dismissed_at', '?, ?, CURRENT_TIMESTAMP'));
                         foreach ($oldIds as $oid) {
                             if (!empty($oid)) $stmtInsD->execute([$vendor_id, $oid]);
                         }
@@ -9103,7 +9756,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $wallet = $stmtW->fetch(PDO::FETCH_ASSOC);
 
                     if (!$wallet) {
-                        $pdo->prepare("INSERT OR IGNORE INTO vendor_wallets (id, vendor_id, balance, negative_booking_count, minimum_balance) VALUES (?, ?, 0, 0, 5000)")->execute(['wall_' . uniqid(), $vendorId]);
+                        $pdo->prepare(sqlInsertIgnore($pdo, 'vendor_wallets', 'id, vendor_id, balance, negative_booking_count, minimum_balance', '?, ?, 0, 0, 5000'))->execute(['wall_' . uniqid(), $vendorId]);
                         $wallet = ['balance' => 0.00, 'negative_booking_count' => 0];
                     }
 
@@ -9121,7 +9774,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     // Update Vendor Wallet balance & negative booking count
-                    $stmtUpdW = $pdo->prepare("UPDATE vendor_wallets SET balance = ?, negative_booking_count = ?, updated_at = datetime('now') WHERE vendor_id = ?");
+                    $stmtUpdW = $pdo->prepare("UPDATE vendor_wallets SET balance = ?, negative_booking_count = ?, updated_at = CURRENT_TIMESTAMP WHERE vendor_id = ?");
                     $stmtUpdW->execute([$balanceAfter, $newNegCount, $vendorId]);
 
                     // When balanceAfter >= 0: clear warning & reminder states
@@ -9137,7 +9790,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $stmtOldLogs = $pdo->prepare("SELECT DISTINCT alert_id FROM vendor_wallet_alert_logs WHERE vendor_id = ?");
                             $stmtOldLogs->execute([$vendorId]);
                             $oldIds = $stmtOldLogs->fetchAll(PDO::FETCH_COLUMN);
-                            $stmtInsD = $pdo->prepare("INSERT OR IGNORE INTO vendor_wallet_alert_dismissals (vendor_id, alert_id, dismissed_at) VALUES (?, ?, datetime('now'))");
+                            $stmtInsD = $pdo->prepare(sqlInsertIgnore($pdo, 'vendor_wallet_alert_dismissals', 'vendor_id, alert_id, dismissed_at', '?, ?, CURRENT_TIMESTAMP'));
                             foreach ($oldIds as $oid) {
                                 if (!empty($oid)) $stmtInsD->execute([$vendorId, $oid]);
                             }
@@ -9356,7 +10009,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare("UPDATE global_settings SET hotel_booking_driver_enabled = ? WHERE id = 1");
                 $stmt->execute([$driverEnabled]);
                 if ($stmt->rowCount() === 0) {
-                    $pdo->prepare("INSERT OR REPLACE INTO global_settings (id, siteName, hotel_booking_driver_enabled) VALUES (1, 'TripGalileo', ?)")->execute([$driverEnabled]);
+                    $pdo->prepare("REPLACE INTO global_settings (id, siteName, hotel_booking_driver_enabled) VALUES (1, 'TripGalileo', ?)")->execute([$driverEnabled]);
                 }
 
                 echo json_encode([
@@ -9377,7 +10030,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("UPDATE ai_settings SET chatbot_enabled = ?, auto_create_leads = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1");
             $stmt->execute([$enabled, $autoLeads]);
             if ($stmt->rowCount() === 0) {
-                $pdo->prepare("INSERT OR REPLACE INTO ai_settings (id, chatbot_enabled, auto_create_leads) VALUES (1, ?, ?)")->execute([$enabled, $autoLeads]);
+                $pdo->prepare("REPLACE INTO ai_settings (id, chatbot_enabled, auto_create_leads) VALUES (1, ?, ?)")->execute([$enabled, $autoLeads]);
             }
             echo json_encode([
                 "success" => true,
@@ -9813,8 +10466,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $pdo->beginTransaction();
             try {
+                $regNo = trim($payload['registration_no'] ?? '');
+                $permitType = trim($payload['permit_type'] ?? ($isCar ? 'Commercial Rent-A-Cab (Black Plate)' : 'Commercial Rent-A-Bike (Black Plate)'));
+                $secDeposit = (isset($payload['security_deposit']) && $payload['security_deposit'] !== '') ? intval($payload['security_deposit']) : ($isCar ? 3000 : 1000);
+                $kmLimit = trim($payload['km_limit'] ?? 'Unlimited Kms');
+                $fuelPol = trim($payload['fuel_policy'] ?? 'Same-to-Same');
+                $helmets = intval($payload['helmets_included'] ?? 2);
+                $hasMob = isset($payload['has_mobile_holder']) ? (filter_var($payload['has_mobile_holder'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0) : 1;
+                $hasFastag = isset($payload['has_fastag']) ? (filter_var($payload['has_fastag'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0) : 1;
+                $hasAc = isset($payload['has_ac']) ? (filter_var($payload['has_ac'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0) : 1;
+                $luggage = trim($payload['luggage_capacity'] ?? '2 Large Bags');
+                $delOpt = trim($payload['delivery_options'] ?? 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup');
+                $minAge = intval($payload['min_age'] ?? ($isCar ? 21 : 18));
+
                 if ($isCar) {
-                    $stmt = $pdo->prepare("INSERT INTO cars (id, vendor_id, name, category, price, seating, fuel, transmission, image, images_json, location, is_available, admin_id, mileage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)");
+                    $stmt = $pdo->prepare("INSERT INTO cars (id, vendor_id, name, category, price, seating, fuel, transmission, image, images_json, location, is_available, admin_id, mileage, registration_no, permit_type, security_deposit, km_limit, fuel_policy, has_ac, has_fastag, luggage_capacity, delivery_options, min_age) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $stmt->execute([
                         $id,
                         $vendorId,
@@ -9828,10 +10494,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $images_json,
                         $payload['location'] ?? 'Goa Delivery',
                         $tenant_id,
-                        $payload['mileage'] ?? ''
+                        $payload['mileage'] ?? '',
+                        $regNo,
+                        $permitType,
+                        $secDeposit,
+                        $kmLimit,
+                        $fuelPol,
+                        $hasAc,
+                        $hasFastag,
+                        $luggage,
+                        $delOpt,
+                        $minAge
                     ]);
                 } else {
-                    $stmt = $pdo->prepare("INSERT INTO bikes (id, vendor_id, name, category, price, engine, fuel, mileage, image, images_json, location, is_available, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)");
+                    $stmt = $pdo->prepare("INSERT INTO bikes (id, vendor_id, name, category, price, engine, fuel, mileage, image, images_json, location, is_available, admin_id, registration_no, permit_type, security_deposit, km_limit, fuel_policy, helmets_included, has_mobile_holder, delivery_options, min_age) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $stmt->execute([
                         $id,
                         $vendorId,
@@ -9844,7 +10520,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $image,
                         $images_json,
                         $payload['location'] ?? 'Goa Delivery',
-                        $tenant_id
+                        $tenant_id,
+                        $regNo,
+                        $permitType,
+                        $secDeposit,
+                        $kmLimit,
+                        $fuelPol,
+                        $helmets,
+                        $hasMob,
+                        $delOpt,
+                        $minAge
                     ]);
                 }
 
@@ -9855,12 +10540,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $cleanPrefix = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $payload['name'] ?? 'VEH'), 0, 3));
                 if (strlen($cleanPrefix) < 3) $cleanPrefix = str_pad($cleanPrefix, 3, 'X');
 
-                $insUnit = $pdo->prepare("INSERT INTO vehicle_units (id, vehicle_id, vendor_id, unit_name, registration_no, status, created_at) VALUES (?, ?, ?, ?, ?, 'Active', datetime('now'))");
+                $insUnit = $pdo->prepare("INSERT INTO vehicle_units (id, vehicle_id, vendor_id, unit_name, registration_no, status, created_at) VALUES (?, ?, ?, ?, ?, 'Active', CURRENT_TIMESTAMP)");
                 for ($i = 1; $i <= $fleetQty; $i++) {
                     $customUnit = $unitsInput[$i - 1] ?? [];
                     $unitId = !empty($customUnit['id']) ? $customUnit['id'] : ("U-{$unitHash}-" . sprintf('%02d', $i));
                     $unitName = !empty($customUnit['unit_name']) ? $customUnit['unit_name'] : ($payload['name'] . ($i === 1 ? ' Unit 1' : " (Fleet Unit #{$i})"));
-                    $unitReg = !empty($customUnit['registration_no']) ? $customUnit['registration_no'] : ("GA-01-{$cleanPrefix}-" . rand(1000, 9999));
+                    // Use explicit registration number for unit 1 if provided
+                    $defaultReg = ($i === 1 && !empty($regNo)) ? $regNo : ("GA-01-{$cleanPrefix}-" . rand(1000, 9999));
+                    $unitReg = !empty($customUnit['registration_no']) ? $customUnit['registration_no'] : $defaultReg;
                     
                     $insUnit->execute([
                         $unitId,
@@ -9951,8 +10638,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $vImagesJson = !empty($images_json) ? $images_json : ($existing['images_json'] ?? null);
                 $vLoc = !empty($payload['location']) ? $payload['location'] : ($existing['location'] ?? 'Goa Delivery');
                 $vMileage = !empty($payload['mileage']) ? $payload['mileage'] : ($existing['mileage'] ?? '');
+                $vReg = isset($payload['registration_no']) ? trim($payload['registration_no']) : ($existing['registration_no'] ?? '');
+                $vPermit = isset($payload['permit_type']) ? trim($payload['permit_type']) : ($existing['permit_type'] ?? 'Commercial Rent-A-Cab (Black Plate)');
+                $vDeposit = (isset($payload['security_deposit']) && $payload['security_deposit'] !== '') ? intval($payload['security_deposit']) : intval($existing['security_deposit'] ?? 3000);
+                $vKm = isset($payload['km_limit']) ? trim($payload['km_limit']) : ($existing['km_limit'] ?? 'Unlimited Kms');
+                $vFuelPol = isset($payload['fuel_policy']) ? trim($payload['fuel_policy']) : ($existing['fuel_policy'] ?? 'Same-to-Same');
+                $vAc = isset($payload['has_ac']) ? (filter_var($payload['has_ac'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0) : intval($existing['has_ac'] ?? 1);
+                $vFastag = isset($payload['has_fastag']) ? (filter_var($payload['has_fastag'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0) : intval($existing['has_fastag'] ?? 1);
+                $vLuggage = isset($payload['luggage_capacity']) ? trim($payload['luggage_capacity']) : ($existing['luggage_capacity'] ?? '2 Large Bags');
+                $vDel = isset($payload['delivery_options']) ? trim($payload['delivery_options']) : ($existing['delivery_options'] ?? 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup');
+                $vMinAge = isset($payload['min_age']) ? intval($payload['min_age']) : intval($existing['min_age'] ?? 21);
 
-                $stmt = $pdo->prepare("UPDATE cars SET name=?, category=?, price=?, seating=?, fuel=?, transmission=?, image=?, images_json=?, location=?, mileage=? WHERE id=?");
+                $stmt = $pdo->prepare("UPDATE cars SET name=?, category=?, price=?, seating=?, fuel=?, transmission=?, image=?, images_json=?, location=?, mileage=?, registration_no=?, permit_type=?, security_deposit=?, km_limit=?, fuel_policy=?, has_ac=?, has_fastag=?, luggage_capacity=?, delivery_options=?, min_age=? WHERE id=?");
                 $stmt->execute([
                     $vName,
                     $vCat,
@@ -9964,8 +10661,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $vImagesJson,
                     $vLoc,
                     $vMileage,
+                    $vReg,
+                    $vPermit,
+                    $vDeposit,
+                    $vKm,
+                    $vFuelPol,
+                    $vAc,
+                    $vFastag,
+                    $vLuggage,
+                    $vDel,
+                    $vMinAge,
                     $id
                 ]);
+
+                if (!empty($vReg)) {
+                    try {
+                        $updUnit = $pdo->prepare("UPDATE vehicle_units SET registration_no = ? WHERE vehicle_id = ? ORDER BY id ASC LIMIT 1");
+                        $updUnit->execute([$vReg, $id]);
+                    } catch (Throwable $e) {}
+                }
             } else {
                 $existing = $existingBike ?: [];
                 $vName = !empty($payload['name']) ? $payload['name'] : ($existing['name'] ?? '');
@@ -9977,8 +10691,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $vImage = !empty($image) ? $image : ($existing['image'] ?? '');
                 $vImagesJson = !empty($images_json) ? $images_json : ($existing['images_json'] ?? null);
                 $vLoc = !empty($payload['location']) ? $payload['location'] : ($existing['location'] ?? 'Goa Delivery');
+                $vReg = isset($payload['registration_no']) ? trim($payload['registration_no']) : ($existing['registration_no'] ?? '');
+                $vPermit = isset($payload['permit_type']) ? trim($payload['permit_type']) : ($existing['permit_type'] ?? 'Commercial Rent-A-Bike (Black Plate)');
+                $vDeposit = (isset($payload['security_deposit']) && $payload['security_deposit'] !== '') ? intval($payload['security_deposit']) : intval($existing['security_deposit'] ?? 1000);
+                $vKm = isset($payload['km_limit']) ? trim($payload['km_limit']) : ($existing['km_limit'] ?? 'Unlimited Kms');
+                $vFuelPol = isset($payload['fuel_policy']) ? trim($payload['fuel_policy']) : ($existing['fuel_policy'] ?? 'Same-to-Same');
+                $vHelmets = isset($payload['helmets_included']) ? intval($payload['helmets_included']) : intval($existing['helmets_included'] ?? 2);
+                $vHasMob = isset($payload['has_mobile_holder']) ? (filter_var($payload['has_mobile_holder'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0) : intval($existing['has_mobile_holder'] ?? 1);
+                $vDel = isset($payload['delivery_options']) ? trim($payload['delivery_options']) : ($existing['delivery_options'] ?? 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup');
+                $vMinAge = isset($payload['min_age']) ? intval($payload['min_age']) : intval($existing['min_age'] ?? 18);
 
-                $stmt = $pdo->prepare("UPDATE bikes SET name=?, category=?, price=?, engine=?, fuel=?, mileage=?, image=?, images_json=?, location=? WHERE id=?");
+                $stmt = $pdo->prepare("UPDATE bikes SET name=?, category=?, price=?, engine=?, fuel=?, mileage=?, image=?, images_json=?, location=?, registration_no=?, permit_type=?, security_deposit=?, km_limit=?, fuel_policy=?, helmets_included=?, has_mobile_holder=?, delivery_options=?, min_age=? WHERE id=?");
                 $stmt->execute([
                     $vName,
                     $vCat,
@@ -9989,8 +10712,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $vImage,
                     $vImagesJson,
                     $vLoc,
+                    $vReg,
+                    $vPermit,
+                    $vDeposit,
+                    $vKm,
+                    $vFuelPol,
+                    $vHelmets,
+                    $vHasMob,
+                    $vDel,
+                    $vMinAge,
                     $id
                 ]);
+
+                if (!empty($vReg)) {
+                    try {
+                        $updUnit = $pdo->prepare("UPDATE vehicle_units SET registration_no = ? WHERE vehicle_id = ? ORDER BY id ASC LIMIT 1");
+                        $updUnit->execute([$vReg, $id]);
+                    } catch (Throwable $e) {}
+                }
             }
 
             // Adjust fleet physical units if fleet_quantity provided
@@ -10023,7 +10762,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $newUnitId = "U-{$unitHash}-" . sprintf('%02d', $idx);
                             $newUnitName = "{$vName} (Fleet Unit #{$idx})";
                             $newReg = "GA-01-{$cleanPrefix}-" . rand(1000, 9999);
-                            $pdo->prepare("INSERT INTO vehicle_units (id, vehicle_id, vendor_id, unit_name, registration_no, status, created_at) VALUES (?, ?, ?, ?, ?, 'Active', datetime('now'))")
+                            $pdo->prepare("INSERT INTO vehicle_units (id, vehicle_id, vendor_id, unit_name, registration_no, status, created_at) VALUES (?, ?, ?, ?, ?, 'Active', CURRENT_TIMESTAMP)")
                                 ->execute([$newUnitId, $id, $ownerVendor, $newUnitName, $newReg]);
                         }
                     }
@@ -10188,7 +10927,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $regNo = !empty($payload['registration_no']) ? $payload['registration_no'] : ("GA-01-{$cleanPrefix}-" . rand(1000, 9999));
             $status = !empty($payload['status']) ? $payload['status'] : 'Active';
             
-            $ins = $pdo->prepare("INSERT INTO vehicle_units (id, vehicle_id, vendor_id, unit_name, registration_no, status, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))");
+            $ins = $pdo->prepare("INSERT INTO vehicle_units (id, vehicle_id, vendor_id, unit_name, registration_no, status, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
             $ins->execute([$unitId, $vehicleId, $vendorId, $unitName, $regNo, $status]);
             
             echo json_encode(["success" => true, "id" => $unitId, "message" => "Vehicle unit added successfully."]);
@@ -10710,9 +11449,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     date('Y-m-d H:i:s'), date('Y-m-d H:i:s')
                 ]);
             } catch (Exception $e) {
-                // SQLite fallback
+                // Fallback
                 try {
-                    $insLite = $pdo->prepare("INSERT OR REPLACE INTO birthday_message_logs (id, customer_id, customer_name, phone, email, birthday_year, birthday_date, highest_tier, message_text, channel, status, sent_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $insLite = $pdo->prepare("REPLACE INTO birthday_message_logs (id, customer_id, customer_name, phone, email, birthday_year, birthday_date, highest_tier, message_text, channel, status, sent_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $insLite->execute([
                         $logId, $custId, $custName, $phone, $payload['email'] ?? '',
                         $currentYear, date('Y-m-d'), $tier, $msg, $channel, $status,
@@ -10735,7 +11474,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmtOff = $pdo->prepare("INSERT INTO birthday_offers (tier, title, offer_type, discount_amount, discount_percent, message_template, updated_at) VALUES (?, ?, 'discount', ?, ?, ?, ?) ON DUPLICATE KEY UPDATE title = VALUES(title), discount_amount = VALUES(discount_amount), discount_percent = VALUES(discount_percent), message_template = VALUES(message_template), updated_at = VALUES(updated_at)");
                 $stmtOff->execute([$tier, $title, $discountAmt, $discountPct, $msg, date('Y-m-d H:i:s')]);
             } catch (Exception $e) {
-                $stmtOff2 = $pdo->prepare("INSERT OR REPLACE INTO birthday_offers (tier, title, offer_type, discount_amount, discount_percent, message_template, updated_at) VALUES (?, ?, 'discount', ?, ?, ?, ?)");
+                $stmtOff2 = $pdo->prepare("REPLACE INTO birthday_offers (tier, title, offer_type, discount_amount, discount_percent, message_template, updated_at) VALUES (?, ?, 'discount', ?, ?, ?, ?)");
                 $stmtOff2->execute([$tier, $title, $discountAmt, $discountPct, $msg, date('Y-m-d H:i:s')]);
             }
 
@@ -11313,7 +12052,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             )");
             $stmt->execute();
             
-            $stmt = $pdo->prepare("INSERT INTO flight_bookings (id, booking_reference, pnr, total_amount, currency, passengers_json, slices_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))");
+            $stmt = $pdo->prepare("INSERT INTO flight_bookings (id, booking_reference, pnr, total_amount, currency, passengers_json, slices_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
             $stmt->execute([
                 $order['id'],
                 $order['booking_reference'],
@@ -13355,11 +14094,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $capLeadId = $exLead['id'];
                         } else {
                             $capLeadId = 'LD-' . rand(1000, 9999);
-                            $stmt = $pdo->prepare("INSERT INTO leads (id, name, phone, source, service, status, notes, admin_id, created_at, updated_at) VALUES (?, ?, ?, 'AI Planner', 'Live Chat Phone Capture', 'Hot Lead', ?, 'admin', datetime('now'), datetime('now'))");
+                            $stmt = $pdo->prepare("INSERT INTO leads (id, name, phone, source, service, status, notes, admin_id, created_at, updated_at) VALUES (?, ?, ?, 'AI Planner', 'Live Chat Phone Capture', 'Hot Lead', ?, 'admin', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
                             $stmt->execute([$capLeadId, 'Customer ' . substr($capturedPhone, -4), $capturedPhone, 'Phone number shared in chat: ' . $latestUserMsg]);
                         }
                         $capAiId = 'ai-' . uniqid();
-                        $stmtAi = $pdo->prepare("INSERT OR REPLACE INTO ai_leads (id, name, phone, notes, service, status, created_at) VALUES (?, ?, ?, ?, 'AI Travel Assistant Chat', 'Hot Lead', datetime('now'))");
+                        $stmtAi = $pdo->prepare("REPLACE INTO ai_leads (id, name, phone, notes, service, status, created_at) VALUES (?, ?, ?, ?, 'AI Travel Assistant Chat', 'Hot Lead', CURRENT_TIMESTAMP)");
                         $stmtAi->execute([$capAiId, 'Customer ' . substr($capturedPhone, -4), $capturedPhone, 'Customer shared contact: ' . $latestUserMsg]);
 
                         createAuthoritativeNotification($pdo, 'superadmin', 'superadmin', 'lead', "New AI Lead: " . $capturedPhone, "Customer shared contact ($capturedPhone): $latestUserMsg", 'lead', $capLeadId);
@@ -14180,7 +14919,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // 9. Insert review
             $stmtIns = $pdo->prepare("INSERT INTO customer_reviews 
                 (id, booking_id, customer_id, customer_name, customer_phone, customer_email, service_type, service_name, vendor_id, rating, review_text, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))");
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
             $stmtIns->execute([
                 $reviewId,
                 $bookingId,
@@ -14588,7 +15327,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($dates as $date) {
                 $id = 'avail_' . $hotel_id . '_' . $room_type_id . '_' . str_replace('-', '', $date);
                 if ($isSqlite) {
-                    $stmt = $pdo->prepare("INSERT OR REPLACE INTO hotel_availability_calendar (id, hotel_id, room_type_id, vendor_id, date, available_rooms, price_override, status, min_stay, stop_sale, block_reason) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+                    $stmt = $pdo->prepare("REPLACE INTO hotel_availability_calendar (id, hotel_id, room_type_id, vendor_id, date, available_rooms, price_override, status, min_stay, stop_sale, block_reason) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
                 } else {
                     $stmt = $pdo->prepare("INSERT INTO hotel_availability_calendar (id, hotel_id, room_type_id, vendor_id, date, available_rooms, price_override, status, min_stay, stop_sale, block_reason) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE available_rooms=VALUES(available_rooms), price_override=VALUES(price_override), status=VALUES(status), min_stay=VALUES(min_stay), stop_sale=VALUES(stop_sale), block_reason=VALUES(block_reason)");
                 }

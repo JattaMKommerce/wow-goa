@@ -5,6 +5,7 @@ import {
   TrendingUp, Award, Headphones, ChevronRight, ChevronDown, ShieldAlert 
 } from 'lucide-react';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
+import ForgotPasswordModal from './ForgotPasswordModal';
 
 export default function LoginModal({ isOpen, onClose, onLogin }) {
   const [username, setUsername] = useState('');
@@ -12,6 +13,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
   const [showPass, setShowPass] = useState(false);
   const [showQuickDemo, setShowQuickDemo] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -218,7 +220,14 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
             </div>
 
             <div className="text-end mb-4">
-              <a href="#forgot" className="text-xs fw-bold text-warning text-decoration-none" onClick={(e) => { e.preventDefault(); alert('Please contact administrator to reset password.'); }}>
+              <a 
+                href="#forgot" 
+                className="text-xs fw-bold text-warning text-decoration-none cursor-pointer" 
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  setShowForgotPassword(true); 
+                }}
+              >
                 Forgot Password?
               </a>
             </div>
@@ -334,6 +343,20 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
         </div>
 
       </div>
+
+      {showForgotPassword && (
+        <ForgotPasswordModal
+          isOpen={showForgotPassword}
+          onClose={() => setShowForgotPassword(false)}
+          initialIdentifier={username}
+          onSuccessReturnToLogin={(usedId) => {
+            if (usedId) setUsername(usedId);
+            setPassword('');
+            setErrorMsg('Password reset successfully! Please sign in with your new password.');
+            setShowForgotPassword(false);
+          }}
+        />
+      )}
     </div>,
     document.body
   );

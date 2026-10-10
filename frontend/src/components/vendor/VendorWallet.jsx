@@ -40,8 +40,10 @@ export default function VendorWallet({ currentUser }) {
 
   const vendorId = currentUser?.id;
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (isSilent = false) => {
+    if (!isSilent && !wallet) {
+      setLoading(true);
+    }
     try {
       const [wRes, tRes, gwRes] = await Promise.all([
         apiFetch(`${API_BASE}?resource=vendor_wallet_info&vendor_id=${vendorId}`),
@@ -55,15 +57,18 @@ export default function VendorWallet({ currentUser }) {
       setMinRecharge(wData.config_min_recharge || 5000);
       setTransactions(Array.isArray(tData) ? tData : []);
       setGateways(Array.isArray(gwData) ? gwData.filter(g => g.is_active) : []);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) { 
+      console.error(e); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   useEffect(() => { 
     if (vendorId) load(); 
 
     const handleSync = () => {
-      if (vendorId) load();
+      if (vendorId) load(true);
     };
 
     window.addEventListener('tripgalileo-notification-sync', handleSync);
@@ -74,8 +79,8 @@ export default function VendorWallet({ currentUser }) {
     window.addEventListener('storage', handleStorage);
 
     const interval = setInterval(() => {
-      if (vendorId) load();
-    }, 10000);
+      if (vendorId) load(true);
+    }, 15000);
 
     return () => {
       clearInterval(interval);
@@ -162,7 +167,7 @@ export default function VendorWallet({ currentUser }) {
     return <CreditCard size={14} />;
   };
 
-  if (loading) return <div className="p-4 text-center"><div className="spinner-border" style={{ color: COLORS.primary }} /></div>;
+  if (loading && !wallet) return <div className="p-4 text-center"><div className="spinner-border" style={{ color: COLORS.primary }} /></div>;
 
   return (
     <div className="p-4">

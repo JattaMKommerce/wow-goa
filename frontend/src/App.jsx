@@ -229,6 +229,7 @@ export default function App() {
   const [userLicense, setUserLicense] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastConfirmedBooking, setLastConfirmedBooking] = useState(null);
+  const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
   const [enquiryPrefillPackage, setEnquiryPrefillPackage] = useState(null);
   const [pendingActivityBooking, setPendingActivityBooking] = useState(null);
 
@@ -1481,6 +1482,8 @@ export default function App() {
 
   const handleConfirmBooking = async (e, paymentMethodId, extraDetails = {}) => {
     if (e && e.preventDefault) e.preventDefault();
+    if (isBookingSubmitting) return;
+
     setShowSuccess(false);
     setLastConfirmedBooking(null);
     const cleanPhone = String(userPhone || '').replace(/\D/g, '');
@@ -1500,6 +1503,7 @@ export default function App() {
       alert(val.error);
       return;
     }
+    setIsBookingSubmitting(true);
     try {
       const days = extraDetails.bookingDays || bookingDays || val.days || 1;
       const totalCost = extraDetails.total || ((selectedBookingItem.price || 0) * days);
@@ -1543,6 +1547,7 @@ export default function App() {
       const customerEmail = cleanEmail;
 
       const payload = {
+        idempotency_key: extraDetails.idempotency_key || ('idem_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11)),
         name: userName,
         customer_name: userName,
         phone: cleanPhone,
@@ -1637,11 +1642,14 @@ export default function App() {
       setBookingsList(freshBookings);
     } catch (e) {
       alert(e.message || "Failed to submit booking. Please try again.");
+    } finally {
+      setIsBookingSubmitting(false);
     }
   };
 
   // Authoritative Close Window & Teardown handler: clears selected item and confirmation state completely
   const handleCloseBookingModal = () => {
+    setIsBookingSubmitting(false);
     setSelectedBookingItem(null);
     setShowSuccess(false);
     setLastConfirmedBooking(null);
@@ -1675,9 +1683,9 @@ export default function App() {
     );
   }
 
-  // ─── DYNAMIC VENDOR STOREFRONT & TRACKER ROUTING (/v/:slug) ────────────────
-  if (path.startsWith('/v/')) {
-    const cleanPath = path.substring(3);
+  // ─── DYNAMIC VENDOR STOREFRONT & TRACKER ROUTING (/v/:slug or /storefront/:slug) ────────────────
+  if (path.startsWith('/v/') || path.startsWith('/storefront/')) {
+    const cleanPath = path.startsWith('/v/') ? path.substring(3) : path.substring(12);
     const segments = cleanPath.split('/').filter(Boolean);
     const slug = segments[0] ? segments[0].split('?')[0] : '';
     const isTrack = segments[1] === 'track';

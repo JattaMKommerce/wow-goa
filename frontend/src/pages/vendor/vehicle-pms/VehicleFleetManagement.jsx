@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, ToggleLeft, ToggleRight, X, Save, Camera, Car, Bike, Upload, Loader2, CheckCircle2, Star, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, ToggleLeft, ToggleRight, X, Save, Camera, Car, Bike, Upload, Loader2, CheckCircle2, Star, Image as ImageIcon, ShieldCheck, Key, FileText, CheckCircle, Zap, Shield, PhoneCall, Fuel, Navigation, Disc, Luggage, AlertCircle } from 'lucide-react';
 import { toggleVehicleAvailability, updateVehicle, deleteVehicle, uploadImage, apiFetch, API_BASE } from '../../../services/api';
 
 function VehicleCard({ vehicle, type, onEdit, onToggle, onDelete, isSuspended }) {
@@ -62,16 +62,37 @@ function VehicleCard({ vehicle, type, onEdit, onToggle, onDelete, isSuspended })
           </div>
         </div>
         <div className="p-3 pb-1">
-          <div className="fw-bold mb-1" style={{ color: '#0D1B2E', fontSize: '14px' }}>{vehicle.name}</div>
+          <div className="d-flex justify-content-between align-items-start mb-1">
+            <div className="fw-bold" style={{ color: '#0D1B2E', fontSize: '14px' }}>{vehicle.name}</div>
+            {vehicle.registration_no && (
+              <span className="px-1.5 py-0.5 rounded font-monospace fw-bold" style={{ background: '#0D1B2E', color: '#FACC15', fontSize: '0.62rem', letterSpacing: '0.5px' }}>
+                {vehicle.registration_no}
+              </span>
+            )}
+          </div>
           <div className="d-flex gap-1 flex-wrap mb-2">
-            <span className="px-2 py-1 rounded-2" style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.65rem', fontWeight: 700 }}>
+            <span className="px-2 py-0.5 rounded-2" style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.65rem', fontWeight: 700 }}>
               Fleet: {vehicle.fleet_count || 1} {(vehicle.fleet_count || 1) === 1 ? 'Unit' : 'Units'}
             </span>
-            {vehicle.category && <span className="px-2 py-1 rounded-2" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.65rem', fontWeight: 600 }}>{vehicle.category}</span>}
-            {vehicle.fuel && <span className="px-2 py-1 rounded-2" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.65rem', fontWeight: 600 }}>{vehicle.fuel}</span>}
-            {vehicle.transmission && <span className="px-2 py-1 rounded-2" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.65rem', fontWeight: 600 }}>{vehicle.transmission}</span>}
-            {vehicle.seating && <span className="px-2 py-1 rounded-2" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.65rem', fontWeight: 600 }}>{vehicle.seating}</span>}
-            {vehicle.engine && <span className="px-2 py-1 rounded-2" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.65rem', fontWeight: 600 }}>{vehicle.engine}</span>}
+            <span className="px-2 py-0.5 rounded-2" style={{ background: '#dcfce7', color: '#15803d', fontSize: '0.65rem', fontWeight: 700 }}>
+              💰 ₹{vehicle.security_deposit !== undefined ? Number(vehicle.security_deposit).toLocaleString('en-IN') : (type === 'car' ? '3,000' : '1,000')} Deposit
+            </span>
+            {type === 'bike' && (
+              <span className="px-2 py-0.5 rounded-2" style={{ background: '#fef3c7', color: '#b45309', fontSize: '0.65rem', fontWeight: 700 }}>
+                🪖 {vehicle.helmets_included || 2} Helmets
+              </span>
+            )}
+            {type === 'car' && (vehicle.has_ac !== 0 && vehicle.has_ac !== false) && (
+              <span className="px-2 py-0.5 rounded-2" style={{ background: '#f1f5f9', color: '#334155', fontSize: '0.65rem', fontWeight: 600 }}>❄️ AC</span>
+            )}
+            {type === 'car' && (vehicle.has_fastag !== 0 && vehicle.has_fastag !== false) && (
+              <span className="px-2 py-0.5 rounded-2" style={{ background: '#f1f5f9', color: '#334155', fontSize: '0.65rem', fontWeight: 600 }}>⚡ Fastag</span>
+            )}
+            {vehicle.category && <span className="px-2 py-0.5 rounded-2" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.65rem', fontWeight: 600 }}>{vehicle.category}</span>}
+            {vehicle.fuel && <span className="px-2 py-0.5 rounded-2" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.65rem', fontWeight: 600 }}>{vehicle.fuel}</span>}
+            {vehicle.transmission && <span className="px-2 py-0.5 rounded-2" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.65rem', fontWeight: 600 }}>{vehicle.transmission}</span>}
+            {vehicle.seating && <span className="px-2 py-0.5 rounded-2" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.65rem', fontWeight: 600 }}>{vehicle.seating}</span>}
+            {vehicle.engine && <span className="px-2 py-0.5 rounded-2" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.65rem', fontWeight: 600 }}>{vehicle.engine}</span>}
           </div>
         </div>
       </div>
@@ -227,6 +248,18 @@ export default function VehicleFleetManagement({ currentUser, cars = [], bikes =
     engine: '150cc',
     mileage: '40 km/l',
     location: 'Goa Delivery',
+    registration_no: '',
+    permit_type: 'Commercial Rent-A-Cab (Black Plate)',
+    security_deposit: 3000,
+    km_limit: 'Unlimited Kms',
+    fuel_policy: 'Same-to-Same',
+    helmets_included: 2,
+    has_mobile_holder: true,
+    has_fastag: true,
+    has_ac: true,
+    luggage_capacity: '2 Large Bags',
+    delivery_options: 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup',
+    min_age: 21,
     image: '',
     images: []
   });
@@ -244,6 +277,18 @@ export default function VehicleFleetManagement({ currentUser, cars = [], bikes =
     engine: '150cc',
     mileage: '40 km/l',
     location: 'Goa Delivery',
+    registration_no: '',
+    permit_type: 'Commercial Rent-A-Cab (Black Plate)',
+    security_deposit: 3000,
+    km_limit: 'Unlimited Kms',
+    fuel_policy: 'Same-to-Same',
+    helmets_included: 2,
+    has_mobile_holder: true,
+    has_fastag: true,
+    has_ac: true,
+    luggage_capacity: '2 Large Bags',
+    delivery_options: 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup',
+    min_age: 21,
     image: '',
     images: []
   });
@@ -421,6 +466,18 @@ export default function VehicleFleetManagement({ currentUser, cars = [], bikes =
         engine: editForm.engine,
         mileage: editForm.mileage,
         location: editForm.location,
+        registration_no: editForm.registration_no || '',
+        permit_type: editForm.permit_type || (editing._type === 'car' ? 'Commercial Rent-A-Cab (Black Plate)' : 'Commercial Rent-A-Bike (Black Plate)'),
+        security_deposit: parseInt(editForm.security_deposit, 10) || (editing._type === 'car' ? 3000 : 1000),
+        km_limit: editForm.km_limit || 'Unlimited Kms',
+        fuel_policy: editForm.fuel_policy || 'Same-to-Same',
+        helmets_included: parseInt(editForm.helmets_included, 10) || 2,
+        has_mobile_holder: Boolean(editForm.has_mobile_holder),
+        has_fastag: Boolean(editForm.has_fastag),
+        has_ac: Boolean(editForm.has_ac),
+        luggage_capacity: editForm.luggage_capacity || '2 Large Bags',
+        delivery_options: editForm.delivery_options || 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup',
+        min_age: parseInt(editForm.min_age, 10) || (editing._type === 'car' ? 21 : 18),
         image: primaryImage,
         images: imagesList,
         images_json: JSON.stringify(imagesList)
@@ -472,6 +529,18 @@ export default function VehicleFleetManagement({ currentUser, cars = [], bikes =
         type: addType,
         price: parseInt(addForm.price, 10),
         fleet_quantity: parseInt(addForm.fleet_quantity, 10) || 1,
+        registration_no: addForm.registration_no || '',
+        permit_type: addForm.permit_type || (addType === 'car' ? 'Commercial Rent-A-Cab (Black Plate)' : 'Commercial Rent-A-Bike (Black Plate)'),
+        security_deposit: parseInt(addForm.security_deposit, 10) || (addType === 'car' ? 3000 : 1000),
+        km_limit: addForm.km_limit || 'Unlimited Kms',
+        fuel_policy: addForm.fuel_policy || 'Same-to-Same',
+        helmets_included: parseInt(addForm.helmets_included, 10) || 2,
+        has_mobile_holder: Boolean(addForm.has_mobile_holder),
+        has_fastag: Boolean(addForm.has_fastag),
+        has_ac: Boolean(addForm.has_ac),
+        luggage_capacity: addForm.luggage_capacity || '2 Large Bags',
+        delivery_options: addForm.delivery_options || 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup',
+        min_age: parseInt(addForm.min_age, 10) || (addType === 'car' ? 21 : 18),
         image: primaryImage,
         images: imagesList,
         images_json: JSON.stringify(imagesList),
@@ -495,6 +564,18 @@ export default function VehicleFleetManagement({ currentUser, cars = [], bikes =
         engine: '150cc',
         mileage: '40 km/l',
         location: 'Goa Delivery',
+        registration_no: '',
+        permit_type: 'Commercial Rent-A-Cab (Black Plate)',
+        security_deposit: 3000,
+        km_limit: 'Unlimited Kms',
+        fuel_policy: 'Same-to-Same',
+        helmets_included: 2,
+        has_mobile_holder: true,
+        has_fastag: true,
+        has_ac: true,
+        luggage_capacity: '2 Large Bags',
+        delivery_options: 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup',
+        min_age: 21,
         image: '',
         images: []
       });
@@ -573,9 +654,21 @@ export default function VehicleFleetManagement({ currentUser, cars = [], bikes =
                   seating: veh.seating || '5 Seater',
                   engine: veh.engine || '150cc',
                   mileage: veh.mileage || '40 km/l',
+                  location: veh.location || 'Goa Delivery',
+                  registration_no: veh.registration_no || '',
+                  permit_type: veh.permit_type || (veh._type === 'car' ? 'Commercial Rent-A-Cab (Black Plate)' : 'Commercial Rent-A-Bike (Black Plate)'),
+                  security_deposit: veh.security_deposit !== undefined ? veh.security_deposit : (veh._type === 'car' ? 3000 : 1000),
+                  km_limit: veh.km_limit || 'Unlimited Kms',
+                  fuel_policy: veh.fuel_policy || 'Same-to-Same',
+                  helmets_included: veh.helmets_included !== undefined ? veh.helmets_included : 2,
+                  has_mobile_holder: veh.has_mobile_holder !== undefined ? Boolean(Number(veh.has_mobile_holder)) : true,
+                  has_fastag: veh.has_fastag !== undefined ? Boolean(Number(veh.has_fastag)) : true,
+                  has_ac: veh.has_ac !== undefined ? Boolean(Number(veh.has_ac)) : true,
+                  luggage_capacity: veh.luggage_capacity || '2 Large Bags',
+                  delivery_options: veh.delivery_options || 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup',
+                  min_age: veh.min_age || (veh._type === 'car' ? 21 : 18),
                   image: initialImages[0] || veh.image || '',
-                  images: initialImages,
-                  location: veh.location || 'Goa Delivery'
+                  images: initialImages
                 });
                 setUploadError('');
               }}
@@ -708,6 +801,206 @@ export default function VehicleFleetManagement({ currentUser, cars = [], bikes =
                 <div className="col-6">
                   <label className="form-label fw-bold" style={{ fontSize: '0.78rem', color: '#475569' }}>Location</label>
                   <input type="text" className="form-control" style={{ fontSize: '0.85rem', borderRadius: '8px' }} value={editForm.location || 'Goa Delivery'} onChange={e => setEditForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g. Panaji, Goa" />
+                </div>
+              </div>
+
+              {/* --- SECTION: VEHICLE REGISTRATION & GOA LEGAL PERMIT --- */}
+              <div className="p-3 rounded-3 mb-3 border" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                <div className="d-flex align-items-center gap-1.5 mb-2">
+                  <ShieldCheck size={16} className="text-success" />
+                  <span className="fw-bold text-dark" style={{ fontSize: '0.82rem' }}>Registration &amp; Goa Legal Tourist Permit</span>
+                  <span className="badge bg-success bg-opacity-10 text-success ms-auto" style={{ fontSize: '0.62rem' }}>Goa Law Compliant</span>
+                </div>
+                <div className="row g-2">
+                  <div className="col-12 col-md-6">
+                    <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                      Vehicle Registration Plate (e.g. GA-03-Z-5678)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control text-uppercase font-monospace fw-bold"
+                      style={{ fontSize: '0.85rem', borderRadius: '8px', letterSpacing: '0.5px' }}
+                      value={editForm.registration_no || ''}
+                      onChange={e => setEditForm(f => ({ ...f, registration_no: e.target.value.toUpperCase() }))}
+                      placeholder="e.g. GA-03-Z-5678"
+                    />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                      Permit Type
+                    </label>
+                    <select
+                      className="form-select"
+                      style={{ fontSize: '0.82rem', borderRadius: '8px' }}
+                      value={editForm.permit_type || (editing._type === 'car' ? 'Commercial Rent-A-Cab (Black Plate)' : 'Commercial Rent-A-Bike (Black Plate)')}
+                      onChange={e => setEditForm(f => ({ ...f, permit_type: e.target.value }))}
+                    >
+                      <option value="Commercial Rent-A-Cab (Black Plate)">Commercial Self-Drive (Black Plate / Yellow Font)</option>
+                      <option value="Commercial Rent-A-Bike (Black Plate)">Commercial Rent-a-Bike (Black Plate / Yellow Font)</option>
+                      <option value="Commercial Yellow Board">Commercial Yellow Board (Taxi/Tourist Permit)</option>
+                      <option value="Private Registration">Private Registration (White Board)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* --- SECTION: RENTAL FINANCIALS, DEPOSIT & INCLUSIONS --- */}
+              <div className="p-3 rounded-3 mb-3 border" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                <div className="d-flex align-items-center gap-1.5 mb-2">
+                  <Key size={16} className="text-warning" />
+                  <span className="fw-bold text-dark" style={{ fontSize: '0.82rem' }}>Rental Rules, Security Deposit &amp; Inclusions</span>
+                </div>
+                
+                <div className="row g-2 mb-2">
+                  <div className="col-6">
+                    <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                      Refundable Security Deposit (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-control"
+                      style={{ fontSize: '0.85rem', borderRadius: '8px' }}
+                      value={editForm.security_deposit !== undefined ? editForm.security_deposit : ''}
+                      onFocus={e => {
+                        if (e.target.value === '0') e.target.select();
+                      }}
+                      onChange={e => {
+                        let val = e.target.value;
+                        if (/^0\d+/.test(val)) val = val.replace(/^0+/, '');
+                        setEditForm(f => ({ ...f, security_deposit: val }));
+                      }}
+                      placeholder={editing._type === 'car' ? '3000' : '1000'}
+                    />
+                    <span className="text-muted" style={{ fontSize: '0.65rem' }}>Refunded to guest on return inspection</span>
+                  </div>
+
+                  <div className="col-6">
+                    <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                      Kilometre Allowance
+                    </label>
+                    <select
+                      className="form-select"
+                      style={{ fontSize: '0.82rem', borderRadius: '8px' }}
+                      value={editForm.km_limit || 'Unlimited Kms'}
+                      onChange={e => setEditForm(f => ({ ...f, km_limit: e.target.value }))}
+                    >
+                      <option value="Unlimited Kms">Unlimited Kms across Goa</option>
+                      <option value="250 km / day">250 km / day (₹10/extra km)</option>
+                      <option value="200 km / day">200 km / day (₹12/extra km)</option>
+                      <option value="150 km / day">150 km / day</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="row g-2 mb-2">
+                  <div className="col-6">
+                    <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                      Fuel Policy
+                    </label>
+                    <select
+                      className="form-select"
+                      style={{ fontSize: '0.82rem', borderRadius: '8px' }}
+                      value={editForm.fuel_policy || 'Same-to-Same'}
+                      onChange={e => setEditForm(f => ({ ...f, fuel_policy: e.target.value }))}
+                    >
+                      <option value="Same-to-Same">Same-to-Same Fuel Level</option>
+                      <option value="Full to Full">Full-to-Full Tank</option>
+                      <option value="1 Litre Provided">Reserve + 1 Litre Provided</option>
+                    </select>
+                  </div>
+
+                  {editing._type === 'bike' ? (
+                    <div className="col-6">
+                      <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                        Helmets Provided *
+                      </label>
+                      <select
+                        className="form-select"
+                        style={{ fontSize: '0.82rem', borderRadius: '8px' }}
+                        value={editForm.helmets_included || 2}
+                        onChange={e => setEditForm(f => ({ ...f, helmets_included: e.target.value }))}
+                      >
+                        <option value="2">2 Sanitized ISI Helmets (Rider + Pillion)</option>
+                        <option value="1">1 Helmet (Rider only)</option>
+                        <option value="0">0 (Helmets charged separately)</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="col-6">
+                      <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                        Boot / Luggage Space
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{ fontSize: '0.85rem', borderRadius: '8px' }}
+                        value={editForm.luggage_capacity || '2 Large Bags'}
+                        onChange={e => setEditForm(f => ({ ...f, luggage_capacity: e.target.value }))}
+                        placeholder="e.g. 2 Large Bags, 2 Cabin Bags"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Checklist Toggles */}
+                <div className="d-flex flex-wrap gap-3 mt-2 pt-2 border-top">
+                  {editing._type === 'bike' ? (
+                    <div className="form-check form-switch mb-0">
+                      <input
+                        className="form-check-input cursor-pointer"
+                        type="checkbox"
+                        id="edit_mobile_holder"
+                        checked={Boolean(editForm.has_mobile_holder)}
+                        onChange={e => setEditForm(f => ({ ...f, has_mobile_holder: e.target.checked }))}
+                      />
+                      <label className="form-check-label fw-semibold cursor-pointer" htmlFor="edit_mobile_holder" style={{ fontSize: '0.75rem', color: '#334155' }}>
+                        📱 Mobile GPS Phone Mount Included
+                      </label>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="form-check form-switch mb-0">
+                        <input
+                          className="form-check-input cursor-pointer"
+                          type="checkbox"
+                          id="edit_has_ac"
+                          checked={Boolean(editForm.has_ac)}
+                          onChange={e => setEditForm(f => ({ ...f, has_ac: e.target.checked }))}
+                        />
+                        <label className="form-check-label fw-semibold cursor-pointer" htmlFor="edit_has_ac" style={{ fontSize: '0.75rem', color: '#334155' }}>
+                          ❄️ Air Conditioning (AC) Guaranteed
+                        </label>
+                      </div>
+                      <div className="form-check form-switch mb-0">
+                        <input
+                          className="form-check-input cursor-pointer"
+                          type="checkbox"
+                          id="edit_has_fastag"
+                          checked={Boolean(editForm.has_fastag)}
+                          onChange={e => setEditForm(f => ({ ...f, has_fastag: e.target.checked }))}
+                        />
+                        <label className="form-check-label fw-semibold cursor-pointer" htmlFor="edit_has_fastag" style={{ fontSize: '0.75rem', color: '#334155' }}>
+                          ⚡ Fastag Toll Enabled
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Handover locations info */}
+                <div className="mt-2 pt-2 border-top">
+                  <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                    Available Delivery / Handover Locations
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    style={{ fontSize: '0.82rem', borderRadius: '8px' }}
+                    value={editForm.delivery_options || 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup'}
+                    onChange={e => setEditForm(f => ({ ...f, delivery_options: e.target.value }))}
+                    placeholder="e.g. Mopa Airport, Dabolim Airport, Panjim, Calangute"
+                  />
                 </div>
               </div>
 
@@ -920,6 +1213,206 @@ export default function VehicleFleetManagement({ currentUser, cars = [], bikes =
                 <div className="col-6">
                   <label className="form-label fw-bold" style={{ fontSize: '0.78rem', color: '#475569' }}>Location</label>
                   <input type="text" className="form-control" style={{ fontSize: '0.85rem', borderRadius: '8px' }} value={addForm.location} onChange={e => setAddForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g. Goa Delivery" />
+                </div>
+              </div>
+
+              {/* --- SECTION: VEHICLE REGISTRATION & GOA LEGAL PERMIT --- */}
+              <div className="p-3 rounded-3 mb-3 border" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                <div className="d-flex align-items-center gap-1.5 mb-2">
+                  <ShieldCheck size={16} className="text-success" />
+                  <span className="fw-bold text-dark" style={{ fontSize: '0.82rem' }}>Registration &amp; Goa Legal Tourist Permit</span>
+                  <span className="badge bg-success bg-opacity-10 text-success ms-auto" style={{ fontSize: '0.62rem' }}>Goa Law Compliant</span>
+                </div>
+                <div className="row g-2">
+                  <div className="col-12 col-md-6">
+                    <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                      Vehicle Registration Plate (e.g. GA-03-Z-5678)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control text-uppercase font-monospace fw-bold"
+                      style={{ fontSize: '0.85rem', borderRadius: '8px', letterSpacing: '0.5px' }}
+                      value={addForm.registration_no || ''}
+                      onChange={e => setAddForm(f => ({ ...f, registration_no: e.target.value.toUpperCase() }))}
+                      placeholder={addType === 'car' ? 'e.g. GA-03-Z-1234' : 'e.g. GA-03-Z-5678'}
+                    />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                      Permit Type
+                    </label>
+                    <select
+                      className="form-select"
+                      style={{ fontSize: '0.82rem', borderRadius: '8px' }}
+                      value={addForm.permit_type || (addType === 'car' ? 'Commercial Rent-A-Cab (Black Plate)' : 'Commercial Rent-A-Bike (Black Plate)')}
+                      onChange={e => setAddForm(f => ({ ...f, permit_type: e.target.value }))}
+                    >
+                      <option value="Commercial Rent-A-Cab (Black Plate)">Commercial Self-Drive (Black Plate / Yellow Font)</option>
+                      <option value="Commercial Rent-A-Bike (Black Plate)">Commercial Rent-a-Bike (Black Plate / Yellow Font)</option>
+                      <option value="Commercial Yellow Board">Commercial Yellow Board (Taxi/Tourist Permit)</option>
+                      <option value="Private Registration">Private Registration (White Board)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* --- SECTION: RENTAL FINANCIALS, DEPOSIT & INCLUSIONS --- */}
+              <div className="p-3 rounded-3 mb-3 border" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                <div className="d-flex align-items-center gap-1.5 mb-2">
+                  <Key size={16} className="text-warning" />
+                  <span className="fw-bold text-dark" style={{ fontSize: '0.82rem' }}>Rental Rules, Security Deposit &amp; Inclusions</span>
+                </div>
+                
+                <div className="row g-2 mb-2">
+                  <div className="col-6">
+                    <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                      Refundable Security Deposit (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-control"
+                      style={{ fontSize: '0.85rem', borderRadius: '8px' }}
+                      value={addForm.security_deposit !== undefined ? addForm.security_deposit : ''}
+                      onFocus={e => {
+                        if (e.target.value === '0') e.target.select();
+                      }}
+                      onChange={e => {
+                        let val = e.target.value;
+                        if (/^0\d+/.test(val)) val = val.replace(/^0+/, '');
+                        setAddForm(f => ({ ...f, security_deposit: val }));
+                      }}
+                      placeholder={addType === 'car' ? '3000' : '1000'}
+                    />
+                    <span className="text-muted" style={{ fontSize: '0.65rem' }}>Refunded to guest on return inspection</span>
+                  </div>
+
+                  <div className="col-6">
+                    <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                      Kilometre Allowance
+                    </label>
+                    <select
+                      className="form-select"
+                      style={{ fontSize: '0.82rem', borderRadius: '8px' }}
+                      value={addForm.km_limit || 'Unlimited Kms'}
+                      onChange={e => setAddForm(f => ({ ...f, km_limit: e.target.value }))}
+                    >
+                      <option value="Unlimited Kms">Unlimited Kms across Goa</option>
+                      <option value="250 km / day">250 km / day (₹10/extra km)</option>
+                      <option value="200 km / day">200 km / day (₹12/extra km)</option>
+                      <option value="150 km / day">150 km / day</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="row g-2 mb-2">
+                  <div className="col-6">
+                    <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                      Fuel Policy
+                    </label>
+                    <select
+                      className="form-select"
+                      style={{ fontSize: '0.82rem', borderRadius: '8px' }}
+                      value={addForm.fuel_policy || 'Same-to-Same'}
+                      onChange={e => setAddForm(f => ({ ...f, fuel_policy: e.target.value }))}
+                    >
+                      <option value="Same-to-Same">Same-to-Same Fuel Level</option>
+                      <option value="Full to Full">Full-to-Full Tank</option>
+                      <option value="1 Litre Provided">Reserve + 1 Litre Provided</option>
+                    </select>
+                  </div>
+
+                  {addType === 'bike' ? (
+                    <div className="col-6">
+                      <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                        Helmets Provided *
+                      </label>
+                      <select
+                        className="form-select"
+                        style={{ fontSize: '0.82rem', borderRadius: '8px' }}
+                        value={addForm.helmets_included || 2}
+                        onChange={e => setAddForm(f => ({ ...f, helmets_included: e.target.value }))}
+                      >
+                        <option value="2">2 Sanitized ISI Helmets (Rider + Pillion)</option>
+                        <option value="1">1 Helmet (Rider only)</option>
+                        <option value="0">0 (Helmets charged separately)</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="col-6">
+                      <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                        Boot / Luggage Space
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{ fontSize: '0.85rem', borderRadius: '8px' }}
+                        value={addForm.luggage_capacity || '2 Large Bags'}
+                        onChange={e => setAddForm(f => ({ ...f, luggage_capacity: e.target.value }))}
+                        placeholder="e.g. 2 Large Bags, 2 Cabin Bags"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Checklist Toggles */}
+                <div className="d-flex flex-wrap gap-3 mt-2 pt-2 border-top">
+                  {addType === 'bike' ? (
+                    <div className="form-check form-switch mb-0">
+                      <input
+                        className="form-check-input cursor-pointer"
+                        type="checkbox"
+                        id="add_mobile_holder"
+                        checked={Boolean(addForm.has_mobile_holder)}
+                        onChange={e => setAddForm(f => ({ ...f, has_mobile_holder: e.target.checked }))}
+                      />
+                      <label className="form-check-label fw-semibold cursor-pointer" htmlFor="add_mobile_holder" style={{ fontSize: '0.75rem', color: '#334155' }}>
+                        📱 Mobile GPS Phone Mount Included
+                      </label>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="form-check form-switch mb-0">
+                        <input
+                          className="form-check-input cursor-pointer"
+                          type="checkbox"
+                          id="add_has_ac"
+                          checked={Boolean(addForm.has_ac)}
+                          onChange={e => setAddForm(f => ({ ...f, has_ac: e.target.checked }))}
+                        />
+                        <label className="form-check-label fw-semibold cursor-pointer" htmlFor="add_has_ac" style={{ fontSize: '0.75rem', color: '#334155' }}>
+                          ❄️ Air Conditioning (AC) Guaranteed
+                        </label>
+                      </div>
+                      <div className="form-check form-switch mb-0">
+                        <input
+                          className="form-check-input cursor-pointer"
+                          type="checkbox"
+                          id="add_has_fastag"
+                          checked={Boolean(addForm.has_fastag)}
+                          onChange={e => setAddForm(f => ({ ...f, has_fastag: e.target.checked }))}
+                        />
+                        <label className="form-check-label fw-semibold cursor-pointer" htmlFor="add_has_fastag" style={{ fontSize: '0.75rem', color: '#334155' }}>
+                          ⚡ Fastag Toll Enabled
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Handover locations info */}
+                <div className="mt-2 pt-2 border-top">
+                  <label className="form-label fw-bold mb-1" style={{ fontSize: '0.74rem', color: '#475569' }}>
+                    Available Delivery / Handover Locations
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    style={{ fontSize: '0.82rem', borderRadius: '8px' }}
+                    value={addForm.delivery_options || 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup'}
+                    onChange={e => setAddForm(f => ({ ...f, delivery_options: e.target.value }))}
+                    placeholder="e.g. Mopa Airport, Dabolim Airport, Panjim, Calangute"
+                  />
                 </div>
               </div>
 

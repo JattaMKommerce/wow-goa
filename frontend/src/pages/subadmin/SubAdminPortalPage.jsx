@@ -8,6 +8,7 @@ import LeadManagement from '../../components/shared/LeadManagement';
 import NotificationSoundToggle from '../../components/common/NotificationSoundToggle';
 import { handleIncomingNotifications, registerSeenNotifications, getRelativeTimeString, parseNotificationTitleAndStatus } from '../../utils/notificationSound';
 import * as api from '../../services/api';
+import ForgotPasswordModal from '../../components/ForgotPasswordModal';
 
 export default function SubAdminPortalPage({ currentUser: propCurrentUser, onLogout, onLoginSuccess, usersList = [] }) {
   const [localUser, setLocalUser] = useState(() => {
@@ -37,6 +38,7 @@ export default function SubAdminPortalPage({ currentUser: propCurrentUser, onLog
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Assigned leads counter for badge
   const [assignedCount, setAssignedCount] = useState(0);
@@ -292,6 +294,20 @@ export default function SubAdminPortalPage({ currentUser: propCurrentUser, onLog
                 </div>
               </div>
 
+              <div className="text-end mb-3">
+                <a
+                  href="#forgot"
+                  className="text-decoration-none fw-semibold cursor-pointer"
+                  style={{ fontSize: '0.8rem', color: '#FF6333' }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowForgotPassword(true);
+                  }}
+                >
+                  Forgot Password?
+                </a>
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -322,6 +338,19 @@ export default function SubAdminPortalPage({ currentUser: propCurrentUser, onLog
             </div>
           </div>
         </div>
+
+        {showForgotPassword && (
+          <ForgotPasswordModal
+            isOpen={showForgotPassword}
+            onClose={() => setShowForgotPassword(false)}
+            initialIdentifier={username}
+            onSuccessReturnToLogin={(usedId) => {
+              if (usedId) setUsername(usedId);
+              setPassword('');
+              setShowForgotPassword(false);
+            }}
+          />
+        )}
       </div>
     );
   }

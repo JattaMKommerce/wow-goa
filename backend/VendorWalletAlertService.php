@@ -250,7 +250,7 @@ class VendorWalletAlertService {
         // 4. Atomic lock to claim alert execution and prevent concurrent race conditions
         $stmtClaim = $pdo->prepare("
             UPDATE vendor_wallets 
-            SET low_balance_alert_sent = 1, last_low_balance_alert_at = datetime('now')
+            SET low_balance_alert_sent = 1, last_low_balance_alert_at = CURRENT_TIMESTAMP
             WHERE vendor_id = ? AND (low_balance_alert_sent = 0 OR low_balance_alert_sent IS NULL)
         ");
         $stmtClaim->execute([$vendorId]);
@@ -487,7 +487,7 @@ class VendorWalletAlertService {
             $stmtNotif = $pdo->prepare("
                 INSERT INTO notifications (
                     user_id, role, type, title, message, reference_type, reference_id, is_read, created_at
-                ) VALUES (?, 'vendor', 'MINIMUM_WALLET_BALANCE', '⚠ WALLET BALANCE LOW', ?, 'wallet_alert', ?, 0, datetime('now'))
+                ) VALUES (?, 'vendor', 'MINIMUM_WALLET_BALANCE', '⚠ WALLET BALANCE LOW', ?, 'wallet_alert', ?, 0, CURRENT_TIMESTAMP)
             ");
             $stmtNotif->execute([$vendorId, $message, $alertId]);
             $notifId = (string)$pdo->lastInsertId();
@@ -542,7 +542,7 @@ class VendorWalletAlertService {
                 INSERT INTO vendor_wallet_alert_logs (
                     id, alert_id, vendor_id, channel, threshold, wallet_balance, status,
                     provider, provider_message_id, recipient, error_message, payload_preview, created_at, sent_at, event_type
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
             ");
             $stmt->execute([
                 $data['id'],
@@ -671,7 +671,7 @@ class VendorWalletAlertService {
     public static function dismissPortalAlert(PDO $pdo, string $vendorId, string $alertId): bool {
         self::ensureSchema($pdo);
         try {
-            $stmt = $pdo->prepare("INSERT OR REPLACE INTO vendor_wallet_alert_dismissals (vendor_id, alert_id, dismissed_at) VALUES (?, ?, datetime('now'))");
+            $stmt = $pdo->prepare("REPLACE INTO vendor_wallet_alert_dismissals (vendor_id, alert_id, dismissed_at) VALUES (?, ?, CURRENT_TIMESTAMP)");
             $stmt->execute([$vendorId, $alertId]);
             return true;
         } catch (Exception $e) {
@@ -872,7 +872,7 @@ class VendorWalletAlertService {
                 $stmtN = $pdo->prepare("
                     INSERT INTO notifications (
                         user_id, role, type, title, message, reference_type, reference_id, metadata_json, is_read, created_at
-                    ) VALUES (?, ?, 'VENDOR_BOOKING_BLOCKED', ?, ?, 'booking_blocked', ?, ?, 0, datetime('now'))
+                    ) VALUES (?, ?, 'VENDOR_BOOKING_BLOCKED', ?, ?, 'booking_blocked', ?, ?, 0, CURRENT_TIMESTAMP)
                 ");
                 $stmtN->execute([$roleKey, $roleKey, $adminTitle, $adminMsg, $bookingId, $metadataJson]);
             } catch (Exception $e) {}
@@ -885,7 +885,7 @@ class VendorWalletAlertService {
             $stmtVN = $pdo->prepare("
                 INSERT INTO notifications (
                     user_id, role, type, title, message, reference_type, reference_id, is_read, created_at
-                ) VALUES (?, 'vendor', 'BOOKING_BLOCKED', ?, ?, 'booking_blocked', ?, 0, datetime('now'))
+                ) VALUES (?, 'vendor', 'BOOKING_BLOCKED', ?, ?, 'booking_blocked', ?, 0, CURRENT_TIMESTAMP)
             ");
             $stmtVN->execute([$vendorId, $vendorTitle, $vendorMsg, $bookingId]);
         } catch (Exception $e) {}
@@ -932,7 +932,7 @@ class VendorWalletAlertService {
         try {
             $stmtUpdW = $pdo->prepare("
                 UPDATE vendor_wallets 
-                SET last_blocked_booking_id = ?, last_reminder_at = datetime('now'), initial_reminders_sent = 0, suspension_decision_notified = 0 
+                SET last_blocked_booking_id = ?, last_reminder_at = CURRENT_TIMESTAMP, initial_reminders_sent = 0, suspension_decision_notified = 0 
                 WHERE vendor_id = ?
             ");
             $stmtUpdW->execute([$bookingId, $vendorId]);
@@ -1043,13 +1043,13 @@ class VendorWalletAlertService {
                         $stmtNotif = $pdo->prepare("
                             INSERT INTO notifications (
                                 user_id, role, type, title, message, reference_type, reference_id, is_read, created_at
-                            ) VALUES (?, 'vendor', 'ESCALATION_REMINDER', ?, ?, 'wallet_reminder', ?, 0, datetime('now'))
+                            ) VALUES (?, 'vendor', 'ESCALATION_REMINDER', ?, ?, 'wallet_reminder', ?, 0, CURRENT_TIMESTAMP)
                         ");
                         $stmtNotif->execute([$vendorId, "⚠ Urgent Reminder #{$nextSent}: Vendor Wallet Recharge Required", $reminderMsg, $alertId]);
                     } catch (Exception $e) {}
 
                     // Update vendor_wallets with incremented count & new timestamp
-                    $pdo->prepare("UPDATE vendor_wallets SET initial_reminders_sent = ?, last_reminder_at = datetime('now') WHERE vendor_id = ?")
+                    $pdo->prepare("UPDATE vendor_wallets SET initial_reminders_sent = ?, last_reminder_at = CURRENT_TIMESTAMP WHERE vendor_id = ?")
                         ->execute([$nextSent, $vendorId]);
 
                     $results['reminders_processed']++;
@@ -1068,7 +1068,7 @@ class VendorWalletAlertService {
                             $stmtDec = $pdo->prepare("
                                 INSERT INTO notifications (
                                     user_id, role, type, title, message, reference_type, reference_id, is_read, created_at
-                                ) VALUES (?, ?, 'VENDOR_SUSPENSION_DECISION_REQUIRED', ?, ?, 'vendor_suspension', ?, 0, datetime('now'))
+                                ) VALUES (?, ?, 'VENDOR_SUSPENSION_DECISION_REQUIRED', ?, ?, 'vendor_suspension', ?, 0, CURRENT_TIMESTAMP)
                             ");
                             $stmtDec->execute([$roleKey, $roleKey, $adminTitle, $adminMsg, $vendorId]);
                         } catch (Exception $e) {}
@@ -1105,7 +1105,7 @@ class VendorWalletAlertService {
         $stmt = $pdo->prepare("
             UPDATE vendor_wallets 
             SET services_suspended = 1, 
-                suspended_at = datetime('now'), 
+                suspended_at = CURRENT_TIMESTAMP, 
                 suspension_reason = ?, 
                 suspended_by = ? 
             WHERE vendor_id = ?
@@ -1143,7 +1143,7 @@ class VendorWalletAlertService {
             $stmtNotif = $pdo->prepare("
                 INSERT INTO notifications (
                     user_id, role, type, title, message, reference_type, reference_id, is_read, created_at
-                ) VALUES (?, 'vendor', 'SERVICES_SUSPENDED', '⚠ NOTICE: Your Services Are Hidden from Public Listings', ?, 'service_suspension', ?, 0, datetime('now'))
+                ) VALUES (?, 'vendor', 'SERVICES_SUSPENDED', '⚠ NOTICE: Your Services Are Hidden from Public Listings', ?, 'service_suspension', ?, 0, CURRENT_TIMESTAMP)
             ");
             $stmtNotif->execute([
                 $vendorId,
@@ -1158,7 +1158,7 @@ class VendorWalletAlertService {
                 $stmtA = $pdo->prepare("
                     INSERT INTO notifications (
                         user_id, role, type, title, message, reference_type, reference_id, is_read, created_at
-                    ) VALUES (?, ?, 'SERVICES_SUSPENDED_CONFIRM', 'Vendor Services Suspended', ?, 'vendor_suspension', ?, 0, datetime('now'))
+                    ) VALUES (?, ?, 'SERVICES_SUSPENDED_CONFIRM', 'Vendor Services Suspended', ?, 'vendor_suspension', ?, 0, CURRENT_TIMESTAMP)
                 ");
                 $stmtA->execute([
                     $rk, $rk,
@@ -1200,7 +1200,7 @@ class VendorWalletAlertService {
         $stmtUpd = $pdo->prepare("
             UPDATE vendor_wallets 
             SET reactivation_status = 'PENDING_REACTIVATION', 
-                reactivation_requested_at = datetime('now'), 
+                reactivation_requested_at = CURRENT_TIMESTAMP, 
                 reactivation_message = ?, 
                 reactivation_rejection_reason = NULL 
             WHERE vendor_id = ?
@@ -1220,7 +1220,7 @@ class VendorWalletAlertService {
                 $stmtA = $pdo->prepare("
                     INSERT INTO notifications (
                         user_id, role, type, title, message, reference_type, reference_id, is_read, created_at
-                    ) VALUES (?, ?, 'VENDOR_REACTIVATION_REQUEST', ?, ?, 'reactivation_request', ?, 0, datetime('now'))
+                    ) VALUES (?, ?, 'VENDOR_REACTIVATION_REQUEST', ?, ?, 'reactivation_request', ?, 0, CURRENT_TIMESTAMP)
                 ");
                 $stmtA->execute([$rk, $rk, $title, $notifMsg, $vendorId]);
             } catch (Exception $e) {}
@@ -1271,7 +1271,7 @@ class VendorWalletAlertService {
                 $stmtV = $pdo->prepare("
                     INSERT INTO notifications (
                         user_id, role, type, title, message, reference_type, reference_id, is_read, created_at
-                    ) VALUES (?, 'vendor', 'REACTIVATION_APPROVED', '🎉 Services Reactivated!', 'Your services have been approved and restored by administration. Your listings are now visible to customers again.', 'reactivation_decision', ?, 0, datetime('now'))
+                    ) VALUES (?, 'vendor', 'REACTIVATION_APPROVED', '🎉 Services Reactivated!', 'Your services have been approved and restored by administration. Your listings are now visible to customers again.', 'reactivation_decision', ?, 0, CURRENT_TIMESTAMP)
                 ");
                 $stmtV->execute([$vendorId, $vendorId]);
             } catch (Exception $e) {}
@@ -1282,7 +1282,7 @@ class VendorWalletAlertService {
                     $stmtA = $pdo->prepare("
                         INSERT INTO notifications (
                             user_id, role, type, title, message, reference_type, reference_id, is_read, created_at
-                        ) VALUES (?, ?, 'REACTIVATION_DECISION_CONFIRM', 'Vendor Services Restored', ?, 'reactivation_decision', ?, 0, datetime('now'))
+                        ) VALUES (?, ?, 'REACTIVATION_DECISION_CONFIRM', 'Vendor Services Restored', ?, 'reactivation_decision', ?, 0, CURRENT_TIMESTAMP)
                     ");
                     $stmtA->execute([
                         $rk, $rk,
@@ -1321,7 +1321,7 @@ class VendorWalletAlertService {
                 $stmtV = $pdo->prepare("
                     INSERT INTO notifications (
                         user_id, role, type, title, message, reference_type, reference_id, is_read, created_at
-                    ) VALUES (?, 'vendor', 'REACTIVATION_REJECTED', 'Service Reactivation Request Rejected', ?, 'reactivation_decision', ?, 0, datetime('now'))
+                    ) VALUES (?, 'vendor', 'REACTIVATION_REJECTED', 'Service Reactivation Request Rejected', ?, 'reactivation_decision', ?, 0, CURRENT_TIMESTAMP)
                 ");
                 $stmtV->execute([
                     $vendorId,
@@ -1525,7 +1525,7 @@ class VendorWalletAlertService {
                     $stmtNotif = $pdo->prepare("
                         INSERT INTO notifications (
                             user_id, role, type, title, message, reference_type, reference_id, is_read, created_at
-                        ) VALUES (?, 'vendor', 'MANUAL_WALLET_RECHARGE_REMINDER', 'Notice from Administration: Wallet Recharge Required', ?, 'manual_reminder', ?, 0, datetime('now'))
+                        ) VALUES (?, 'vendor', 'MANUAL_WALLET_RECHARGE_REMINDER', 'Notice from Administration: Wallet Recharge Required', ?, 'manual_reminder', ?, 0, CURRENT_TIMESTAMP)
                     ");
                     $stmtNotif->execute([$vendorId, $message, $alertId]);
                 } catch (Exception $e) {}

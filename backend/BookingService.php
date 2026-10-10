@@ -247,8 +247,11 @@ class BookingService {
             }
         }
 
-        // 4. Begin Database Transaction
-        $pdo->beginTransaction();
+        // 4. Begin Database Transaction (Check if already in an active transaction)
+        $isNestedTransaction = $pdo->inTransaction();
+        if (!$isNestedTransaction) {
+            $pdo->beginTransaction();
+        }
 
         try {
             // 5. Anti-Double-Booking & Shared Physical Inventory Check (Phase 3 & Phase 7)
@@ -265,7 +268,7 @@ class BookingService {
                     $availRoomTypeId = $payload['room_type_id'] ?? ($customsData['selected_room_type'] ?? ($customsData['room_type_id'] ?? null));
                     $availReqRooms = max(1, intval($payload['num_rooms'] ?? ($customsData['num_rooms'] ?? ($payload['qty'] ?? 1))));
                 }
-                $avail = checkInventoryAvailability($pdo, $serviceType, $itemId, $depDate, $retDate, null, $availRoomTypeId, $availReqRooms);
+                $avail = checkInventoryAvailability($pdo, $serviceType, $itemId, $depDate, $retDate, null, $availRoomTypeId, $availReqRooms, true);
                 if (!$avail['available']) {
                     throw new BookingServiceException($avail['reason'] ?? "The selected item is already reserved or unavailable for the chosen dates.", 409, true);
                 }
@@ -992,7 +995,25 @@ class BookingService {
                 }
             } catch (Exception $ne) {}
 
-            // 13. Automated Voucher Email Dispatch to Customer
+            // 13. Release Expired Temporary Holds & Clean Hold for this Vehicle
+            try {
+                $pdo->exec("DELETE FROM vehicle_holds WHERE held_until < CURRENT_TIMESTAMP");
+                if (!empty($itemId)) {
+                    $pdo->prepare("DELETE FROM vehicle_holds WHERE vehicle_id = ?")->execute([$itemId]);
+                }
+            } catch (Throwable $vhe) {}
+
+            // 14. Fetch Final Created Master Booking Record
+            $stmtFetch = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
+            $stmtFetch->execute([$bookingId]);
+            $createdRecord = $stmtFetch->fetch(PDO::FETCH_ASSOC);
+
+            // 15. Commit Database Transaction (Atomic commit before external side effects)
+            if (!$isNestedTransaction && $pdo->inTransaction()) {
+                $pdo->commit();
+            }
+
+            // 16. Automated Voucher Email Dispatch to Customer (Outside transaction boundary)
             try {
                 if (!empty($custEmail) && stripos($custEmail, '@guest.wowgoa.com') === false && filter_var($custEmail, FILTER_VALIDATE_EMAIL)) {
                     if (function_exists('dispatchBookingVoucherEmail')) {
@@ -1006,11 +1027,6 @@ class BookingService {
                 }
             } catch (Throwable $ve) {}
 
-            // 14. Fetch Final Created Master Booking Record
-            $stmtFetch = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
-            $stmtFetch->execute([$bookingId]);
-            $createdRecord = $stmtFetch->fetch(PDO::FETCH_ASSOC);
-
             return [
                 'success' => true,
                 'booking_id' => $bookingId,
@@ -1023,13 +1039,32 @@ class BookingService {
             ];
 
         } catch (BookingServiceException $bse) {
-            if ($pdo->inTransaction()) {
+            if (!$isNestedTransaction && $pdo->inTransaction()) {
                 $pdo->rollBack();
             }
             throw $bse;
         } catch (Throwable $e) {
-            if ($pdo->inTransaction()) {
+            if (!$isNestedTransaction && $pdo->inTransaction()) {
                 $pdo->rollBack();
+            }
+            // Idempotency conflict recovery: If concurrent request created same idempotency_key
+            if (!empty($idempotencyKey) && (strpos($e->getMessage(), 'idx_bookings_idempotency_key') !== false || strpos($e->getMessage(), 'Duplicate entry') !== false || strpos($e->getMessage(), '1062') !== false)) {
+                $stmtIdemp = $pdo->prepare("SELECT * FROM bookings WHERE idempotency_key = ? LIMIT 1");
+                $stmtIdemp->execute([$idempotencyKey]);
+                $existing = $stmtIdemp->fetch(PDO::FETCH_ASSOC);
+                if ($existing) {
+                    return [
+                        'success' => true,
+                        'idempotent' => true,
+                        'message' => 'Booking retrieved via idempotency key.',
+                        'booking_id' => $existing['id'],
+                        'id' => $existing['id'],
+                        'booking' => $existing,
+                        'data' => $existing,
+                        'children' => $children ?? [],
+                        'commercials' => $commercials ?? null
+                    ];
+                }
             }
             throw new BookingServiceException("Booking failed: " . $e->getMessage(), 400);
         }
@@ -1076,7 +1111,7 @@ class BookingService {
 
             // Availability validation for hotel component
             if ($hotel && function_exists('checkInventoryAvailability')) {
-                $hAvail = checkInventoryAvailability($pdo, 'hotel', $hotel['id'], $pickupDate, $dropDate);
+                $hAvail = checkInventoryAvailability($pdo, 'hotel', $hotel['id'], $pickupDate, $dropDate, null, null, 1, true);
                 if (!$hAvail['available']) {
                     throw new BookingServiceException("Package Hotel Allocation Failed: " . ($hAvail['reason'] ?? "Hotel unavailable."), 409, true);
                 }
@@ -1086,10 +1121,11 @@ class BookingService {
             $hChildVendorId = $hAvail['vendor_id'] ?? ($hotel['vendor_id'] ?? null);
             $stmtInsH = $pdo->prepare("INSERT INTO bookings (
                 id, parent_booking_id, name, phone, email, item_id, item_name, type,
+                pickup_loc, drop_loc, pickup_time, drop_time,
                 pickup_date, drop_date, check_in_date, check_out_date, booking_days,
                 status, payment_status, total_amount, amount_paid, created_at, admin_id,
                 vendor_id, payment_method, payment_verification_status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'hotel', ?, ?, ?, ?, ?, ?, 'Paid', 0, 0, ?, ?, ?, 'Package Included', 'Approved')");
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'hotel', 'Goa', 'Goa', '12:00 PM', '11:00 AM', ?, ?, ?, ?, ?, ?, 'Paid', 0, 0, ?, ?, ?, 'Package Included', 'Approved')");
             $stmtInsH->execute([
                 $childHotelId,
                 $masterBookingId,
@@ -1123,7 +1159,7 @@ class BookingService {
             $vChildUnitId = null;
             $vChildVendorId = $car['vendor_id'] ?? null;
             if ($car && function_exists('checkInventoryAvailability')) {
-                $vAvail = checkInventoryAvailability($pdo, 'car', $car['id'], $pickupDate, $dropDate);
+                $vAvail = checkInventoryAvailability($pdo, 'car', $car['id'], $pickupDate, $dropDate, null, null, 1, true);
                 if (!$vAvail['available']) {
                     throw new BookingServiceException("Package Vehicle Allocation Failed: " . ($vAvail['reason'] ?? "Vehicle unavailable."), 409, true);
                 }
@@ -1136,11 +1172,11 @@ class BookingService {
             $childDropLoc = $payload['drop_loc'] ?? ($payload['drop_location'] ?? null);
             $stmtInsV = $pdo->prepare("INSERT INTO bookings (
                 id, parent_booking_id, name, phone, email, item_id, item_name, type,
-                pickup_loc, drop_loc,
+                pickup_loc, drop_loc, pickup_time, drop_time,
                 pickup_date, drop_date, departure_date, return_date, booking_days,
                 status, payment_status, total_amount, amount_paid, created_at, admin_id,
                 vendor_id, physical_unit_id, payment_method, payment_verification_status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'car', ?, ?, ?, ?, ?, ?, ?, ?, 'Paid', 0, 0, ?, ?, ?, ?, 'Package Included', 'Approved')");
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'car', ?, ?, '10:00 AM', '10:00 AM', ?, ?, ?, ?, ?, ?, 'Paid', 0, 0, ?, ?, ?, ?, 'Package Included', 'Approved')");
             $stmtInsV->execute([
                 $childVehId,
                 $masterBookingId,
@@ -1175,11 +1211,12 @@ class BookingService {
 
             $stmtInsD = $pdo->prepare("INSERT INTO bookings (
                 id, parent_booking_id, name, phone, email, item_id, item_name, type,
+                pickup_loc, drop_loc, pickup_time, drop_time,
                 pickup_date, drop_date, driver_required, driver_service_type, driver_days, driver_charge,
                 driver_earning, driver_job_status, driver_payment_status,
                 status, payment_status, total_amount, amount_paid, created_at, admin_id,
                 payment_method, payment_verification_status
-            ) VALUES (?, ?, ?, ?, ?, 'driver-transfer', 'Airport Transfer & Sightseeing Driver', 'driver', ?, ?, 1, ?, ?, ?, ?, 'Pending', 'Pending', ?, 'Paid', 0, 0, ?, ?, 'Package Included', 'Approved')");
+            ) VALUES (?, ?, ?, ?, ?, 'driver-transfer', 'Airport Transfer & Sightseeing Driver', 'driver', 'Goa Airport', 'Hotel', '10:00 AM', '10:00 AM', ?, ?, 1, ?, ?, ?, ?, 'Pending', 'Pending', ?, 'Paid', 0, 0, ?, ?, 'Package Included', 'Approved')");
             $stmtInsD->execute([
                 $childDriverId,
                 $masterBookingId,
@@ -1485,7 +1522,7 @@ class BookingService {
     public static function ensureVendorDefaultPolicy(PDO $pdo, string $vendorId, string $serviceType = 'all'): array {
         $policyId = 'vpol_' . substr(md5($vendorId . '_auto'), 0, 12);
         try {
-            $ins = $pdo->prepare("INSERT INTO vendor_cancellation_policies (id, vendor_id, service_type, policy_name, allow_after_service_starts, status, created_at, updated_at) VALUES (?, ?, 'all', 'Standard Cancellation Policy', 0, 'Active', datetime('now'), datetime('now'))");
+            $ins = $pdo->prepare("INSERT INTO vendor_cancellation_policies (id, vendor_id, service_type, policy_name, allow_after_service_starts, status, created_at, updated_at) VALUES (?, ?, 'all', 'Standard Cancellation Policy', 0, 'Active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
             $ins->execute([$policyId, $vendorId]);
 
             $rules = [
@@ -1496,7 +1533,7 @@ class BookingService {
                 ['id' => 'vrule_' . uniqid(), 'policy_id' => $policyId, 'minimum_hours_before' => -999999, 'maximum_hours_before' => 0, 'refund_percentage' => 0.00, 'cancellation_charge_percentage' => 100.00, 'rule_description' => 'After service starts: No refund']
             ];
 
-            $insRule = $pdo->prepare("INSERT INTO vendor_cancellation_rules (id, policy_id, minimum_hours_before, maximum_hours_before, refund_percentage, cancellation_charge_percentage, rule_description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))");
+            $insRule = $pdo->prepare("INSERT INTO vendor_cancellation_rules (id, policy_id, minimum_hours_before, maximum_hours_before, refund_percentage, cancellation_charge_percentage, rule_description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
             foreach ($rules as $r) {
                 $insRule->execute([$r['id'], $policyId, $r['minimum_hours_before'], $r['maximum_hours_before'], $r['refund_percentage'], $r['cancellation_charge_percentage'], $r['rule_description']]);
             }
@@ -1718,7 +1755,7 @@ class BookingService {
 
             if (!$wallet) {
                 $walletId = 'wall_' . uniqid() . '_' . rand(100, 999);
-                $stmtInit = $pdo->prepare("INSERT INTO vendor_wallets (id, vendor_id, balance, reserved_commission, minimum_balance, negative_booking_count, created_at, updated_at) VALUES (?, ?, 0.00, 0, 5000, 0, datetime('now'), datetime('now'))");
+                $stmtInit = $pdo->prepare("INSERT INTO vendor_wallets (id, vendor_id, balance, reserved_commission, minimum_balance, negative_booking_count, created_at, updated_at) VALUES (?, ?, 0.00, 0, 5000, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
                 $stmtInit->execute([$walletId, $vendorId]);
                 $wallet = [
                     'id' => $walletId,
@@ -1817,7 +1854,7 @@ class BookingService {
             }
 
             // 9. Update Vendor Wallet
-            $stmtUpdW = $pdo->prepare("UPDATE vendor_wallets SET balance = ?, negative_booking_count = ?, updated_at = datetime('now') WHERE vendor_id = ?");
+            $stmtUpdW = $pdo->prepare("UPDATE vendor_wallets SET balance = ?, negative_booking_count = ?, updated_at = CURRENT_TIMESTAMP WHERE vendor_id = ?");
             $stmtUpdW->execute([$balanceAfter, $newNegativeCount, $wallet['vendor_id']]);
 
             // 10. Record Vendor Wallet Transaction (Debit)
@@ -1825,7 +1862,7 @@ class BookingService {
             $stmtTxn = $pdo->prepare("INSERT INTO wallet_transactions (
                 id, vendor_id, amount, type, reference_id, status, description, 
                 balance_before, balance_after, admin_id, created_at
-            ) VALUES (?, ?, ?, 'debit', ?, 'Completed', ?, ?, ?, 'admin', datetime('now'))");
+            ) VALUES (?, ?, ?, 'debit', ?, 'Completed', ?, ?, ?, 'admin', CURRENT_TIMESTAMP)");
             $stmtTxn->execute([
                 $txnId,
                 $wallet['vendor_id'],
@@ -1855,7 +1892,7 @@ class BookingService {
             $stmtRev = $pdo->prepare("INSERT INTO wallet_transactions (
                 id, vendor_id, amount, type, reference_id, status, description, 
                 balance_before, balance_after, admin_id, created_at
-            ) VALUES (?, ?, ?, 'platform_revenue', ?, 'Completed', ?, NULL, NULL, 'superadmin', datetime('now'))");
+            ) VALUES (?, ?, ?, 'platform_revenue', ?, 'Completed', ?, NULL, NULL, 'superadmin', CURRENT_TIMESTAMP)");
             $stmtRev->execute([
                 $revTxId,
                 $wallet['vendor_id'],
@@ -1870,7 +1907,7 @@ class BookingService {
                 wallet_deduction_status = 'Completed', 
                 payment_verification_status = 'Verified', 
                 wow_goa_platform_fee = ?, 
-                payment_verified_at = datetime('now'), 
+                payment_verified_at = CURRENT_TIMESTAMP, 
                 payment_verified_by = ? 
                 WHERE id = ?");
             $stmtUpdB->execute([

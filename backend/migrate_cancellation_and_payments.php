@@ -82,7 +82,7 @@ foreach ($vendors as $vId) {
     $stmt->execute([$vId]);
     if ($stmt->fetchColumn() == 0) {
         $policyId = 'vpol_' . substr(md5($vId . '_default'), 0, 12);
-        $ins = $pdo->prepare("INSERT INTO vendor_cancellation_policies (id, vendor_id, service_type, policy_name, allow_after_service_starts, status, created_at, updated_at) VALUES (?, ?, 'all', 'Standard Cancellation Policy', 0, 'Active', datetime('now'), datetime('now'))");
+        $ins = $pdo->prepare("INSERT INTO vendor_cancellation_policies (id, vendor_id, service_type, policy_name, allow_after_service_starts, status, created_at, updated_at) VALUES (?, ?, 'all', 'Standard Cancellation Policy', 0, 'Active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
         $ins->execute([$policyId, $vId]);
 
         $rules = [
@@ -93,7 +93,7 @@ foreach ($vendors as $vId) {
             ['rule_id' => 'vrule_' . uniqid(), 'min' => -999999, 'max' => 0, 'refund' => 0.00, 'charge' => 100.00, 'desc' => 'After service starts: No refund']
         ];
 
-        $insRule = $pdo->prepare("INSERT INTO vendor_cancellation_rules (id, policy_id, minimum_hours_before, maximum_hours_before, refund_percentage, cancellation_charge_percentage, rule_description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))");
+        $insRule = $pdo->prepare("INSERT INTO vendor_cancellation_rules (id, policy_id, minimum_hours_before, maximum_hours_before, refund_percentage, cancellation_charge_percentage, rule_description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
         foreach ($rules as $r) {
             $insRule->execute([$r['rule_id'], $policyId, $r['min'], $r['max'], $r['refund'], $r['charge'], $r['desc']]);
         }

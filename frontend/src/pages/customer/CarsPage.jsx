@@ -278,12 +278,30 @@ export default function CarsPage({
                   <div className="card-body p-3 d-flex flex-column justify-content-between">
                     <div>
                       <h5 className="fw-bold text-dark mb-1 font-heading">{car.name}</h5>
-                      <div className="d-flex align-items-center gap-2 text-muted small mb-3">
+                      <div className="d-flex align-items-center gap-2 text-muted small mb-2 flex-wrap">
                         <span>👥 {car.seating || 5} Seats</span>
                         <span>•</span>
                         <span>⛽ {car.fuel || 'Petrol'}</span>
                         <span>•</span>
                         <span>⚙️ {car.transmission || 'Manual'}</span>
+                      </div>
+
+                      {/* Rental Trust Badges */}
+                      <div className="d-flex flex-wrap gap-1 mb-3">
+                        <span className="badge bg-light text-dark border px-2 py-1 text-xxs fw-semibold">
+                          {car.has_ac === 0 || car.has_ac === false || car.has_ac === '0' ? '💨 Non-AC' : '❄️ AC'}
+                        </span>
+                        <span className="badge bg-light text-dark border px-2 py-1 text-xxs fw-semibold">
+                          💰 ₹{Number(car.security_deposit || 3000).toLocaleString('en-IN')} Deposit
+                        </span>
+                        <span className="badge bg-light text-success border px-2 py-1 text-xxs fw-semibold">
+                          🛣️ {car.km_limit || 'Unlimited Kms'}
+                        </span>
+                        {(car.has_fastag === 1 || car.has_fastag === true || car.has_fastag === '1' || car.has_fastag === undefined) && (
+                          <span className="badge bg-light text-primary border px-2 py-1 text-xxs fw-semibold">
+                            ⚡ FASTag
+                          </span>
+                        )}
                       </div>
                     </div>
 

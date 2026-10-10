@@ -128,6 +128,18 @@ export default function BikeDetailsPage({
   const ratingVal = parseFloat(bike.rating || 4.8);
   const seatingCapacity = 2;
 
+  const depositAmount = bike?.security_deposit !== undefined && bike?.security_deposit !== null && bike?.security_deposit !== '' 
+    ? Number(bike.security_deposit) 
+    : 1000;
+  const kmAllowance = bike?.km_limit || 'Unlimited Kilometres';
+  const fuelRule = bike?.fuel_policy || 'Same-to-Same';
+  const helmetsCount = bike?.helmets_included !== undefined && bike?.helmets_included !== null && bike?.helmets_included !== ''
+    ? bike.helmets_included
+    : 2;
+  const hasMobileHolder = bike?.has_mobile_holder == 1 || bike?.has_mobile_holder === true || bike?.has_mobile_holder === '1';
+  const permitLabel = bike?.permit_type || 'Commercial Self-Drive (Black Plate)';
+  const deliveryLocations = bike?.delivery_options || 'Airport, Railway Station & Hotel Delivery';
+
   const handleBookNowClick = () => {
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
       document.activeElement.blur();
@@ -294,12 +306,67 @@ export default function BikeDetailsPage({
           {/* Left Column: Specifications & Rental Policies */}
           <div className="col-12 col-lg-8">
 
-            {/* Vehicle Specifications Grid (Only display existing attributes) */}
+            {/* Rental Highlights & Trust Badges */}
+            <div className="bg-white rounded-4 shadow-sm p-3.5 mb-4 border" style={{ borderColor: '#E2E8F0' }}>
+              <div className="row g-2.5">
+                <div className="col-6 col-md-3">
+                  <div className="p-2.5 rounded-3 bg-light border text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                    <span className="fs-5 mb-1">🪖</span>
+                    <span className="text-muted text-xxs text-uppercase fw-bold">Helmets</span>
+                    <span className="fw-bold text-dark text-xs">{helmetsCount} Included Free</span>
+                  </div>
+                </div>
+
+                <div className="col-6 col-md-3">
+                  <div className="p-2.5 rounded-3 bg-light border text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                    <span className="fs-5 mb-1">💰</span>
+                    <span className="text-muted text-xxs text-uppercase fw-bold">Security Deposit</span>
+                    <span className="fw-bold text-dark text-xs">₹{depositAmount.toLocaleString('en-IN')} (Refundable)</span>
+                  </div>
+                </div>
+
+                <div className="col-6 col-md-3">
+                  <div className="p-2.5 rounded-3 bg-light border text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                    <span className="fs-5 mb-1">🛣️</span>
+                    <span className="text-muted text-xxs text-uppercase fw-bold">KM Limit</span>
+                    <span className="fw-bold text-dark text-xs">{kmAllowance}</span>
+                  </div>
+                </div>
+
+                <div className="col-6 col-md-3">
+                  <div className="p-2.5 rounded-3 bg-light border text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                    <span className="fs-5 mb-1">🛡️</span>
+                    <span className="text-muted text-xxs text-uppercase fw-bold">Goa Permit</span>
+                    <span className="fw-bold text-dark text-xs">{permitLabel.includes('Black') ? 'Black Plate Legal' : 'Verified Permit'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Extra amenity tags */}
+              <div className="d-flex flex-wrap gap-2 pt-3 mt-3 border-top text-xs">
+                {hasMobileHolder && (
+                  <span className="badge bg-light text-dark border px-2.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1">
+                    📱 Mobile GPS Holder Mounted
+                  </span>
+                )}
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1">
+                  ⛽ {fuelRule} Fuel Policy
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1">
+                  ✈️ {deliveryLocations}
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1">
+                  ⚡ Clean &amp; Freshly Serviced
+                </span>
+              </div>
+            </div>
+
+            {/* Vehicle Specifications Grid */}
             {availableSpecs.length > 0 && (
               <div className="bg-white rounded-4 shadow-sm p-4 mb-4 border" style={{ borderColor: '#E2E8F0' }}>
                 <h5 className="fw-bold text-dark font-heading mb-3 d-flex align-items-center gap-2">
                   <Award size={20} className="text-warning" />
-                  Vehicle Specifications
+                  Vehicle Specifications &amp; Features
                 </h5>
 
                 <div className="row g-3">
@@ -319,11 +386,107 @@ export default function BikeDetailsPage({
               </div>
             )}
 
+            {/* How Renting Works: 3 Simple Steps */}
+            <div className="bg-white rounded-4 shadow-sm p-4 mb-4 border" style={{ borderColor: '#E2E8F0' }}>
+              <h5 className="fw-bold text-dark font-heading mb-3 d-flex align-items-center gap-2">
+                <Clock size={20} className="text-primary" />
+                How To Rent This Bike in Goa
+              </h5>
+
+              <div className="row g-3">
+                <div className="col-12 col-md-4">
+                  <div className="p-3 rounded-3 bg-light border h-100 position-relative">
+                    <span className="badge bg-primary text-white rounded-circle p-2 fw-bold d-inline-flex align-items-center justify-content-center mb-2" style={{ width: '28px', height: '28px' }}>
+                      1
+                    </span>
+                    <h6 className="fw-bold text-dark mb-1">Book Online</h6>
+                    <p className="text-muted text-xs mb-0">
+                      Reserve instantly with booking confirmation sent straight to your WhatsApp and email.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-4">
+                  <div className="p-3 rounded-3 bg-light border h-100 position-relative">
+                    <span className="badge bg-primary text-white rounded-circle p-2 fw-bold d-inline-flex align-items-center justify-content-center mb-2" style={{ width: '28px', height: '28px' }}>
+                      2
+                    </span>
+                    <h6 className="fw-bold text-dark mb-1">Present DL &amp; Take Keys</h6>
+                    <p className="text-muted text-xs mb-0">
+                      Meet the delivery host at airport/hotel, show physical DL, complete quick joint video inspection &amp; hand over deposit.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-4">
+                  <div className="p-3 rounded-3 bg-light border h-100 position-relative">
+                    <span className="badge bg-success text-white rounded-circle p-2 fw-bold d-inline-flex align-items-center justify-content-center mb-2" style={{ width: '28px', height: '28px' }}>
+                      3
+                    </span>
+                    <h6 className="fw-bold text-dark mb-1">Return &amp; Get Deposit</h6>
+                    <p className="text-muted text-xs mb-0">
+                      Hand back the bike at scheduled time. Your ₹{depositAmount.toLocaleString('en-IN')} security deposit is refunded on the spot via UPI/Cash.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Handover Document Checklist */}
+            <div className="bg-white rounded-4 shadow-sm p-4 mb-4 border" style={{ borderColor: '#E2E8F0' }}>
+              <h5 className="fw-bold text-dark font-heading mb-3 d-flex align-items-center gap-2">
+                <ShieldCheck size={20} className="text-success" />
+                Mandatory Handover Document Checklist
+              </h5>
+
+              <div className="row g-3 text-xs">
+                <div className="col-12 col-md-6">
+                  <div className="d-flex align-items-start gap-2.5 p-2.5 rounded-3 bg-light border">
+                    <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong className="text-dark d-block">Original Physical Driving License</strong>
+                      <span className="text-muted">Must hold a valid two-wheeler physical license. (Learners license or digital phone photos not permitted by Goa Police).</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-6">
+                  <div className="d-flex align-items-start gap-2.5 p-2.5 rounded-3 bg-light border">
+                    <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong className="text-dark d-block">Government ID Proof</strong>
+                      <span className="text-muted">Original Aadhaar Card, Passport, or Voter ID required for identity verification during key handover.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-6">
+                  <div className="d-flex align-items-start gap-2.5 p-2.5 rounded-3 bg-light border">
+                    <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong className="text-dark d-block">Age Eligibility (18+ Years)</strong>
+                      <span className="text-muted">Rider must be at least 18 years of age with a minimum of 6 months active riding experience.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-6">
+                  <div className="d-flex align-items-start gap-2.5 p-2.5 rounded-3 bg-light border">
+                    <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong className="text-dark d-block">Refundable Security Deposit</strong>
+                      <span className="text-muted">Deposit of ₹{depositAmount.toLocaleString('en-IN')} is paid at handover via GPay/PhonePe/Cash and refunded upon return inspection.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Rental Terms & Riding Conditions */}
             <div className="bg-white rounded-4 shadow-sm p-4 mb-4 border" style={{ borderColor: '#E2E8F0' }}>
               <h5 className="fw-bold text-dark font-heading mb-3 d-flex align-items-center gap-2">
                 <FileText size={20} className="text-warning" />
-                Rental Terms &amp; Important Conditions
+                Goa Tourist Riding Guidelines &amp; Rules
               </h5>
 
               <div className="row g-3 text-sm">
@@ -331,8 +494,8 @@ export default function BikeDetailsPage({
                   <div className="d-flex align-items-start gap-2.5">
                     <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="fw-bold text-dark d-block">Valid Two-Wheeler License</span>
-                      <span className="text-muted text-xs">Original driving license for two-wheelers and government photo ID must be presented upon vehicle handover.</span>
+                      <span className="fw-bold text-dark d-block">Mandatory Helmet Usage (Rider &amp; Pillion)</span>
+                      <span className="text-muted text-xs">Goa Traffic Police strictly enforces helmets for both rider and passenger at all times. {helmetsCount} helmets are provided free.</span>
                     </div>
                   </div>
                 </div>
@@ -341,18 +504,8 @@ export default function BikeDetailsPage({
                   <div className="d-flex align-items-start gap-2.5">
                     <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="fw-bold text-dark d-block">Mandatory Helmet Usage</span>
-                      <span className="text-muted text-xs">Goa Traffic Police strictly mandates helmet usage for both rider and pillion passenger at all times.</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-12 col-md-6">
-                  <div className="d-flex align-items-start gap-2.5">
-                    <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
-                    <div>
-                      <span className="fw-bold text-dark d-block">Unlimited Kilometres</span>
-                      <span className="text-muted text-xs">Explore anywhere across North and South Goa without any per-kilometre limits or restrictions.</span>
+                      <span className="fw-bold text-dark d-block">Kilometre Allowance</span>
+                      <span className="text-muted text-xs">{kmAllowance}. Explore North and South Goa beaches, waterfalls, and forts with complete freedom.</span>
                     </div>
                   </div>
                 </div>
@@ -362,7 +515,7 @@ export default function BikeDetailsPage({
                     <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
                     <div>
                       <span className="fw-bold text-dark d-block">Fuel Policy</span>
-                      <span className="text-muted text-xs">Same-to-same fuel policy. Please return the vehicle with the equivalent fuel level provided at delivery.</span>
+                      <span className="text-muted text-xs">{fuelRule}. The bike is handed over with an indicated fuel level; please return with the same level.</span>
                     </div>
                   </div>
                 </div>
@@ -371,12 +524,8 @@ export default function BikeDetailsPage({
                   <div className="d-flex align-items-start gap-2.5">
                     <CheckCircle size={18} className="text-success mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="fw-bold text-dark d-block">Refundable Security Deposit</span>
-                      <span className="text-muted text-xs">
-                        {bike.security_deposit 
-                          ? `Refundable security deposit of ₹${Number(bike.security_deposit).toLocaleString('en-IN')} collected at delivery and refunded upon return inspection.`
-                          : 'Standard refundable security deposit collected at vehicle delivery and refunded immediately upon return inspection.'}
-                      </span>
+                      <span className="fw-bold text-dark d-block">Commercial Self-Drive Legal Permit</span>
+                      <span className="text-muted text-xs">This vehicle holds a verified {permitLabel} compliant with the Goa Motor Vehicles Act.</span>
                     </div>
                   </div>
                 </div>
@@ -387,6 +536,16 @@ export default function BikeDetailsPage({
                     <div>
                       <span className="fw-bold text-dark d-block">Strict No Beach Riding</span>
                       <span className="text-muted text-xs">Riding any vehicle on Goa beaches is strictly illegal by state law and subject to heavy police impoundment and fines.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-6">
+                  <div className="d-flex align-items-start gap-2.5">
+                    <AlertCircle size={18} className="text-danger mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="fw-bold text-dark d-block">Zero Alcohol Tolerance</span>
+                      <span className="text-muted text-xs">Drunk driving is strictly penalized by Goa police checkpoints with breathalyzer tests across all coastal belts.</span>
                     </div>
                   </div>
                 </div>
@@ -434,7 +593,7 @@ export default function BikeDetailsPage({
                 )}
               </div>
 
-              {/* Price Calculation (Existing Vehicle Formula) */}
+              {/* Price Calculation */}
               <div className="d-flex flex-column gap-2 mb-3 text-xs">
                 <div className="d-flex justify-content-between text-muted">
                   <span>Base Rate (₹{pricePerDay.toLocaleString('en-IN')} × {calculatedDays} {calculatedDays === 1 ? 'day' : 'days'})</span>
@@ -444,13 +603,32 @@ export default function BikeDetailsPage({
                   <span>Taxes &amp; GST (18%)</span>
                   <span className="fw-bold text-dark">₹{gstAmount.toLocaleString('en-IN')}</span>
                 </div>
+                <div className="d-flex justify-content-between text-muted">
+                  <span>Kilometre Allowance</span>
+                  <span className="text-success fw-bold">{kmAllowance}</span>
+                </div>
+                <div className="d-flex justify-content-between text-muted">
+                  <span>Helmets Included</span>
+                  <span className="text-success fw-bold">{helmetsCount} Sanitized (Free)</span>
+                </div>
                 <hr className="my-1" />
                 <div className="d-flex justify-content-between align-items-baseline">
-                  <span className="fw-bold text-dark fs-6">Estimated Total</span>
+                  <span className="fw-bold text-dark fs-6">Booking Amount</span>
                   <div className="text-end">
                     <span className="fw-black text-primary fs-5 font-heading">₹{estimatedTotal.toLocaleString('en-IN')}</span>
                     <span className="text-muted text-xxs d-block">incl. all taxes</span>
                   </div>
+                </div>
+
+                {/* Refundable Security Deposit Note */}
+                <div className="p-2.5 rounded-3 bg-light border mt-1">
+                  <div className="d-flex justify-content-between align-items-center mb-0.5">
+                    <span className="fw-bold text-dark text-xxs">Refundable Security Deposit:</span>
+                    <span className="badge bg-success bg-opacity-10 text-success fw-bold text-xxs">₹{depositAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                  <span className="text-muted text-xxs d-block" style={{ fontSize: '10px' }}>
+                    Collected at vehicle key handover &amp; 100% refunded immediately upon vehicle return.
+                  </span>
                 </div>
               </div>
 

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Building2, Lock, User, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle, Compass } from 'lucide-react';
 import * as api from '../../services/api';
+import ForgotPasswordModal from '../../components/ForgotPasswordModal';
 
 export default function B2BLoginPage({ onLoginSuccess, onNavigateHome, onNavigateRegister }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -108,6 +110,20 @@ export default function B2BLoginPage({ onLoginSuccess, onNavigateHome, onNavigat
                 </div>
               </div>
 
+              <div className="text-end mb-3">
+                <a
+                  href="#forgot"
+                  className="text-xs fw-bold text-decoration-none cursor-pointer"
+                  style={{ color: '#FF6500' }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowForgotPassword(true);
+                  }}
+                >
+                  Forgot Password?
+                </a>
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -156,6 +172,19 @@ export default function B2BLoginPage({ onLoginSuccess, onNavigateHome, onNavigat
       <div className="container py-3 text-center text-white-50 text-xxs">
         &copy; {new Date().getFullYear()} WOW GOA B2B Travel Platform. All Rights Reserved.
       </div>
+
+      {showForgotPassword && (
+        <ForgotPasswordModal
+          isOpen={showForgotPassword}
+          onClose={() => setShowForgotPassword(false)}
+          initialIdentifier={username}
+          onSuccessReturnToLogin={(usedId) => {
+            if (usedId) setUsername(usedId);
+            setPassword('');
+            setShowForgotPassword(false);
+          }}
+        />
+      )}
     </div>
   );
 }

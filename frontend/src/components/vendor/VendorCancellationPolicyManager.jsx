@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert, Plus, Edit2, Trash2, CheckCircle2, AlertCircle,
-  HelpCircle, Clock, Percent, DollarSign, RefreshCw, Sparkles, X, Check
+  HelpCircle, Clock, Percent, Sparkles, X, Check, Calendar
 } from 'lucide-react';
 import * as api from '../../services/api';
 
 const DEFAULT_SAMPLE_RULES = [
-  { minimum_hours_before: 168, maximum_hours_before: null, refund_percentage: 90, cancellation_charge_percentage: 10, rule_description: 'More than 7 days before service: 90% refund' },
-  { minimum_hours_before: 72, maximum_hours_before: 168, refund_percentage: 75, cancellation_charge_percentage: 25, rule_description: '3–7 days before service: 75% refund' },
-  { minimum_hours_before: 24, maximum_hours_before: 72, refund_percentage: 50, cancellation_charge_percentage: 50, rule_description: '1–3 days before service: 50% refund' },
-  { minimum_hours_before: 0, maximum_hours_before: 24, refund_percentage: 25, cancellation_charge_percentage: 75, rule_description: 'Less than 24 hours before service: 25% refund' },
-  { minimum_hours_before: -999999, maximum_hours_before: 0, refund_percentage: 0, cancellation_charge_percentage: 100, rule_description: 'After service starts: No refund' }
+  { min_days: 7, max_days: '', refund_percentage: 90, cancellation_charge_percentage: 10, rule_description: 'More than 7 days before pickup: 90% refund' },
+  { min_days: 3, max_days: 7, refund_percentage: 75, cancellation_charge_percentage: 25, rule_description: '3–7 days before pickup: 75% refund' },
+  { min_days: 1, max_days: 3, refund_percentage: 50, cancellation_charge_percentage: 50, rule_description: '1–3 days before pickup: 50% refund' },
+  { min_days: 0, max_days: 1, refund_percentage: 25, cancellation_charge_percentage: 75, rule_description: 'Within 24 hours of pickup: 25% refund' }
 ];
 
 export default function VendorCancellationPolicyManager({ currentUser, serviceType = 'all' }) {
@@ -21,21 +20,99 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Default target service type scoped to vendor context
+  const defaultScopedServiceType = serviceType && serviceType !== 'all' ? serviceType : (serviceType === 'all' ? 'all' : 'vehicle');
+
   // Form State
   const [formId, setFormId] = useState('');
-  const [formPolicyName, setFormPolicyName] = useState('Standard Cancellation Policy');
-  const [formServiceType, setFormServiceType] = useState(serviceType || 'all');
+  const [formVendorId, setFormVendorId] = useState('');
+  const [formPolicyName, setFormPolicyName] = useState(
+    serviceType === 'vehicle' ? 'Standard Vehicle Cancellation Policy' : 'Standard Cancellation Policy'
+  );
+  const [formServiceType, setFormServiceType] = useState(defaultScopedServiceType);
   const [formAllowAfterStarts, setFormAllowAfterStarts] = useState(false);
   const [formStatus, setFormStatus] = useState('Active');
   const [formRules, setFormRules] = useState([...DEFAULT_SAMPLE_RULES]);
 
-  const vendorId = currentUser?.vendor_id || currentUser?.id || 'vendor-1';
+  const vendorId = currentUser?.vendor_id || currentUser?.id || 'u-4';
+
+  const getServiceLabelWord = () => {
+    if (serviceType === 'vehicle') return 'pickup';
+    if (serviceType === 'hotel') return 'check-in';
+    if (serviceType === 'flight') return 'departure';
+    return 'service';
+  };
+
+  const getServiceTypeBadge = (polServiceType) => {
+    if (polServiceType === 'vehicle') return 'Vehicle Rental (Cars & Bikes)';
+    if (polServiceType === 'hotel') return 'Hotel Stay';
+    if (polServiceType === 'flight') return 'Flights';
+    if (polServiceType === 'package') return 'Holiday Packages';
+    if (serviceType === 'vehicle') return 'All Vehicles (Fleet-wide)';
+    if (serviceType === 'hotel') return 'All Hotels';
+    if (serviceType === 'flight') return 'All Flights';
+    return 'All Services';
+  };
+
+  const buildAutoRuleDesc = (minDays, maxDays, refundPct) => {
+    const sWord = getServiceLabelWord();
+    const minD = minDays !== '' && minDays !== null && !isNaN(minDays) ? parseFloat(minDays) : 0;
+    const hasMax = maxDays !== '' && maxDays !== null && maxDays !== undefined && !isNaN(maxDays);
+    const maxD = hasMax ? parseFloat(maxDays) : null;
+    const rPct = Math.round(parseFloat(refundPct) || 0);
+
+    if (!hasMax) {
+      return `More than ${minD} day${minD === 1 ? '' : 's'} before ${sWord}: ${rPct}% refund`;
+    }
+    if (minD === 0 && maxD === 1) {
+      return `Within 24 hours (0–1 day) of ${sWord}: ${rPct}% refund`;
+    }
+    if (minD === 0) {
+      return `Less than ${maxD} day${maxD === 1 ? '' : 's'} before ${sWord}: ${rPct}% refund`;
+    }
+    return `${minD}–${maxD} days before ${sWord}: ${rPct}% refund`;
+  };
+
+  const convertBackendRulesToDays = (rules) => {
+    if (!rules || !Array.isArray(rules) || rules.length === 0) {
+      return [...DEFAULT_SAMPLE_RULES];
+    }
+    // Filter out internal negative hour rules (-999999) which represent "after service started"
+    const validTiers = rules.filter(r => parseInt(r.minimum_hours_before, 10) >= 0);
+    if (validTiers.length === 0) {
+      return [...DEFAULT_SAMPLE_RULES];
+    }
+
+    return validTiers.map(r => {
+      const minH = parseInt(r.minimum_hours_before, 10) || 0;
+      const maxH = r.maximum_hours_before !== null && r.maximum_hours_before !== '' ? parseInt(r.maximum_hours_before, 10) : null;
+      const minDays = Math.round((minH / 24.0) * 10) / 10;
+      const maxDays = maxH !== null ? Math.round((maxH / 24.0) * 10) / 10 : '';
+      const refund = parseFloat(r.refund_percentage) || 0;
+      const charge = parseFloat(r.cancellation_charge_percentage || (100 - refund));
+
+      return {
+        min_days: minDays,
+        max_days: maxDays,
+        refund_percentage: refund,
+        cancellation_charge_percentage: charge,
+        rule_description: r.rule_description || buildAutoRuleDesc(minDays, maxDays, refund)
+      };
+    });
+  };
 
   const loadPolicies = async () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const data = await api.fetchVendorCancellationPolicies(vendorId);
+      let data = await api.fetchVendorCancellationPolicies(vendorId);
+      if (!data || data.length === 0) {
+        // Fallback: provision default standard policy
+        const single = await api.fetchVendorCancellationPolicy(vendorId, defaultScopedServiceType);
+        if (single && single.id) {
+          data = [single];
+        }
+      }
       setPolicies(data || []);
     } catch (err) {
       console.error("Failed to load cancellation policies:", err);
@@ -51,8 +128,11 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
 
   const handleOpenCreate = () => {
     setFormId('');
-    setFormPolicyName('Standard Cancellation Policy');
-    setFormServiceType(serviceType || 'all');
+    setFormVendorId(vendorId);
+    setFormPolicyName(
+      serviceType === 'vehicle' ? 'Standard Vehicle Cancellation Policy' : 'Standard Cancellation Policy'
+    );
+    setFormServiceType(defaultScopedServiceType);
     setFormAllowAfterStarts(false);
     setFormStatus('Active');
     setFormRules([...DEFAULT_SAMPLE_RULES]);
@@ -62,17 +142,12 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
 
   const handleOpenEdit = (policy) => {
     setFormId(policy.id);
+    setFormVendorId(policy.vendor_id || vendorId);
     setFormPolicyName(policy.policy_name || '');
-    setFormServiceType(policy.service_type || 'all');
+    setFormServiceType(policy.service_type || defaultScopedServiceType);
     setFormAllowAfterStarts(Boolean(policy.allow_after_service_starts));
     setFormStatus(policy.status || 'Active');
-    setFormRules(policy.rules && policy.rules.length > 0 ? policy.rules.map(r => ({
-      ...r,
-      refund_percentage: parseFloat(r.refund_percentage),
-      cancellation_charge_percentage: parseFloat(r.cancellation_charge_percentage),
-      minimum_hours_before: parseInt(r.minimum_hours_before, 10),
-      maximum_hours_before: r.maximum_hours_before !== null && r.maximum_hours_before !== '' ? parseInt(r.maximum_hours_before, 10) : null
-    })) : [...DEFAULT_SAMPLE_RULES]);
+    setFormRules(convertBackendRulesToDays(policy.rules));
     setErrorMsg('');
     setShowModal(true);
   };
@@ -80,30 +155,41 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
   const handleRuleChange = (index, field, value) => {
     const updated = [...formRules];
     updated[index][field] = value;
+
     if (field === 'refund_percentage') {
       const refund = Math.min(100, Math.max(0, parseFloat(value) || 0));
       updated[index].refund_percentage = refund;
       updated[index].cancellation_charge_percentage = Math.round((100 - refund) * 100) / 100;
     }
+
+    // Auto-update description if values change and description is standard
+    const r = updated[index];
+    const auto = buildAutoRuleDesc(r.min_days, r.max_days, r.refund_percentage);
+    if (!r.rule_description || r.rule_description.includes('refund') || r.rule_description.includes('days') || r.rule_description.includes('hours')) {
+      updated[index].rule_description = auto;
+    }
+
     setFormRules(updated);
   };
 
   const handleAddRule = () => {
+    const nextMin = formRules.length > 0 ? 1 : 0;
+    const nextMax = formRules.length > 0 ? 2 : 1;
     setFormRules([
       ...formRules,
       {
-        minimum_hours_before: 0,
-        maximum_hours_before: null,
+        min_days: nextMin,
+        max_days: nextMax,
         refund_percentage: 50,
         cancellation_charge_percentage: 50,
-        rule_description: 'Custom cancellation rule'
+        rule_description: buildAutoRuleDesc(nextMin, nextMax, 50)
       }
     ]);
   };
 
   const handleRemoveRule = (index) => {
     if (formRules.length <= 1) {
-      alert("A policy must have at least one rule.");
+      alert("A policy must have at least one cancellation rule tier.");
       return;
     }
     setFormRules(formRules.filter((_, i) => i !== index));
@@ -120,23 +206,69 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
       return;
     }
     if (formRules.length === 0) {
-      setErrorMsg("Please add at least one cancellation rule.");
+      setErrorMsg("Please add at least one cancellation rule tier.");
       return;
+    }
+
+    // Validate days order
+    for (let i = 0; i < formRules.length; i++) {
+      const r = formRules[i];
+      const minD = parseFloat(r.min_days);
+      if (isNaN(minD) || minD < 0) {
+        setErrorMsg(`Rule tier #${i + 1} has an invalid minimum days value.`);
+        return;
+      }
+      if (r.max_days !== '' && r.max_days !== null && r.max_days !== undefined) {
+        const maxD = parseFloat(r.max_days);
+        if (isNaN(maxD) || maxD <= minD) {
+          setErrorMsg(`Rule tier #${i + 1}: Max days (${r.max_days}) must be greater than Min days (${r.min_days}).`);
+          return;
+        }
+      }
     }
 
     setSaving(true);
     setErrorMsg('');
     try {
+      // Convert days to hours for database and calculation engine compatibility
+      const rulesPayload = formRules.map(r => {
+        const minD = Math.max(0, parseFloat(r.min_days) || 0);
+        const hasMax = r.max_days !== '' && r.max_days !== null && r.max_days !== undefined;
+        const maxD = hasMax ? Math.max(minD, parseFloat(r.max_days)) : null;
+        const refund = Math.min(100, Math.max(0, parseFloat(r.refund_percentage) || 0));
+        const charge = Math.round((100 - refund) * 100) / 100;
+
+        return {
+          minimum_hours_before: Math.round(minD * 24),
+          maximum_hours_before: maxD !== null ? Math.round(maxD * 24) : null,
+          refund_percentage: refund,
+          cancellation_charge_percentage: charge,
+          rule_description: r.rule_description?.trim() || buildAutoRuleDesc(minD, maxD, refund)
+        };
+      });
+
+      // If service already started, and cancellation not allowed, add fallback 0% refund rule
+      if (!formAllowAfterStarts) {
+        rulesPayload.push({
+          minimum_hours_before: -999999,
+          maximum_hours_before: 0,
+          refund_percentage: 0,
+          cancellation_charge_percentage: 100,
+          rule_description: 'After service starts: No refund'
+        });
+      }
+
       await api.saveVendorCancellationPolicy({
         id: formId || undefined,
-        vendor_id: vendorId,
+        vendor_id: formVendorId || vendorId,
         service_type: formServiceType,
         policy_name: formPolicyName.trim(),
         allow_after_service_starts: formAllowAfterStarts ? 1 : 0,
         status: formStatus,
-        rules: formRules
+        rules: rulesPayload
       });
-      setSuccessMsg("Cancellation policy saved successfully!");
+
+      setSuccessMsg("Cancellation policy saved and published successfully!");
       setShowModal(false);
       await loadPolicies();
       setTimeout(() => setSuccessMsg(''), 4000);
@@ -173,7 +305,7 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
             <h4 className="fw-bold text-dark mb-0 font-heading">Cancellation Policy Management</h4>
           </div>
           <p className="text-muted small mb-0 mt-1">
-            Define your service cancellation windows and customer refund tiers. Policies apply automatically to new bookings.
+            Define your service cancellation windows (in days) and customer refund tiers. Policies apply automatically to new bookings.
           </p>
         </div>
         <button
@@ -191,7 +323,7 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
           <HelpCircle size={18} className="text-warning flex-shrink-0 mt-0.5" />
           <div className="small text-dark">
             <span className="fw-bold">Platform Financial Policy:</span> WOW GOA collects a <strong>10% platform fee</strong> which is <strong>strictly non-refundable</strong> after successful booking & payment.
-            Your cancellation refund percentages apply to your <strong>Vendor Service Amount (90% of total customer booking)</strong>.
+            Your cancellation refund percentages apply directly to your <strong>Vendor Service Amount (90% of total customer booking)</strong>.
           </div>
         </div>
       </div>
@@ -221,7 +353,7 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
           <ShieldAlert size={48} className="mx-auto text-muted mb-3 opacity-30" />
           <h5 className="fw-bold text-dark">No Cancellation Policy Configured</h5>
           <p className="text-muted small mb-3">
-            You have not configured any custom cancellation policy yet. A default standard policy is currently active for your services.
+            You have not configured any custom cancellation policy yet. A default standard policy is currently active for your fleet.
           </p>
           <div>
             <button
@@ -239,13 +371,13 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
             <div key={pol.id} className="col-12">
               <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
                 <div className="card-header bg-white border-bottom py-3 px-4 d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2">
-                  <div className="d-flex align-items-center gap-2">
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
                     <span className="fw-bold fs-6 text-dark font-heading">{pol.policy_name}</span>
                     <span className={`badge rounded-pill px-2.5 py-1 text-xs fw-bold ${pol.status === 'Active' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}`}>
                       {pol.status || 'Active'}
                     </span>
                     <span className="badge rounded-pill px-2.5 py-1 text-xs fw-semibold bg-light text-dark border">
-                      Service: {pol.service_type === 'all' ? 'All Services' : pol.service_type.toUpperCase()}
+                      Service: {getServiceTypeBadge(pol.service_type)}
                     </span>
                     {pol.allow_after_service_starts == 1 ? (
                       <span className="badge rounded-pill px-2.5 py-1 text-xs fw-semibold bg-info-subtle text-info">
@@ -281,43 +413,54 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
                     <table className="table table-sm table-hover align-middle mb-0" style={{ fontSize: '0.84rem' }}>
                       <thead className="table-light text-muted" style={{ fontSize: '0.74rem', textTransform: 'uppercase' }}>
                         <tr>
-                          <th className="py-2 px-3">Time Window Before Service</th>
+                          <th className="py-2 px-3">Notice Window (Days)</th>
                           <th className="py-2 px-3">Rule Description</th>
                           <th className="py-2 px-3 text-center">Customer Refund</th>
                           <th className="py-2 px-3 text-center">Cancellation Retained</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {(pol.rules || []).map((r, idx) => (
-                          <tr key={idx}>
-                            <td className="py-2.5 px-3 fw-semibold text-dark">
-                              {r.maximum_hours_before === null || r.maximum_hours_before === undefined ? (
-                                <span className="d-flex align-items-center gap-1.5 text-primary">
-                                  <Clock size={14} /> More than {Math.round(r.minimum_hours_before / 24)} days ({r.minimum_hours_before}+ hrs)
+                        {(pol.rules || []).map((r, idx) => {
+                          const minH = parseInt(r.minimum_hours_before, 10);
+                          const maxH = r.maximum_hours_before !== null && r.maximum_hours_before !== '' ? parseInt(r.maximum_hours_before, 10) : null;
+                          const minD = Math.round((minH / 24.0) * 10) / 10;
+                          const maxD = maxH !== null ? Math.round((maxH / 24.0) * 10) / 10 : null;
+
+                          return (
+                            <tr key={idx}>
+                              <td className="py-2.5 px-3 fw-semibold text-dark">
+                                {minH < 0 ? (
+                                  <span className="d-flex align-items-center gap-1.5 text-danger">
+                                    <Clock size={14} /> Service Started (0 hrs)
+                                  </span>
+                                ) : maxH === null ? (
+                                  <span className="d-flex align-items-center gap-1.5 text-primary">
+                                    <Calendar size={14} /> More than {minD} day{minD === 1 ? '' : 's'} ({minH}+ hrs)
+                                  </span>
+                                ) : minH === 0 ? (
+                                  <span className="d-flex align-items-center gap-1.5 text-warning">
+                                    <Clock size={14} /> Within 24 hours / Same Day (0–{maxH} hrs)
+                                  </span>
+                                ) : (
+                                  <span className="d-flex align-items-center gap-1.5 text-dark">
+                                    <Calendar size={14} /> {minD} to {maxD} days ({minH}–{maxH} hrs)
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-muted">{r.rule_description}</td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className="badge bg-success-subtle text-success fw-black px-2.5 py-1 fs-6">
+                                  {parseFloat(r.refund_percentage)}%
                                 </span>
-                              ) : r.minimum_hours_before <= 0 ? (
-                                <span className="d-flex align-items-center gap-1.5 text-danger">
-                                  <Clock size={14} /> Service Started (0 hrs)
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className="badge bg-warning-subtle text-dark fw-bold px-2 py-1 text-xs">
+                                  {parseFloat(r.cancellation_charge_percentage || (100 - r.refund_percentage))}% Retained
                                 </span>
-                              ) : (
-                                <span className="d-flex align-items-center gap-1.5 text-dark">
-                                  <Clock size={14} /> {Math.round(r.minimum_hours_before / 24)}–{Math.round(r.maximum_hours_before / 24)} days ({r.minimum_hours_before}–{r.maximum_hours_before} hrs)
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3 text-muted">{r.rule_description}</td>
-                            <td className="py-2.5 px-3 text-center">
-                              <span className="badge bg-success-subtle text-success fw-black px-2.5 py-1 fs-6">
-                                {parseFloat(r.refund_percentage)}%
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <span className="badge bg-warning-subtle text-dark fw-bold px-2 py-1 text-xs">
-                                {parseFloat(r.cancellation_charge_percentage || (100 - r.refund_percentage))}% Retained
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -363,6 +506,7 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
                         required
                       />
                     </div>
+
                     <div className="col-12 col-md-6">
                       <label className="form-label text-xs fw-bold text-dark text-uppercase">Applicable Service Type</label>
                       <select
@@ -370,10 +514,30 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
                         value={formServiceType}
                         onChange={(e) => setFormServiceType(e.target.value)}
                       >
-                        <option value="all">All Services</option>
-                        <option value="vehicle">Vehicle Rental (Cars & Bikes)</option>
-                        <option value="hotel">Hotel Stay</option>
-                        <option value="package">Holiday Packages</option>
+                        {serviceType === 'vehicle' ? (
+                          <>
+                            <option value="vehicle">Vehicle Rental (Cars & Bikes)</option>
+                            <option value="all">All Vehicle Fleet (Default)</option>
+                          </>
+                        ) : serviceType === 'hotel' ? (
+                          <>
+                            <option value="hotel">Hotel Stay & Rooms</option>
+                            <option value="all">All Hotel Properties (Default)</option>
+                          </>
+                        ) : serviceType === 'flight' ? (
+                          <>
+                            <option value="flight">Flight Bookings</option>
+                            <option value="all">All Flights (Default)</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="all">All Services</option>
+                            <option value="vehicle">Vehicle Rental (Cars & Bikes)</option>
+                            <option value="hotel">Hotel Stay</option>
+                            <option value="flight">Flight Bookings</option>
+                            <option value="package">Holiday Packages</option>
+                          </>
+                        )}
                       </select>
                     </div>
 
@@ -406,12 +570,17 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
                     </div>
                   </div>
 
-                  {/* Rules Builder Section */}
+                  {/* Rules Builder Section (In DAYS) */}
                   <div className="border-top pt-3">
-                    <div className="d-flex align-items-center justify-content-between mb-3">
+                    <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                       <div>
-                        <h6 className="fw-bold text-dark mb-0 fs-6">Cancellation Time Windows & Refund Rules</h6>
-                        <p className="text-muted text-xxs mb-0">Percentage refunded to customer from vendor service amount.</p>
+                        <div className="d-flex align-items-center gap-1.5">
+                          <Calendar size={16} className="text-warning" />
+                          <h6 className="fw-bold text-dark mb-0 fs-6">Cancellation Time Windows (in Days) & Refund Rules</h6>
+                        </div>
+                        <p className="text-muted text-xxs mb-0 mt-0.5">
+                          Set the minimum and maximum days before {getServiceLabelWord()} for each customer refund tier.
+                        </p>
                       </div>
                       <div className="d-flex align-items-center gap-2">
                         <button
@@ -433,35 +602,55 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
 
                     <div className="d-flex flex-column gap-2.5">
                       {formRules.map((rule, idx) => (
-                        <div key={idx} className="p-3 rounded-3 border bg-light">
+                        <div key={idx} className="p-3 rounded-3 border bg-light shadow-xs">
                           <div className="row g-2 align-items-center">
                             <div className="col-12 col-md-3">
-                              <label className="form-label text-xxs fw-bold text-muted text-uppercase mb-1">Min Hours Before</label>
+                              <label className="form-label text-xxs fw-bold text-muted text-uppercase mb-1">
+                                Min Days Before
+                              </label>
                               <div className="input-group input-group-sm">
                                 <input
                                   type="number"
+                                  min="0"
+                                  step="any"
                                   className="form-control rounded-start-2 fw-semibold"
-                                  placeholder="e.g. 168"
-                                  value={rule.minimum_hours_before}
-                                  onChange={(e) => handleRuleChange(idx, 'minimum_hours_before', parseInt(e.target.value, 10) || 0)}
+                                  placeholder="e.g. 7"
+                                  value={rule.min_days}
+                                  onChange={(e) => handleRuleChange(idx, 'min_days', e.target.value)}
                                   required
                                 />
-                                <span className="input-group-text text-xxs bg-white text-muted">hrs</span>
+                                <span className="input-group-text text-xxs bg-white text-muted fw-bold">days</span>
                               </div>
+                              <span className="text-xxs text-muted mt-0.5 d-block">
+                                ≈ {Math.round((parseFloat(rule.min_days) || 0) * 24)} hrs
+                              </span>
                             </div>
 
                             <div className="col-12 col-md-3">
-                              <label className="form-label text-xxs fw-bold text-muted text-uppercase mb-1">Max Hours (Optional)</label>
+                              <label className="form-label text-xxs fw-bold text-muted text-uppercase mb-1">
+                                Max Days (Optional)
+                              </label>
                               <div className="input-group input-group-sm">
                                 <input
                                   type="number"
+                                  min="0"
+                                  step="any"
                                   className="form-control rounded-start-2 fw-semibold"
                                   placeholder="Leave blank for > min"
-                                  value={rule.maximum_hours_before !== null && rule.maximum_hours_before !== undefined ? rule.maximum_hours_before : ''}
-                                  onChange={(e) => handleRuleChange(idx, 'maximum_hours_before', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                                  value={rule.max_days !== null && rule.max_days !== undefined ? rule.max_days : ''}
+                                  onChange={(e) => handleRuleChange(idx, 'max_days', e.target.value)}
                                 />
-                                <span className="input-group-text text-xxs bg-white text-muted">hrs</span>
+                                <span className="input-group-text text-xxs bg-white text-muted fw-bold">days</span>
                               </div>
+                              {rule.max_days !== '' && rule.max_days !== null && rule.max_days !== undefined ? (
+                                <span className="text-xxs text-muted mt-0.5 d-block">
+                                  ≈ {Math.round((parseFloat(rule.max_days) || 0) * 24)} hrs
+                                </span>
+                              ) : (
+                                <span className="text-xxs text-muted mt-0.5 d-block">
+                                  Applies to any time &gt; {rule.min_days || 0} days
+                                </span>
+                              )}
                             </div>
 
                             <div className="col-6 col-md-2">
@@ -508,7 +697,7 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
                               <input
                                 type="text"
                                 className="form-control form-control-sm rounded-2 text-xs"
-                                placeholder="Rule description displayed to customer (e.g. More than 7 days: 90% refund)"
+                                placeholder={`Rule description displayed to customer (e.g. More than 7 days before ${getServiceLabelWord()}: 90% refund)`}
                                 value={rule.rule_description}
                                 onChange={(e) => handleRuleChange(idx, 'rule_description', e.target.value)}
                                 required

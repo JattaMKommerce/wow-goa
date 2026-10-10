@@ -643,19 +643,19 @@ export default function CustomerBookingsTab({
       </div>
 
       {/* ─── Desktop Bookings Table ─── */}
-      <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white d-none d-md-block" style={{ border: '1px solid #eef2f6' }}>
+      <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white d-none d-md-block" style={{ border: '1px solid #e2e8f0' }}>
         <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0" style={{ fontSize: '13px' }}>
-            <thead className="bg-light text-muted text-xs text-uppercase">
-              <tr>
-                <th className="ps-4">Booking ID</th>
-                <th>Service Details</th>
-                <th>Type</th>
-                <th>Travel Dates</th>
-                <th>Total Fare</th>
-                <th>Payment</th>
-                <th>Status</th>
-                <th className="text-end pe-4">Actions</th>
+          <table className="table table-hover align-middle mb-0" style={{ fontSize: '13px', minWidth: '1080px' }}>
+            <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+              <tr className="text-muted text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>
+                <th className="ps-4 py-3.5 text-nowrap" style={{ width: '140px' }}>Booking ID</th>
+                <th className="py-3.5" style={{ minWidth: '280px' }}>Service Details</th>
+                <th className="py-3.5 text-nowrap" style={{ minWidth: '150px' }}>Type</th>
+                <th className="py-3.5 text-nowrap" style={{ minWidth: '150px' }}>Travel Dates</th>
+                <th className="py-3.5 text-nowrap" style={{ minWidth: '120px' }}>Total Fare</th>
+                <th className="py-3.5 text-nowrap" style={{ minWidth: '120px' }}>Payment</th>
+                <th className="py-3.5 text-nowrap" style={{ minWidth: '160px' }}>Status</th>
+                <th className="text-end pe-4 py-3.5 text-nowrap" style={{ minWidth: '230px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -665,86 +665,103 @@ export default function CustomerBookingsTab({
                 const isPaid = paidAmt >= totalAmt && totalAmt > 0;
 
                 return (
-                  <tr key={b.id || idx}>
-                    <td className="ps-4 fw-black text-dark font-heading">
-                      #{b.id || b.booking_id || `WOW-${1000 + idx}`}
+                  <tr key={b.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td className="ps-4 py-3.5 text-nowrap">
+                      <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-3 font-monospace fw-bold" style={{ fontSize: '12px', letterSpacing: '0.03em' }}>
+                        #{b.id || b.booking_id || `WG-${1000 + idx}`}
+                      </span>
                     </td>
 
-                    <td>
-                      <div className="d-flex align-items-center gap-2">
-                        <div className="p-2 rounded bg-light border flex-shrink-0">
+                    <td className="py-3.5">
+                      <div className="d-flex align-items-center gap-3">
+                        <div className="p-2.5 rounded-3 bg-light border flex-shrink-0 d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px' }}>
                           {getCategoryIcon(b)}
                         </div>
-                        <div>
-                          <div className="fw-bold text-dark">{b.package_name || b.item_name || b.hotel_name || b.vehicle_name || 'Goa Booking'}</div>
-                          <div className="text-muted text-xxs">📍 {b.pickup_location || b.pickup || b.hotel_location || 'Goa'} {b.pickup_time ? `• ${b.pickup_time}` : ''}</div>
+                        <div style={{ maxWidth: '320px' }}>
+                          <div className="fw-bold text-dark text-truncate" style={{ fontSize: '13.5px' }} title={b.package_name || b.item_name || b.hotel_name || b.vehicle_name}>
+                            {b.package_name || b.item_name || b.hotel_name || b.vehicle_name || 'Goa Booking'}
+                          </div>
+                          <div className="text-muted d-flex align-items-center gap-1 mt-0.5 text-truncate" style={{ fontSize: '11.5px' }}>
+                            <span className="text-danger flex-shrink-0">📍</span>
+                            <span className="text-truncate">
+                              {b.pickup_location || b.pickup_loc || b.pickup || b.hotel_location || 'Goa'} {b.pickup_time ? `• ${b.pickup_time}` : ''}
+                            </span>
+                          </div>
                           {isTripPackageItem(b) && (
-                            <div className="d-flex flex-wrap gap-1 mt-1">
-                              <span className="badge bg-light text-dark border" style={{ fontSize: '9px' }}>🏨 {b.hotel_name || 'Resort Stay'}</span>
-                              <span className="badge bg-light text-dark border" style={{ fontSize: '9px' }}>🚗 {b.vehicle_name || 'Swift'} • {b.driver_service_type || 'Chauffeur'}</span>
-                              <span className="badge bg-light text-dark border" style={{ fontSize: '9px' }}>🏛️ Sightseeing &amp; Cruise</span>
+                            <div className="d-flex flex-wrap gap-1 mt-1.5">
+                              <span className="badge bg-light text-dark border" style={{ fontSize: '9.5px' }}>🏨 {b.hotel_name || 'Resort Stay'}</span>
+                              <span className="badge bg-light text-dark border" style={{ fontSize: '9.5px' }}>🚗 {b.vehicle_name || 'Swift'} • {b.driver_service_type || 'Chauffeur'}</span>
+                              <span className="badge bg-light text-dark border" style={{ fontSize: '9.5px' }}>🏛️ Sightseeing &amp; Cruise</span>
                             </div>
                           )}
                         </div>
                       </div>
                     </td>
 
-                    <td>
-                      <span className="badge bg-light text-dark border px-2 py-1 rounded text-xxs fw-bold text-uppercase">
+                    <td className="py-3.5 text-nowrap">
+                      <span className="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2.5 py-1.5 rounded-pill text-xxs fw-bold text-uppercase">
                         {getCategoryTitle(b)}
                       </span>
                     </td>
 
-                    <td className="text-xs">
-                      <div className="fw-bold text-dark">{formatDateShort(b.pickup_date || b.travel_date)}</div>
-                      {b.drop_date && <div className="text-muted text-xxs">to {formatDateShort(b.drop_date)}</div>}
+                    <td className="py-3.5 text-nowrap">
+                      <div className="d-flex flex-column text-xs">
+                        <span className="fw-bold text-dark">{formatDateShort(b.pickup_date || b.travel_date)}</span>
+                        {b.drop_date && (
+                          <span className="text-muted text-xxs mt-0.5">to {formatDateShort(b.drop_date)}</span>
+                        )}
+                      </div>
                     </td>
 
-                    <td className="fw-black text-dark">
-                      ₹{totalAmt.toLocaleString('en-IN')}
+                    <td className="py-3.5 text-nowrap">
+                      <span className="fw-black text-dark" style={{ fontSize: '14px' }}>
+                        ₹{totalAmt.toLocaleString('en-IN')}
+                      </span>
                     </td>
 
-                    <td>
+                    <td className="py-3.5 text-nowrap">
                       {isPaid ? (
-                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-0.5 rounded text-xxs fw-bold">
+                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1.5 rounded-pill text-xxs fw-bold">
                           Paid Full
                         </span>
                       ) : (
-                        <span className="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-0.5 rounded text-xxs fw-bold">
+                        <span className="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2.5 py-1.5 rounded-pill text-xxs fw-bold">
                           Partially Paid
                         </span>
                       )}
                     </td>
 
-                    <td>
+                    <td className="py-3.5 text-nowrap">
                       {getStatusBadge(b.status)}
                     </td>
 
-                    <td className="text-end pe-4">
-                      <button 
-                        onClick={() => {
-                          if (onOpenBookingDetails && typeof onOpenBookingDetails === 'function') {
-                            onOpenBookingDetails(b);
-                          } else {
-                            setSelectedVoucherBooking(b);
-                          }
-                        }}
-                        className="btn btn-sm btn-dark text-white fw-bold rounded-pill px-3 py-1 text-xs d-inline-flex align-items-center gap-1.5 shadow-xs"
-                        title="View & Print Booking Voucher"
-                      >
-                        <Eye size={13} />
-                        <span>View Voucher</span>
-                      </button>
-                      {canCancel(b) && (
-                        <button
-                          onClick={() => setCancellingBooking(b)}
-                          className="btn btn-sm btn-outline-danger fw-bold rounded-pill px-2.5 py-1 text-xs d-inline-flex align-items-center gap-1 shadow-xs ms-1.5"
-                          title="Cancel Booking"
+                    <td className="py-3.5 text-end pe-4 text-nowrap">
+                      <div className="d-inline-flex align-items-center justify-content-end gap-2">
+                        <button 
+                          onClick={() => {
+                            if (onOpenBookingDetails && typeof onOpenBookingDetails === 'function') {
+                              onOpenBookingDetails(b);
+                            } else {
+                              setSelectedVoucherBooking(b);
+                            }
+                          }}
+                          className="btn btn-sm btn-dark text-white fw-bold rounded-pill px-3 py-1.5 text-xs d-inline-flex align-items-center gap-1.5 shadow-xs transition-all"
+                          title="View & Print Booking Voucher"
                         >
-                          <XCircle size={13} />
-                          <span>Cancel</span>
+                          <Eye size={13} />
+                          <span>View Voucher</span>
                         </button>
-                      )}
+                        {canCancel(b) && (
+                          <button
+                            onClick={() => setCancellingBooking(b)}
+                            className="btn btn-sm btn-outline-danger fw-bold rounded-pill px-3 py-1.5 text-xs d-inline-flex align-items-center gap-1.5 shadow-xs transition-all"
+                            title="Cancel Booking"
+                          >
+                            <XCircle size={13} />
+                            <span>Cancel</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
