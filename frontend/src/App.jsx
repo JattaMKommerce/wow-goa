@@ -1516,9 +1516,10 @@ export default function App() {
       const isTripPkg = !isActivity && !isSelfDrivePkg && (selectedBookingItem.package_type === 'Trip Package' || selectedBookingItem.type === 'package' || String(selectedBookingItem.id || '').startsWith('pkg-') || String(selectedBookingItem.id || '').startsWith('package-') || Boolean(selectedBookingItem.duration && !selectedBookingItem.seating && !selectedBookingItem.engine));
       const isHotel = !isActivity && (selectedBookingItem.type === 'hotel' || Boolean(selectedBookingItem.stars || selectedBookingItem.hotel_name));
       const isFlight = !isActivity && (selectedBookingItem.type === 'flight' || Boolean(selectedBookingItem.airline));
+      const isTaxi = selectedBookingItem.type === 'taxi' || selectedBookingItem.package_type === 'Taxi Transfer' || String(selectedBookingItem.id || '').startsWith('tx-');
       const vType = normalizeVehicleType(selectedBookingItem);
-      const isCar = !isActivity && !isTripPkg && !isSelfDrivePkg && (vType === 'car');
-      const isBike = !isActivity && !isTripPkg && !isSelfDrivePkg && (vType === 'bike');
+      const isCar = !isActivity && !isTripPkg && !isSelfDrivePkg && !isTaxi && (vType === 'car');
+      const isBike = !isActivity && !isTripPkg && !isSelfDrivePkg && !isTaxi && (vType === 'bike');
 
       let detectedType = 'selfdrive';
       let detectedPkgType = 'Self Drive Package';
@@ -1538,6 +1539,9 @@ export default function App() {
       } else if (isFlight) {
         detectedType = 'flight';
         detectedPkgType = 'Flight Booking';
+      } else if (isTaxi) {
+        detectedType = 'taxi';
+        detectedPkgType = 'Taxi Chauffeur Transfer';
       } else if (isCar) {
         detectedType = 'car';
         detectedPkgType = 'Car Rental';
@@ -1627,6 +1631,31 @@ export default function App() {
         cashback_preview: res?.cashback_preview || res?.booking?.cashback_preview || null
       };
       
+            // Phase 2: Live Sync with Django Taxi Dispatcher Desk
+      if (isTaxi) {
+        try {
+          await fetch('http://127.0.0.1:8000/api/dispatches/bookings/create-booking/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              booking_reference: confirmedBooking.id,
+              passenger_name: userName,
+              passenger_phone: cleanPhone,
+              pickup_location: payload.pickup_location || 'Goa Airport',
+              dropoff_location: payload.drop_location || 'North / South Goa',
+              pickup_time: `${pDate} ${payload.pickup_time || '10:00 AM'}`,
+              vehicle_class_requested: (selectedBookingItem.category || 'SEDAN').toUpperCase(),
+              flight_number: extraDetails.flight_number || '',
+              total_fare_inr: totalCost,
+              special_instructions: `Booked via Wow Goa Web - ${selectedBookingItem.name}`
+            })
+          });
+          console.log('Successfully dispatched booking to Django Dispatcher Desk!');
+        } catch (syncErr) {
+          console.warn('Taxi dispatch sync warning:', syncErr);
+        }
+      }
+
       setLastConfirmedBooking(confirmedBooking);
 
       // Set customer phone and local bookings for instant Customer Portal access

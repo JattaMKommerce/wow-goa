@@ -406,6 +406,7 @@ export default function BookingModal({
   }, [selectedBookingItem]);
 
   const isHotel = String(selectedBookingItem?.id).startsWith('hotel-') || selectedBookingItem.property_type || selectedBookingItem.stars;
+  const isTaxi = selectedBookingItem?.type === 'taxi' || selectedBookingItem?.package_type === 'Taxi Transfer' || String(selectedBookingItem?.id || '').startsWith('tx-');
   const isCar = String(selectedBookingItem?.id).startsWith('car-') || selectedBookingItem.type === 'car';
   const isBike = String(selectedBookingItem?.id).startsWith('bike-') || 
     selectedBookingItem.type === 'bike' || 
@@ -518,7 +519,7 @@ export default function BookingModal({
 
     const isVehicleItem = isCar || isBike || Boolean(addonVehicle);
     if (isVehicleItem) {
-      const isSelfDriveRental = (!driverRequired || isBike);
+      const isSelfDriveRental = (!isTaxi && (!driverRequired || isBike));
       const eligibility = validateVehicleBookingEligibility(
         userDob,
         modalPickupDate,

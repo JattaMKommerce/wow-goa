@@ -490,3 +490,70 @@ class DispatchBookingViewSet(viewsets.ModelViewSet):
             'message': f"Pickup time for {booking.booking_reference} synchronized with flight delay (+{delay_minutes} min)",
             'booking': DispatchBookingSerializer(booking).data
         })
+
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny], url_path='create-booking')
+    def create_booking_from_web(self, request):
+        """Creates a booking from the Wow Goa customer website and registers it into the Dispatcher Desk."""
+        data = request.data
+        client, _ = CorporateClient.objects.get_or_create(
+            name="Wow Goa Direct Website",
+            defaults={
+                "contact_person": "Online Guest",
+                "contact_email": "reservations@wowgoa.com",
+                "contact_phone": "+91 832 2400000"
+            }
+        )
+
+        ref = data.get('booking_reference')
+        if not ref:
+            import random
+            ref = f"WG-TX-{random.randint(1000, 9999)}"
+
+        pickup_time_str = data.get('pickup_time')
+        parsed_pickup_time = timezone.now() + timedelta(hours=2)
+        if pickup_time_str:
+            try:
+                from datetime import datetime
+                for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d %I:%M %p', '%Y-%m-%d'):
+                    try:
+                        dt = datetime.strptime(pickup_time_str.strip(), fmt)
+                        parsed_pickup_time = timezone.make_aware(dt) if timezone.is_naive(dt) else dt
+                        break
+                    except ValueError:
+                        continue
+            except Exception:
+                pass
+
+        v_class = (data.get('vehicle_class_requested') or 'SEDAN').upper()
+        if 'MUV' in v_class or 'ERTIGA' in v_class:
+            chosen_class = Vehicle.VehicleClass.MUV
+        elif 'SUV' in v_class or 'INNOVA' in v_class:
+            chosen_class = Vehicle.VehicleClass.SUV
+        elif 'LUX' in v_class or 'FORTUNER' in v_class:
+            chosen_class = Vehicle.VehicleClass.LUXURY
+        else:
+            chosen_class = Vehicle.VehicleClass.SEDAN
+
+        fare = float(data.get('total_fare_inr') or data.get('estimated_fare') or data.get('price') or 1600.0)
+
+        booking = DispatchBooking.objects.create(
+            booking_reference=ref,
+            client=client,
+            passenger_name=data.get('passenger_name') or 'Valued Guest',
+            passenger_phone=data.get('passenger_phone') or '+91 9876543210',
+            pickup_location=data.get('pickup_location') or 'Goa Airport (Dabolim / Mopa)',
+            dropoff_location=data.get('dropoff_location') or 'North Goa',
+            pickup_time=parsed_pickup_time,
+            vehicle_class_requested=chosen_class,
+            flight_number=data.get('flight_number') or '',
+            passenger_count=int(data.get('passenger_count') or 1),
+            special_instructions=data.get('special_instructions') or 'Booked via Wow Goa Web',
+            total_fare_inr=fare,
+            status=DispatchBooking.DispatchStatus.PENDING
+        )
+
+        return Response({
+            'success': True,
+            'message': f"Taxi dispatch created with reference {booking.booking_reference}",
+            'booking': DispatchBookingSerializer(booking).data
+        }, status=status.HTTP_201_CREATED)
