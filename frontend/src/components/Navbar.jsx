@@ -50,6 +50,23 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
               );
             })}
 
+                        {/* Taxi Services Direct Link */}
+            <li className="nav-item">
+              <a 
+                className={`nav-link ${activeTab === 'taxi' ? 'active' : ''}`} 
+                href="/taxi" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveTab('taxi');
+                  setTimeout(() => {
+                    document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }, 50);
+                }}
+              >
+                <span>🚕 Cabs & Taxis</span>
+              </a>
+            </li>
+
             {/* Customer Bookings Link */}
             <li className="nav-item">
               <a 
@@ -246,6 +263,37 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
                       </a>
                     </li>
                   )}
+                                    <li>
+                    <a 
+                      className="dropdown-item d-flex align-items-center gap-2 py-2 fw-bold text-dark" 
+                      style={{ fontSize: '13px' }}
+                      href="/taxi-dispatch"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setActiveTab('taxi-dispatch');
+                        window.history.pushState(null, '', '/taxi-dispatch');
+                        window.dispatchEvent(new PopStateEvent('popstate'));
+                      }}
+                    >
+                      <span>📋 Dispatcher Desk</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      className="dropdown-item d-flex align-items-center gap-2 py-2 fw-bold text-dark" 
+                      style={{ fontSize: '13px' }}
+                      href="/taxi-chauffeur"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setActiveTab('taxi-chauffeur');
+                        window.history.pushState(null, '', '/taxi-chauffeur');
+                        window.dispatchEvent(new PopStateEvent('popstate'));
+                      }}
+                    >
+                      <span>🚖 Chauffeur Portal</span>
+                    </a>
+                  </li>
+
                   <li><hr className="dropdown-divider my-1" /></li>
                   <li>
                     <button 

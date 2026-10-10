@@ -119,6 +119,7 @@ export default function Footer({ setActiveTab }) {
       setActiveTab(tabId);
     }
     const pathMap = {
+      'taxi': '/taxi',
       'cars': '/cars',
       'bikes': '/bikes',
       'hotels': '/hotels',
@@ -194,6 +195,12 @@ export default function Footer({ setActiveTab }) {
                 Rentals &amp; Stays
               </h6>
               <ul className="list-unstyled mb-0">
+                <li className="mb-2">
+                  <a href="/taxi" onClick={(e) => handleNavClick(e, 'taxi')} className="footer-link d-flex align-items-center gap-1.5 text-decoration-none">
+                    <Car size={13} className="text-warning" />
+                    <span>Airport Taxis &amp; Chauffeurs</span>
+                  </a>
+                </li>
                 <li className="mb-2">
                   <a href="/cars" onClick={(e) => handleNavClick(e, 'cars')} className="footer-link d-flex align-items-center gap-1.5 text-decoration-none">
                     <Car size={13} className="text-warning" />

@@ -227,6 +227,33 @@ export default function B2BDashboardTab({
             </div>
           </div>
 
+          {/* B2B Taxi & Chauffeur Mobility */}
+          <div className="col-12 col-sm-6 col-lg-4">
+            <div 
+              onClick={() => onSelectService('taxi')}
+              className="p-4 rounded-4 border h-100 cursor-pointer transition-all hover-shadow-md bg-white d-flex flex-column justify-content-between"
+              style={{ cursor: 'pointer', borderColor: '#e2e8f0' }}
+            >
+              <div>
+                <div className="d-flex align-items-center justify-content-between mb-3">
+                  <div className="rounded-3 p-2.5 d-flex align-items-center justify-content-center shadow-xs" style={{ background: 'rgba(255, 107, 53, 0.12)', color: '#FF6B35' }}>
+                    <Car size={22} />
+                  </div>
+                  <span className="badge text-white text-xs fw-bold px-2.5 py-1 rounded-pill" style={{ background: '#FF6B35' }}>Corporate</span>
+                </div>
+                <h6 className="fw-bold text-dark font-heading mb-1.5 fs-6">Taxi & Chauffeur Mobility</h6>
+                <p className="text-secondary small mb-0" style={{ fontSize: '12.5px', lineHeight: '1.5' }}>
+                  B2B airport transfers from Mopa &amp; Dabolim with flight delay radar, meet &amp; greet placards, and partner rates.
+                </p>
+              </div>
+              <div className="pt-3 mt-3 border-top border-light-subtle d-flex align-items-center justify-content-between fw-bold text-xs" style={{ color: '#FF6B35' }}>
+                <span>Book Chauffeur Cab</span>
+                <ChevronRight size={16} />
+              </div>
+            </div>
+          </div>
+
+
           {/* Trip Packages */}
           <div className="col-12 col-sm-6 col-lg-4">
             <div 
