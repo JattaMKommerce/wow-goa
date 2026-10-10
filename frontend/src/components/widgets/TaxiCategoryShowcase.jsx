@@ -1,10 +1,10 @@
 import React, { useRef, useMemo, useEffect } from 'react';
 import { 
-  ChevronLeft, ChevronRight, Car, Users, Crown, Sparkles, Star, Camera, Plane, ShieldCheck
+  ChevronLeft, ChevronRight, Car, Users, Crown, Star, Camera
 } from 'lucide-react';
 
 // ─── CURATED TAXI FLEET DATA (Matching Self Drive Architecture) ─────────────────
-const DEFAULT_AIRPORT_CABS = [
+const DEFAULT_COMFORT_SEDANS = [
   {
     id: 'tx-def-dzire',
     name: 'Maruti Suzuki Dzire',
@@ -17,9 +17,7 @@ const DEFAULT_AIRPORT_CABS = [
     luggage: '2 Bags',
     fuel: 'Petrol',
     ac: true,
-    airportRates: { mopa: 2100, dabolim: 1600 },
     fullDayRate: 3200,
-    pointToPointRate: 1600,
     type: 'taxi'
   },
   {
@@ -34,9 +32,7 @@ const DEFAULT_AIRPORT_CABS = [
     luggage: '3 Bags',
     fuel: 'Diesel',
     ac: true,
-    airportRates: { mopa: 2100, dabolim: 1600 },
     fullDayRate: 3200,
-    pointToPointRate: 1600,
     type: 'taxi'
   },
   {
@@ -51,9 +47,7 @@ const DEFAULT_AIRPORT_CABS = [
     luggage: '2 Bags',
     fuel: 'Petrol',
     ac: true,
-    airportRates: { mopa: 2200, dabolim: 1700 },
     fullDayRate: 3400,
-    pointToPointRate: 1700,
     type: 'taxi'
   },
   {
@@ -68,9 +62,7 @@ const DEFAULT_AIRPORT_CABS = [
     luggage: '2 Bags',
     fuel: 'CNG / Petrol',
     ac: true,
-    airportRates: { mopa: 2150, dabolim: 1650 },
     fullDayRate: 3300,
-    pointToPointRate: 1650,
     type: 'taxi'
   },
   {
@@ -85,9 +77,7 @@ const DEFAULT_AIRPORT_CABS = [
     luggage: '2 Bags',
     fuel: 'Electric',
     ac: true,
-    airportRates: { mopa: 2300, dabolim: 1800 },
     fullDayRate: 3600,
-    pointToPointRate: 1800,
     type: 'taxi'
   },
   {
@@ -102,9 +92,7 @@ const DEFAULT_AIRPORT_CABS = [
     luggage: '3 Bags',
     fuel: 'Petrol',
     ac: true,
-    airportRates: { mopa: 2500, dabolim: 1950 },
     fullDayRate: 3800,
-    pointToPointRate: 1950,
     type: 'taxi'
   }
 ];
@@ -122,9 +110,7 @@ const DEFAULT_FAMILY_MUVS = [
     luggage: '3 Bags',
     fuel: 'Petrol',
     ac: true,
-    airportRates: { mopa: 2600, dabolim: 2100 },
     fullDayRate: 4200,
-    pointToPointRate: 2100,
     type: 'taxi'
   },
   {
@@ -139,9 +125,7 @@ const DEFAULT_FAMILY_MUVS = [
     luggage: '3 Bags',
     fuel: 'Diesel',
     ac: true,
-    airportRates: { mopa: 2900, dabolim: 2400 },
     fullDayRate: 4600,
-    pointToPointRate: 2400,
     type: 'taxi'
   },
   {
@@ -156,9 +140,7 @@ const DEFAULT_FAMILY_MUVS = [
     luggage: '3 Bags',
     fuel: 'Petrol',
     ac: true,
-    airportRates: { mopa: 2700, dabolim: 2200 },
     fullDayRate: 4300,
-    pointToPointRate: 2200,
     type: 'taxi'
   },
   {
@@ -173,9 +155,7 @@ const DEFAULT_FAMILY_MUVS = [
     luggage: '4 Bags',
     fuel: 'Diesel',
     ac: true,
-    airportRates: { mopa: 2800, dabolim: 2300 },
     fullDayRate: 4400,
-    pointToPointRate: 2300,
     type: 'taxi'
   },
   {
@@ -190,14 +170,12 @@ const DEFAULT_FAMILY_MUVS = [
     luggage: '8 Bags',
     fuel: 'Diesel',
     ac: true,
-    airportRates: { mopa: 5500, dabolim: 4500 },
     fullDayRate: 7500,
-    pointToPointRate: 4500,
     type: 'taxi'
   }
 ];
 
-const DEFAULT_VIP_CHAUFFEUR = [
+const DEFAULT_VIP_FLEET = [
   {
     id: 'tx-def-innova-crysta',
     name: 'Toyota Innova Crysta',
@@ -210,9 +188,7 @@ const DEFAULT_VIP_CHAUFFEUR = [
     luggage: '4 Bags',
     fuel: 'Diesel',
     ac: true,
-    airportRates: { mopa: 3400, dabolim: 2900 },
     fullDayRate: 5500,
-    pointToPointRate: 2900,
     type: 'taxi'
   },
   {
@@ -227,9 +203,7 @@ const DEFAULT_VIP_CHAUFFEUR = [
     luggage: '4 Bags',
     fuel: 'Strong Hybrid',
     ac: true,
-    airportRates: { mopa: 3900, dabolim: 3400 },
     fullDayRate: 6200,
-    pointToPointRate: 3400,
     type: 'taxi'
   },
   {
@@ -244,9 +218,7 @@ const DEFAULT_VIP_CHAUFFEUR = [
     luggage: '5 Bags',
     fuel: 'Diesel',
     ac: true,
-    airportRates: { mopa: 6200, dabolim: 5500 },
     fullDayRate: 9800,
-    pointToPointRate: 5500,
     type: 'taxi'
   },
   {
@@ -261,9 +233,7 @@ const DEFAULT_VIP_CHAUFFEUR = [
     luggage: '3 Bags',
     fuel: 'Petrol',
     ac: true,
-    airportRates: { mopa: 9500, dabolim: 8500 },
     fullDayRate: 15000,
-    pointToPointRate: 8500,
     type: 'taxi'
   },
   {
@@ -278,22 +248,19 @@ const DEFAULT_VIP_CHAUFFEUR = [
     luggage: '3 Bags',
     fuel: 'Diesel',
     ac: true,
-    airportRates: { mopa: 9000, dabolim: 8000 },
     fullDayRate: 14000,
-    pointToPointRate: 8000,
     type: 'taxi'
   }
 ];
 
-// ─── INDIVIDUAL CATEGORY ROW (Identical Architecture to Self Drive CategoryRow) ─
+// ─── INDIVIDUAL CATEGORY ROW ──────────────────────────────────────────────────
 function TaxiCategoryRow({
   badgeGradient,
   badgeIcon: BadgeIcon,
   badgeTitle,
   badgeSubtitle,
   vehicles = [],
-  tripMode = 'airport',
-  pickupLoc = '',
+  tripMode = 'one_way',
   onBookTaxi,
   onViewDetails
 }) {
@@ -406,18 +373,16 @@ function TaxiCategoryRow({
     }
   };
 
-  // Helper to calculate pricing based on active trip mode & pickup location
+  // Dynamic pricing calculation based on selected trip mode
   const getDynamicPrice = (v) => {
     if (tripMode === 'full_day') {
       return { price: v.fullDayRate || (v.price * 2), unit: '/ 8 hrs' };
     }
-    if (tripMode === 'point_to_point') {
-      return { price: v.pointToPointRate || v.price, unit: '/ trip' };
+    if (tripMode === 'round_trip') {
+      return { price: Math.round((v.price || 1600) * 1.8), unit: '/ round trip' };
     }
-    // Default: Airport Transfer
-    const isMopa = (pickupLoc || '').toLowerCase().includes('mopa') || (pickupLoc || '').toLowerCase().includes('gox');
-    const airportPrice = isMopa ? (v.airportRates?.mopa || v.price) : (v.airportRates?.dabolim || v.price);
-    return { price: airportPrice, unit: '/ transfer' };
+    // Default: One-Way Trip
+    return { price: v.price || 1600, unit: '/ trip' };
   };
 
   return (
@@ -516,7 +481,7 @@ function TaxiCategoryRow({
                     <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b' }}>No photo uploaded</span>
                   </div>
 
-                  {/* Top-Right Badge */}
+                  {/* Top-Right Seating Badge */}
                   <span 
                     className="position-absolute top-0 end-0 m-2 badge rounded-pill px-2 py-1 shadow-xs fw-bold"
                     style={{ background: 'rgba(11, 25, 44, 0.85)', color: '#ffffff', fontSize: '10px', backdropFilter: 'blur(4px)' }}
@@ -568,50 +533,45 @@ function TaxiCategoryRow({
 
 // ─── MAIN TAXI CATEGORY SHOWCASE COMPONENT ────────────────────────────────────
 export default function TaxiCategoryShowcase({
-  tripMode = 'airport',
-  pickupLoc = '',
-  dropLoc = '',
+  tripMode = 'one_way',
   onBookTaxi,
   onViewDetails
 }) {
   return (
     <section className="sd-category-showcase-section" id="taxi-categories">
       <div className="container px-md-3">
-        {/* Row 1: Airport & City Cabs (Deep Navy / Sky Blue Gradient) */}
+        {/* Row 1: Comfort Sedans (Deep Navy Gradient) */}
         <TaxiCategoryRow
           badgeGradient="linear-gradient(135deg, #0B192C 0%, #1E3E62 100%)"
           badgeIcon={Car}
-          badgeTitle="Airport & City Cabs"
-          badgeSubtitle="Swift, Dzire & Etios Sedans"
-          vehicles={DEFAULT_AIRPORT_CABS}
+          badgeTitle="Comfort Sedans"
+          badgeSubtitle="Swift Dzire, Etios & Compacts"
+          vehicles={DEFAULT_COMFORT_SEDANS}
           tripMode={tripMode}
-          pickupLoc={pickupLoc}
           onBookTaxi={onBookTaxi}
           onViewDetails={onViewDetails}
         />
 
-        {/* Row 2: Family & Group Travel MUVs (Signature Orange Gradient) */}
+        {/* Row 2: Family MUVs (Signature Wow Goa Orange Gradient) */}
         <TaxiCategoryRow
           badgeGradient="linear-gradient(135deg, #FF6026 0%, #FF833E 100%)"
           badgeIcon={Users}
-          badgeTitle="Family & Group MUVs"
+          badgeTitle="Family MUVs"
           badgeSubtitle="Ertiga, Carens & 7-Seaters"
           vehicles={DEFAULT_FAMILY_MUVS}
           tripMode={tripMode}
-          pickupLoc={pickupLoc}
           onBookTaxi={onBookTaxi}
           onViewDetails={onViewDetails}
         />
 
-        {/* Row 3: VIP Chauffeur Fleet (Midnight Luxury with Gold accents) */}
+        {/* Row 3: Luxury & VIP (Midnight Executive Gradient) */}
         <TaxiCategoryRow
           badgeGradient="linear-gradient(135deg, #1A1A2E 0%, #16213E 100%)"
           badgeIcon={Crown}
-          badgeTitle="VIP Chauffeur Fleet"
-          badgeSubtitle="Innova Crysta, Fortuner & Merc"
-          vehicles={DEFAULT_VIP_CHAUFFEUR}
+          badgeTitle="Luxury & VIP"
+          badgeSubtitle="Innova Crysta, Fortuner & Executive"
+          vehicles={DEFAULT_VIP_FLEET}
           tripMode={tripMode}
-          pickupLoc={pickupLoc}
           onBookTaxi={onBookTaxi}
           onViewDetails={onViewDetails}
         />

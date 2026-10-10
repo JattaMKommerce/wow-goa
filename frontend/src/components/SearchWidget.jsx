@@ -1741,38 +1741,38 @@ export default function SearchWidget({
                 )}
               </div>
 
-              {/* Taxi Field 4: Trip Type & Flight Delay Tracking */}
+              {/* Taxi Field 4: Trip Type */}
               <div 
                 className="input-block position-relative" 
                 onClick={() => setActiveDropdown(activeDropdown === 'tx-trip-type' ? null : 'tx-trip-type')}
               >
                 <span className="input-block-label d-flex align-items-center justify-content-between">
-                  <span className="d-flex align-items-center gap-1"><Plane size={13} className="text-warning" /> Service Type</span>
+                  <span className="d-flex align-items-center gap-1"><Navigation size={13} className="text-warning" /> Trip Type</span>
                   <ChevronDown size={14} />
                 </span>
-                <div className="input-block-val text-truncate" title="Airport Transfer">
-                  Airport Transfer
+                <div className="input-block-val text-truncate" title="One-Way Trip">
+                  One-Way Trip
                 </div>
-                <span className="input-block-sub text-success fw-semibold">✓ 60m Free Waiting Included</span>
+                <span className="input-block-sub text-success fw-semibold">✓ Fixed Tariff Guaranteed</span>
 
                 {activeDropdown === 'tx-trip-type' && (
                   <div className="tg-popover-card shadow-xl p-3" style={{ width: '280px' }} onClick={e => e.stopPropagation()}>
                     <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
-                      <span className="fw-bold text-dark small">Select Transfer Service</span>
+                      <span className="fw-bold text-dark small">Select Trip Type</span>
                       <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
                     </div>
 
                     <div className="d-flex flex-column gap-2">
                       <div className="p-2 rounded border bg-light cursor-pointer" onClick={() => setActiveDropdown(null)}>
-                        <div className="fw-bold small text-dark">✈️ Airport Pickup / Drop</div>
-                        <div className="text-muted" style={{ fontSize: '11px' }}>Dabolim (GOI) or Mopa (GOX) with Name Placard</div>
+                        <div className="fw-bold small text-dark">📍 One-Way Trip</div>
+                        <div className="text-muted" style={{ fontSize: '11px' }}>Direct ride between any two points in Goa</div>
                       </div>
                       <div className="p-2 rounded border cursor-pointer" onClick={() => setActiveDropdown(null)}>
-                        <div className="fw-bold small text-dark">📍 Point-to-Point Intercity</div>
-                        <div className="text-muted" style={{ fontSize: '11px' }}>One-way direct transfer between any two points</div>
+                        <div className="fw-bold small text-dark">🔄 Round Trip</div>
+                        <div className="text-muted" style={{ fontSize: '11px' }}>Same-day return ride with chauffeur waiting</div>
                       </div>
                       <div className="p-2 rounded border cursor-pointer" onClick={() => setActiveDropdown(null)}>
-                        <div className="fw-bold small text-dark">⏰ Full Day Chauffeur Rental</div>
+                        <div className="fw-bold small text-dark">⏰ Full Day Rental</div>
                         <div className="text-muted" style={{ fontSize: '11px' }}>8 Hours / 80 Km Sightseeing & Beach Tour</div>
                       </div>
                     </div>

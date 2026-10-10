@@ -4,18 +4,14 @@ import {
   Users, 
   Crown, 
   ShieldCheck, 
-  Plane, 
   MapPin, 
   Clock, 
-  CheckCircle2, 
   Sparkles, 
   Star, 
-  PhoneCall, 
-  ChevronRight,
-  Navigation,
-  FileCheck,
-  Compass,
-  Award
+  Navigation, 
+  Award,
+  Zap,
+  CheckCircle2
 } from 'lucide-react';
 import TaxiCategoryShowcase from '../../components/widgets/TaxiCategoryShowcase';
 import CustomerReviewsSection from '../../components/reviews/CustomerReviewsSection';
@@ -27,7 +23,7 @@ export default function TaxiServicesPage({
   pickupTime = '',
   onBookTaxi
 }) {
-  const [activeTripType, setActiveTripType] = useState('airport');
+  const [activeTripType, setActiveTripType] = useState('one_way');
 
   const handleBookCar = (car, price) => {
     const bookingItem = {
@@ -38,8 +34,8 @@ export default function TaxiServicesPage({
       isSelfDriveRental: false,
       price: price || car.price,
       price_per_day: price || car.price,
-      pickupLocation: pickupLoc || 'Goa International Airport',
-      dropLocation: dropLoc || 'North Goa (Calangute / Candolim / Baga)',
+      pickupLocation: pickupLoc || 'Doorstep Pickup (Goa)',
+      dropLocation: dropLoc || 'Destination (North / South Goa)',
       pickupDate: pickupDate || new Date().toISOString().split('T')[0],
       pickupTime: pickupTime || '12:00 PM',
       tripMode: activeTripType
@@ -66,19 +62,19 @@ export default function TaxiServicesPage({
                 </span>
               </div>
               <h1 className="fw-black text-dark mb-1 font-heading" style={{ fontSize: '1.9rem', letterSpacing: '-0.5px' }}>
-                Goa Chauffeur &amp; Taxi Services
+                Goa Chauffeur &amp; Taxi Hire
               </h1>
               <p className="text-muted small mb-0" style={{ maxWidth: '680px' }}>
-                Verified commercial fleet, uniformed chauffeurs, transparent tariffs, and guaranteed airport terminal meet &amp; greet at Mopa (GOX) &amp; Dabolim (GOI).
+                Verified commercial fleet, professional chauffeurs, fixed transparent tariffs, and 24x7 doorstep pickup across North &amp; South Goa.
               </p>
             </div>
 
             {/* Quick Trip Mode Pills */}
             <div className="d-flex flex-wrap gap-1 align-items-center p-1.5 rounded-pill border bg-light shadow-xs">
               {[
-                { id: 'airport', label: '✈️ Airport Transfer' },
-                { id: 'point_to_point', label: '📍 Point-to-Point' },
-                { id: 'full_day', label: '⏰ 8hr / 80km Full Day' }
+                { id: 'one_way', label: '📍 One-Way Trip' },
+                { id: 'round_trip', label: '🔄 Round Trip' },
+                { id: 'full_day', label: '⏰ Full Day Rental' }
               ].map(type => (
                 <button
                   key={type.id}
@@ -109,9 +105,9 @@ export default function TaxiServicesPage({
                 <Navigation size={20} />
               </div>
               <div>
-                <span className="text-warning text-uppercase fw-bold text-xxs d-block" style={{ letterSpacing: '1px' }}>Active Booking Route</span>
+                <span className="text-warning text-uppercase fw-bold text-xxs d-block" style={{ letterSpacing: '1px' }}>Selected Route</span>
                 <div className="fw-bold fs-6">
-                  {pickupLoc || 'Goa Airport'} <span className="text-warning">➔</span> {dropLoc || 'Goa Destination'}
+                  {pickupLoc || 'Pickup Location'} <span className="text-warning">➔</span> {dropLoc || 'Drop Destination'}
                 </div>
                 {(pickupDate || pickupTime) && (
                   <div className="text-white-50 small mt-0.5" style={{ fontSize: '12px' }}>
@@ -122,7 +118,7 @@ export default function TaxiServicesPage({
             </div>
             <div className="d-flex align-items-center gap-2">
               <span className="badge rounded-pill bg-success text-white px-3 py-1.5 fw-bold">
-                ✓ Fixed Tariff Guaranteed
+                ✓ Fixed Pre-Confirmed Fare
               </span>
             </div>
           </div>
@@ -131,8 +127,6 @@ export default function TaxiServicesPage({
         {/* ─── PRIMARY 3-ROW CATEGORY SHOWCASE (Matching Self Drive Architecture) ── */}
         <TaxiCategoryShowcase
           tripMode={activeTripType}
-          pickupLoc={pickupLoc}
-          dropLoc={dropLoc}
           onBookTaxi={handleBookCar}
           onViewDetails={handleBookCar}
         />
@@ -141,12 +135,12 @@ export default function TaxiServicesPage({
         <div className="bg-white rounded-4 shadow-sm border p-4 p-md-5 my-4">
           <div className="text-center mb-4">
             <span className="badge rounded-pill px-3 py-1 text-uppercase fw-bold mb-2" style={{ background: 'rgba(255,107,53,0.12)', color: '#FF6B35', fontSize: '11px', letterSpacing: '0.5px' }}>
-              Premium Chauffeur Standards
+              Service Excellence
             </span>
             <h3 className="fw-black text-dark mb-1 font-heading" style={{ fontSize: '1.6rem' }}>
-              Why Book Wow Goa Taxi Services?
+              Why Book Wow Goa Chauffeur Services?
             </h3>
-            <p className="text-muted small mb-0">Experience hassle-free mobility with complete transparency and top-rated local hospitality.</p>
+            <p className="text-muted small mb-0">Experience stress-free travel with complete tariff transparency and reliable local chauffeurs.</p>
           </div>
 
           <div className="row g-4">
@@ -158,7 +152,7 @@ export default function TaxiServicesPage({
                 <div>
                   <h6 className="fw-bold text-dark mb-1">100% Commercial Fleet</h6>
                   <p className="text-muted small mb-0" style={{ fontSize: '12.5px', lineHeight: '1.5' }}>
-                    Every cab carries yellow commercial registration plates, comprehensive passenger transit insurance, and valid Goa transport permits.
+                    Every cab carries yellow commercial registration plates, comprehensive transit insurance, and verified tourist permits.
                   </p>
                 </div>
               </div>
@@ -167,12 +161,12 @@ export default function TaxiServicesPage({
             <div className="col-md-4">
               <div className="d-flex align-items-start gap-3">
                 <div className="rounded-3 p-2.5 text-white flex-shrink-0 shadow-xs" style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D84A1B 100%)' }}>
-                  <Plane size={24} />
+                  <Zap size={24} />
                 </div>
                 <div>
-                  <h6 className="fw-bold text-dark mb-1">Live Flight Radar Sync</h6>
+                  <h6 className="fw-bold text-dark mb-1">On-Time Pickup Guarantee</h6>
                   <p className="text-muted small mb-0" style={{ fontSize: '12.5px', lineHeight: '1.5' }}>
-                    Flight delayed? No worries! Our dispatcher desk automatically tracks your flight into Mopa (GOX) or Dabolim (GOI) with 60 minutes free wait time.
+                    Live GPS tracking and professional driver allocation ensure your cab arrives punctually at your doorstep or resort.
                   </p>
                 </div>
               </div>
@@ -186,7 +180,7 @@ export default function TaxiServicesPage({
                 <div>
                   <h6 className="fw-bold text-dark mb-1">Zero Surge Guarantee</h6>
                   <p className="text-muted small mb-0" style={{ fontSize: '12.5px', lineHeight: '1.5' }}>
-                    Fixed pre-confirmed tariffs with no surprise nighttime multipliers, rainy season spikes, or last-minute extortion.
+                    Fixed pre-confirmed tariffs with no surprise nighttime multipliers, rainy season spikes, or last-minute price jumps.
                   </p>
                 </div>
               </div>
@@ -204,7 +198,7 @@ export default function TaxiServicesPage({
               Help &amp; FAQs
             </span>
             <h4 className="fw-black text-dark mb-1 font-heading">
-              Frequently Asked Questions About Goa Taxis
+              Frequently Asked Questions About Goa Cabs
             </h4>
           </div>
 
@@ -212,12 +206,12 @@ export default function TaxiServicesPage({
             <div className="accordion-item border-bottom">
               <h2 className="accordion-header" id="faqOneHeader">
                 <button className="accordion-button collapsed fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#faqOne">
-                  Where will the driver meet me at Goa Airport (Mopa / Dabolim)?
+                  How will I receive driver and vehicle details?
                 </button>
               </h2>
               <div id="faqOne" className="accordion-collapse collapse" data-bs-parent="#taxiFaqAccordion">
                 <div className="accordion-body text-muted small">
-                  Your chauffeur will wait right outside the arrival terminal gate holding a personalized name placard with your name. You will receive the driver's contact and vehicle number via WhatsApp 30 minutes before your scheduled landing.
+                  Your chauffeur details, including vehicle registration number, driver name, and direct phone number, will be sent via WhatsApp and SMS well in advance of your scheduled ride.
                 </div>
               </div>
             </div>
@@ -225,12 +219,12 @@ export default function TaxiServicesPage({
             <div className="accordion-item border-bottom">
               <h2 className="accordion-header" id="faqTwoHeader">
                 <button className="accordion-button collapsed fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#faqTwo">
-                  What if my flight arrives late at night or is delayed?
+                  What is included in the Full Day Rental?
                 </button>
               </h2>
               <div id="faqTwo" className="accordion-collapse collapse" data-bs-parent="#taxiFaqAccordion">
                 <div className="accordion-body text-muted small">
-                  We offer 24x7 operations. Our dispatcher system tracks flight arrival times in real time. We provide up to 60 minutes of complimentary waiting time starting from when your flight actually touches down on the runway.
+                  Our Full Day package includes 8 hours and 80 kilometers of travel with a dedicated private chauffeur, clean air-conditioned cabin, and flexibility to visit beaches, cafes, and sightseeing spots across Goa.
                 </div>
               </div>
             </div>
@@ -238,12 +232,12 @@ export default function TaxiServicesPage({
             <div className="accordion-item border-bottom">
               <h2 className="accordion-header" id="faqThreeHeader">
                 <button className="accordion-button collapsed fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#faqThree">
-                  Can I book a full-day cab for South Goa / North Goa sightseeing?
+                  Can I book a cab for late-night transfers?
                 </button>
               </h2>
               <div id="faqThree" className="accordion-collapse collapse" data-bs-parent="#taxiFaqAccordion">
                 <div className="accordion-body text-muted small">
-                  Yes! Choose our <strong>"8hr / 80km Full Day"</strong> package. Your private chauffeur will take you to forts, beaches, churches, and spice plantations at your own pace with clean air conditioning throughout the day.
+                  Yes, our operations operate 24x7 across all areas of North and South Goa. Pre-book your ride to ensure confirmed cab availability at any time of night.
                 </div>
               </div>
             </div>
@@ -256,7 +250,7 @@ export default function TaxiServicesPage({
               </h2>
               <div id="faqFour" className="accordion-collapse collapse" data-bs-parent="#taxiFaqAccordion">
                 <div className="accordion-body text-muted small">
-                  Full 100% refund for cancellations made up to 12 hours before scheduled pickup. For any urgent flight cancellations or changes, our 24/7 dispatcher helpline will immediately assist you with rescheduling.
+                  Full 100% refund for cancellations requested up to 12 hours prior to scheduled pickup. Our customer support team is available around the clock to assist you with any schedule modifications.
                 </div>
               </div>
             </div>
