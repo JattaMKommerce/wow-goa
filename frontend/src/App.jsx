@@ -1,4 +1,8 @@
 import TaxiServicesPage from './pages/customer/TaxiServicesPage';
+import B2BDispatches from './pages/taxi/B2BDispatches';
+import ChauffeurPortal from './pages/taxi/ChauffeurPortal';
+import LiveFleetDirectory from './pages/taxi/LiveFleetDirectory';
+
 import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import './App.css';
 import { useSiteConfig } from './context/SiteConfigContext';
@@ -87,6 +91,9 @@ export default function App() {
       const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '/';
       // Derive tab directly from URL path — most reliable on refresh
       if (p.startsWith('/v/')) return 'vendor-storefront';
+      if (p.startsWith('/taxi-dispatch') || p.startsWith('/taxi/dispatch')) return 'taxi-dispatch';
+      if (p.startsWith('/taxi-chauffeur') || p.startsWith('/taxi/chauffeur')) return 'taxi-chauffeur';
+      if (p.startsWith('/taxi-fleet') || p.startsWith('/taxi/fleet')) return 'taxi-fleet';
       if (p.startsWith('/taxi')) return 'taxi';
       if ((p === '/vehicle' || p === '/vehicles' || p.startsWith('/vehicle/') || p.startsWith('/vehicles/')) && p !== '/vehicle/login') return 'selfdrive';
       if (p.startsWith('/admin') || p === '/portal' || p.startsWith('/sub-admin') || p.startsWith('/subadmin') || p.startsWith('/superadmin') || p.startsWith('/super-admin') || p === '/vendor' || p === '/hotel-vendor' || p === '/flight-vendor' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login') return 'portal';
@@ -788,6 +795,9 @@ export default function App() {
       'packages': '/packages',
       'selfdrive': '/self-drive',
       'taxi': '/taxi',
+      'taxi-dispatch': '/taxi-dispatch',
+      'taxi-chauffeur': '/taxi-chauffeur',
+      'taxi-fleet': '/taxi-fleet',
       'hotels': '/hotels',
       'cars': '/cars',
       'bikes': '/bikes',
@@ -2319,7 +2329,70 @@ export default function App() {
             </>
           )}
 
-                    {activeTab === 'taxi' && (
+                              {activeTab === 'taxi-dispatch' && (
+            <div className="container-fluid py-4 px-md-4" style={{ minHeight: '85vh' }}>
+              <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                <div className="d-flex align-items-center gap-2">
+                  <span className="badge rounded-pill bg-dark text-white px-3 py-1.5 fw-bold">Taxi Operations Desk</span>
+                  <span className="text-muted small">Live Dispatch Kanban & Flight Radar</span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <button className="btn btn-sm btn-outline-dark rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi')}>
+                    ← Back to Taxi Search
+                  </button>
+                  <button className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi-fleet')}>
+                    Live Fleet Directory
+                  </button>
+                  <button className="btn btn-sm btn-primary rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi-chauffeur')}>
+                    Chauffeur Portal
+                  </button>
+                </div>
+              </div>
+              <B2BDispatches />
+            </div>
+          )}
+
+          {activeTab === 'taxi-chauffeur' && (
+            <div className="container-fluid py-4 px-md-4" style={{ minHeight: '85vh' }}>
+              <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                <div className="d-flex align-items-center gap-2">
+                  <span className="badge rounded-pill bg-success text-white px-3 py-1.5 fw-bold">Chauffeur Duty Desk</span>
+                  <span className="text-muted small">Driver Duty & Ride Execution</span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <button className="btn btn-sm btn-outline-dark rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi')}>
+                    ← Back to Taxi Search
+                  </button>
+                  <button className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi-dispatch')}>
+                    Dispatcher Desk
+                  </button>
+                </div>
+              </div>
+              <ChauffeurPortal />
+            </div>
+          )}
+
+          {activeTab === 'taxi-fleet' && (
+            <div className="container-fluid py-4 px-md-4" style={{ minHeight: '85vh' }}>
+              <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                <div className="d-flex align-items-center gap-2">
+                  <span className="badge rounded-pill bg-primary text-white px-3 py-1.5 fw-bold">Live Fleet Directory</span>
+                  <span className="text-muted small">Inter-Fleet Partner Cabs & Tariffs</span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <button className="btn btn-sm btn-outline-dark rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi')}>
+                    ← Back to Taxi Search
+                  </button>
+                  <button className="btn btn-sm btn-primary rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi-dispatch')}>
+                    Dispatcher Desk
+                  </button>
+                </div>
+              </div>
+              <LiveFleetDirectory />
+            </div>
+          )}
+
+          {activeTab === 'taxi' && (
             <>
               <TaxiServicesPage
                 pickupLoc={pickupLoc}

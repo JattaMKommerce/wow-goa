@@ -170,6 +170,25 @@ export default function TaxiServicesPage({
         </div>
       </div>
 
+            {/* ─── OPERATIONS CONTROL DESK SHORTCUTS BAR ───────────────────────── */}
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 p-2.5 px-3 mb-4 rounded-3 border" style={{ background: '#f8fafc' }}>
+        <div className="d-flex align-items-center gap-2 small">
+          <span className="badge rounded-pill bg-dark text-white px-2.5 py-1">Staff Portals</span>
+          <span className="text-muted" style={{ fontSize: '12px' }}>Access Real-Time Fleet & Chauffeur Desks:</span>
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <a href="/taxi-dispatch" className="btn btn-xs btn-outline-dark rounded-pill px-2.5 py-1 fw-bold" style={{ fontSize: '11.5px' }}>
+            📋 Dispatcher Desk
+          </a>
+          <a href="/taxi-chauffeur" className="btn btn-xs btn-outline-success rounded-pill px-2.5 py-1 fw-bold" style={{ fontSize: '11.5px' }}>
+            🚖 Chauffeur Portal
+          </a>
+          <a href="/taxi-fleet" className="btn btn-xs btn-outline-primary rounded-pill px-2.5 py-1 fw-bold" style={{ fontSize: '11.5px' }}>
+            🚗 Live Fleet Directory
+          </a>
+        </div>
+      </div>
+
       {/* ─── ROUTE HIGHLIGHT ALERT BANNER (If location selected) ──────────── */}
       {(pickupLoc || dropLoc) && (
         <div className="alert border-0 shadow-sm rounded-4 p-3 mb-4 d-flex flex-wrap align-items-center justify-content-between gap-3" style={{ background: '#0B192C', color: '#ffffff' }}>
