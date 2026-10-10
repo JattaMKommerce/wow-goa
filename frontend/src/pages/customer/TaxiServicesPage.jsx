@@ -1,10 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { 
   Car, 
   Users, 
-  Briefcase, 
+  Crown, 
   ShieldCheck, 
-  Award, 
   Plane, 
   MapPin, 
   Clock, 
@@ -15,431 +14,256 @@ import {
   ChevronRight,
   Navigation,
   FileCheck,
-  Compass
+  Compass,
+  Award
 } from 'lucide-react';
-
-const TAXI_FLEET_DATA = [
-  {
-    id: 'tx-sedan-dzire',
-    name: 'Swift Dzire / Toyota Etios',
-    category: 'Sedan',
-    badge: 'Popular Choice',
-    badgeColor: '#10b981',
-    image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
-    seating: 4,
-    luggage: 2,
-    transmission: 'Automatic / Manual',
-    fuel: 'Petrol / Hybrid',
-    ac: true,
-    rating: 4.9,
-    reviewsCount: 428,
-    perKmRate: 38,
-    airportRates: {
-      mopa: 2100,
-      dabolim: 1600
-    },
-    fullDayRate: 3200,
-    features: ['Uniformed Chauffeur', 'Flight Delay Tracking', 'Clean Sanitized Cabin', 'Terminal Meet & Greet'],
-    desc: 'Ideal for couples and solo corporate travelers. Swift, comfortable, and fuel-efficient for quick transfers across Goa.'
-  },
-  {
-    id: 'tx-muv-ertiga',
-    name: 'Maruti Ertiga (Comfort MUV)',
-    category: 'MUV',
-    badge: 'Family Favorite',
-    badgeColor: '#3b82f6',
-    image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80',
-    seating: 6,
-    luggage: 3,
-    transmission: 'Manual',
-    fuel: 'Petrol',
-    ac: true,
-    rating: 4.9,
-    reviewsCount: 562,
-    perKmRate: 46,
-    airportRates: {
-      mopa: 2600,
-      dabolim: 2100
-    },
-    fullDayRate: 4200,
-    features: ['Dual Zone AC', 'Large Luggage Boot', 'Comfortable 3-Row Seating', 'Professional Driver'],
-    desc: 'Spacious 6-seater MUV with ample legroom for family vacations and small groups heading to North or South Goa.'
-  },
-  {
-    id: 'tx-suv-innova',
-    name: 'Toyota Innova Crysta',
-    category: 'Executive SUV',
-    badge: 'Executive VIP',
-    badgeColor: '#f59e0b',
-    image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80',
-    seating: 7,
-    luggage: 4,
-    transmission: 'Automatic',
-    fuel: 'Diesel',
-    ac: true,
-    rating: 5.0,
-    reviewsCount: 894,
-    perKmRate: 58,
-    airportRates: {
-      mopa: 3400,
-      dabolim: 2900
-    },
-    fullDayRate: 5500,
-    features: ['Captain Seats', 'Premium Audio', 'VIP Arrival Placard', 'Bottled Mineral Water', 'High Speed Fastag'],
-    desc: 'The gold standard for luxury travel in Goa. Plush executive captain seats, powerful dual AC, and smooth suspension.'
-  },
-  {
-    id: 'tx-luxury-fortuner',
-    name: 'Toyota Fortuner 4x4 (VIP Escort)',
-    category: 'Luxury VIP',
-    badge: 'Ultra Luxury',
-    badgeColor: '#8b5cf6',
-    image: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=800&q=80',
-    seating: 6,
-    luggage: 5,
-    transmission: 'Automatic',
-    fuel: 'Diesel',
-    ac: true,
-    rating: 5.0,
-    reviewsCount: 180,
-    perKmRate: 95,
-    airportRates: {
-      mopa: 6200,
-      dabolim: 5500
-    },
-    fullDayRate: 9800,
-    features: ['Full Leather Cabin', 'Chauffeur in Formal Attire', 'VIP Security Clearance', 'Zero Waiting Time'],
-    desc: 'High-end presence and presidential luxury. Ideal for wedding delegations, celebrities, VIP guests, and nightlife transfers.'
-  }
-];
+import TaxiCategoryShowcase from '../../components/widgets/TaxiCategoryShowcase';
+import CustomerReviewsSection from '../../components/reviews/CustomerReviewsSection';
 
 export default function TaxiServicesPage({
   pickupLoc = '',
   dropLoc = '',
   pickupDate = '',
   pickupTime = '',
-  onBookTaxi,
-  onOpenDetails
+  onBookTaxi
 }) {
-  const [selectedCategory, setSelectedCategory] = useState('All');
   const [activeTripType, setActiveTripType] = useState('airport');
 
-  const categories = ['All', 'Sedan', 'MUV', 'Executive SUV', 'Luxury VIP'];
-
-  const filteredFleet = useMemo(() => {
-    if (selectedCategory === 'All') return TAXI_FLEET_DATA;
-    return TAXI_FLEET_DATA.filter(car => car.category === selectedCategory);
-  }, [selectedCategory]);
-
-  const isMopa = (pickupLoc || '').toLowerCase().includes('mopa') || (dropLoc || '').toLowerCase().includes('mopa');
-  const isDabolim = (pickupLoc || '').toLowerCase().includes('dabolim') || (dropLoc || '').toLowerCase().includes('dabolim');
+  const handleBookCar = (car, price) => {
+    const bookingItem = {
+      ...car,
+      type: 'taxi',
+      item_type: 'taxi',
+      driverRequired: true,
+      isSelfDriveRental: false,
+      price: price || car.price,
+      price_per_day: price || car.price,
+      pickupLocation: pickupLoc || 'Goa International Airport',
+      dropLocation: dropLoc || 'North Goa (Calangute / Candolim / Baga)',
+      pickupDate: pickupDate || new Date().toISOString().split('T')[0],
+      pickupTime: pickupTime || '12:00 PM',
+      tripMode: activeTripType
+    };
+    if (onBookTaxi) {
+      onBookTaxi(bookingItem);
+    }
+  };
 
   return (
-    <div className="animate-fade-in-up container px-3 px-md-0 pt-4" style={{ minHeight: '100vh' }}>
+    <div className="taxi-services-page pb-5" style={{ background: '#f8fafc' }}>
       
-      {/* ─── SECTION HEADER ──────────────────────────────────────────────── */}
-      <div className="section-header mb-4 text-start">
-        <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-          <div>
-            <div className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill mb-2 fw-semibold" style={{ background: '#fff7ed', color: '#c2410c', fontSize: '13px', border: '1px solid #ffedd5' }}>
-              <Sparkles size={14} className="text-warning" /> Professional Chauffeur Mobility in Goa
-            </div>
-            <h2 className="fs-2 fw-bold text-dark font-heading mb-1">
-              Goa Airport Cabs & Chauffeur Services
-            </h2>
-            <p className="text-muted small mb-0" style={{ maxWidth: '650px' }}>
-              Fixed guaranteed fares from <strong>Mopa (GOX)</strong> and <strong>Dabolim (GOI)</strong> airports. 
-              Zero surge pricing, verified commercial drivers, and terminal meet & greet placard.
-            </p>
-          </div>
-
-          <div className="d-flex align-items-center gap-2">
-            <div className="bg-white border rounded-3 px-3 py-2 text-center shadow-sm">
-              <span className="d-block fw-bold fs-5 text-dark font-heading">100%</span>
-              <span className="text-muted" style={{ fontSize: '11px' }}>Fixed Tariff</span>
-            </div>
-            <div className="bg-white border rounded-3 px-3 py-2 text-center shadow-sm">
-              <span className="d-block fw-bold fs-5 text-dark font-heading">60 Min</span>
-              <span className="text-muted" style={{ fontSize: '11px' }}>Free Wait</span>
-            </div>
-            <div className="bg-white border rounded-3 px-3 py-2 text-center shadow-sm">
-              <span className="d-block fw-bold fs-5 text-dark font-heading">4.9 ★</span>
-              <span className="text-muted" style={{ fontSize: '11px' }}>Rated Cabs</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      
-
-      {/* ─── ROUTE HIGHLIGHT ALERT BANNER (If location selected) ──────────── */}
-      {(pickupLoc || dropLoc) && (
-        <div className="alert border-0 shadow-sm rounded-4 p-3 mb-4 d-flex flex-wrap align-items-center justify-content-between gap-3" style={{ background: '#0B192C', color: '#ffffff' }}>
-          <div className="d-flex align-items-center gap-3">
-            <div className="rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ background: 'rgba(255, 107, 53, 0.2)' }}>
-              <Navigation size={22} className="text-warning" />
-            </div>
+      {/* ─── HERO HEADER ─────────────────────────────────────────────────── */}
+      <div className="bg-white border-bottom shadow-xs py-4 mb-4">
+        <div className="container px-md-3">
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
-              <div className="small text-white-50 text-uppercase fw-bold" style={{ letterSpacing: '0.5px', fontSize: '11px' }}>
-                Active Route Selected
+              <div className="d-flex align-items-center gap-2 mb-1">
+                <span className="badge rounded-pill px-3 py-1 text-uppercase fw-bold" style={{ background: '#FF6B35', color: '#ffffff', fontSize: '11px', letterSpacing: '0.5px' }}>
+                  24x7 Direct Dispatch
+                </span>
+                <span className="badge rounded-pill bg-dark text-white px-2.5 py-1 fw-bold" style={{ fontSize: '11px' }}>
+                  Zero Surge Pricing
+                </span>
               </div>
-              <div className="fw-bold fs-6 text-white d-flex align-items-center gap-2">
-                <span>{pickupLoc || 'Goa Airport'}</span>
-                <ChevronRight size={16} className="text-warning" />
-                <span>{dropLoc || 'North / South Goa'}</span>
-              </div>
+              <h1 className="fw-black text-dark mb-1 font-heading" style={{ fontSize: '1.9rem', letterSpacing: '-0.5px' }}>
+                Goa Chauffeur &amp; Taxi Services
+              </h1>
+              <p className="text-muted small mb-0" style={{ maxWidth: '680px' }}>
+                Verified commercial fleet, uniformed chauffeurs, transparent tariffs, and guaranteed airport terminal meet &amp; greet at Mopa (GOX) &amp; Dabolim (GOI).
+              </p>
+            </div>
+
+            {/* Quick Trip Mode Pills */}
+            <div className="d-flex flex-wrap gap-1 align-items-center p-1.5 rounded-pill border bg-light shadow-xs">
+              {[
+                { id: 'airport', label: '✈️ Airport Transfer' },
+                { id: 'point_to_point', label: '📍 Point-to-Point' },
+                { id: 'full_day', label: '⏰ 8hr / 80km Full Day' }
+              ].map(type => (
+                <button
+                  key={type.id}
+                  type="button"
+                  className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+                    activeTripType === type.id 
+                      ? 'btn-dark text-white shadow-xs' 
+                      : 'text-muted border-0 bg-transparent hover-text-dark'
+                  }`}
+                  style={{ fontSize: '12.5px' }}
+                  onClick={() => setActiveTripType(type.id)}
+                >
+                  {type.label}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="d-flex align-items-center gap-2">
-            <span className="badge rounded-pill px-3 py-2 fw-semibold" style={{ background: 'rgba(255,255,255,0.15)', fontSize: '12px' }}>
-              📅 {pickupDate || 'Today'} · {pickupTime || 'Immediate'}
-            </span>
-            <span className="badge rounded-pill px-3 py-2 fw-bold" style={{ background: '#FF6B35', color: '#ffffff', fontSize: '12px' }}>
-              ✓ Flight Delay Tracking Active
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* ─── CATEGORY & FILTER PILLS ──────────────────────────────────────── */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 bg-white p-3 rounded-4 shadow-sm border">
-        <div className="d-flex flex-wrap gap-2 align-items-center">
-          <span className="text-muted small fw-bold me-1">Category:</span>
-          {categories.map(cat => (
-            <button
-              key={cat}
-              type="button"
-              className={`btn btn-sm rounded-pill px-3 fw-semibold ${selectedCategory === cat ? 'btn-dark text-white' : 'btn-light border text-secondary'}`}
-              style={{ fontSize: '13px' }}
-              onClick={() => setSelectedCategory(cat)}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        <div className="d-flex flex-wrap gap-1 align-items-center p-1 rounded-pill border" style={{ background: '#f8fafc' }}>
-          {[
-            { id: 'airport', label: '✈️ Airport Transfer' },
-            { id: 'point_to_point', label: '📍 Point-to-Point' },
-            { id: 'full_day', label: '⏰ 8hr / 80km Full Day' }
-          ].map(type => (
-            <button
-              key={type.id}
-              type="button"
-              className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${activeTripType === type.id ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
-              style={{ fontSize: '12px' }}
-              onClick={() => setActiveTripType(type.id)}
-            >
-              {type.label}
-            </button>
-          ))}
         </div>
       </div>
 
-      {/* ─── FLEET GRID ───────────────────────────────────────────────────── */}
-      <div className="row g-4 mb-5">
-        {filteredFleet.map(car => {
-          let calculatedPrice = car.airportRates.dabolim;
-          let priceLabel = 'Dabolim Airport Drop';
-          if (isMopa) {
-            calculatedPrice = car.airportRates.mopa;
-            priceLabel = 'Mopa (GOX) Transfer';
-          } else if (activeTripType === 'full_day') {
-            calculatedPrice = car.fullDayRate;
-            priceLabel = 'Full Day (8hr/80km)';
-          } else if (activeTripType === 'point_to_point') {
-            calculatedPrice = car.perKmRate * 35;
-            priceLabel = `Est. ~35km (@ ₹${car.perKmRate}/km)`;
-          }
+      <div className="container px-md-3">
 
-          return (
-            <div key={car.id} className="col-md-6 col-lg-6 col-xl-3">
-              <div 
-                className="card h-100 border rounded-4 shadow-sm overflow-hidden bg-white d-flex flex-column transition-smooth position-relative"
-                style={{ 
-                  borderColor: '#e2e8f0',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.04)' 
-                }}
-              >
-                <div className="position-relative overflow-hidden" style={{ height: '190px', background: '#f1f5f9' }}>
-                  <img 
-                    src={car.image} 
-                    alt={car.name} 
-                    className="w-100 h-100 object-fit-cover transition-smooth"
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80';
-                    }}
-                  />
-                  <div className="position-absolute top-0 start-0 m-2.5">
-                    <span 
-                      className="badge rounded-pill px-2.5 py-1 fw-bold text-white shadow-sm"
-                      style={{ background: car.badgeColor, fontSize: '11px' }}
-                    >
-                      {car.badge}
-                    </span>
-                  </div>
-
-                  <div className="position-absolute bottom-0 start-0 m-2.5">
-                    <span className="badge rounded-pill bg-dark text-white px-2 py-1 shadow-sm d-inline-flex align-items-center gap-1" style={{ fontSize: '11px', backdropFilter: 'blur(4px)', background: 'rgba(15,23,42,0.85)' }}>
-                      <Star size={11} className="text-warning fill-warning" /> {car.rating} ({car.reviewsCount})
-                    </span>
-                  </div>
+        {/* ─── ROUTE HIGHLIGHT ALERT (If user searched in SearchWidget) ──── */}
+        {(pickupLoc || dropLoc) && (
+          <div className="alert border-0 shadow-sm rounded-4 p-3 mb-4 d-flex flex-wrap align-items-center justify-content-between gap-3" style={{ background: '#0B192C', color: '#ffffff' }}>
+            <div className="d-flex align-items-center gap-3">
+              <div className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px', background: 'rgba(255,107,53,0.2)', color: '#FF6B35' }}>
+                <Navigation size={20} />
+              </div>
+              <div>
+                <span className="text-warning text-uppercase fw-bold text-xxs d-block" style={{ letterSpacing: '1px' }}>Active Booking Route</span>
+                <div className="fw-bold fs-6">
+                  {pickupLoc || 'Goa Airport'} <span className="text-warning">➔</span> {dropLoc || 'Goa Destination'}
                 </div>
-
-                <div className="p-3 d-flex flex-column flex-grow-1">
-                  <div className="mb-2">
-                    <div className="text-muted fw-bold text-uppercase" style={{ fontSize: '10px', letterSpacing: '0.6px' }}>
-                      {car.category} · Chauffeur Driven
-                    </div>
-                    <h5 className="fw-bold text-dark font-heading mb-1 text-truncate" title={car.name}>
-                      {car.name}
-                    </h5>
-                    <p className="text-muted mb-2 line-clamp-2" style={{ fontSize: '12px', minHeight: '36px', lineHeight: '1.4' }}>
-                      {car.desc}
-                    </p>
+                {(pickupDate || pickupTime) && (
+                  <div className="text-white-50 small mt-0.5" style={{ fontSize: '12px' }}>
+                    Scheduled for: <strong>{pickupDate}</strong> {pickupTime && `at ${pickupTime}`}
                   </div>
+                )}
+              </div>
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge rounded-pill bg-success text-white px-3 py-1.5 fw-bold">
+                ✓ Fixed Tariff Guaranteed
+              </span>
+            </div>
+          </div>
+        )}
 
-                  <div className="d-flex flex-wrap gap-1.5 mb-3">
-                    <span className="badge bg-light text-dark border px-2 py-1 d-inline-flex align-items-center gap-1" style={{ fontSize: '11px' }}>
-                      <Users size={12} className="text-primary" /> {car.seating} Seats
-                    </span>
-                    <span className="badge bg-light text-dark border px-2 py-1 d-inline-flex align-items-center gap-1" style={{ fontSize: '11px' }}>
-                      <Briefcase size={12} className="text-secondary" /> {car.luggage} Bags
-                    </span>
-                    <span className="badge bg-light text-success border border-success-subtle px-2 py-1 d-inline-flex align-items-center gap-1" style={{ fontSize: '11px' }}>
-                      <ShieldCheck size={12} /> Chauffeur
-                    </span>
-                    <span className="badge bg-light text-dark border px-2 py-1" style={{ fontSize: '11px' }}>
-                      ❄️ Chilled AC
-                    </span>
-                  </div>
+        {/* ─── PRIMARY 3-ROW CATEGORY SHOWCASE (Matching Self Drive Architecture) ── */}
+        <TaxiCategoryShowcase
+          tripMode={activeTripType}
+          pickupLoc={pickupLoc}
+          dropLoc={dropLoc}
+          onBookTaxi={handleBookCar}
+          onViewDetails={handleBookCar}
+        />
 
-                  <div className="mb-3 border-top pt-2 flex-grow-1">
-                    <ul className="list-unstyled mb-0" style={{ fontSize: '11px' }}>
-                      {car.features.slice(0, 3).map((feat, idx) => (
-                        <li key={idx} className="d-flex align-items-center gap-1.5 text-muted mb-1 text-truncate">
-                          <CheckCircle2 size={12} className="text-success flex-shrink-0" />
-                          <span>{feat}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+        {/* ─── WHY BOOK WOW GOA TAXIS (Quality Standards) ────────────────── */}
+        <div className="bg-white rounded-4 shadow-sm border p-4 p-md-5 my-4">
+          <div className="text-center mb-4">
+            <span className="badge rounded-pill px-3 py-1 text-uppercase fw-bold mb-2" style={{ background: 'rgba(255,107,53,0.12)', color: '#FF6B35', fontSize: '11px', letterSpacing: '0.5px' }}>
+              Premium Chauffeur Standards
+            </span>
+            <h3 className="fw-black text-dark mb-1 font-heading" style={{ fontSize: '1.6rem' }}>
+              Why Book Wow Goa Taxi Services?
+            </h3>
+            <p className="text-muted small mb-0">Experience hassle-free mobility with complete transparency and top-rated local hospitality.</p>
+          </div>
 
-                  <div className="mt-auto pt-2 border-top d-flex align-items-center justify-content-between">
-                    <div>
-                      <div className="text-muted" style={{ fontSize: '10px', fontWeight: 600 }}>
-                        {priceLabel}
-                      </div>
-                      <div className="d-flex align-items-baseline gap-1">
-                        <span className="fs-4 fw-bold text-dark font-heading">
-                          ₹{calculatedPrice.toLocaleString('en-IN')}
-                        </span>
-                        <span className="text-muted" style={{ fontSize: '11px' }}>
-                          (All Incl.)
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="btn btn-sm rounded-pill px-3 py-2 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-1.5 transition-smooth"
-                      style={{ 
-                        background: '#FF6B35',
-                        borderColor: '#FF6B35',
-                        fontSize: '12.5px' 
-                      }}
-                      onClick={() => {
-                        if (onBookTaxi) {
-                          onBookTaxi({
-                            ...car,
-                            package_name: `${car.name} (${priceLabel})`,
-                            package_type: 'Taxi Transfer',
-                            type: 'taxi',
-                            price: calculatedPrice,
-                            pickup_location: pickupLoc || 'Goa Airport',
-                            drop_location: dropLoc || 'North / South Goa',
-                            pickup_date: pickupDate,
-                            pickup_time: pickupTime || '10:00'
-                          });
-                        }
-                      }}
-                    >
-                      Book Cab <ChevronRight size={14} />
-                    </button>
-                  </div>
+          <div className="row g-4">
+            <div className="col-md-4">
+              <div className="d-flex align-items-start gap-3">
+                <div className="rounded-3 p-2.5 text-white flex-shrink-0 shadow-xs" style={{ background: 'linear-gradient(135deg, #0B192C 0%, #1E3E62 100%)' }}>
+                  <ShieldCheck size={24} />
                 </div>
-
+                <div>
+                  <h6 className="fw-bold text-dark mb-1">100% Commercial Fleet</h6>
+                  <p className="text-muted small mb-0" style={{ fontSize: '12.5px', lineHeight: '1.5' }}>
+                    Every cab carries yellow commercial registration plates, comprehensive passenger transit insurance, and valid Goa transport permits.
+                  </p>
+                </div>
               </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* ─── WHY CHOOSE WOW GOA CHAUFFEURS ─────────────────────────────────── */}
-      <div className="bg-white rounded-4 border p-4 shadow-sm mb-5">
-        <h4 className="fw-bold text-dark font-heading mb-3 text-center">
-          Why Travelers Rely on Wow Goa Chauffeur Mobility
-        </h4>
-        <div className="row g-3 text-start">
-          <div className="col-md-3">
-            <div className="d-flex align-items-start gap-2.5">
-              <div className="p-2 rounded-3 bg-light text-primary">
-                <Plane size={20} className="text-warning" />
-              </div>
-              <div>
-                <h6 className="fw-bold text-dark mb-1 small">Real-Time Flight Radar</h6>
-                <p className="text-muted small mb-0" style={{ fontSize: '12px', lineHeight: '1.4' }}>
-                  We track your arrival at Dabolim or Mopa. Even if your flight is delayed, your chauffeur will be waiting.
-                </p>
+            <div className="col-md-4">
+              <div className="d-flex align-items-start gap-3">
+                <div className="rounded-3 p-2.5 text-white flex-shrink-0 shadow-xs" style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D84A1B 100%)' }}>
+                  <Plane size={24} />
+                </div>
+                <div>
+                  <h6 className="fw-bold text-dark mb-1">Live Flight Radar Sync</h6>
+                  <p className="text-muted small mb-0" style={{ fontSize: '12.5px', lineHeight: '1.5' }}>
+                    Flight delayed? No worries! Our dispatcher desk automatically tracks your flight into Mopa (GOX) or Dabolim (GOI) with 60 minutes free wait time.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="col-md-3">
-            <div className="d-flex align-items-start gap-2.5">
-              <div className="p-2 rounded-3 bg-light text-primary">
-                <ShieldCheck size={20} className="text-success" />
-              </div>
-              <div>
-                <h6 className="fw-bold text-dark mb-1 small">Zero Surge Guarantee</h6>
-                <p className="text-muted small mb-0" style={{ fontSize: '12px', lineHeight: '1.4' }}>
-                  Pre-booked transparent rates without airport counter hassles, midnight surge fees, or bargaining.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-md-3">
-            <div className="d-flex align-items-start gap-2.5">
-              <div className="p-2 rounded-3 bg-light text-primary">
-                <FileCheck size={20} className="text-primary" />
-              </div>
-              <div>
-                <h6 className="fw-bold text-dark mb-1 small">KYC Verified Chauffeurs</h6>
-                <p className="text-muted small mb-0" style={{ fontSize: '12px', lineHeight: '1.4' }}>
-                  Police-verified professional drivers with commercial yellow-board transport permits and tourist badges.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-md-3">
-            <div className="d-flex align-items-start gap-2.5">
-              <div className="p-2 rounded-3 bg-light text-primary">
-                <PhoneCall size={20} className="text-info" />
-              </div>
-              <div>
-                <h6 className="fw-bold text-dark mb-1 small">24/7 Dispatch Control</h6>
-                <p className="text-muted small mb-0" style={{ fontSize: '12px', lineHeight: '1.4' }}>
-                  Dedicated operations desk in Goa ready to assist your transfers, luggage needs, and itinerary modifications.
-                </p>
+            <div className="col-md-4">
+              <div className="d-flex align-items-start gap-3">
+                <div className="rounded-3 p-2.5 text-white flex-shrink-0 shadow-xs" style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}>
+                  <Award size={24} />
+                </div>
+                <div>
+                  <h6 className="fw-bold text-dark mb-1">Zero Surge Guarantee</h6>
+                  <p className="text-muted small mb-0" style={{ fontSize: '12.5px', lineHeight: '1.5' }}>
+                    Fixed pre-confirmed tariffs with no surprise nighttime multipliers, rainy season spikes, or last-minute extortion.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
+        {/* ─── CUSTOMER REVIEWS SECTION ─────────────────────────────────── */}
+        <CustomerReviewsSection />
+
+        {/* ─── FAQ ACCORDION ────────────────────────────────────────────── */}
+        <div className="bg-white rounded-4 shadow-sm border p-4 p-md-5 my-4">
+          <div className="mb-4">
+            <span className="badge rounded-pill bg-light text-dark px-3 py-1 text-uppercase fw-bold mb-2 border" style={{ fontSize: '11px' }}>
+              Help &amp; FAQs
+            </span>
+            <h4 className="fw-black text-dark mb-1 font-heading">
+              Frequently Asked Questions About Goa Taxis
+            </h4>
+          </div>
+
+          <div className="accordion accordion-flush" id="taxiFaqAccordion">
+            <div className="accordion-item border-bottom">
+              <h2 className="accordion-header" id="faqOneHeader">
+                <button className="accordion-button collapsed fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#faqOne">
+                  Where will the driver meet me at Goa Airport (Mopa / Dabolim)?
+                </button>
+              </h2>
+              <div id="faqOne" className="accordion-collapse collapse" data-bs-parent="#taxiFaqAccordion">
+                <div className="accordion-body text-muted small">
+                  Your chauffeur will wait right outside the arrival terminal gate holding a personalized name placard with your name. You will receive the driver's contact and vehicle number via WhatsApp 30 minutes before your scheduled landing.
+                </div>
+              </div>
+            </div>
+
+            <div className="accordion-item border-bottom">
+              <h2 className="accordion-header" id="faqTwoHeader">
+                <button className="accordion-button collapsed fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#faqTwo">
+                  What if my flight arrives late at night or is delayed?
+                </button>
+              </h2>
+              <div id="faqTwo" className="accordion-collapse collapse" data-bs-parent="#taxiFaqAccordion">
+                <div className="accordion-body text-muted small">
+                  We offer 24x7 operations. Our dispatcher system tracks flight arrival times in real time. We provide up to 60 minutes of complimentary waiting time starting from when your flight actually touches down on the runway.
+                </div>
+              </div>
+            </div>
+
+            <div className="accordion-item border-bottom">
+              <h2 className="accordion-header" id="faqThreeHeader">
+                <button className="accordion-button collapsed fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#faqThree">
+                  Can I book a full-day cab for South Goa / North Goa sightseeing?
+                </button>
+              </h2>
+              <div id="faqThree" className="accordion-collapse collapse" data-bs-parent="#taxiFaqAccordion">
+                <div className="accordion-body text-muted small">
+                  Yes! Choose our <strong>"8hr / 80km Full Day"</strong> package. Your private chauffeur will take you to forts, beaches, churches, and spice plantations at your own pace with clean air conditioning throughout the day.
+                </div>
+              </div>
+            </div>
+
+            <div className="accordion-item">
+              <h2 className="accordion-header" id="faqFourHeader">
+                <button className="accordion-button collapsed fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#faqFour">
+                  What is your cancellation and refund policy?
+                </button>
+              </h2>
+              <div id="faqFour" className="accordion-collapse collapse" data-bs-parent="#taxiFaqAccordion">
+                <div className="accordion-body text-muted small">
+                  Full 100% refund for cancellations made up to 12 hours before scheduled pickup. For any urgent flight cancellations or changes, our 24/7 dispatcher helpline will immediately assist you with rescheduling.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
