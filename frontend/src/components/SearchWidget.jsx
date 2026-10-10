@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Car, 
+  CarTaxiFront,
   Hotel, 
   MapPin, 
   Compass, 
@@ -382,7 +383,7 @@ export default function SearchWidget({
         setValidationError(val.error);
         return;
       }
-    } else if (activeTab === 'selfdrive') {
+    } else if (activeTab === 'selfdrive' || activeTab === 'taxi') {
       const val = validateBookingDates(pickupDate, dropDate, { allowSameDay: true });
       if (!val.valid) {
         setValidationError(val.error);
@@ -529,6 +530,24 @@ export default function SearchWidget({
             <Car />
             <span>Self Drive Holidays</span>
           </button>
+          <button 
+            type="button" 
+            role="tab"
+            aria-selected={activeTab === 'taxi'}
+            className={`widget-tab-btn ${activeTab === 'taxi' ? 'active' : ''}`}
+            onClick={() => { 
+              setActiveTab('taxi'); 
+              setActiveDropdown(null); 
+              setValidationError(''); 
+              setTimeout(() => {
+                document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
+              }, 50);
+            }}
+          >
+            <CarTaxiFront />
+            <span>Taxi Services</span>
+          </button>
+
           <button 
             type="button" 
             role="tab"
@@ -1487,6 +1506,330 @@ export default function SearchWidget({
               </div>
 
             </div>
+                    ) : activeTab === 'taxi' ? (
+            /* ──────────────────────────────────────────────────────────────────
+                TAB: TAXI & CHAUFFEUR SERVICES (Beside Self Drive Holidays)
+            ────────────────────────────────────────────────────────────────── */
+            <div className="booking-inputs-grid">
+              
+              {/* Taxi Field 1: Pickup Location */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'tx-pickup' ? null : 'tx-pickup')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><MapPin size={13} className="text-warning" /> Pickup Location</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="input-block-val text-truncate" title={pickupLoc || 'Goa Airport (Dabolim / Mopa)'}>
+                  {pickupLoc || 'Goa Airport'}
+                </div>
+                <span className="input-block-sub">Airport, Railway or Hotel Handover</span>
+
+                {activeDropdown === 'tx-pickup' && (
+                  <div className="tg-popover-card shadow-xl p-3" onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small"><MapPin size={14} className="text-primary me-1" /> Choose Taxi Pickup Point</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <div className="position-relative mb-2">
+                      <SearchIcon size={16} className="position-absolute text-muted" style={{ top: '10px', left: '10px' }} />
+                      <input 
+                        type="text" 
+                        className="form-control form-control-sm ps-4 pe-4" 
+                        placeholder="Search Mopa, Dabolim, Madgaon, Hotel..." 
+                        value={sdPickupSearch} 
+                        onChange={e => setSdPickupSearch(e.target.value)} 
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && sdPickupSearch.trim()) {
+                            setPickupLoc(sdPickupSearch.trim());
+                            setActiveDropdown(null);
+                          }
+                        }}
+                        autoFocus 
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-light w-100 text-start d-flex align-items-center gap-2 p-2 rounded-2 mb-2"
+                      style={{ background: '#fff7ed', color: '#c2410c' }}
+                      onClick={() => handleUseCurrentLocation('pickup')}
+                      disabled={isLocating}
+                    >
+                      {isLocating ? <Loader2 size={16} className="animate-spin" /> : <Navigation size={16} />}
+                      <span className="fw-bold small">{isLocating ? 'Detecting...' : '📍 Use Current Location (GPS)'}</span>
+                    </button>
+
+                    {sdPickupSearch.trim() && (
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary btn-sm w-100 text-start mb-2 py-1 px-2 fw-semibold d-flex align-items-center justify-content-between"
+                        style={{ fontSize: '12px' }}
+                        onClick={() => {
+                          setPickupLoc(sdPickupSearch.trim());
+                          setActiveDropdown(null);
+                        }}
+                      >
+                        <span className="text-truncate">📍 Use &ldquo;{sdPickupSearch.trim()}&rdquo; as Pickup</span>
+                        <span className="badge bg-primary text-white">Select</span>
+                      </button>
+                    )}
+
+                    <div className="text-muted small fw-bold mb-1">Recommended Airport & Station Hubs</div>
+                    <div className="tg-scroll-area" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                      {SELF_DRIVE_LOCATIONS.slice(0, 8).map(loc => (
+                        <div
+                          key={loc.id}
+                          className="p-2 rounded-2 d-flex align-items-center justify-content-between cursor-pointer tg-location-row"
+                          style={{ cursor: 'pointer', transition: 'background 0.15s ease' }}
+                          onClick={() => {
+                            setPickupLoc(loc.name);
+                            setActiveDropdown(null);
+                          }}
+                        >
+                          <div className="d-flex align-items-center gap-2">
+                            <span className="fs-6">{loc.icon}</span>
+                            <div>
+                              <div className="fw-semibold text-dark small">{loc.name}</div>
+                              <div className="text-muted" style={{ fontSize: '11px' }}>{loc.desc}</div>
+                            </div>
+                          </div>
+                          {pickupLoc === loc.name && <Check size={14} className="text-primary flex-shrink-0" />}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Taxi Field 2: Drop Location */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'tx-drop' ? null : 'tx-drop')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><Navigation size={13} className="text-primary" /> Drop Destination</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="input-block-val text-truncate" title={dropLoc || 'North / South Goa'}>
+                  {dropLoc || 'North Goa'}
+                </div>
+                <span className="input-block-sub">Calangute, Candolim, Panaji or Resort</span>
+
+                {activeDropdown === 'tx-drop' && (
+                  <div className="tg-popover-card shadow-xl p-3" onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small"><Navigation size={14} className="text-primary me-1" /> Choose Drop Location</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <div className="position-relative mb-2">
+                      <SearchIcon size={16} className="position-absolute text-muted" style={{ top: '10px', left: '10px' }} />
+                      <input 
+                        type="text" 
+                        className="form-control form-control-sm ps-4 pe-4" 
+                        placeholder="Search Hotel, Beach, City or Station..." 
+                        value={sdDropSearch} 
+                        onChange={e => setSdDropSearch(e.target.value)} 
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && sdDropSearch.trim()) {
+                            setDropLoc(sdDropSearch.trim());
+                            setActiveDropdown(null);
+                          }
+                        }}
+                        autoFocus 
+                      />
+                    </div>
+
+                    {sdDropSearch.trim() && (
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary btn-sm w-100 text-start mb-2 py-1 px-2 fw-semibold d-flex align-items-center justify-content-between"
+                        style={{ fontSize: '12px' }}
+                        onClick={() => {
+                          setDropLoc(sdDropSearch.trim());
+                          setActiveDropdown(null);
+                        }}
+                      >
+                        <span className="text-truncate">📍 Set &ldquo;{sdDropSearch.trim()}&rdquo; as Dropoff</span>
+                        <span className="badge bg-primary text-white">Select</span>
+                      </button>
+                    )}
+
+                    <div className="text-muted small fw-bold mb-1">Popular Goa Destinations</div>
+                    <div className="tg-scroll-area" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                      {SELF_DRIVE_LOCATIONS.map(loc => (
+                        <div
+                          key={loc.id}
+                          className="p-2 rounded-2 d-flex align-items-center justify-content-between cursor-pointer tg-location-row"
+                          style={{ cursor: 'pointer', transition: 'background 0.15s ease' }}
+                          onClick={() => {
+                            setDropLoc(loc.name);
+                            setActiveDropdown(null);
+                          }}
+                        >
+                          <div className="d-flex align-items-center gap-2">
+                            <span className="fs-6">{loc.icon}</span>
+                            <div>
+                              <div className="fw-semibold text-dark small">{loc.name}</div>
+                              <div className="text-muted" style={{ fontSize: '11px' }}>{loc.desc}</div>
+                            </div>
+                          </div>
+                          {dropLoc === loc.name && <Check size={14} className="text-primary flex-shrink-0" />}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Taxi Field 3: Pickup Date & Time */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'tx-pickup-date' ? null : 'tx-pickup-date')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><CalendarIcon size={13} className="text-primary" /> Pickup Date</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="d-flex align-items-baseline gap-1 mt-1">
+                  <span className="fw-black text-dark" style={{ fontSize: '26px', lineHeight: '1' }}>{displayPickupDay}</span>
+                  <span className="text-dark fw-bold" style={{ fontSize: '15px' }}>{displayPickupMonthYear}</span>
+                </div>
+                <span className="input-block-sub">{displayPickupWeekday} · <span className="fw-semibold text-primary">{pickupTime || '10:00 AM'}</span></span>
+
+                {activeDropdown === 'tx-pickup-date' && (
+                  <div className="tg-popover-card shadow-xl p-3" onClick={e => e.stopPropagation()}>
+                    <CalendarPickerView
+                      title="Select Taxi Pickup Date"
+                      selectedDate={pickupDate}
+                      minDate={todayStr}
+                      onSelect={(d) => {
+                        setPickupDate(d);
+                        if (!dropDate || dropDate < d) {
+                          setDropDate(d);
+                        }
+                      }}
+                      onClose={() => setActiveDropdown(null)}
+                    />
+
+                    {/* Time Picker */}
+                    <div className="border-top pt-2 mt-2">
+                      <div className="text-muted small fw-bold mb-1">Pickup Time</div>
+                      <select 
+                        className="form-select form-select-sm"
+                        value={pickupTime || '10:00'}
+                        onChange={(e) => setPickupTime && setPickupTime(e.target.value)}
+                      >
+                        {Array.from({ length: 48 }).map((_, i) => {
+                          const h = Math.floor(i / 2);
+                          const m = i % 2 === 0 ? '00' : '30';
+                          const timeStr = `${String(h).padStart(2, '0')}:${m}`;
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          const displayH = h % 12 === 0 ? 12 : h % 12;
+                          return (
+                            <option key={timeStr} value={timeStr}>
+                              {displayH}:{m} {ampm}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Taxi Field 4: Trip Type & Flight Delay Tracking */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'tx-trip-type' ? null : 'tx-trip-type')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><Plane size={13} className="text-warning" /> Service Type</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="input-block-val text-truncate" title="Airport Transfer">
+                  Airport Transfer
+                </div>
+                <span className="input-block-sub text-success fw-semibold">✓ 60m Free Waiting Included</span>
+
+                {activeDropdown === 'tx-trip-type' && (
+                  <div className="tg-popover-card shadow-xl p-3" style={{ width: '280px' }} onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small">Select Transfer Service</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <div className="d-flex flex-column gap-2">
+                      <div className="p-2 rounded border bg-light cursor-pointer" onClick={() => setActiveDropdown(null)}>
+                        <div className="fw-bold small text-dark">✈️ Airport Pickup / Drop</div>
+                        <div className="text-muted" style={{ fontSize: '11px' }}>Dabolim (GOI) or Mopa (GOX) with Name Placard</div>
+                      </div>
+                      <div className="p-2 rounded border cursor-pointer" onClick={() => setActiveDropdown(null)}>
+                        <div className="fw-bold small text-dark">📍 Point-to-Point Intercity</div>
+                        <div className="text-muted" style={{ fontSize: '11px' }}>One-way direct transfer between any two points</div>
+                      </div>
+                      <div className="p-2 rounded border cursor-pointer" onClick={() => setActiveDropdown(null)}>
+                        <div className="fw-bold small text-dark">⏰ Full Day Chauffeur Rental</div>
+                        <div className="text-muted" style={{ fontSize: '11px' }}>8 Hours / 80 Km Sightseeing & Beach Tour</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Taxi Field 5: Cab Categories */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'tx-class' ? null : 'tx-class')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><SlidersHorizontal size={13} className="text-secondary" /> Cab Class</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="input-block-val text-truncate" title="All Categories Available">
+                  All Cabs
+                </div>
+                <span className="input-block-sub">Dzire, Ertiga & Innova Crysta</span>
+
+                {activeDropdown === 'tx-class' && (
+                  <div className="tg-popover-card shadow-xl p-3" style={{ width: '280px' }} onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small">Available Cab Classes</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <div className="d-flex flex-column gap-2 small">
+                      <div className="p-2 rounded border bg-light d-flex justify-content-between align-items-center">
+                        <div>
+                          <div className="fw-bold">Sedan (4 Seater)</div>
+                          <div className="text-muted" style={{ fontSize: '11px' }}>Swift Dzire, Etios</div>
+                        </div>
+                        <span className="badge bg-dark">From ₹1,600</span>
+                      </div>
+                      <div className="p-2 rounded border d-flex justify-content-between align-items-center">
+                        <div>
+                          <div className="fw-bold">MUV (6 Seater)</div>
+                          <div className="text-muted" style={{ fontSize: '11px' }}>Maruti Ertiga</div>
+                        </div>
+                        <span className="badge bg-dark">From ₹2,100</span>
+                      </div>
+                      <div className="p-2 rounded border d-flex justify-content-between align-items-center">
+                        <div>
+                          <div className="fw-bold">Executive SUV</div>
+                          <div className="text-muted" style={{ fontSize: '11px' }}>Innova Crysta (Captain Seats)</div>
+                        </div>
+                        <span className="badge bg-warning text-dark fw-bold">From ₹2,900</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+            </div>
+
           ) : activeTab === 'activities' ? (
             /* ──────────────────────────────────────────────────────────────────
                 TAB: SIGHTSEEING & ACTIVITIES
@@ -2176,6 +2519,7 @@ export default function SearchWidget({
           <div className="search-btn-container">
             <button type="submit" className="btn-widget-search">
               {activeTab === 'selfdrive' ? 'SEARCH VEHICLES' :
+               activeTab === 'taxi' ? 'SEARCH CABS & TARIFFS' :
                activeTab === 'hotels' ? 'SEARCH HOTELS' :
                activeTab === 'flights' ? 'SEARCH FLIGHTS' :
                activeTab === 'activities' ? 'SEARCH ACTIVITIES' :

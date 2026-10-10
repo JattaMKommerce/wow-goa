@@ -1,3 +1,4 @@
+import TaxiServicesPage from './pages/customer/TaxiServicesPage';
 import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import './App.css';
 import { useSiteConfig } from './context/SiteConfigContext';
@@ -86,6 +87,7 @@ export default function App() {
       const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '/';
       // Derive tab directly from URL path — most reliable on refresh
       if (p.startsWith('/v/')) return 'vendor-storefront';
+      if (p.startsWith('/taxi')) return 'taxi';
       if ((p === '/vehicle' || p === '/vehicles' || p.startsWith('/vehicle/') || p.startsWith('/vehicles/')) && p !== '/vehicle/login') return 'selfdrive';
       if (p.startsWith('/admin') || p === '/portal' || p.startsWith('/sub-admin') || p.startsWith('/subadmin') || p.startsWith('/superadmin') || p.startsWith('/super-admin') || p === '/vendor' || p === '/hotel-vendor' || p === '/flight-vendor' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login') return 'portal';
       if (p.startsWith('/b2b') || p === '/register' || p.startsWith('/vendor/register')) return 'b2b';
@@ -785,6 +787,7 @@ export default function App() {
     const pathMap = {
       'packages': '/packages',
       'selfdrive': '/self-drive',
+      'taxi': '/taxi',
       'hotels': '/hotels',
       'cars': '/cars',
       'bikes': '/bikes',
@@ -803,7 +806,7 @@ export default function App() {
 
     if (['hotels', 'flights', 'craftmytrip', 'activities'].includes(normalizedTab)) {
       setSearchTriggered(true);
-    } else if (['selfdrive', 'packages', 'cars', 'home'].includes(normalizedTab)) {
+    } else if (['selfdrive', 'packages', 'cars', 'home', 'taxi'].includes(normalizedTab)) {
       setSearchTriggered(false);
     }
   };
@@ -2282,6 +2285,19 @@ export default function App() {
                 onViewVehicle={(veh) => handleOpenDetails(veh, normalizeVehicleType(veh))}
                 onBook={handleOpenBooking}
                 onViewDetails={(veh) => handleOpenDetails(veh, normalizeVehicleType(veh))}
+              />
+              <FeaturesGrid />
+            </>
+          )}
+
+                    {activeTab === 'taxi' && (
+            <>
+              <TaxiServicesPage
+                pickupLoc={pickupLoc}
+                dropLoc={dropLoc}
+                pickupDate={pickupDate}
+                pickupTime={pickupTime}
+                onBookTaxi={handleOpenBooking}
               />
               <FeaturesGrid />
             </>
