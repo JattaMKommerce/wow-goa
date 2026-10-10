@@ -70,6 +70,53 @@ export default function AdminDriverManagement({ currentUser, bookings = [], onRe
   const [selectedDriverDetails, setSelectedDriverDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
+
+  const handleOpenOriginalDoc = (url, title) => {
+    if (!url) return;
+    if (url.startsWith('data:')) {
+      try {
+        const parts = url.split(',');
+        const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const blobUrl = URL.createObjectURL(blob);
+        const win = window.open(blobUrl, '_blank');
+        if (!win) {
+          handleDownloadDoc(url, title);
+        }
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      } catch (e) {
+        const win = window.open('', '_blank');
+        if (win) {
+          win.document.write(`
+            <!DOCTYPE html>
+            <html>
+              <head><title>${title || 'Document Preview'}</title><style>body{margin:0;background:#0d1b2e;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.6);}</style></head>
+              <body><img src="${url}" alt="${title || 'Document'}" /></body>
+            </html>
+          `);
+          win.document.close();
+        }
+      }
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleDownloadDoc = (url, title) => {
+    if (!url) return;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(title || 'driver_document').toLowerCase().replace(/\\s+/g, '_')}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
   const [actionLoading, setActionLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -1052,10 +1099,23 @@ export default function AdminDriverManagement({ currentUser, bookings = [], onRe
                 }}
               />
             </div>
-            <div className="d-flex justify-content-end gap-2">
-              <a href={previewDoc.url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary fw-semibold">
+            <div className="d-flex justify-content-end gap-2 flex-wrap">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary fw-semibold d-flex align-items-center gap-1"
+                onClick={() => handleDownloadDoc(previewDoc.url, previewDoc.title)}
+                title="Download this document"
+              >
+                <Download size={13} /> Download
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary fw-semibold d-flex align-items-center gap-1"
+                onClick={() => handleOpenOriginalDoc(previewDoc.url, previewDoc.title)}
+                title="Open image in new tab"
+              >
                 <ExternalLink size={13} className="me-1" /> Open Original
-              </a>
+              </button>
               <button type="button" className="btn btn-sm btn-dark px-3 fw-bold" onClick={() => setPreviewDoc(null)}>
                 Done
               </button>

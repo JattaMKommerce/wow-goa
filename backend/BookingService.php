@@ -258,22 +258,49 @@ class BookingService {
             $allocatedPhysicalUnitId = null;
             $authoritativeVendorId = null;
             if (!empty($itemId) && function_exists('checkInventoryAvailability')) {
-                $availRoomTypeId = null;
-                $availReqRooms = 1;
+                $allocatedPhysicalUnitId = null;
+                $authoritativeVendorId = null;
                 if ($serviceType === 'hotel') {
                     $customsData = is_array($payload['customizations'] ?? null) 
                         ? $payload['customizations'] 
                         : (is_string($payload['customizations'] ?? null) ? json_decode($payload['customizations'], true) : []);
                     if (!is_array($customsData)) $customsData = [];
-                    $availRoomTypeId = $payload['room_type_id'] ?? ($customsData['selected_room_type'] ?? ($customsData['room_type_id'] ?? null));
-                    $availReqRooms = max(1, intval($payload['num_rooms'] ?? ($customsData['num_rooms'] ?? ($payload['qty'] ?? 1))));
+
+                    $selectedRoomsCheck = $payload['selected_rooms'] ?? ($customsData['selected_rooms'] ?? null);
+                    if (is_string($selectedRoomsCheck)) {
+                        $selectedRoomsCheck = json_decode($selectedRoomsCheck, true);
+                    }
+
+                    if (is_array($selectedRoomsCheck) && count($selectedRoomsCheck) > 0) {
+                        foreach ($selectedRoomsCheck as $srCheck) {
+                            $srId = $srCheck['room_type_id'] ?? null;
+                            $srQty = max(1, intval($srCheck['quantity'] ?? 1));
+                            $avail = checkInventoryAvailability($pdo, $serviceType, $itemId, $depDate, $retDate, null, $srId, $srQty, true);
+                            if (!$avail['available']) {
+                                throw new BookingServiceException($avail['reason'] ?? "The selected room type is unavailable for the chosen dates.", 409, true);
+                            }
+                            if (empty($authoritativeVendorId)) {
+                                $authoritativeVendorId = $avail['vendor_id'] ?? ($avail['allocated_unit']['vendor_id'] ?? null);
+                            }
+                        }
+                    } else {
+                        $availRoomTypeId = $payload['room_type_id'] ?? ($customsData['selected_room_type'] ?? ($customsData['room_type_id'] ?? null));
+                        $availReqRooms = max(1, intval($payload['num_rooms'] ?? ($customsData['num_rooms'] ?? ($payload['qty'] ?? 1))));
+                        $avail = checkInventoryAvailability($pdo, $serviceType, $itemId, $depDate, $retDate, null, $availRoomTypeId, $availReqRooms, true);
+                        if (!$avail['available']) {
+                            throw new BookingServiceException($avail['reason'] ?? "The selected item is already reserved or unavailable for the chosen dates.", 409, true);
+                        }
+                        $allocatedPhysicalUnitId = $avail['physical_unit_id'] ?? ($avail['allocated_unit']['id'] ?? null);
+                        $authoritativeVendorId = $avail['vendor_id'] ?? ($avail['allocated_unit']['vendor_id'] ?? null);
+                    }
+                } else {
+                    $avail = checkInventoryAvailability($pdo, $serviceType, $itemId, $depDate, $retDate, null, null, 1, true);
+                    if (!$avail['available']) {
+                        throw new BookingServiceException($avail['reason'] ?? "The selected item is already reserved or unavailable for the chosen dates.", 409, true);
+                    }
+                    $allocatedPhysicalUnitId = $avail['physical_unit_id'] ?? ($avail['allocated_unit']['id'] ?? null);
+                    $authoritativeVendorId = $avail['vendor_id'] ?? ($avail['allocated_unit']['vendor_id'] ?? null);
                 }
-                $avail = checkInventoryAvailability($pdo, $serviceType, $itemId, $depDate, $retDate, null, $availRoomTypeId, $availReqRooms, true);
-                if (!$avail['available']) {
-                    throw new BookingServiceException($avail['reason'] ?? "The selected item is already reserved or unavailable for the chosen dates.", 409, true);
-                }
-                $allocatedPhysicalUnitId = $avail['physical_unit_id'] ?? ($avail['allocated_unit']['id'] ?? null);
-                $authoritativeVendorId = $avail['vendor_id'] ?? ($avail['allocated_unit']['vendor_id'] ?? null);
             }
 
             // Authoritative server-side vendor determination (Never trust client payload or query params)
@@ -415,7 +442,9 @@ class BookingService {
 
                     $totalAmount = $authoritativeTotal;
                     $walletAmountUsed = $hotelCalc['wallet_amount_used'];
-                    $itemName = $hotelCalc['hotel']['name'] . ' - ' . $hotelCalc['room_type']['name'];
+                    $itemName = !empty($hotelCalc['rooms_summary']) && count($hotelCalc['selected_rooms'] ?? []) > 1
+                        ? $hotelCalc['hotel']['name'] . ' (' . $hotelCalc['rooms_summary'] . ')'
+                        : $hotelCalc['hotel']['name'] . ' - ' . $hotelCalc['room_type']['name'];
                     $imageVal = $hotelCalc['hotel']['image'] ?? ($hotelCalc['hotel']['image_url'] ?? $imageVal);
                     $driverReq = $hotelCalc['driver_required'];
                     $driverCharge = $hotelCalc['driver_charge'];
@@ -445,6 +474,8 @@ class BookingService {
                         'adults' => $hotelCalc['adults'],
                         'children' => $hotelCalc['children'],
                         'num_guests' => $hotelCalc['num_guests'],
+                        'selected_rooms' => $hotelCalc['selected_rooms'] ?? [],
+                        'rooms_summary' => $hotelCalc['rooms_summary'] ?? $hotelCalc['room_type']['name'],
                         'driver_required' => $driverReq,
                         'driver_service' => $driverServiceType,
                         'driver_charge' => $driverCharge,
@@ -705,7 +736,8 @@ class BookingService {
                 payment_reference, customer_payment_utr, payment_screenshot, payment_verification_status,
                 vendor_payout_status, cancellation_policy_snapshot,
                 customer_country, customer_country_code, customer_category, customer_currency,
-                exchange_rate_used, converted_display_amount, currency_rate_timestamp
+                exchange_rate_used, converted_display_amount, currency_rate_timestamp,
+                is_hold_booking, hold_amount, remaining_due_amount, hold_due_policy
             ) VALUES (
                 ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?,
@@ -725,7 +757,8 @@ class BookingService {
                 ?, ?, ?,
                 ?, ?, ?,
                 ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?
             )";
 
             $isGenuineB2B = $isB2B && !empty($actor) && in_array(strtolower($actor['role'] ?? ''), ['b2b', 'agent']);
@@ -763,8 +796,16 @@ class BookingService {
                 ]);
             }
 
-            // Compute Static QR financial split & payment verification status
-            $snapCustPayment = floatval($totalAmount);
+            // Compute Hold Booking & Static QR financial split & payment verification status
+            $isHoldBooking = !empty($payload['is_hold_booking']) || (isset($payload['amount_paid']) && floatval($payload['amount_paid']) < floatval($totalAmount) && floatval($payload['amount_paid']) > 0);
+            $holdAmountVal = $isHoldBooking ? floatval($payload['hold_amount'] ?? $amountPaid) : 0.00;
+            $remainingDueVal = $isHoldBooking ? max(0, round($totalAmount - $holdAmountVal, 2)) : 0.00;
+            $holdDuePolicyVal = $isHoldBooking ? ($payload['hold_due_policy'] ?? 'checkin') : 'checkin';
+            if ($isHoldBooking && (empty($payload['payment_status']) || $payload['payment_status'] === 'Paid' || $payload['payment_status'] === 'Full')) {
+                $paymentStatus = 'Partially Paid (Hold)';
+            }
+
+            $snapCustPayment = $isHoldBooking ? floatval($holdAmountVal) : floatval($totalAmount);
             $snapWowFee = round($snapCustPayment * 0.10, 2);
             $snapVendorServiceAmt = round($snapCustPayment * 0.90, 2);
             $paymentRef = $payload['payment_reference'] ?? ($payload['utr'] ?? ($payload['payment_utr'] ?? null));
@@ -877,7 +918,11 @@ class BookingService {
                 $customerCurrency,
                 $exchangeRateUsed,
                 $convertedDisplayAmount,
-                $currencyRateTimestamp
+                $currencyRateTimestamp,
+                $isHoldBooking ? 1 : 0,
+                $holdAmountVal,
+                $remainingDueVal,
+                $holdDuePolicyVal
             ]);
 
             // 11. Master-Child Booking Creation for Package Bookings (Phase 6)
@@ -1258,144 +1303,342 @@ class BookingService {
             : (is_string($payload['customizations'] ?? null) ? json_decode($payload['customizations'], true) : []);
         if (!is_array($customs)) $customs = [];
 
-        // 1. Resolve room type
-        $roomTypeId = $payload['room_type_id'] ?? ($customs['selected_room_type'] ?? ($customs['room_type_id'] ?? ''));
-        $roomTypeName = $payload['room_type'] ?? ($customs['selected_room_name'] ?? '');
-        $rt = null;
-        if (!empty($roomTypeId)) {
-            $stmtRt = $pdo->prepare("SELECT * FROM hotel_room_types WHERE id = ? AND hotel_id = ?");
-            $stmtRt->execute([$roomTypeId, $hotelId]);
-            $rt = $stmtRt->fetch(PDO::FETCH_ASSOC);
-        }
-        if (!$rt && !empty($roomTypeName)) {
-            $stmtRt = $pdo->prepare("SELECT * FROM hotel_room_types WHERE hotel_id = ? AND name = ? LIMIT 1");
-            $stmtRt->execute([$hotelId, $roomTypeName]);
-            $rt = $stmtRt->fetch(PDO::FETCH_ASSOC);
-        }
-        if (!$rt) {
-            // Fallback to first active room type for this hotel
-            $stmtRt = $pdo->prepare("SELECT * FROM hotel_room_types WHERE hotel_id = ? AND status = 'Active' ORDER BY id ASC LIMIT 1");
-            $stmtRt->execute([$hotelId]);
-            $rt = $stmtRt->fetch(PDO::FETCH_ASSOC);
-        }
-        if (!$rt) {
-            // If still no room types in DB for this hotel, construct base room from hotel row
-            $rt = [
-                'id' => 'rt_' . $hotelId . '_std',
-                'hotel_id' => $hotelId,
-                'name' => 'Standard Deluxe Room',
-                'base_price' => floatval($hotel['price'] ?: 4500),
-                'selling_price' => floatval($hotel['price'] ?: 4500),
-                'weekend_price' => floatval($hotel['price'] ?: 4500),
-                'extra_adult_charge' => 0,
-                'extra_child_charge' => 0,
-                'max_occupancy' => 3,
-                'base_occupancy' => 2
-            ];
+        $nights = max(1, (int)round((strtotime($retDate) - strtotime($depDate)) / 86400));
+        $selectedRoomsInput = $payload['selected_rooms'] ?? ($customs['selected_rooms'] ?? null);
+        if (is_string($selectedRoomsInput)) {
+            $selectedRoomsInput = json_decode($selectedRoomsInput, true);
         }
 
-        $roomTypeId = $rt['id'];
-        $roomTypeName = $rt['name'];
-
-        // 2. Resolve meal plan & rate plan
-        $ratePlanId = $payload['rate_plan_id'] ?? ($customs['rate_plan_id'] ?? '');
-        $mealPlan = strtoupper(trim($payload['meal_plan'] ?? ($customs['meal_plan'] ?? 'EP')));
-        if (!in_array($mealPlan, ['EP', 'CP', 'MAP', 'AP'])) {
-            $mealPlan = 'EP';
-        }
-
-        $rp = null;
-        if (!empty($ratePlanId)) {
-            $stmtRp = $pdo->prepare("SELECT * FROM hotel_rate_plans WHERE id = ?");
-            $stmtRp->execute([$ratePlanId]);
-            $rp = $stmtRp->fetch(PDO::FETCH_ASSOC);
-        }
-        if (!$rp) {
-            $stmtRp = $pdo->prepare("SELECT * FROM hotel_rate_plans WHERE hotel_id = ? AND room_type_id = ? AND UPPER(meal_plan) = ? AND is_active = 1 LIMIT 1");
-            $stmtRp->execute([$hotelId, $roomTypeId, $mealPlan]);
-            $rp = $stmtRp->fetch(PDO::FETCH_ASSOC);
-        }
-
-        // Pricing rules
-        $baseRoomRate = floatval($rt['selling_price'] ?: ($rt['price'] ?: ($rt['base_price'] ?: ($hotel['price'] ?: 4500))));
-        $weekendRoomRate = floatval($rt['weekend_price'] ?: $baseRoomRate);
-        $extraAdultRate = floatval($rt['extra_adult_charge'] ?? 0);
-        $extraChildRate = floatval($rt['extra_child_charge'] ?? 0);
-        $cancellationPolicy = $rp['cancellation_policy'] ?? ($rt['cancellation_policy'] ?? 'Free cancellation up to 48 hours before check-in');
-
-        // Standard Meal Plan surcharges if not already a dedicated rate plan
         $mealPlanSurcharges = [
             'EP' => 0,
             'CP' => 500,
             'MAP' => 1400,
             'AP' => 2200
         ];
-        $mealSurchargePerNight = $mealPlanSurcharges[$mealPlan] ?? 0;
 
-        if ($rp) {
-            if (!empty($rp['base_price']) && floatval($rp['base_price']) > 0) {
-                $baseRoomRate = floatval($rp['base_price']);
-                $mealSurchargePerNight = 0; // price already includes meal plan
-            }
-            if (!empty($rp['weekend_price']) && floatval($rp['weekend_price']) > 0) {
-                $weekendRoomRate = floatval($rp['weekend_price']);
-            }
-            if (isset($rp['extra_adult_rate'])) $extraAdultRate = floatval($rp['extra_adult_rate']);
-            if (isset($rp['extra_child_rate'])) $extraChildRate = floatval($rp['extra_child_rate']);
-            if (!empty($rp['cancellation_policy'])) $cancellationPolicy = $rp['cancellation_policy'];
-            $ratePlanId = $rp['id'];
-        } else {
-            $ratePlanId = 'rp_' . strtolower($mealPlan) . '_' . $roomTypeId;
-        }
+        $resolvedRooms = [];
+        $roomsSummary = '';
 
-        // 3. Stay dates, nights, rooms, guests
-        $nights = max(1, (int)round((strtotime($retDate) - strtotime($depDate)) / 86400));
-        $numRooms = max(1, intval($payload['num_rooms'] ?? ($customs['num_rooms'] ?? ($payload['qty'] ?? 1))));
-        $adults = max(1, intval($payload['adults'] ?? ($customs['adults'] ?? 2)));
-        $children = max(0, intval($payload['children'] ?? ($customs['children'] ?? 0)));
+        if (is_array($selectedRoomsInput) && count($selectedRoomsInput) > 0) {
+            $totalSubtotalRoomCharges = 0;
+            $totalRoomsCount = 0;
+            $totalAdultsCount = 0;
+            $totalChildrenCount = 0;
+            $summaryNames = [];
 
-        // 4. Nightly price calculation with calendar overrides & weekend pricing
-        $calOverrides = [];
-        try {
-            $calStmt = $pdo->prepare("SELECT date, price_override FROM hotel_availability_calendar WHERE hotel_id = ? AND (room_type_id = ? OR room_type_id IS NULL OR room_type_id = '') AND date >= ? AND date < ?");
-            $calStmt->execute([$hotelId, $roomTypeId, $depDate, $retDate]);
-            while ($cRow = $calStmt->fetch(PDO::FETCH_ASSOC)) {
-                if (!empty($cRow['price_override']) && floatval($cRow['price_override']) > 0) {
-                    $calOverrides[$cRow['date']] = floatval($cRow['price_override']);
+            foreach ($selectedRoomsInput as $sItem) {
+                $itemRtId = $sItem['room_type_id'] ?? ($sItem['id'] ?? '');
+                $itemRtName = $sItem['room_type_name'] ?? ($sItem['name'] ?? '');
+                $itemQty = max(1, intval($sItem['quantity'] ?? 1));
+
+                $rtItem = null;
+                if (!empty($itemRtId)) {
+                    $stmtRt = $pdo->prepare("SELECT * FROM hotel_room_types WHERE id = ? AND hotel_id = ?");
+                    $stmtRt->execute([$itemRtId, $hotelId]);
+                    $rtItem = $stmtRt->fetch(PDO::FETCH_ASSOC);
                 }
+                if (!$rtItem && !empty($itemRtName)) {
+                    $stmtRt = $pdo->prepare("SELECT * FROM hotel_room_types WHERE hotel_id = ? AND name = ? LIMIT 1");
+                    $stmtRt->execute([$hotelId, $itemRtName]);
+                    $rtItem = $stmtRt->fetch(PDO::FETCH_ASSOC);
+                }
+                if (!$rtItem) {
+                    $stmtRt = $pdo->prepare("SELECT * FROM hotel_room_types WHERE hotel_id = ? AND status = 'Active' ORDER BY id ASC LIMIT 1");
+                    $stmtRt->execute([$hotelId]);
+                    $rtItem = $stmtRt->fetch(PDO::FETCH_ASSOC);
+                }
+                if (!$rtItem) {
+                    $rtItem = [
+                        'id' => 'rt_' . $hotelId . '_std',
+                        'hotel_id' => $hotelId,
+                        'name' => 'Standard Deluxe Room',
+                        'base_price' => floatval($hotel['price'] ?: 4500),
+                        'selling_price' => floatval($hotel['price'] ?: 4500),
+                        'weekend_price' => floatval($hotel['price'] ?: 4500),
+                        'extra_adult_charge' => 0,
+                        'extra_child_charge' => 0,
+                        'max_occupancy' => 3,
+                        'base_occupancy' => 2
+                    ];
+                }
+
+                $curRtId = $rtItem['id'];
+                $curMealPlan = strtoupper(trim($sItem['meal_plan'] ?? 'EP'));
+                if (!in_array($curMealPlan, ['EP', 'CP', 'MAP', 'AP'])) {
+                    $curMealPlan = 'EP';
+                }
+
+                $curRatePlanId = $sItem['rate_plan_id'] ?? '';
+                $rpItem = null;
+                if (!empty($curRatePlanId)) {
+                    $stmtRp = $pdo->prepare("SELECT * FROM hotel_rate_plans WHERE id = ?");
+                    $stmtRp->execute([$curRatePlanId]);
+                    $rpItem = $stmtRp->fetch(PDO::FETCH_ASSOC);
+                }
+                if (!$rpItem) {
+                    $stmtRp = $pdo->prepare("SELECT * FROM hotel_rate_plans WHERE hotel_id = ? AND room_type_id = ? AND UPPER(meal_plan) = ? AND is_active = 1 LIMIT 1");
+                    $stmtRp->execute([$hotelId, $curRtId, $curMealPlan]);
+                    $rpItem = $stmtRp->fetch(PDO::FETCH_ASSOC);
+                }
+
+                $itemBaseRoomRate = floatval($rtItem['selling_price'] ?: ($rtItem['price'] ?: ($rtItem['base_price'] ?: ($hotel['price'] ?: 4500))));
+                $itemWeekendRoomRate = floatval($rtItem['weekend_price'] ?: $itemBaseRoomRate);
+                $itemExtraAdultRate = floatval($rtItem['extra_adult_charge'] ?? 0);
+                $itemExtraChildRate = floatval($rtItem['extra_child_charge'] ?? 0);
+                $itemCancellationPolicy = $rpItem['cancellation_policy'] ?? ($rtItem['cancellation_policy'] ?? 'Free cancellation up to 48 hours before check-in');
+                $itemMealSurcharge = $mealPlanSurcharges[$curMealPlan] ?? 0;
+
+                if ($rpItem) {
+                    if (!empty($rpItem['base_price']) && floatval($rpItem['base_price']) > 0) {
+                        $itemBaseRoomRate = floatval($rpItem['base_price']);
+                        $itemMealSurcharge = 0;
+                    }
+                    if (!empty($rpItem['weekend_price']) && floatval($rpItem['weekend_price']) > 0) {
+                        $itemWeekendRoomRate = floatval($rpItem['weekend_price']);
+                    }
+                    if (isset($rpItem['extra_adult_rate'])) $itemExtraAdultRate = floatval($rpItem['extra_adult_rate']);
+                    if (isset($rpItem['extra_child_rate'])) $itemExtraChildRate = floatval($rpItem['extra_child_rate']);
+                    if (!empty($rpItem['cancellation_policy'])) $itemCancellationPolicy = $rpItem['cancellation_policy'];
+                    $curRatePlanId = $rpItem['id'];
+                } else {
+                    $curRatePlanId = 'rp_' . strtolower($curMealPlan) . '_' . $curRtId;
+                }
+
+                // Nightly calendar overrides
+                $itemCalOverrides = [];
+                try {
+                    $calStmt = $pdo->prepare("SELECT date, price_override FROM hotel_availability_calendar WHERE hotel_id = ? AND (room_type_id = ? OR room_type_id IS NULL OR room_type_id = '') AND date >= ? AND date < ?");
+                    $calStmt->execute([$hotelId, $curRtId, $depDate, $retDate]);
+                    while ($cRow = $calStmt->fetch(PDO::FETCH_ASSOC)) {
+                        if (!empty($cRow['price_override']) && floatval($cRow['price_override']) > 0) {
+                            $itemCalOverrides[$cRow['date']] = floatval($cRow['price_override']);
+                        }
+                    }
+                } catch (Exception $ce) {}
+
+                $itemNightsSubtotal = 0;
+                $currentTs = strtotime($depDate);
+                for ($i = 0; $i < $nights; $i++) {
+                    $curDateStr = date('Y-m-d', $currentTs);
+                    $dayOfWeek = (int)date('N', $currentTs);
+                    $isWeekend = ($dayOfWeek === 5 || $dayOfWeek === 6);
+
+                    if (isset($itemCalOverrides[$curDateStr])) {
+                        $nightlyRate = $itemCalOverrides[$curDateStr];
+                    } elseif ($isWeekend) {
+                        $nightlyRate = $itemWeekendRoomRate;
+                    } else {
+                        $nightlyRate = $itemBaseRoomRate;
+                    }
+
+                    $nightlyRate += $itemMealSurcharge;
+                    $itemNightsSubtotal += ($nightlyRate * $itemQty);
+                    $currentTs = strtotime('+1 day', $currentTs);
+                }
+
+                $itemBaseOcc = intval($rtItem['base_occupancy'] ?: 2) * $itemQty;
+                $itemAdults = isset($sItem['adults']) ? max(1, intval($sItem['adults'])) : (2 * $itemQty);
+                $itemChildren = isset($sItem['children']) ? max(0, intval($sItem['children'])) : 0;
+                $extraAdults = max(0, $itemAdults - $itemBaseOcc);
+                $extraAdultTotal = $extraAdults * $itemExtraAdultRate * $nights;
+                $extraChildTotal = $itemChildren * $itemExtraChildRate * $nights;
+                $itemLineTotal = $itemNightsSubtotal + $extraAdultTotal + $extraChildTotal;
+
+                $totalSubtotalRoomCharges += $itemLineTotal;
+                $totalRoomsCount += $itemQty;
+                $totalAdultsCount += $itemAdults;
+                $totalChildrenCount += $itemChildren;
+                $summaryNames[] = "{$itemQty}x {$rtItem['name']} ({$curMealPlan})";
+
+                $resolvedRooms[] = [
+                    'room_type_id' => $curRtId,
+                    'room_type_name' => $rtItem['name'],
+                    'rate_plan_id' => $curRatePlanId,
+                    'rate_plan_name' => $rpItem['name'] ?? ($rtItem['name'] . ' - ' . $curMealPlan),
+                    'meal_plan' => $curMealPlan,
+                    'quantity' => $itemQty,
+                    'base_occupancy' => intval($rtItem['base_occupancy'] ?: 2),
+                    'adults' => $itemAdults,
+                    'children' => $itemChildren,
+                    'nightly_rate' => $itemBaseRoomRate + $itemMealSurcharge,
+                    'room_nights_subtotal' => $itemNightsSubtotal,
+                    'extra_adult_charge' => $extraAdultTotal,
+                    'extra_child_charge' => $extraChildTotal,
+                    'line_total' => $itemLineTotal,
+                    'cancellation_policy' => $itemCancellationPolicy
+                ];
             }
-        } catch (Exception $ce) {}
 
-        $roomNightsSubtotal = 0;
-        $currentTs = strtotime($depDate);
-        for ($i = 0; $i < $nights; $i++) {
-            $curDateStr = date('Y-m-d', $currentTs);
-            $dayOfWeek = (int)date('N', $currentTs); // 1 = Monday, ..., 5 = Friday, 6 = Saturday, 7 = Sunday
-            $isWeekend = ($dayOfWeek === 5 || $dayOfWeek === 6); // Fri or Sat
+            $primaryRt = $resolvedRooms[0];
+            $rt = [
+                'id' => $primaryRt['room_type_id'],
+                'name' => $primaryRt['room_type_name'],
+                'base_occupancy' => $primaryRt['base_occupancy']
+            ];
+            $ratePlanId = $primaryRt['rate_plan_id'];
+            $rp = ['id' => $primaryRt['rate_plan_id'], 'name' => $primaryRt['rate_plan_name'], 'cancellation_policy' => $primaryRt['cancellation_policy']];
+            $uniqueMealPlans = array_unique(array_column($resolvedRooms, 'meal_plan'));
+            $mealPlan = count($uniqueMealPlans) === 1 ? reset($uniqueMealPlans) : 'Mixed';
+            $cancellationPolicy = $primaryRt['cancellation_policy'];
+            $numRooms = $totalRoomsCount;
+            $adults = $totalAdultsCount;
+            $children = $totalChildrenCount;
+            $baseRoomRate = $primaryRt['nightly_rate'];
+            $weekendRoomRate = $primaryRt['nightly_rate'];
+            $mealSurchargePerNight = 0;
+            $roomNightsSubtotal = array_sum(array_column($resolvedRooms, 'room_nights_subtotal'));
+            $extraAdultTotal = array_sum(array_column($resolvedRooms, 'extra_adult_charge'));
+            $extraChildTotal = array_sum(array_column($resolvedRooms, 'extra_child_charge'));
+            $subtotalRoomCharges = $totalSubtotalRoomCharges;
+            $roomsSummary = implode(', ', $summaryNames);
+        } else {
+            // 1. Resolve room type (Legacy single-room fallback)
+            $roomTypeId = $payload['room_type_id'] ?? ($customs['selected_room_type'] ?? ($customs['room_type_id'] ?? ''));
+            $roomTypeName = $payload['room_type'] ?? ($customs['selected_room_name'] ?? '');
+            $rt = null;
+            if (!empty($roomTypeId)) {
+                $stmtRt = $pdo->prepare("SELECT * FROM hotel_room_types WHERE id = ? AND hotel_id = ?");
+                $stmtRt->execute([$roomTypeId, $hotelId]);
+                $rt = $stmtRt->fetch(PDO::FETCH_ASSOC);
+            }
+            if (!$rt && !empty($roomTypeName)) {
+                $stmtRt = $pdo->prepare("SELECT * FROM hotel_room_types WHERE hotel_id = ? AND name = ? LIMIT 1");
+                $stmtRt->execute([$hotelId, $roomTypeName]);
+                $rt = $stmtRt->fetch(PDO::FETCH_ASSOC);
+            }
+            if (!$rt) {
+                $stmtRt = $pdo->prepare("SELECT * FROM hotel_room_types WHERE hotel_id = ? AND status = 'Active' ORDER BY id ASC LIMIT 1");
+                $stmtRt->execute([$hotelId]);
+                $rt = $stmtRt->fetch(PDO::FETCH_ASSOC);
+            }
+            if (!$rt) {
+                $rt = [
+                    'id' => 'rt_' . $hotelId . '_std',
+                    'hotel_id' => $hotelId,
+                    'name' => 'Standard Deluxe Room',
+                    'base_price' => floatval($hotel['price'] ?: 4500),
+                    'selling_price' => floatval($hotel['price'] ?: 4500),
+                    'weekend_price' => floatval($hotel['price'] ?: 4500),
+                    'extra_adult_charge' => 0,
+                    'extra_child_charge' => 0,
+                    'max_occupancy' => 3,
+                    'base_occupancy' => 2
+                ];
+            }
 
-            if (isset($calOverrides[$curDateStr])) {
-                $nightlyRate = $calOverrides[$curDateStr];
-            } elseif ($isWeekend) {
-                $nightlyRate = $weekendRoomRate;
+            $roomTypeId = $rt['id'];
+            $roomTypeName = $rt['name'];
+
+            // 2. Resolve meal plan & rate plan
+            $ratePlanId = $payload['rate_plan_id'] ?? ($customs['rate_plan_id'] ?? '');
+            $mealPlan = strtoupper(trim($payload['meal_plan'] ?? ($customs['meal_plan'] ?? 'EP')));
+            if (!in_array($mealPlan, ['EP', 'CP', 'MAP', 'AP'])) {
+                $mealPlan = 'EP';
+            }
+
+            $rp = null;
+            if (!empty($ratePlanId)) {
+                $stmtRp = $pdo->prepare("SELECT * FROM hotel_rate_plans WHERE id = ?");
+                $stmtRp->execute([$ratePlanId]);
+                $rp = $stmtRp->fetch(PDO::FETCH_ASSOC);
+            }
+            if (!$rp) {
+                $stmtRp = $pdo->prepare("SELECT * FROM hotel_rate_plans WHERE hotel_id = ? AND room_type_id = ? AND UPPER(meal_plan) = ? AND is_active = 1 LIMIT 1");
+                $stmtRp->execute([$hotelId, $roomTypeId, $mealPlan]);
+                $rp = $stmtRp->fetch(PDO::FETCH_ASSOC);
+            }
+
+            $baseRoomRate = floatval($rt['selling_price'] ?: ($rt['price'] ?: ($rt['base_price'] ?: ($hotel['price'] ?: 4500))));
+            $weekendRoomRate = floatval($rt['weekend_price'] ?: $baseRoomRate);
+            $extraAdultRate = floatval($rt['extra_adult_charge'] ?? 0);
+            $extraChildRate = floatval($rt['extra_child_charge'] ?? 0);
+            $cancellationPolicy = $rp['cancellation_policy'] ?? ($rt['cancellation_policy'] ?? 'Free cancellation up to 48 hours before check-in');
+            $mealSurchargePerNight = $mealPlanSurcharges[$mealPlan] ?? 0;
+
+            if ($rp) {
+                if (!empty($rp['base_price']) && floatval($rp['base_price']) > 0) {
+                    $baseRoomRate = floatval($rp['base_price']);
+                    $mealSurchargePerNight = 0;
+                }
+                if (!empty($rp['weekend_price']) && floatval($rp['weekend_price']) > 0) {
+                    $weekendRoomRate = floatval($rp['weekend_price']);
+                }
+                if (isset($rp['extra_adult_rate'])) $extraAdultRate = floatval($rp['extra_adult_rate']);
+                if (isset($rp['extra_child_rate'])) $extraChildRate = floatval($rp['extra_child_rate']);
+                if (!empty($rp['cancellation_policy'])) $cancellationPolicy = $rp['cancellation_policy'];
+                $ratePlanId = $rp['id'];
             } else {
-                $nightlyRate = $baseRoomRate;
+                $ratePlanId = 'rp_' . strtolower($mealPlan) . '_' . $roomTypeId;
             }
 
-            $nightlyRate += $mealSurchargePerNight;
-            $roomNightsSubtotal += ($nightlyRate * $numRooms);
-            $currentTs = strtotime('+1 day', $currentTs);
+            // 3. Stay dates, nights, rooms, guests
+            $numRooms = max(1, intval($payload['num_rooms'] ?? ($customs['num_rooms'] ?? ($payload['qty'] ?? 1))));
+            $adults = max(1, intval($payload['adults'] ?? ($customs['adults'] ?? 2)));
+            $children = max(0, intval($payload['children'] ?? ($customs['children'] ?? 0)));
+
+            // 4. Nightly price calculation with calendar overrides & weekend pricing
+            $calOverrides = [];
+            try {
+                $calStmt = $pdo->prepare("SELECT date, price_override FROM hotel_availability_calendar WHERE hotel_id = ? AND (room_type_id = ? OR room_type_id IS NULL OR room_type_id = '') AND date >= ? AND date < ?");
+                $calStmt->execute([$hotelId, $roomTypeId, $depDate, $retDate]);
+                while ($cRow = $calStmt->fetch(PDO::FETCH_ASSOC)) {
+                    if (!empty($cRow['price_override']) && floatval($cRow['price_override']) > 0) {
+                        $calOverrides[$cRow['date']] = floatval($cRow['price_override']);
+                    }
+                }
+            } catch (Exception $ce) {}
+
+            $roomNightsSubtotal = 0;
+            $currentTs = strtotime($depDate);
+            for ($i = 0; $i < $nights; $i++) {
+                $curDateStr = date('Y-m-d', $currentTs);
+                $dayOfWeek = (int)date('N', $currentTs);
+                $isWeekend = ($dayOfWeek === 5 || $dayOfWeek === 6);
+
+                if (isset($calOverrides[$curDateStr])) {
+                    $nightlyRate = $calOverrides[$curDateStr];
+                } elseif ($isWeekend) {
+                    $nightlyRate = $weekendRoomRate;
+                } else {
+                    $nightlyRate = $baseRoomRate;
+                }
+
+                $nightlyRate += $mealSurchargePerNight;
+                $roomNightsSubtotal += ($nightlyRate * $numRooms);
+                $currentTs = strtotime('+1 day', $currentTs);
+            }
+
+            // 5. Extra Guests Calculation
+            $baseOcc = intval($rt['base_occupancy'] ?: 2);
+            $totalBaseAdultCapacity = $baseOcc * $numRooms;
+            $extraAdults = max(0, $adults - $totalBaseAdultCapacity);
+            $extraAdultTotal = $extraAdults * $extraAdultRate * $nights;
+            $extraChildTotal = $children * $extraChildRate * $nights;
+            $totalExtraGuestCharge = $extraAdultTotal + $extraChildTotal;
+
+            $subtotalRoomCharges = $roomNightsSubtotal + $totalExtraGuestCharge;
+            $roomsSummary = "{$numRooms}x {$rt['name']} ({$mealPlan})";
+
+            $resolvedRooms = [
+                [
+                    'room_type_id' => $rt['id'],
+                    'room_type_name' => $rt['name'],
+                    'rate_plan_id' => $ratePlanId,
+                    'rate_plan_name' => $rp['name'] ?? ($rt['name'] . ' - ' . $mealPlan),
+                    'meal_plan' => $mealPlan,
+                    'quantity' => $numRooms,
+                    'base_occupancy' => $baseOcc,
+                    'adults' => $adults,
+                    'children' => $children,
+                    'nightly_rate' => $baseRoomRate + $mealSurchargePerNight,
+                    'room_nights_subtotal' => $roomNightsSubtotal,
+                    'extra_adult_charge' => $extraAdultTotal,
+                    'extra_child_charge' => $extraChildTotal,
+                    'line_total' => $subtotalRoomCharges,
+                    'cancellation_policy' => $cancellationPolicy
+                ]
+            ];
         }
-
-        // 5. Extra Guests Calculation
-        $baseOcc = intval($rt['base_occupancy'] ?: 2);
-        $totalBaseAdultCapacity = $baseOcc * $numRooms;
-        $extraAdults = max(0, $adults - $totalBaseAdultCapacity);
-        $extraAdultTotal = $extraAdults * $extraAdultRate * $nights;
-        $extraChildTotal = $children * $extraChildRate * $nights;
-        $totalExtraGuestCharge = $extraAdultTotal + $extraChildTotal;
-
-        // Subtotal room charges
-        $subtotalRoomCharges = $roomNightsSubtotal + $totalExtraGuestCharge;
 
         // 6. Markup Calculation (from markups table)
         $markupAmount = 0;
@@ -1485,6 +1728,21 @@ class BookingService {
             'driver_required' => $driverRequired ? 1 : 0,
             'driver_service_type' => $driverRequired ? $driverServiceType : null,
             'driver_charge' => $driverCharge,
+            'selected_rooms' => $resolvedRooms,
+            'rooms_summary' => $roomsSummary,
+            'item_name' => !empty($roomsSummary) && count($resolvedRooms) > 1
+                ? $hotel['name'] . ' (' . $roomsSummary . ')'
+                : $hotel['name'] . ' - ' . ($primaryRt['room_type_name'] ?? ($rt['name'] ?? 'Room')),
+            'customizations' => [
+                'selected_rooms' => $resolvedRooms,
+                'rooms_summary' => $roomsSummary,
+                'nights' => $nights,
+                'num_rooms' => $numRooms,
+                'adults' => $adults,
+                'children' => $children,
+                'check_in_date' => $depDate,
+                'check_out_date' => $retDate
+            ],
             'authoritative_total' => $authoritativeTotal,
             'wallet_amount_used' => $appliedWallet,
             'max_wallet_benefit' => $maxAllowedWallet,
@@ -1948,6 +2206,153 @@ class BookingService {
                 'error' => $e->getMessage(),
                 'booking_id' => $bookingId
             ];
+        }
+    }
+
+    /**
+     * Retrieve vendor hold booking settings.
+     */
+    public static function getVendorHoldSettings(PDO $pdo, ?string $vendorId): array {
+        $default = [
+            'vendor_id' => $vendorId ?: '',
+            'allow_hold_booking' => 1,
+            'hold_type' => 'percentage',
+            'hold_value' => 20.00,
+            'hold_due_policy' => 'checkin',
+            'min_booking_amount' => 500.00
+        ];
+
+        if (empty($vendorId)) {
+            return $default;
+        }
+
+        try {
+            // Check dedicated table first
+            $stmt = $pdo->prepare("SELECT * FROM vendor_hold_settings WHERE vendor_id = ? LIMIT 1");
+            $stmt->execute([$vendorId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($row) {
+                return [
+                    'id' => $row['id'] ?? null,
+                    'vendor_id' => $row['vendor_id'],
+                    'allow_hold_booking' => intval($row['allow_hold_booking'] ?? 1),
+                    'hold_type' => $row['hold_type'] ?: 'percentage',
+                    'hold_value' => floatval($row['hold_value'] ?? 20.00),
+                    'hold_due_policy' => $row['hold_due_policy'] ?: 'checkin',
+                    'min_booking_amount' => floatval($row['min_booking_amount'] ?? 500.00),
+                    'updated_at' => $row['updated_at'] ?? null
+                ];
+            }
+
+            // Fallback to vendors table columns if configured
+            $stmtV = $pdo->prepare("SELECT allow_hold_booking, hold_type, hold_value, hold_due_policy, min_booking_amount FROM vendors WHERE id = ? LIMIT 1");
+            $stmtV->execute([$vendorId]);
+            $vRow = $stmtV->fetch(PDO::FETCH_ASSOC);
+
+            if ($vRow && isset($vRow['allow_hold_booking']) && $vRow['allow_hold_booking'] !== null) {
+                return [
+                    'vendor_id' => $vendorId,
+                    'allow_hold_booking' => intval($vRow['allow_hold_booking']),
+                    'hold_type' => $vRow['hold_type'] ?: 'percentage',
+                    'hold_value' => floatval($vRow['hold_value'] ?? 20.00),
+                    'hold_due_policy' => $vRow['hold_due_policy'] ?: 'checkin',
+                    'min_booking_amount' => floatval($vRow['min_booking_amount'] ?? 500.00)
+                ];
+            }
+
+            return $default;
+        } catch (Exception $e) {
+            return $default;
+        }
+    }
+
+    /**
+     * Save or update vendor hold booking settings and synchronize with vendors table.
+     */
+    public static function saveVendorHoldSettings(PDO $pdo, array $payload): array {
+        $vendorId = trim($payload['vendor_id'] ?? '');
+        if (empty($vendorId)) {
+            throw new Exception("Vendor ID is required to configure hold settings.");
+        }
+
+        $allowHold = isset($payload['allow_hold_booking']) ? intval($payload['allow_hold_booking']) : 1;
+        $holdType = in_array(strtolower($payload['hold_type'] ?? ''), ['fixed', 'flat', 'fixed_amount']) ? 'fixed' : 'percentage';
+        $holdValue = max(0, floatval($payload['hold_value'] ?? 20.00));
+        $holdDuePolicy = trim($payload['hold_due_policy'] ?? 'checkin');
+        $minBookingAmt = max(0, floatval($payload['min_booking_amount'] ?? 500.00));
+
+        $settingId = 'vhs_' . substr(md5($vendorId), 0, 12);
+
+        // Upsert into vendor_hold_settings
+        $stmt = $pdo->prepare("INSERT INTO vendor_hold_settings (
+            id, vendor_id, allow_hold_booking, hold_type, hold_value, hold_due_policy, min_booking_amount, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        ON CONFLICT(vendor_id) DO UPDATE SET
+            allow_hold_booking = excluded.allow_hold_booking,
+            hold_type = excluded.hold_type,
+            hold_value = excluded.hold_value,
+            hold_due_policy = excluded.hold_due_policy,
+            min_booking_amount = excluded.min_booking_amount,
+            updated_at = datetime('now')");
+
+        $stmt->execute([
+            $settingId,
+            $vendorId,
+            $allowHold,
+            $holdType,
+            $holdValue,
+            $holdDuePolicy,
+            $minBookingAmt
+        ]);
+
+        // Sync to vendors table
+        try {
+            $syncStmt = $pdo->prepare("UPDATE vendors SET 
+                allow_hold_booking = ?, 
+                hold_type = ?, 
+                hold_value = ?, 
+                hold_due_policy = ?, 
+                min_booking_amount = ? 
+                WHERE id = ?");
+            $syncStmt->execute([$allowHold, $holdType, $holdValue, $holdDuePolicy, $minBookingAmt, $vendorId]);
+        } catch (Exception $syncEx) {}
+
+        return [
+            'success' => true,
+            'message' => 'Vendor hold booking settings updated successfully.',
+            'settings' => [
+                'id' => $settingId,
+                'vendor_id' => $vendorId,
+                'allow_hold_booking' => $allowHold,
+                'hold_type' => $holdType,
+                'hold_value' => $holdValue,
+                'hold_due_policy' => $holdDuePolicy,
+                'min_booking_amount' => $minBookingAmt
+            ]
+        ];
+    }
+
+    /**
+     * Retrieve all vendor hold settings mapped by vendor_id for Admin portal.
+     */
+    public static function getAllVendorHoldSettings(PDO $pdo): array {
+        try {
+            $stmt = $pdo->query("SELECT * FROM vendor_hold_settings");
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $mapped = [];
+            foreach ($rows as $r) {
+                $mapped[$r['vendor_id']] = [
+                    'allow_hold_booking' => intval($r['allow_hold_booking'] ?? 1),
+                    'hold_type' => $r['hold_type'] ?: 'percentage',
+                    'hold_value' => floatval($r['hold_value'] ?? 20.00),
+                    'hold_due_policy' => $r['hold_due_policy'] ?: 'checkin',
+                    'min_booking_amount' => floatval($r['min_booking_amount'] ?? 500.00)
+                ];
+            }
+            return $mapped;
+        } catch (Exception $e) {
+            return [];
         }
     }
 }

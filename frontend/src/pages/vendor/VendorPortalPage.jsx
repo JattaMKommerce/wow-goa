@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Compass, LogOut, Car, Shield, LayoutDashboard, Calendar,
+  Compass, LogOut, Car, Shield, ShieldCheck, LayoutDashboard, Calendar,
   Wallet, BarChart2, Settings, CreditCard, Users, DollarSign,
   ChevronDown, ChevronRight, Menu, Globe
 } from 'lucide-react';
@@ -18,6 +18,7 @@ import VehicleVendorProfileSettings from './vehicle-pms/VehicleVendorProfileSett
 import VendorDashboard from './VendorDashboard';
 import VendorNotificationBell from '../../components/vendor/VendorNotificationBell';
 import VendorCancellationPolicyManager from '../../components/vendor/VendorCancellationPolicyManager';
+import VendorHoldSettingsCard from '../../components/vendor/VendorHoldSettingsCard';
 import VendorSuspendedBanner from '../../components/vendor/VendorSuspendedBanner';
 import VendorRechargeReminderBanner from '../../components/vendor/VendorRechargeReminderBanner';
 
@@ -45,6 +46,7 @@ const SIDEBAR_GROUPS = [
     label: 'Finance',
     items: [
       { id: 'wallet', label: 'Wallet', icon: <Wallet size={15} /> },
+      { id: 'hold_settings', label: 'Hold Booking Amount', icon: <ShieldCheck size={15} /> },
       { id: 'payment_settings', label: 'Payment Settings', icon: <CreditCard size={15} /> },
       { id: 'cancellation_policy', label: 'Cancellation Policy', icon: <Shield size={15} /> },
     ]
@@ -215,6 +217,12 @@ export default function VendorPortalPage({
         return <VehicleCustomerManagement bookings={bookings} />;
       case 'wallet':
         return <VendorWallet currentUser={currentUser} />;
+      case 'hold_settings':
+        return (
+          <div className="p-4" style={{ maxWidth: '1100px', margin: '0 auto' }}>
+            <VendorHoldSettingsCard currentUser={currentUser} />
+          </div>
+        );
       case 'payment_settings':
         return <PMSPaymentSettings currentUser={currentUser} />;
       case 'cancellation_policy':

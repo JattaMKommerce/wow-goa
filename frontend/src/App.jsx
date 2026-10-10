@@ -915,6 +915,7 @@ export default function App() {
     }
     const bookingItem = {
       ...hotel,
+      preselected_rooms: hotel?.preselected_rooms || (selectedRoom ? [{ room: selectedRoom, plan: selectedRatePlan, quantity: hotel?.num_rooms || 1 }] : null),
       preselected_room: selectedRoom || hotel?.preselected_room || null,
       preselected_rate_plan: selectedRatePlan || hotel?.preselected_rate_plan || null
     };
@@ -2484,6 +2485,7 @@ export default function App() {
                 }, 50);
               }}
               onBook={handleOpenHotelBooking}
+              onSelectHotel={(item) => handleOpenDetails(item, 'hotel')}
             />
           )}
 

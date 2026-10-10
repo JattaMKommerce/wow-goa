@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building, Compass, Sparkles, Shield, Plus, Calendar, Settings, Plane, Hotel, Map as MapIcon, MapPin, X, MessageSquare, CreditCard, Box, MessageCircle, Search, Clock, Edit3, Trash2, Star, Eye, CheckCircle2 } from 'lucide-react';
+import { Building, Compass, Sparkles, Shield, ShieldCheck, Plus, Calendar, Settings, Plane, Hotel, Map as MapIcon, MapPin, X, MessageSquare, CreditCard, Box, MessageCircle, Search, Clock, Edit3, Trash2, Star, Eye, CheckCircle2 } from 'lucide-react';
 import * as api from '../../services/api';
 import AdminWalletSettlements from '../../components/admin/AdminWalletSettlements';
 import AdminActivitiesManagement from './AdminActivitiesManagement';
@@ -712,6 +712,23 @@ export default function AdminDashboard({
                       <span className={`badge rounded-pill px-2.5 py-1.5 fw-bold ${isInactive ? 'bg-danger text-white' : isPending ? 'bg-warning text-dark' : 'bg-success text-white'}`} style={{ fontSize: '0.72rem' }}>
                         {v.status ? v.status.toUpperCase() : 'ACTIVE'}
                       </span>
+                      {v.allow_hold_booking !== 0 ? (
+                        <span 
+                          className="badge rounded-pill px-2.5 py-1.5 fw-bold border border-primary-subtle" 
+                          style={{ background: '#eff6ff', color: '#1d4ed8', fontSize: '0.72rem' }}
+                          title={`Hold Booking Allowed: ${v.hold_type === 'percentage' ? `${v.hold_value || 20}%` : `₹${v.hold_value || 1500}`} token`}
+                        >
+                          🔒 Hold: {v.hold_type === 'percentage' ? `${v.hold_value || 20}%` : `₹${v.hold_value || 1500}`}
+                        </span>
+                      ) : (
+                        <span 
+                          className="badge rounded-pill px-2.5 py-1.5 fw-bold bg-light text-muted border" 
+                          style={{ fontSize: '0.72rem' }}
+                          title="Hold booking disabled (100% full upfront payment required)"
+                        >
+                          ○ Hold: Off
+                        </span>
+                      )}
                       <div className="d-flex gap-2 ms-2">
                         <button 
                           type="button"
@@ -790,6 +807,23 @@ export default function AdminDashboard({
                       <div className="col-6"><span className="text-muted">Phone:</span> <strong>{selectedVendorDetails.phone || '—'}</strong></div>
                       <div className="col-6"><span className="text-muted">Location:</span> <strong>{selectedVendorDetails.city || 'Goa'}</strong></div>
                       <div className="col-6"><span className="text-muted">Monthly Plan:</span> <strong>₹{selectedVendorDetails.monthly_plan_price || 0}/mo</strong></div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-3 mb-3" style={{ background: '#f0f9ff', border: '1px solid #bae6fd' }}>
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <h6 className="fw-bold mb-0 text-dark small d-flex align-items-center gap-1.5">
+                        <ShieldCheck size={16} className="text-primary" />
+                        <span>Hold Booking & Token Policy</span>
+                      </h6>
+                      <span className={`badge rounded-pill px-2 py-0.5 fw-bold ${selectedVendorDetails.allow_hold_booking !== 0 ? 'bg-primary text-white' : 'bg-secondary text-white'}`} style={{ fontSize: '0.65rem' }}>
+                        {selectedVendorDetails.allow_hold_booking !== 0 ? 'ENABLED' : 'DISABLED'}
+                      </span>
+                    </div>
+                    <div className="row g-2" style={{ fontSize: '0.80rem' }}>
+                      <div className="col-6"><span className="text-muted">Hold Amount:</span> <strong>{selectedVendorDetails.hold_type === 'percentage' ? `${selectedVendorDetails.hold_value || 20}% of total` : `₹${selectedVendorDetails.hold_value || 1500} Flat`}</strong></div>
+                      <div className="col-6"><span className="text-muted">Balance Due:</span> <strong>{selectedVendorDetails.hold_due_policy === '24h_before' ? '24h Before Arrival' : selectedVendorDetails.hold_due_policy === '48h_before' ? '48h Before Arrival' : 'At Check-in / Delivery'}</strong></div>
+                      <div className="col-12"><span className="text-muted">Min Booking to Offer:</span> <strong>₹{selectedVendorDetails.min_booking_amount || 500}</strong></div>
                     </div>
                   </div>
 

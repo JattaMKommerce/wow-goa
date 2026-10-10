@@ -2418,16 +2418,17 @@ function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $d
                 }
 
                 $reqRooms = max(1, intval($requestedRooms));
-                $sqlBookings = "SELECT COUNT(*) FROM bookings 
+                $sqlBookings = "SELECT customizations FROM bookings 
                                 WHERE item_id = ? 
                                   AND type = 'hotel'
                                   AND status NOT IN ('Cancelled', 'Rejected')
-                                  AND (customizations LIKE ? OR customizations LIKE ?)
+                                  AND (customizations LIKE ? OR customizations LIKE ? OR customizations LIKE ?)
                                   AND (pickup_date < ? AND drop_date > ?)";
                 $paramsBookings = [
                     $itemId,
                     '%"selected_room_type":"' . $roomTypeId . '"%',
                     '%"room_type_id":"' . $roomTypeId . '"%',
+                    '%' . $roomTypeId . '%',
                     $drop,
                     $pickup
                 ];
@@ -2438,7 +2439,21 @@ function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $d
                 $sqlBookings .= $lock;
                 $stmtBks = $pdo->prepare($sqlBookings);
                 $stmtBks->execute($paramsBookings);
-                $alreadyBooked = intval($stmtBks->fetchColumn());
+                $activeBookings = $stmtBks->fetchAll(PDO::FETCH_ASSOC);
+                $alreadyBooked = 0;
+                foreach ($activeBookings as $bRow) {
+                    $cData = json_decode($bRow['customizations'] ?? '{}', true) ?: [];
+                    if (!empty($cData['selected_rooms']) && is_array($cData['selected_rooms'])) {
+                        foreach ($cData['selected_rooms'] as $sr) {
+                            if (($sr['room_type_id'] ?? '') === $roomTypeId) {
+                                $alreadyBooked += max(1, intval($sr['quantity'] ?? 1));
+                            }
+                        }
+                    } else {
+                        // Legacy single-room booking
+                        $alreadyBooked += max(1, intval($cData['num_rooms'] ?? 1));
+                    }
+                }
                 $remainingRooms = $totalRoomsAvailable - $alreadyBooked;
                 if ($remainingRooms < $reqRooms) {
                     return [
@@ -4583,15 +4598,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $policy = BookingService::ensureVendorDefaultPolicy($pdo, $vendorId, $serviceType);
             }
             echo json_encode($policy ?: (object)[]);
+            exit;} elseif ($resource === 'vendor_hold_settings') {
+            $vendorId = $_GET['vendor_id'] ?? '';
+            $settings = BookingService::getVendorHoldSettings($pdo, $vendorId);
+            echo json_encode($settings);
+            exit;} elseif ($resource === 'all_vendor_hold_settings') {
+            $all = BookingService::getAllVendorHoldSettings($pdo);
+            echo json_encode($all);
             exit;} elseif ($resource === 'vendors') {
             $stmt = $pdo->prepare("SELECT v.*, 
                     u.status AS user_status, 
                     COALESCE(u.status, 'active') AS status,
                     u.kyc_status,
                     u.gst_number,
-                    CASE WHEN COALESCE(u.status, 'active') = 'active' THEN 1 ELSE 0 END AS verified
+                    CASE WHEN COALESCE(u.status, 'active') = 'active' THEN 1 ELSE 0 END AS verified,
+                    COALESCE(vhs.allow_hold_booking, v.allow_hold_booking, 1) AS allow_hold_booking,
+                    COALESCE(vhs.hold_type, v.hold_type, 'percentage') AS hold_type,
+                    COALESCE(vhs.hold_value, v.hold_value, 20.00) AS hold_value,
+                    COALESCE(vhs.hold_due_policy, v.hold_due_policy, 'checkin') AS hold_due_policy,
+                    COALESCE(vhs.min_booking_amount, v.min_booking_amount, 500.00) AS min_booking_amount
                 FROM vendors v
                 LEFT JOIN users u ON v.id = u.id
+                LEFT JOIN vendor_hold_settings vhs ON v.id = vhs.vendor_id
                 WHERE (v.admin_id = ? OR v.admin_id IS NULL OR v.admin_id = '' OR v.admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin')");
             $stmt->execute([$tenant_id, $tenant_id, $tenant_id]);
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -8207,6 +8235,16 @@ HTML;
                 echo json_encode(["success" => false, "error" => $e->getMessage()]);
                 exit();
             }
+        } elseif ($action === 'save_vendor_hold_settings') {
+            try {
+                $res = BookingService::saveVendorHoldSettings($pdo, $payload);
+                echo json_encode($res);
+                exit;
+            } catch (Exception $e) {
+                http_response_code(400);
+                echo json_encode(["success" => false, "error" => $e->getMessage()]);
+                exit;
+            }
         } elseif ($action === 'save_vendor_cancellation_policy') {
             if (!function_exists('sendSystemNotification')) {
                 function sendSystemNotification($pdo, $userId, $role, $title, $message, $refType = 'booking', $refId = '') {
@@ -10597,7 +10635,9 @@ HTML;
                 $ownerVendor = $existingCar ? ($existingCar['vendor_id'] ?? '') : ($existingBike['vendor_id'] ?? '');
                 $actorId = $actor['id'] ?? '';
                 $actorUser = $actor['username'] ?? '';
-                $isAllowed = ($ownerVendor === $actorId || $ownerVendor === $actorUser);
+                $isMainVendor = ($actorId === 'u-4' || $actorUser === 'vendor');
+                $isLegacyDefaultFleet = in_array($ownerVendor, ['u-4', 'vendor', 'vendor-1', 'vendor-2', '']);
+                $isAllowed = ($ownerVendor === $actorId || $ownerVendor === $actorUser) || ($isMainVendor && $isLegacyDefaultFleet);
                 if (!$isAllowed) {
                     http_response_code(403);
                     echo json_encode(["success" => false, "error" => "Forbidden: You are not authorized to update another vendor's vehicle."]);
@@ -10817,7 +10857,9 @@ HTML;
                 $ownerVendor = $cRow ? ($cRow['vendor_id'] ?? '') : ($bRow['vendor_id'] ?? '');
                 $actorId = $actor['id'] ?? '';
                 $actorUser = $actor['username'] ?? '';
-                $isAllowed = ($ownerVendor === $actorId || $ownerVendor === $actorUser);
+                $isMainVendor = ($actorId === 'u-4' || $actorUser === 'vendor');
+                $isLegacyDefaultFleet = in_array($ownerVendor, ['u-4', 'vendor', 'vendor-1', 'vendor-2', '']);
+                $isAllowed = ($ownerVendor === $actorId || $ownerVendor === $actorUser) || ($isMainVendor && $isLegacyDefaultFleet);
                 if (!$isAllowed) {
                     http_response_code(403);
                     echo json_encode(["success" => false, "error" => "Forbidden: You are not authorized to modify another vendor's vehicle."]);
@@ -10858,7 +10900,9 @@ HTML;
                 $ownerVendor = $cRow ? ($cRow['vendor_id'] ?? '') : ($bRow['vendor_id'] ?? '');
                 $actorId = $actor['id'] ?? '';
                 $actorUser = $actor['username'] ?? '';
-                $isAllowed = ($ownerVendor === $actorId || $ownerVendor === $actorUser);
+                $isMainVendor = ($actorId === 'u-4' || $actorUser === 'vendor');
+                $isLegacyDefaultFleet = in_array($ownerVendor, ['u-4', 'vendor', 'vendor-1', 'vendor-2', '']);
+                $isAllowed = ($ownerVendor === $actorId || $ownerVendor === $actorUser) || ($isMainVendor && $isLegacyDefaultFleet);
                 if (!$isAllowed) {
                     http_response_code(403);
                     echo json_encode(["success" => false, "error" => "Forbidden: You are not authorized to delete another vendor's vehicle."]);

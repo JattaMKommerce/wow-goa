@@ -3789,6 +3789,46 @@ export async function deleteVendorCancellationPolicy(policyId, vendorId) {
   return data;
 }
 
+export async function fetchVendorHoldSettings(vendorId = '') {
+  try {
+    const url = `${API_BASE}?resource=vendor_hold_settings&vendor_id=${encodeURIComponent(vendorId)}`;
+    const res = await apiFetch(url);
+    const data = await res.json();
+    return data || null;
+  } catch (err) {
+    console.warn("fetchVendorHoldSettings error:", err);
+    return null;
+  }
+}
+
+export async function fetchAllVendorHoldSettings() {
+  try {
+    const url = `${API_BASE}?resource=all_vendor_hold_settings`;
+    const res = await apiFetch(url);
+    const data = await res.json();
+    return data || {};
+  } catch (err) {
+    console.warn("fetchAllVendorHoldSettings error:", err);
+    return {};
+  }
+}
+
+export async function saveVendorHoldSettings(settingsData) {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'save_vendor_hold_settings',
+      ...settingsData
+    })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to save hold settings.');
+  }
+  return data;
+}
+
 export async function adminVerifyPayment(bookingId, verificationStatus, rejectionReason = '') {
   const res = await apiFetch(API_BASE, {
     method: 'POST',

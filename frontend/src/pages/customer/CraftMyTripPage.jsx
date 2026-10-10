@@ -2790,6 +2790,7 @@ export default function CraftMyTripPage({
         breadcrumbPrefix="Craft My Trip"
         onBack={handleBackFromHotelDetails}
         onBook={handleSelectAndContinueHotel}
+        onSelectHotel={(h) => setViewingHotelDetails(h)}
       />
     );
   }

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { 
   Printer, X, CheckCircle, Clock, ShieldCheck, MapPin, Phone, Mail, Calendar, 
   User, FileText, Compass, AlertCircle, Hotel, Car, UserCheck, Sparkles, Plane,
-  ChevronDown, ChevronRight
+  ChevronDown, ChevronRight, MessageSquare
 } from 'lucide-react';
 import { lockScroll, unlockScroll } from '../../utils/scrollLock';
 
@@ -474,6 +474,34 @@ export default function BookingVoucher({
     }, 50);
   };
 
+  // ─── 8. WhatsApp Share Handler ───
+  const handleShareWhatsApp = (e) => {
+    if (e) {
+      if (e.preventDefault) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+    }
+    const cleanPhone = String(rawPhone || '').replace(/\D/g, '');
+    const waPhone = cleanPhone ? (cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone) : '';
+    const bId = String(bookingId || '').replace(/^#/, '');
+
+    const summaryText = 
+      `🎟️ *WOW GOA — OFFICIAL RESERVATION VOUCHER*\\n\\n` +
+      `*Booking ID:* #${bId}\\n` +
+      `*Guest Name:* ${guestName}\\n` +
+      `*Service:* ${serviceLabel} — ${reservedItemName}\\n` +
+      (pickupDate ? `*Schedule:* ${pickupDate}${dropDate ? ` to ${dropDate}` : ''}\\n` : '') +
+      `*Total Amount:* ₹${Number(booking.total_amount || booking.total_paid || 0).toLocaleString('en-IN')}\\n` +
+      `*Status:* ${bookingStatus}\\n\\n` +
+      `View your official A4 Voucher PDF & Track Booking:\\n` +
+      `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}/customer\\n\\n` +
+      `*WOW GOA Rentals & Stays* • 24x7 Support: +91 9916933476`;
+
+    const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(summaryText)}`;
+    if (typeof window !== 'undefined') {
+      window.open(waUrl, '_blank');
+    }
+  };
+
   const content = (
     <div 
       className="booking-voucher-document bg-white text-dark font-sans" 
@@ -500,6 +528,16 @@ export default function BookingVoucher({
             <span className="fw-bold text-dark small">Booking Document Preview</span>
           </div>
           <div className="d-flex gap-2">
+            <button 
+              type="button" 
+              onClick={handleShareWhatsApp}
+              className="btn btn-success btn-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-sm text-white"
+              style={{ fontSize: '0.8rem', background: '#25D366', borderColor: '#25D366' }}
+              title="Share Voucher on WhatsApp"
+            >
+              <MessageSquare size={14} />
+              <span>Share WhatsApp</span>
+            </button>
             <button 
               type="button" 
               onClick={handlePrint}
@@ -724,14 +762,29 @@ export default function BookingVoucher({
                 <div className="fw-semibold text-dark mb-0.5" style={{ fontSize: '11.5px' }}>
                   {packageHotelName}
                 </div>
-                <div className="d-flex flex-wrap gap-1 mt-1">
-                  <span className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
-                    🛏️ {packageRoomType}
-                  </span>
-                  <span className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
-                    🍽️ {packageMealPlan}
-                  </span>
-                </div>
+                {Array.isArray(voucherCustoms.selected_rooms) && voucherCustoms.selected_rooms.length > 0 ? (
+                  <div className="d-flex flex-column gap-1 mt-1">
+                    {voucherCustoms.selected_rooms.map((sr, sidx) => (
+                      <div key={sidx} className="d-flex flex-wrap gap-1 align-items-center">
+                        <span className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
+                          🛏️ {sr.quantity}x {sr.room_type_name || sr.name || 'Room'}
+                        </span>
+                        <span className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
+                          🍽️ {sr.meal_plan || 'EP'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="d-flex flex-wrap gap-1 mt-1">
+                    <span className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
+                      🛏️ {packageRoomType}
+                    </span>
+                    <span className="badge bg-light text-dark border px-1.5 py-0.5 text-xxs">
+                      🍽️ {packageMealPlan}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1174,6 +1227,17 @@ export default function BookingVoucher({
             <div className="d-flex align-items-center gap-2">
               <button 
                 type="button" 
+                onClick={handleShareWhatsApp}
+                className="btn btn-success btn-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-sm text-white"
+                style={{ fontSize: '0.78rem', background: '#25D366', borderColor: '#25D366' }}
+                title="Send / Share Voucher on WhatsApp"
+              >
+                <MessageSquare size={14} />
+                <span className="d-none d-sm-inline">Share on WhatsApp</span>
+                <span className="d-inline d-sm-none">WhatsApp</span>
+              </button>
+              <button 
+                type="button" 
                 onClick={handlePrint}
                 className="btn btn-warning btn-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-sm"
                 style={{ fontSize: '0.78rem', background: '#FFB800', borderColor: '#FFB800', color: '#0B192C' }}
@@ -1233,6 +1297,15 @@ export default function BookingVoucher({
                   Close
                 </button>
               )}
+              <button 
+                type="button" 
+                onClick={handleShareWhatsApp}
+                className="btn btn-success btn-sm rounded-pill px-3 py-1 fw-bold d-flex align-items-center gap-1.5 text-white"
+                style={{ fontSize: '0.75rem', background: '#25D366', borderColor: '#25D366' }}
+              >
+                <MessageSquare size={13} />
+                <span>Share WhatsApp</span>
+              </button>
               <button 
                 type="button" 
                 onClick={handlePrint}

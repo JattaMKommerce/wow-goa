@@ -36,6 +36,7 @@ import VendorWallet from '../../components/vendor/VendorWallet';
 import PMSPaymentSettings from './pms/PMSPaymentSettings';
 import VendorNotificationBell from '../../components/vendor/VendorNotificationBell';
 import VendorCancellationPolicyManager from '../../components/vendor/VendorCancellationPolicyManager';
+import VendorHoldSettingsCard from '../../components/vendor/VendorHoldSettingsCard';
 import VendorSuspendedBanner from '../../components/vendor/VendorSuspendedBanner';
 import VendorRechargeReminderBanner from '../../components/vendor/VendorRechargeReminderBanner';
 
@@ -84,6 +85,7 @@ const SIDEBAR_GROUPS = [
     items: [
       { id: 'payment_verification', label: 'Payment Verification', icon: <CreditCard size={16} /> },
       { id: 'wallet', label: 'Platform Wallet', icon: <Landmark size={16} /> },
+      { id: 'hold_settings', label: 'Hold Booking Amount', icon: <Shield size={16} /> },
       { id: 'payments', label: 'Booking Payments', icon: <CreditCard size={16} /> },
       { id: 'payment_settings', label: 'Payment Settings', icon: <Settings size={16} /> },
       { id: 'cancellation_policy', label: 'Cancellation Policy', icon: <Shield size={16} /> },
@@ -377,6 +379,7 @@ export default function HotelVendorPortalPage({
       case 'activity_log': return <PMSActivityLog {...commonProps} />;
       case 'payment_verification': return <PMSPaymentVerification {...commonProps} />;
       case 'wallet': return <VendorWallet currentUser={currentUser} />;
+      case 'hold_settings': return <div className="p-4" style={{ maxWidth: '1100px', margin: '0 auto' }}><VendorHoldSettingsCard currentUser={currentUser} /></div>;
       case 'payment_settings': return <PMSPaymentSettings {...commonProps} />;
       case 'cancellation_policy': return <VendorCancellationPolicyManager currentUser={currentUser} serviceType="hotel" />;
       case 'website_builder': 

@@ -19,6 +19,7 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
   const [showModal, setShowModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [templateLoadedToast, setTemplateLoadedToast] = useState(false);
 
   // Default target service type scoped to vendor context
   const defaultScopedServiceType = serviceType && serviceType !== 'all' ? serviceType : (serviceType === 'all' ? 'all' : 'vehicle');
@@ -173,16 +174,20 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
   };
 
   const handleAddRule = () => {
-    const nextMin = formRules.length > 0 ? 1 : 0;
-    const nextMax = formRules.length > 0 ? 2 : 1;
+    // Find highest minimum days among existing tiers to suggest next logical tier
+    const existingMins = formRules.map(r => parseFloat(r.min_days) || 0);
+    const maxExisting = existingMins.length > 0 ? Math.max(...existingMins) : 0;
+    const nextMin = maxExisting >= 7 ? maxExisting + 7 : (maxExisting > 0 ? maxExisting + 3 : 1);
+    const sWord = getServiceLabelWord();
+    
     setFormRules([
       ...formRules,
       {
         min_days: nextMin,
-        max_days: nextMax,
-        refund_percentage: 50,
-        cancellation_charge_percentage: 50,
-        rule_description: buildAutoRuleDesc(nextMin, nextMax, 50)
+        max_days: '',
+        refund_percentage: 95,
+        cancellation_charge_percentage: 5,
+        rule_description: `More than ${nextMin} days before ${sWord}: 95% refund`
       }
     ]);
   };
@@ -196,7 +201,16 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
   };
 
   const handleLoadTemplate = () => {
-    setFormRules([...DEFAULT_SAMPLE_RULES]);
+    const sWord = getServiceLabelWord();
+    const dynamicTemplate = [
+      { min_days: 7, max_days: '', refund_percentage: 90, cancellation_charge_percentage: 10, rule_description: `More than 7 days before ${sWord}: 90% refund` },
+      { min_days: 3, max_days: 7, refund_percentage: 75, cancellation_charge_percentage: 25, rule_description: `3–7 days before ${sWord}: 75% refund` },
+      { min_days: 1, max_days: 3, refund_percentage: 50, cancellation_charge_percentage: 50, rule_description: `1–3 days before ${sWord}: 50% refund` },
+      { min_days: 0, max_days: 1, refund_percentage: 25, cancellation_charge_percentage: 75, rule_description: `Within 24 hours of ${sWord}: 25% refund` }
+    ];
+    setFormRules(dynamicTemplate);
+    setTemplateLoadedToast(true);
+    setTimeout(() => setTemplateLoadedToast(false), 3000);
   };
 
   const handleSavePolicy = async (e) => {
@@ -582,18 +596,23 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
                           Set the minimum and maximum days before {getServiceLabelWord()} for each customer refund tier.
                         </p>
                       </div>
-                      <div className="d-flex align-items-center gap-2">
+                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                        {templateLoadedToast && (
+                          <span className="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 text-xxs rounded-pill animate-fade-in fw-bold">
+                            ✓ Sample Template Loaded!
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={handleLoadTemplate}
-                          className="btn btn-sm btn-outline-warning text-dark fw-bold rounded-pill px-3 py-1 text-xs d-flex align-items-center gap-1"
+                          className="btn btn-sm btn-outline-warning text-dark fw-bold rounded-pill px-3 py-1 text-xs d-flex align-items-center gap-1 shadow-2xs"
                         >
                           <Sparkles size={13} className="text-warning" /> Load Sample Template
                         </button>
                         <button
                           type="button"
                           onClick={handleAddRule}
-                          className="btn btn-sm btn-dark rounded-pill px-3 py-1 text-xs fw-bold d-flex align-items-center gap-1"
+                          className="btn btn-sm btn-dark rounded-pill px-3 py-1 text-xs fw-bold d-flex align-items-center gap-1 shadow-2xs"
                         >
                           <Plus size={13} /> Add Rule Tier
                         </button>
@@ -710,18 +729,26 @@ export default function VendorCancellationPolicyManager({ currentUser, serviceTy
                   </div>
                 </div>
 
-                <div className="modal-footer bg-light px-4 py-3 d-flex justify-content-between">
-                  <button type="button" className="btn btn-outline-secondary rounded-pill px-4 text-xs fw-bold" onClick={() => setShowModal(false)}>
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="btn text-white rounded-pill px-5 text-xs fw-bold shadow-sm"
-                    style={{ background: 'linear-gradient(90deg, #FF6333, #FF8A00)' }}
-                  >
-                    {saving ? 'Saving...' : 'Save & Publish Policy'}
-                  </button>
+                <div className="modal-footer bg-light px-4 py-3 d-flex flex-column gap-2">
+                  {errorMsg && (
+                    <div className="alert alert-danger py-2 px-3 rounded-3 text-xs mb-0 w-100 d-flex align-items-center gap-1.5 fw-semibold">
+                      <AlertCircle size={14} className="flex-shrink-0" />
+                      <span>{errorMsg}</span>
+                    </div>
+                  )}
+                  <div className="d-flex justify-content-between align-items-center w-100">
+                    <button type="button" className="btn btn-outline-secondary rounded-pill px-4 text-xs fw-bold" onClick={() => setShowModal(false)}>
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="btn text-white rounded-pill px-5 text-xs fw-bold shadow-sm"
+                      style={{ background: 'linear-gradient(90deg, #FF6333, #FF8A00)' }}
+                    >
+                      {saving ? 'Saving...' : 'Save & Publish Policy'}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>

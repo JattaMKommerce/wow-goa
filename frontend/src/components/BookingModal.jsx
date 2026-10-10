@@ -95,6 +95,29 @@ export default function BookingModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() => 'idem_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11));
 
+  // Vendor Hold Booking State
+  const [vendorHoldSettings, setVendorHoldSettings] = useState(null);
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState('full'); // 'full' | 'hold'
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadHoldSettings() {
+      const vId = selectedBookingItem?.vendor_id || selectedBookingItem?.vendorId || selectedBookingItem?.admin_id || 'u-4';
+      try {
+        const data = await api.fetchVendorHoldSettings(vId);
+        if (isMounted && data) {
+          setVendorHoldSettings(data);
+        }
+      } catch (err) {
+        console.warn("Could not load vendor hold settings:", err);
+      }
+    }
+    if (selectedBookingItem) {
+      loadHoldSettings();
+    }
+    return () => { isMounted = false; };
+  }, [selectedBookingItem]);
+
   const modalBodyRef = useRef(null);
 
   // Authoritative Modal Teardown & Reset: clears confirmation state and restores default country/currency
@@ -500,6 +523,27 @@ export default function BookingModal({
   const finalPayable = Math.max(0, postTierTotal - appliedWalletAmount);
   const projectedCashback = Math.round(finalPayable * 0.10);
 
+  // Hold Booking Calculations
+  const isHoldOptionAllowed = Boolean(
+    vendorHoldSettings && 
+    vendorHoldSettings.allow_hold_booking !== 0 && 
+    finalPayable >= (vendorHoldSettings.min_booking_amount || 500)
+  );
+
+  const calculatedHoldAmount = useMemo(() => {
+    if (!isHoldOptionAllowed) return finalPayable;
+    if (vendorHoldSettings.hold_type === 'fixed') {
+      return Math.min(finalPayable, Math.max(100, Number(vendorHoldSettings.hold_value || 1500)));
+    }
+    const pct = Math.min(90, Math.max(5, Number(vendorHoldSettings.hold_value || 20)));
+    return Math.round(finalPayable * (pct / 100));
+  }, [isHoldOptionAllowed, vendorHoldSettings, finalPayable]);
+
+  const remainingBalanceDue = Math.max(0, finalPayable - calculatedHoldAmount);
+  const activePayableAmount = (isHoldOptionAllowed && selectedPaymentMode === 'hold')
+    ? calculatedHoldAmount
+    : finalPayable;
+
   const validateDetailsStep = () => {
     if (!userName || !userName.trim()) {
       alert("Please enter your Full Name.");
@@ -740,9 +784,15 @@ export default function BookingModal({
         tax,
         fee,
         total,
-        amount_paid: finalPayable,
+        amount_paid: activePayableAmount,
         total_amount: total,
-        customer_payment: finalPayable,
+        customer_payment: activePayableAmount,
+        is_hold_booking: (isHoldOptionAllowed && selectedPaymentMode === 'hold') ? 1 : 0,
+        hold_amount: (isHoldOptionAllowed && selectedPaymentMode === 'hold') ? calculatedHoldAmount : 0,
+        remaining_amount: (isHoldOptionAllowed && selectedPaymentMode === 'hold') ? remainingBalanceDue : 0,
+        remaining_due_amount: (isHoldOptionAllowed && selectedPaymentMode === 'hold') ? remainingBalanceDue : 0,
+        hold_due_policy: vendorHoldSettings?.hold_due_policy || 'checkin',
+        payment_status: (isHoldOptionAllowed && selectedPaymentMode === 'hold') ? 'Partially Paid (Hold)' : 'Paid',
         payment_method: paymentMethodToUse,
         payment_reference: paymentRefToUse,
         payment_verification_status: 'Pending Verification',
@@ -844,9 +894,10 @@ export default function BookingModal({
                   }] : [])
                 ]}
                 totalAmount={(lastConfirmedBooking?.total_amount !== undefined && lastConfirmedBooking?.total_amount !== null) ? Number(lastConfirmedBooking.total_amount) : total}
-                amountPaid={(lastConfirmedBooking?.amount_paid !== undefined && lastConfirmedBooking?.amount_paid !== null) ? Number(lastConfirmedBooking.amount_paid) : ((lastConfirmedBooking?.customer_payment !== undefined && lastConfirmedBooking?.customer_payment !== null) ? Number(lastConfirmedBooking.customer_payment) : finalPayable)}
+                amountPaid={(lastConfirmedBooking?.amount_paid !== undefined && lastConfirmedBooking?.amount_paid !== null) ? Number(lastConfirmedBooking.amount_paid) : ((lastConfirmedBooking?.customer_payment !== undefined && lastConfirmedBooking?.customer_payment !== null) ? Number(lastConfirmedBooking.customer_payment) : activePayableAmount)}
+                remainingBalance={(lastConfirmedBooking?.remaining_amount !== undefined && lastConfirmedBooking?.remaining_amount !== null) ? Number(lastConfirmedBooking.remaining_amount) : ((lastConfirmedBooking?.remaining_due_amount !== undefined && lastConfirmedBooking?.remaining_due_amount !== null) ? Number(lastConfirmedBooking.remaining_due_amount) : (lastConfirmedBooking?.is_hold_booking ? remainingBalanceDue : ((isHoldOptionAllowed && selectedPaymentMode === 'hold') ? remainingBalanceDue : null)))}
                 paymentMode={lastConfirmedBooking?.payment_method || (selectedPaymentMethod === 'cash' ? 'Cash on Delivery' : 'Online / UPI')}
-                paymentStatus="Confirmed"
+                paymentStatus={lastConfirmedBooking?.payment_status || ((isHoldOptionAllowed && selectedPaymentMode === 'hold') ? 'Partially Paid (Hold)' : 'Confirmed')}
                 onClose={handleModalClose}
                 onTrackPortal={handleTrackInPortal}
               />
@@ -1278,7 +1329,7 @@ export default function BookingModal({
                                 </label>
                               </div>
                               <span className="badge bg-warning text-dark fw-bold px-2 py-1" style={{ fontSize: '0.72rem' }}>
-                                ₹400
+                                <CurrencyPriceDisplay amountInr={400} color="#000000" inline />
                               </span>
                             </div>
 
@@ -1372,7 +1423,7 @@ export default function BookingModal({
                                 </label>
                               </div>
                               <span className="badge bg-warning text-dark fw-bold px-2 py-1" style={{ fontSize: '0.72rem' }}>
-                                ₹400
+                                <CurrencyPriceDisplay amountInr={400} color="#000000" inline />
                               </span>
                             </div>
 
@@ -1463,7 +1514,7 @@ export default function BookingModal({
                                 </label>
                               </div>
                               <span className="badge bg-warning text-dark fw-bold px-2 py-1" style={{ fontSize: '0.72rem' }}>
-                                ₹800 / day
+                                <CurrencyPriceDisplay amountInr={800} color="#000000" inline /> / day
                               </span>
                             </div>
 
@@ -1572,7 +1623,9 @@ export default function BookingModal({
                                 <div className="col-12">
                                   <div className="p-2 rounded bg-light border text-xxs text-dark d-flex align-items-center justify-content-between">
                                     <span>Total Driver Days: <strong>{driverFullDayDaysCount} {driverFullDayDaysCount === 1 ? 'day' : 'days'}</strong></span>
-                                    <span className="fw-black text-warning">₹{(800 * driverFullDayDaysCount).toLocaleString()}</span>
+                                    <span className="fw-black text-warning">
+                                      <CurrencyPriceDisplay amountInr={800 * driverFullDayDaysCount} color="#d97706" inline />
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -1582,7 +1635,9 @@ export default function BookingModal({
                           {/* ─── Bottom Driver Total Display ─── */}
                           <div className="d-flex align-items-center justify-content-between pt-2 border-top border-warning border-opacity-40">
                             <span className="text-dark fw-bold text-xs">Driver Service Total:</span>
-                            <span className="fs-6 fw-black text-dark font-heading">₹{driverTotalCharge.toLocaleString()}</span>
+                            <span className="fs-6 fw-black text-dark font-heading">
+                              <CurrencyPriceDisplay amountInr={driverTotalCharge} inline />
+                            </span>
                           </div>
 
                         </div>
@@ -1625,9 +1680,104 @@ export default function BookingModal({
                     </div>
                     <div className="d-flex justify-content-between align-items-baseline pt-2 border-top border-light-subtle">
                       <span className="text-xs text-muted fw-semibold">Customer-Facing Payable:</span>
-                      <CurrencyPriceDisplay amountInr={finalPayable} size="lg" highlight />
+                      <CurrencyPriceDisplay amountInr={activePayableAmount} size="lg" highlight />
                     </div>
                   </div>
+
+                  {/* MakeMyTrip-Style Payment Choice: Pay Full vs Hold with Advance */}
+                  {isHoldOptionAllowed && (
+                    <div className="card shadow-sm border border-warning rounded-4 overflow-hidden mb-3" style={{ background: '#fffdf5' }}>
+                      <div className="card-header bg-warning bg-opacity-10 border-bottom border-warning border-opacity-25 py-2 px-3 d-flex align-items-center justify-content-between">
+                        <span className="fw-bold text-dark text-xs text-uppercase d-flex align-items-center gap-1.5" style={{ letterSpacing: '0.5px' }}>
+                          <span>⚡</span> Flexible Payment Option
+                        </span>
+                        <span className="badge bg-warning text-dark text-xxs fw-bold px-2 py-0.5 rounded-pill shadow-xs">
+                          MMT-Style Advance Hold
+                        </span>
+                      </div>
+                      <div className="card-body p-3">
+                        <div className="d-flex flex-column gap-2.5">
+                          {/* Option 1: Pay Full Amount */}
+                          <div 
+                            className={`p-3 rounded-3 border transition-all cursor-pointer ${selectedPaymentMode === 'full' ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'border-light-subtle bg-white'}`}
+                            style={{ cursor: 'pointer', transition: 'all 0.2s ease', borderWidth: selectedPaymentMode === 'full' ? '2px' : '1px' }}
+                            onClick={() => setSelectedPaymentMode('full')}
+                          >
+                            <div className="d-flex align-items-start justify-content-between gap-2">
+                              <div className="d-flex align-items-start gap-2.5">
+                                <input 
+                                  type="radio" 
+                                  name="paymentChoiceOption" 
+                                  checked={selectedPaymentMode === 'full'} 
+                                  onChange={() => setSelectedPaymentMode('full')}
+                                  className="form-check-input mt-1" 
+                                  style={{ cursor: 'pointer' }}
+                                />
+                                <div>
+                                  <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                                    <span className="fw-bold text-dark text-sm">Pay Full Amount</span>
+                                    <span className="badge bg-success text-white text-xxs fw-bold px-2 py-0.5 rounded-pill">
+                                      Instant 100% Confirmed
+                                    </span>
+                                  </div>
+                                  <div className="text-muted text-xs mt-0.5">
+                                    Pay entire balance now. Zero pending dues during check-in / vehicle handover.
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-end flex-shrink-0">
+                                <div className="fw-black text-dark fs-6">
+                                  <CurrencyPriceDisplay amountInr={finalPayable} />
+                                </div>
+                                <div className="text-xxs text-muted">Zero pending balance</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Option 2: Hold Booking with Token Advance */}
+                          <div 
+                            className={`p-3 rounded-3 border transition-all cursor-pointer ${selectedPaymentMode === 'hold' ? 'border-warning bg-warning bg-opacity-10 shadow-sm' : 'border-light-subtle bg-white'}`}
+                            style={{ cursor: 'pointer', transition: 'all 0.2s ease', borderWidth: selectedPaymentMode === 'hold' ? '2px' : '1px' }}
+                            onClick={() => setSelectedPaymentMode('hold')}
+                          >
+                            <div className="d-flex align-items-start justify-content-between gap-2">
+                              <div className="d-flex align-items-start gap-2.5">
+                                <input 
+                                  type="radio" 
+                                  name="paymentChoiceOption" 
+                                  checked={selectedPaymentMode === 'hold'} 
+                                  onChange={() => setSelectedPaymentMode('hold')}
+                                  className="form-check-input mt-1" 
+                                  style={{ cursor: 'pointer' }}
+                                />
+                                <div>
+                                  <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                                    <span className="fw-bold text-dark text-sm">🔒 Hold Booking by paying token advance</span>
+                                    <span className="badge bg-warning text-dark fw-bold text-xxs px-2 py-0.5 rounded-pill">
+                                      {(vendorHoldSettings.hold_type === 'percent' || vendorHoldSettings.hold_type === 'percentage')
+                                        ? `${vendorHoldSettings.hold_value}% Advance`
+                                        : <span>Flat <CurrencyPriceDisplay amountInr={Number(vendorHoldSettings.hold_value)} inline /> Advance</span>}
+                                    </span>
+                                  </div>
+                                  <div className="text-muted text-xs mt-0.5">
+                                    Pay just <strong><CurrencyPriceDisplay amountInr={calculatedHoldAmount} inline /></strong> now to lock &amp; hold your booking. Remaining balance <strong><CurrencyPriceDisplay amountInr={remainingBalanceDue} inline /></strong> payable {vendorHoldSettings.hold_due_policy === '24h_before' ? '24 hours before pickup' : (vendorHoldSettings.hold_due_policy === 'checkin_or_pickup' ? 'at pickup / check-in' : 'at check-in')}.
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-end flex-shrink-0">
+                                <div className="fw-black text-warning fs-6">
+                                  <CurrencyPriceDisplay amountInr={calculatedHoldAmount} color="#d97706" />
+                                </div>
+                                <div className="text-xxs text-danger fw-semibold">
+                                  <CurrencyPriceDisplay amountInr={remainingBalanceDue} color="#dc2626" inline /> due later
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* If Indian: Direct to Vendor Static UPI QR */}
                   {isIndian ? (
@@ -1642,7 +1792,7 @@ export default function BookingModal({
 
                         return isVendorPaymentConfigured ? (
                           <StaticQRPaymentCard
-                            amount={finalPayable}
+                            amount={activePayableAmount}
                             upiId={activeVendorPayment.upi_id || ''}
                             accountName={activeVendorPayment.account_name || activeVendorPayment.display_name || selectedBookingItem.name}
                             qrImageUrl={activeVendorPayment.qr_image_url || ''}
@@ -1672,7 +1822,7 @@ export default function BookingModal({
                         policy={vendorCancellationPolicy}
                         agreed={policyAgreed}
                         onAgreementChange={setPolicyAgreed}
-                        customerPayment={finalPayable}
+                        customerPayment={activePayableAmount}
                       />
 
                       {(() => {
@@ -1689,7 +1839,7 @@ export default function BookingModal({
                             type="button" 
                             onClick={handleConfirmBookingSubmit}
                             className="btn w-100 py-2.5 fw-bold text-white shadow-sm mt-3 d-flex align-items-center justify-content-center" 
-                            style={{ background: '#FFC107', opacity: isSubmitDisabled ? 0.65 : 1 }}
+                            style={{ background: (isHoldOptionAllowed && selectedPaymentMode === 'hold') ? '#f59e0b' : '#FFC107', opacity: isSubmitDisabled ? 0.65 : 1 }}
                             disabled={isSubmitDisabled}
                           >
                             {isSubmitting ? (
@@ -1698,7 +1848,9 @@ export default function BookingModal({
                                 Confirming Booking...
                               </>
                             ) : (
-                              `Confirm & Reserve Booking (₹${finalPayable.toLocaleString('en-IN')})`
+                              (isHoldOptionAllowed && selectedPaymentMode === 'hold')
+                                ? `Confirm & Hold Booking (Pay ₹${activePayableAmount.toLocaleString('en-IN')} Advance)`
+                                : `Confirm & Reserve Booking (₹${activePayableAmount.toLocaleString('en-IN')})`
                             )}
                           </button>
                         );
@@ -1714,7 +1866,12 @@ export default function BookingModal({
                           </div>
                           <h6 className="fw-bold text-dark mb-1">Foreign Customer Reservation Review</h6>
                           <div className="text-muted small mb-3">
-                            Payable in your local currency: <strong className="text-primary font-heading"><CurrencyPriceDisplay amountInr={finalPayable} size="md" highlight /></strong>
+                            Payable in your local currency: <strong className="text-primary font-heading"><CurrencyPriceDisplay amountInr={activePayableAmount} size="md" highlight /></strong>
+                            {isHoldOptionAllowed && selectedPaymentMode === 'hold' && (
+                              <div className="text-xs text-muted mt-1">
+                                (Hold advance token of <CurrencyPriceDisplay amountInr={activePayableAmount} inline /> • Remaining <CurrencyPriceDisplay amountInr={remainingBalanceDue} inline /> due {vendorHoldSettings?.hold_due_policy === '24h_before' ? '24h before pickup' : 'at check-in'})
+                              </div>
+                            )}
                           </div>
                           <div className="alert alert-info border border-info border-opacity-25 text-start py-2.5 px-3 mb-0" style={{ fontSize: '0.82rem' }}>
                             <strong>Notice:</strong> International Online Card Payment Gateway is currently being integrated for seamless checkout. Your booking will be provisionally reserved directly with the vendor upon confirmation, and our operations team / vendor will reach out to provide you with secure international payment settlement instructions.
@@ -1727,7 +1884,7 @@ export default function BookingModal({
                         policy={vendorCancellationPolicy}
                         agreed={policyAgreed}
                         onAgreementChange={setPolicyAgreed}
-                        customerPayment={finalPayable}
+                        customerPayment={activePayableAmount}
                       />
 
                       <button 
@@ -1743,7 +1900,11 @@ export default function BookingModal({
                             Confirming Booking...
                           </>
                         ) : (
-                          <>Confirm &amp; Reserve Booking (<CurrencyPriceDisplay amountInr={finalPayable} size="sm" color="#ffffff" />)</>
+                          <>
+                            {(isHoldOptionAllowed && selectedPaymentMode === 'hold') ? 'Confirm & Hold Booking Advance (' : 'Confirm & Reserve Booking ('}
+                            <CurrencyPriceDisplay amountInr={activePayableAmount} size="sm" color="#ffffff" />
+                            )
+                          </>
                         )}
                       </button>
                     </>
@@ -1977,10 +2138,31 @@ export default function BookingModal({
                         </div>
                       )}
 
-                      <div className="d-flex justify-content-between align-items-baseline border-top border-dark pt-2 fw-bold text-primary">
-                        <span style={{ fontSize: '15px' }}>Final Amount Payable:</span>
-                        <CurrencyPriceDisplay amountInr={finalPayable} size="lg" highlight />
-                      </div>
+                      {isHoldOptionAllowed && selectedPaymentMode === 'hold' ? (
+                        <div className="border-top border-dark pt-2">
+                          <div className="d-flex justify-content-between align-items-center mb-1 text-muted text-xs">
+                            <span>Total Booking Value:</span>
+                            <span className="fw-bold text-dark"><CurrencyPriceDisplay amountInr={finalPayable} /></span>
+                          </div>
+                          <div className="d-flex justify-content-between align-items-baseline mb-1 fw-bold text-success">
+                            <span style={{ fontSize: '14px' }}>🔒 Hold Advance (Pay Today):</span>
+                            <CurrencyPriceDisplay amountInr={activePayableAmount} size="lg" highlight />
+                          </div>
+                          <div className="d-flex justify-content-between align-items-center py-1 px-2 rounded-2 mt-1" style={{ background: '#fef2f2', border: '1px dashed #fca5a5' }}>
+                            <span className="text-danger fw-semibold" style={{ fontSize: '11px' }}>
+                              ⏳ Balance Due ({vendorHoldSettings?.hold_due_policy === '24h_before' ? '24h Before Pickup' : (vendorHoldSettings?.hold_due_policy === 'checkin_or_pickup' ? 'At Pickup / Check-in' : 'At Check-in')}):
+                            </span>
+                            <span className="fw-bold text-danger text-xs">
+                              <CurrencyPriceDisplay amountInr={remainingBalanceDue} color="#dc2626" />
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="d-flex justify-content-between align-items-baseline border-top border-dark pt-2 fw-bold text-primary">
+                          <span style={{ fontSize: '15px' }}>Final Amount Payable:</span>
+                          <CurrencyPriceDisplay amountInr={finalPayable} size="lg" highlight />
+                        </div>
+                      )}
 
                       {/* 10% Cashback Earning Preview */}
                       <div className="mt-2.5 p-2 rounded-3 text-center" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>

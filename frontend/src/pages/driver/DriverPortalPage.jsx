@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Car, Shield, CheckCircle2, Clock, MapPin, Phone, Mail, FileText,
   AlertCircle, RefreshCw, Calendar, User, LogOut, Check, X, Navigation,
-  Award, Eye, ExternalLink, ShieldCheck, ChevronRight, AlertTriangle, Bell
+  Award, Eye, ExternalLink, ShieldCheck, ChevronRight, AlertTriangle, Bell, Download
 } from 'lucide-react';
 import * as api from '../../services/api';
 import NotificationSoundToggle from '../../components/common/NotificationSoundToggle';
@@ -40,6 +40,53 @@ export default function DriverPortalPage({ currentUser, onLogout, onNavigateHome
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [previewDoc, setPreviewDoc] = useState(null);
+
+  const handleOpenOriginalDoc = (url, title) => {
+    if (!url) return;
+    if (url.startsWith('data:')) {
+      try {
+        const parts = url.split(',');
+        const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const blobUrl = URL.createObjectURL(blob);
+        const win = window.open(blobUrl, '_blank');
+        if (!win) {
+          handleDownloadDoc(url, title);
+        }
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      } catch (e) {
+        const win = window.open('', '_blank');
+        if (win) {
+          win.document.write(`
+            <!DOCTYPE html>
+            <html>
+              <head><title>${title || 'Document Preview'}</title><style>body{margin:0;background:#0d1b2e;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.6);}</style></head>
+              <body><img src="${url}" alt="${title || 'Document'}" /></body>
+            </html>
+          `);
+          win.document.close();
+        }
+      }
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleDownloadDoc = (url, title) => {
+    if (!url) return;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(title || 'driver_document').toLowerCase().replace(/\\s+/g, '_')}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
   const [driverNotifs, setDriverNotifs] = useState([]);
   const [driverNotifOpen, setDriverNotifOpen] = useState(false);
   const [readNotifIds, setReadNotifIds] = useState(() => {
@@ -535,7 +582,7 @@ export default function DriverPortalPage({ currentUser, onLogout, onNavigateHome
 
         {/* Monthly Salary & Earnings Card (Attendance / Unique Working Days Based) */}
         {monthlySalary && (
-          <div className="card border-0 shadow-sm rounded-4 p-3.5 mb-4" style={{ background: '#fff', borderLeft: '4px solid #16a34a' }}>
+          <div className="card border-0 shadow-sm rounded-4 p-4 mb-4" style={{ background: '#fff', borderLeft: '4px solid #16a34a' }}>
             <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
               <div>
                 <div className="d-flex align-items-center gap-2">
@@ -635,114 +682,203 @@ export default function DriverPortalPage({ currentUser, onLogout, onNavigateHome
         {/* ─────────────────────────────────────────────────────────────────────── */}
         {activeTab === 'profile' ? (
           <div className="card border-0 shadow-sm rounded-4 p-4" style={{ background: '#fff' }}>
-            <h5 className="fw-bold mb-3 d-flex align-items-center gap-2" style={{ color: '#0D1B2E' }}>
-              <ShieldCheck size={20} className="text-primary" /> Driver Registration & Verified Documents
-            </h5>
+            <div className="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom flex-wrap gap-2">
+              <div>
+                <h5 className="fw-bold mb-1 d-flex align-items-center gap-2" style={{ color: '#0D1B2E' }}>
+                  <ShieldCheck size={22} className="text-primary" /> Driver Registration &amp; Verified Documents
+                </h5>
+                <p className="text-muted small mb-0">
+                  Official driver registration record, KYC verification status, and credentials on WOW GOA
+                </p>
+              </div>
+              <span className="badge rounded-pill bg-success-subtle text-success border border-success-subtle fw-bold px-3 py-1.5 d-flex align-items-center gap-1.5" style={{ fontSize: '0.75rem' }}>
+                <CheckCircle2 size={13} /> {isApproved ? 'Verified & Active Driver' : 'Profile Under Review'}
+              </span>
+            </div>
 
-            <div className="row g-4">
-              <div className="col-md-6">
-                <div className="p-3.5 rounded-3 bg-light border">
-                  <h6 className="fw-bold text-dark mb-3">Driver Personal Details</h6>
-                  
-                  <div className="d-flex justify-content-between py-2 border-bottom">
-                    <span className="text-muted small">Full Name:</span>
-                    <span className="fw-bold text-dark small">{driverProfile.name}</span>
+            <div className="row g-4 align-items-stretch">
+              {/* Left Column: Driver Personal Details */}
+              <div className="col-12 col-lg-6">
+                <div className="p-3.5 p-md-4 rounded-4 border h-100 d-flex flex-column" style={{ background: '#f8fafc' }}>
+                  <div className="d-flex align-items-center justify-content-between mb-3">
+                    <h6 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                      <User size={16} className="text-primary" /> Driver Personal Details
+                    </h6>
+                    <span className="badge bg-white text-muted border px-2.5 py-1 rounded-pill text-xxs font-monospace">
+                      ID: {driverProfile.id || 'DRV'}
+                    </span>
                   </div>
-                  <div className="d-flex justify-content-between py-2 border-bottom">
-                    <span className="text-muted small">Mobile Phone:</span>
-                    <span className="fw-bold text-dark small">{driverProfile.phone}</span>
-                  </div>
-                  <div className="d-flex justify-content-between py-2 border-bottom">
-                    <span className="text-muted small">Email Address:</span>
-                    <span className="fw-bold text-dark small">{driverProfile.email}</span>
-                  </div>
-                  <div className="d-flex justify-content-between py-2 border-bottom">
-                    <span className="text-muted small">Residential Address:</span>
-                    <span className="fw-bold text-dark small text-end" style={{ maxWidth: '60%' }}>{driverProfile.address || 'Goa, India'}</span>
-                  </div>
-                  <div className="d-flex justify-content-between py-2 border-bottom">
-                    <span className="text-muted small">Driving Experience:</span>
-                    <span className="fw-bold text-dark small text-end">{driverProfile.experience_years || 'Experienced'}</span>
-                  </div>
-                  <div className="d-flex justify-content-between py-2">
-                    <span className="text-muted small">Assigned Vehicle:</span>
-                    <span className="fw-bold text-dark small text-end">{driverProfile.vehicle_details || 'Commercial Fleet'}</span>
+
+                  <div className="bg-white rounded-3 border p-3 flex-grow-1 d-flex flex-column justify-content-between shadow-xs">
+                    <div className="row g-3">
+                      <div className="col-12 col-sm-6">
+                        <div className="text-muted fw-semibold text-uppercase" style={{ fontSize: '0.67rem', letterSpacing: '0.4px' }}>
+                          <User size={12} className="me-1 text-primary" /> Full Name
+                        </div>
+                        <div className="fw-bold text-dark small mt-0.5 text-truncate" title={driverProfile.name}>
+                          {driverProfile.name || 'Not provided'}
+                        </div>
+                      </div>
+
+                      <div className="col-12 col-sm-6">
+                        <div className="text-muted fw-semibold text-uppercase" style={{ fontSize: '0.67rem', letterSpacing: '0.4px' }}>
+                          <Phone size={12} className="me-1 text-primary" /> Mobile Phone
+                        </div>
+                        <div className="fw-bold text-dark small font-monospace mt-0.5">
+                          {driverProfile.phone || 'Not provided'}
+                        </div>
+                      </div>
+
+                      <div className="col-12 col-sm-6">
+                        <div className="text-muted fw-semibold text-uppercase" style={{ fontSize: '0.67rem', letterSpacing: '0.4px' }}>
+                          <Mail size={12} className="me-1 text-primary" /> Email Address
+                        </div>
+                        <div className="fw-bold text-dark small mt-0.5 text-truncate" title={driverProfile.email}>
+                          {driverProfile.email || 'Not provided'}
+                        </div>
+                      </div>
+
+                      <div className="col-12 col-sm-6">
+                        <div className="text-muted fw-semibold text-uppercase" style={{ fontSize: '0.67rem', letterSpacing: '0.4px' }}>
+                          <MapPin size={12} className="me-1 text-primary" /> Residential Address
+                        </div>
+                        <div className="fw-bold text-dark small mt-0.5 text-truncate" title={driverProfile.address}>
+                          {driverProfile.address || 'Goa, India'}
+                        </div>
+                      </div>
+
+                      <div className="col-12 col-sm-6">
+                        <div className="text-muted fw-semibold text-uppercase" style={{ fontSize: '0.67rem', letterSpacing: '0.4px' }}>
+                          <Award size={12} className="me-1 text-primary" /> Driving Experience
+                        </div>
+                        <div className="fw-bold text-dark small mt-0.5">
+                          {driverProfile.experience_years ? `${driverProfile.experience_years} Years` : 'Experienced'}
+                        </div>
+                      </div>
+
+                      <div className="col-12 col-sm-6">
+                        <div className="text-muted fw-semibold text-uppercase" style={{ fontSize: '0.67rem', letterSpacing: '0.4px' }}>
+                          <Car size={12} className="me-1 text-primary" /> Assigned Vehicle
+                        </div>
+                        <div className="fw-bold text-dark small mt-0.5 text-truncate" title={driverProfile.vehicle_details}>
+                          {driverProfile.vehicle_details || 'Commercial Fleet Vehicle'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2.5 mt-3 border-top d-flex align-items-center justify-content-between text-muted" style={{ fontSize: '0.72rem' }}>
+                      <span className="d-flex align-items-center gap-1 text-success fw-semibold">
+                        <CheckCircle2 size={13} /> Driver ID Active
+                      </span>
+                      <span>Category: Chauffeur / Cab Fleet</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="col-md-6">
-                <div className="p-3.5 rounded-3 bg-light border">
-                  <h6 className="fw-bold text-dark mb-3">Verified Verification Documents</h6>
+              {/* Right Column: Verified KYC Documents */}
+              <div className="col-12 col-lg-6">
+                <div className="p-3.5 p-md-4 rounded-4 border h-100 d-flex flex-column" style={{ background: '#f8fafc' }}>
+                  <div className="d-flex align-items-center justify-content-between mb-3">
+                    <h6 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                      <FileText size={16} className="text-primary" /> Verified KYC &amp; Documents
+                    </h6>
+                    <span className="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill text-xxs fw-bold">
+                      3/3 Submitted
+                    </span>
+                  </div>
 
-                  <div className="d-flex flex-column gap-2.5">
+                  <div className="d-flex flex-column gap-2.5 flex-grow-1 justify-content-between">
                     {/* Aadhaar Card */}
-                    <div className="p-2.5 rounded bg-white border d-flex align-items-center justify-content-between">
-                      <div className="d-flex align-items-center gap-2">
-                        <FileText size={16} className="text-primary" />
-                        <div>
-                          <div className="fw-semibold small">Aadhaar Card Document</div>
-                          <div className="text-muted" style={{ fontSize: '0.7rem' }}>Identity Verification</div>
+                    <div className="p-2.5 p-sm-3 rounded-3 bg-white border shadow-xs d-flex align-items-center justify-content-between gap-3">
+                      <div className="d-flex align-items-center gap-2.5 min-w-0">
+                        <div className="p-2 rounded-3 bg-primary bg-opacity-10 text-primary flex-shrink-0">
+                          <FileText size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="fw-bold text-dark small text-truncate">Aadhaar Card Document</div>
+                          <div className="text-muted text-xxs d-flex align-items-center gap-1 mt-0.5">
+                            <span className="badge bg-success-subtle text-success px-1.5 py-0.2 rounded-pill fw-bold" style={{ fontSize: '0.62rem' }}>✓ Verified</span>
+                            <span className="text-truncate">• Identity Verification</span>
+                          </div>
                         </div>
                       </div>
                       {driverProfile.aadhaar_card ? (
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-primary py-0.5 px-2.5 fw-bold"
-                          style={{ fontSize: '0.75rem' }}
+                          className="btn btn-sm btn-outline-primary rounded-pill py-1 px-3 fw-bold flex-shrink-0 d-flex align-items-center gap-1 shadow-xs"
+                          style={{ fontSize: '0.78rem' }}
                           onClick={() => setPreviewDoc({ title: 'Aadhaar Card', url: driverProfile.aadhaar_card, driverName: driverProfile.name })}
                         >
-                          <Eye size={12} className="me-1" /> View Image
+                          <Eye size={13} /> View Image
                         </button>
                       ) : (
-                        <span className="badge bg-danger-subtle text-danger" style={{ fontSize: '0.7rem' }}>Missing</span>
+                        <span className="badge bg-danger-subtle text-danger rounded-pill px-2.5 py-1 text-xs">Missing</span>
                       )}
                     </div>
 
                     {/* PAN Card */}
-                    <div className="p-2.5 rounded bg-white border d-flex align-items-center justify-content-between">
-                      <div className="d-flex align-items-center gap-2">
-                        <FileText size={16} className="text-primary" />
-                        <div>
-                          <div className="fw-semibold small">PAN Card Document</div>
-                          <div className="text-muted" style={{ fontSize: '0.7rem' }}>Tax / Government ID</div>
+                    <div className="p-2.5 p-sm-3 rounded-3 bg-white border shadow-xs d-flex align-items-center justify-content-between gap-3">
+                      <div className="d-flex align-items-center gap-2.5 min-w-0">
+                        <div className="p-2 rounded-3 bg-primary bg-opacity-10 text-primary flex-shrink-0">
+                          <FileText size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="fw-bold text-dark small text-truncate">PAN Card Document</div>
+                          <div className="text-muted text-xxs d-flex align-items-center gap-1 mt-0.5">
+                            <span className="badge bg-success-subtle text-success px-1.5 py-0.2 rounded-pill fw-bold" style={{ fontSize: '0.62rem' }}>✓ Verified</span>
+                            <span className="text-truncate">• Tax &amp; ID Proof</span>
+                          </div>
                         </div>
                       </div>
                       {driverProfile.pan_card ? (
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-primary py-0.5 px-2.5 fw-bold"
-                          style={{ fontSize: '0.75rem' }}
+                          className="btn btn-sm btn-outline-primary rounded-pill py-1 px-3 fw-bold flex-shrink-0 d-flex align-items-center gap-1 shadow-xs"
+                          style={{ fontSize: '0.78rem' }}
                           onClick={() => setPreviewDoc({ title: 'PAN Card', url: driverProfile.pan_card, driverName: driverProfile.name })}
                         >
-                          <Eye size={12} className="me-1" /> View Image
+                          <Eye size={13} /> View Image
                         </button>
                       ) : (
-                        <span className="badge bg-danger-subtle text-danger" style={{ fontSize: '0.7rem' }}>Missing</span>
+                        <span className="badge bg-danger-subtle text-danger rounded-pill px-2.5 py-1 text-xs">Missing</span>
                       )}
                     </div>
 
-                    {/* DL */}
-                    <div className="p-2.5 rounded bg-white border d-flex align-items-center justify-content-between">
-                      <div className="d-flex align-items-center gap-2">
-                        <FileText size={16} className="text-primary" />
-                        <div>
-                          <div className="fw-semibold small">Commercial Driving Licence</div>
-                          <div className="text-muted font-monospace" style={{ fontSize: '0.7rem' }}>{driverProfile.license_number || 'Verified DL'}</div>
+                    {/* Commercial DL */}
+                    <div className="p-2.5 p-sm-3 rounded-3 bg-white border shadow-xs d-flex align-items-center justify-content-between gap-3">
+                      <div className="d-flex align-items-center gap-2.5 min-w-0">
+                        <div className="p-2 rounded-3 bg-primary bg-opacity-10 text-primary flex-shrink-0">
+                          <FileText size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="fw-bold text-dark small text-truncate">Commercial Driving Licence</div>
+                          <div className="text-muted text-xxs d-flex align-items-center gap-1 mt-0.5">
+                            <span className="badge bg-success-subtle text-success px-1.5 py-0.2 rounded-pill fw-bold" style={{ fontSize: '0.62rem' }}>✓ Verified DL</span>
+                            <span className="font-monospace text-dark fw-semibold text-truncate">• {driverProfile.license_number || 'DL Verified'}</span>
+                          </div>
                         </div>
                       </div>
                       {driverProfile.license_card ? (
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-primary py-0.5 px-2.5 fw-bold"
-                          style={{ fontSize: '0.75rem' }}
+                          className="btn btn-sm btn-outline-primary rounded-pill py-1 px-3 fw-bold flex-shrink-0 d-flex align-items-center gap-1 shadow-xs"
+                          style={{ fontSize: '0.78rem' }}
                           onClick={() => setPreviewDoc({ title: 'Driving Licence', url: driverProfile.license_card, driverName: driverProfile.name, licenseNumber: driverProfile.license_number })}
                         >
-                          <Eye size={12} className="me-1" /> View Image
+                          <Eye size={13} /> View Image
                         </button>
                       ) : (
-                        <span className="badge bg-danger-subtle text-danger" style={{ fontSize: '0.7rem' }}>Missing</span>
+                        <span className="badge bg-danger-subtle text-danger rounded-pill px-2.5 py-1 text-xs">Missing</span>
                       )}
+                    </div>
+
+                    {/* Compliance Trust Seal footer */}
+                    <div className="pt-2 mt-auto d-flex align-items-center justify-content-between text-muted border-top border-light-subtle" style={{ fontSize: '0.72rem' }}>
+                      <span className="d-flex align-items-center gap-1 text-success fw-semibold">
+                        <ShieldCheck size={13} /> 100% Verified Profile
+                      </span>
+                      <span>WOW GOA Authorized Chauffeur</span>
                     </div>
                   </div>
                 </div>
@@ -1015,10 +1151,23 @@ export default function DriverPortalPage({ currentUser, onLogout, onNavigateHome
                 }}
               />
             </div>
-            <div className="d-flex justify-content-end gap-2">
-              <a href={previewDoc.url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary fw-semibold">
+            <div className="d-flex justify-content-end gap-2 flex-wrap">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary fw-semibold d-flex align-items-center gap-1"
+                onClick={() => handleDownloadDoc(previewDoc.url, previewDoc.title)}
+                title="Download this document"
+              >
+                <Download size={13} /> Download
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary fw-semibold d-flex align-items-center gap-1"
+                onClick={() => handleOpenOriginalDoc(previewDoc.url, previewDoc.title)}
+                title="Open image in new tab"
+              >
                 <ExternalLink size={13} className="me-1" /> Open Original
-              </a>
+              </button>
               <button type="button" className="btn btn-sm btn-dark px-3 fw-bold" onClick={() => setPreviewDoc(null)}>
                 Done
               </button>

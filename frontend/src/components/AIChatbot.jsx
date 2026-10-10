@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   X, Send, Mic, Volume2, VolumeX, Sparkles, AlertCircle,
-  Compass, Hotel, Car, Users, Calendar, ArrowRight, CheckCircle2, ShieldCheck
+  Compass, Hotel, Car, Users, Calendar, ArrowRight, CheckCircle2, ShieldCheck,
+  Maximize2, Minimize2
 } from 'lucide-react';
 import chatbotAvatar from '../assets/aichatbot.webp';
 import chatbotAnimationVideo from '../assets/chatbot-animation.mp4';
 import { chatWithAI, createAiLead, updateAiLeadChat, getAIChatbotSettings } from '../services/api';
+import { lockScroll, unlockScroll } from '../utils/scrollLock';
 
 const aiMessages = [
   "Plan Your Goa Trip",
@@ -41,12 +43,19 @@ export default function AIChatbot() {
   const [activeProposal, setActiveProposal] = useState(null);
   const [showConfirmReplace, setShowConfirmReplace] = useState(false);
   const [chatMode, setChatMode] = useState('normal');
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragDeltaY, setDragDeltaY] = useState(0);
 
   const avatarVideoRef = useRef(null);
   const canvasRef = useRef(null);
   const chatWindowRef = useRef(null);
   const chatBodyRef = useRef(null);
   const inputRef = useRef(null);
+  const headerRef = useRef(null);
+  const dragStartYRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const lastDeltaYRef = useRef(0);
 
   // Auto-focus helper to ensure cursor is ALWAYS in the input box
   const focusInput = useCallback(() => {
@@ -124,6 +133,98 @@ export default function AIChatbot() {
       });
     }
   }, [checkContactCollected]);
+
+  // Handle drag gesture on the chatbot header (drag up -> fullscreen, drag down -> restore/close)
+  const handleHeaderPointerDown = useCallback((e) => {
+    // Don't drag if clicking buttons, inputs, links, or audio controls
+    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('.btn')) {
+      return;
+    }
+
+    // Only respond to primary button (left mouse click) or touch
+    if (e.button !== undefined && e.button !== 0) return;
+
+    dragStartYRef.current = e.clientY;
+    isDraggingRef.current = true;
+    lastDeltaYRef.current = 0;
+    setIsDragging(true);
+    setDragDeltaY(0);
+
+    const onPointerMove = (ev) => {
+      if (!isDraggingRef.current) return;
+      const delta = ev.clientY - dragStartYRef.current;
+      lastDeltaYRef.current = delta;
+
+      if (!isFullScreen) {
+        // Normal mode: dragging UP is negative delta
+        // Allow visual travel up to -260px and down to 180px
+        setDragDeltaY(Math.max(-260, Math.min(180, delta)));
+      } else {
+        // Fullscreen mode: dragging DOWN is positive delta
+        setDragDeltaY(Math.max(-40, Math.min(260, delta)));
+      }
+    };
+
+    const onPointerUp = (ev) => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      setIsDragging(false);
+
+      const finalDelta = lastDeltaYRef.current;
+      setDragDeltaY(0);
+
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+
+      if (!isFullScreen) {
+        // Dragged UP by >= 35px -> Expand to Full Screen!
+        if (finalDelta < -35) {
+          setIsFullScreen(true);
+        } else if (finalDelta > 90) {
+          // Dragged DOWN by >= 90px -> Close/Minimize
+          setIsOpen(false);
+          setIsFullScreen(false);
+        }
+      } else {
+        // Fullscreen mode: Dragged DOWN by >= 40px -> Restore to normal floating window!
+        if (finalDelta > 40) {
+          setIsFullScreen(false);
+        }
+      }
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  }, [isFullScreen]);
+
+  // Background scroll lock when in full-screen mode
+  useEffect(() => {
+    if (isOpen && isFullScreen) {
+      lockScroll('luzia-fullscreen');
+    } else {
+      unlockScroll('luzia-fullscreen');
+    }
+    return () => {
+      unlockScroll('luzia-fullscreen');
+    };
+  }, [isOpen, isFullScreen]);
+
+  // Escape key listener to exit fullscreen or close
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        if (isFullScreen) {
+          setIsFullScreen(false);
+        } else {
+          setIsOpen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isFullScreen]);
 
   // Listen to open_ai_chat event (including Craft My Trip mode)
   useEffect(() => {
@@ -1406,9 +1507,23 @@ export default function AIChatbot() {
             max-height: calc(100dvh - 36px) !important;
             right: 24px !important;
             border-radius: 22px !important;
+            transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
           }
           .ai-chatbot-window.is-open {
             bottom: 24px !important;
+          }
+          .ai-chatbot-window.is-open.is-fullscreen {
+            top: 16px !important;
+            bottom: 16px !important;
+            right: 16px !important;
+            left: 16px !important;
+            width: auto !important;
+            max-width: min(1040px, calc(100vw - 32px)) !important;
+            margin: 0 auto !important;
+            height: calc(100dvh - 32px) !important;
+            max-height: calc(100dvh - 32px) !important;
+            border-radius: 24px !important;
+            box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 107, 53, 0.25) !important;
           }
         }
 
@@ -1426,42 +1541,59 @@ export default function AIChatbot() {
             border-top-right-radius: 20px !important;
             border-bottom-left-radius: 0 !important;
             border-bottom-right-radius: 0 !important;
+            transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
           }
           .ai-chatbot-window.is-open {
             bottom: 0 !important;
           }
-          .sophia-floating-trigger,
-          .ai-floating-trigger {
-            bottom: 8px;
-            right: -8px;
-          }
-          .sophia-speech-pill,
-          .ai-speech-pill {
-            font-size: 13px;
-            padding: 8px 16px;
-            margin-right: -22px;
-          }
-          .sophia-avatar-wrapper,
-          .ai-avatar-wrapper {
-            width: 145px;
-          }
-          #ai-avatar-canvas {
-            width: 145px;
-          }
-          .sophia-avatar-wrapper::before,
-          .ai-avatar-wrapper::before {
-            width: 140px;
-            height: 140px;
+          .ai-chatbot-window.is-open.is-fullscreen {
+            top: 0 !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            border-radius: 0 !important;
           }
         }
+
+        .ai-chatbot-window.is-dragging {
+          transition: none !important;
+        }
+
+        .luzia-drag-pill {
+          cursor: grab;
+          transition: all 0.2s ease;
+        }
+        .luzia-drag-pill:hover {
+          background: rgba(255, 255, 255, 0.95) !important;
+          transform: scaleY(1.3);
+        }
       `}</style>
+
+      {/* ─── FULLSCREEN BACKDROP OVERLAY ───────────────────────────── */}
+      {isOpen && isFullScreen && (
+        <div
+          className="ai-chatbot-backdrop position-fixed animate-fade-in"
+          onClick={() => setIsFullScreen(false)}
+          style={{
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.55)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1045,
+            transition: 'opacity 0.25s ease'
+          }}
+        />
+      )}
 
       {/* ─── CHATBOT WINDOW ───────────────────────────────────────────── */}
       <div
         ref={chatWindowRef}
-        className={`ai-chatbot-window position-fixed shadow-2xl rounded-4 overflow-hidden transition-all bg-white d-flex flex-column ${isOpen ? 'is-open' : 'is-closed'}`}
+        className={`ai-chatbot-window position-fixed shadow-2xl rounded-4 overflow-hidden bg-white d-flex flex-column ${isOpen ? 'is-open' : 'is-closed'} ${isFullScreen ? 'is-fullscreen' : ''} ${isDragging ? 'is-dragging' : ''}`}
         style={{
-          bottom: isOpen ? '24px' : '-660px',
+          bottom: isOpen ? (isFullScreen ? '16px' : '24px') : '-660px',
           right: '24px',
           width: '395px',
           height: 'min(605px, calc(100dvh - 36px), calc(100vh - 36px))',
@@ -1470,59 +1602,126 @@ export default function AIChatbot() {
           zIndex: 1050,
           opacity: isOpen ? 1 : 0,
           pointerEvents: isOpen ? 'all' : 'none',
-          boxShadow: '0 20px 40px -15px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.08)',
+          boxShadow: isFullScreen 
+            ? '0 30px 80px -15px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 107, 53, 0.25)' 
+            : '0 20px 40px -15px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.08)',
           borderRadius: '22px',
           overscrollBehavior: 'contain',
           touchAction: 'pan-y',
-          isolation: 'isolate'
+          isolation: 'isolate',
+          transform: isDragging ? `translateY(${dragDeltaY}px)` : 'none'
         }}
       >
-        {/* Header */}
+        {/* Header Drag Handle & Title Bar */}
         <div
-          className="d-flex align-items-center justify-content-between px-3 py-2.5"
+          ref={headerRef}
+          onPointerDown={handleHeaderPointerDown}
+          onDoubleClick={() => setIsFullScreen(prev => !prev)}
+          className="d-flex flex-column"
           style={{
             background: 'linear-gradient(135deg, #FF6B35, #FF9F1C)',
             color: 'white',
             borderTopLeftRadius: '22px',
             borderTopRightRadius: '22px',
-            flexShrink: 0
+            flexShrink: 0,
+            cursor: isDragging ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            touchAction: 'none'
           }}
         >
-          <div className="d-flex align-items-center gap-2.5" style={{ minWidth: 0 }}>
-            <div className="rounded-circle bg-white d-flex align-items-center justify-content-center shadow-sm overflow-hidden flex-shrink-0" style={{ width: '38px', height: '38px' }}>
-              <img src={chatbotAvatar} alt="Luzia AI" style={{ width: '92%', height: '92%', objectFit: 'contain' }} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div className="d-flex align-items-center gap-1.5 flex-wrap">
-                <h6 className="mb-0 fw-bold text-white text-truncate" style={{ fontSize: '15px', lineHeight: '1.2' }}>Luzia</h6>
-                <span className="badge bg-white text-dark rounded-pill px-2 py-0.5 shadow-xs" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2px' }}>AI Travel Expert</span>
-              </div>
-              <small style={{ opacity: 0.95, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', flexShrink: 0 }}></span>
-                <span className="text-truncate">Online | WOW GOA Assistant</span>
-              </small>
-            </div>
+          {/* Tactile Grab Pill */}
+          <div
+            className="w-100 d-flex flex-column align-items-center justify-content-center pt-2 pb-1"
+            title={isFullScreen ? "Drag down or click to restore normal size" : "Drag up or click to make full screen"}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsFullScreen(prev => !prev);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
+            <div
+              className="luzia-drag-pill"
+              style={{
+                width: isDragging ? '54px' : '40px',
+                height: '4px',
+                borderRadius: '999px',
+                background: isDragging ? '#ffffff' : 'rgba(255, 255, 255, 0.75)',
+                boxShadow: isDragging ? '0 0 10px rgba(255,255,255,0.9)' : 'none',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+              }}
+            />
+            {isDragging && (
+              <span
+                className="badge rounded-pill mt-1 text-xxs fw-bold animate-fade-in"
+                style={{
+                  background: 'rgba(0,0,0,0.4)',
+                  color: '#fff',
+                  fontSize: '9.5px',
+                  padding: '1.5px 8px',
+                  backdropFilter: 'blur(4px)'
+                }}
+              >
+                {!isFullScreen
+                  ? (dragDeltaY < -35 ? "Release for Full Screen ⬆️" : "Drag Up for Full Screen ⬆️")
+                  : (dragDeltaY > 35 ? "Release to Restore ⬇️" : "Drag Down to Restore ⬇️")}
+              </span>
+            )}
           </div>
-          <div className="d-flex align-items-center gap-1.5 flex-shrink-0 ms-2">
-            <button
-              type="button"
-              onClick={toggleMute}
-              title={isMuted ? "Unmute Luzia's Voice" : "Mute Luzia's Voice"}
-              aria-label={isMuted ? "Unmute Luzia's Voice" : "Mute Luzia's Voice"}
-              className="btn btn-sm p-0 rounded-circle d-flex align-items-center justify-content-center luzia-hdr-btn"
-              style={{ width: '32px', height: '32px', background: isMuted ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)', color: 'white', border: 'none', backdropFilter: 'blur(4px)', cursor: 'pointer', transition: 'all 0.2s' }}
-            >
-              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              aria-label="Close Chat"
-              className="btn btn-sm p-0 rounded-circle d-flex align-items-center justify-content-center luzia-hdr-btn"
-              style={{ width: '32px', height: '32px', background: 'rgba(255,255,255,0.25)', color: 'white', border: 'none', backdropFilter: 'blur(4px)', cursor: 'pointer', transition: 'all 0.2s' }}
-            >
-              <X size={18} />
-            </button>
+
+          {/* Main Header Content */}
+          <div className="d-flex align-items-center justify-content-between px-3 pb-2.5 pt-0.5">
+            <div className="d-flex align-items-center gap-2.5" style={{ minWidth: 0 }}>
+              <div className="rounded-circle bg-white d-flex align-items-center justify-content-center shadow-sm overflow-hidden flex-shrink-0" style={{ width: '38px', height: '38px' }}>
+                <img src={chatbotAvatar} alt="Luzia AI" style={{ width: '92%', height: '92%', objectFit: 'contain' }} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                  <h6 className="mb-0 fw-bold text-white text-truncate" style={{ fontSize: '15px', lineHeight: '1.2' }}>Luzia</h6>
+                  <span className="badge bg-white text-dark rounded-pill px-2 py-0.5 shadow-xs" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2px' }}>AI Travel Expert</span>
+                </div>
+                <small style={{ opacity: 0.95, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                  <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', flexShrink: 0 }}></span>
+                  <span className="text-truncate">Online | WOW GOA Assistant</span>
+                </small>
+              </div>
+            </div>
+            <div className="d-flex align-items-center gap-1.5 flex-shrink-0 ms-2">
+              <button
+                type="button"
+                onClick={toggleMute}
+                title={isMuted ? "Unmute Luzia's Voice" : "Mute Luzia's Voice"}
+                aria-label={isMuted ? "Unmute Luzia's Voice" : "Mute Luzia's Voice"}
+                className="btn btn-sm p-0 rounded-circle d-flex align-items-center justify-content-center luzia-hdr-btn"
+                style={{ width: '32px', height: '32px', background: isMuted ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)', color: 'white', border: 'none', backdropFilter: 'blur(4px)', cursor: 'pointer', transition: 'all 0.2s' }}
+              >
+                {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsFullScreen(prev => !prev);
+                }}
+                title={isFullScreen ? "Restore Window (or drag down)" : "Expand to Full Screen (or drag up)"}
+                aria-label={isFullScreen ? "Restore Window" : "Expand to Full Screen"}
+                className="btn btn-sm p-0 rounded-circle d-flex align-items-center justify-content-center luzia-hdr-btn"
+                style={{ width: '32px', height: '32px', background: isFullScreen ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)', color: 'white', border: 'none', backdropFilter: 'blur(4px)', cursor: 'pointer', transition: 'all 0.2s' }}
+              >
+                {isFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsFullScreen(false);
+                }}
+                aria-label="Close Chat"
+                className="btn btn-sm p-0 rounded-circle d-flex align-items-center justify-content-center luzia-hdr-btn"
+                style={{ width: '32px', height: '32px', background: 'rgba(255,255,255,0.25)', color: 'white', border: 'none', backdropFilter: 'blur(4px)', cursor: 'pointer', transition: 'all 0.2s' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1541,7 +1740,8 @@ export default function AIChatbot() {
               WebkitOverflowScrolling: 'touch'
             }}
           >
-            {showLeadForm ? (
+            <div className="w-100" style={{ maxWidth: isFullScreen ? '860px' : '100%', margin: '0 auto' }}>
+              {showLeadForm ? (
               <div className="d-flex flex-column gap-3 w-100 py-1">
                 {/* 1. Friendly Luzia Greeting Message Bubble */}
                 <div className="d-flex align-items-start gap-2.5">
@@ -1944,11 +2144,13 @@ export default function AIChatbot() {
                 )}
               </div>
             )}
+            </div>
           </div>
 
           {/* Footer */}
           {!showLeadForm && (
-            <div className="p-3 bg-white border-top">
+            <div className="p-3 bg-white border-top flex-shrink-0">
+              <div className="w-100" style={{ maxWidth: isFullScreen ? '860px' : '100%', margin: '0 auto' }}>
               {voiceError && (
                 <div className="alert alert-warning py-1 px-2 mb-2 d-flex align-items-center gap-1.5 border-0 shadow-xs" style={{ fontSize: '11px', background: '#fffbeb', color: '#b45309' }}>
                   <AlertCircle size={14} className="flex-shrink-0" />
@@ -2029,6 +2231,7 @@ export default function AIChatbot() {
                   <Send size={16} />
                 </button>
               </form>
+              </div>
             </div>
           )}
         </>

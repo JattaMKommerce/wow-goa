@@ -5,7 +5,7 @@ import {
   MapPin, ChevronRight, X, Shield, FileText, Download, RotateCcw,
   Layers, Radio, SlidersHorizontal, CreditCard,
   Hotel, Car, Compass, Sparkles, Plane, UserCheck, Package,
-  Mail, Send, Loader2
+  Mail, Send, Loader2, MessageSquare
 } from 'lucide-react';
 import * as api from '../../services/api';
 import BookingVoucher from '../../components/common/BookingVoucher';
@@ -307,8 +307,8 @@ function PaymentBadge({ status }) {
   if (s === 'paid' || s === 'full' || s === 'completed') {
     return <span className="badge rounded-pill px-2 py-0.5 fw-bold text-success bg-success-subtle" style={{ fontSize: '0.68rem' }}>Paid</span>;
   }
-  if (s === 'partial' || s === 'advance') {
-    return <span className="badge rounded-pill px-2 py-0.5 fw-bold text-info bg-info-subtle" style={{ fontSize: '0.68rem' }}>Partial</span>;
+  if (s.includes('hold') || s === 'partial' || s === 'advance' || s.includes('partially')) {
+    return <span className="badge rounded-pill px-2 py-0.5 fw-bold text-warning-emphasis bg-warning-subtle border border-warning-subtle" style={{ fontSize: '0.68rem' }}>🔒 Hold Advance</span>;
   }
   return <span className="badge rounded-pill px-2 py-0.5 fw-bold text-secondary bg-secondary-subtle" style={{ fontSize: '0.68rem' }}>Unpaid</span>;
 }
@@ -368,6 +368,34 @@ export default function AdminBookingManagement({
   const [adminEmailMsg, setAdminEmailMsg] = useState(null);
   const [adminOverrideEmail, setAdminOverrideEmail] = useState('');
   const [showAdminEmailModal, setShowAdminEmailModal] = useState(false);
+
+  const handleAdminShareWhatsApp = (booking) => {
+    if (!booking) return;
+    const cleanPhone = String(booking.phone || '').replace(/\D/g, '');
+    const waPhone = cleanPhone ? (cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone) : '';
+    const bId = String(booking.id || booking.booking_id || '').replace(/^#/, '');
+    const cName = booking.name || booking.customer_name || 'Guest';
+    const item = booking.item_name || booking.service_name || 'Reservation';
+    const dates = getBookingServiceDates(booking);
+    const amount = Number(booking.total_amount || booking.total_paid || 0);
+
+    const summaryText = 
+      `🎟️ *WOW GOA — BOOKING CONFIRMATION VOUCHER*\\n\\n` +
+      `*Booking ID:* #${bId}\\n` +
+      `*Guest Name:* ${cName}\\n` +
+      `*Service / Stay:* ${item}\\n` +
+      (dates.start ? `*Dates:* ${dates.start}${dates.end ? ` to ${dates.end}` : ''}\\n` : '') +
+      `*Total Amount:* ₹${amount.toLocaleString('en-IN')}\\n` +
+      `*Booking Status:* ${booking.status || 'Confirmed'}\\n\\n` +
+      `Track your booking live and download your official A4 voucher:\\n` +
+      `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}/customer\\n\\n` +
+      `*WOW GOA Rentals & Stays* • 24x7 Helpline: +91 9916933476`;
+
+    const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(summaryText)}`;
+    if (typeof window !== 'undefined') {
+      window.open(waUrl, '_blank');
+    }
+  };
 
   const handleAdminSendVoucherEmail = async (booking, overrideEmail = null) => {
     if (!booking) return;
@@ -1508,9 +1536,19 @@ export default function AdminBookingManagement({
                                 </span>
                               </div>
                             )}
-                            {b.amount_paid !== undefined && b.amount_paid > 0 && b.amount_paid !== amount && (
-                              <div className="text-muted small text-nowrap" style={{ fontSize: '0.72rem' }}>
-                                Paid: ₹{Number(b.amount_paid || 0).toLocaleString('en-IN')}
+                            {(b.is_hold_booking || (b.amount_paid !== undefined && b.amount_paid > 0 && b.amount_paid !== amount)) && (
+                              <div className="mt-1">
+                                <div className="text-success small text-nowrap fw-semibold" style={{ fontSize: '0.70rem' }}>
+                                  Paid: ₹{Number(b.amount_paid || b.hold_amount || 0).toLocaleString('en-IN')}
+                                </div>
+                                <div className="text-danger small text-nowrap fw-semibold" style={{ fontSize: '0.70rem' }}>
+                                  Due: ₹{Number(b.remaining_amount || b.remaining_due_amount || (amount - (b.amount_paid || 0))).toLocaleString('en-IN')}
+                                </div>
+                                {b.hold_due_policy && (
+                                  <span className="badge bg-light text-muted border px-1.5 py-0.2 mt-0.5" style={{ fontSize: '0.62rem' }}>
+                                    {b.hold_due_policy === 'checkin' ? 'Due at Check-in' : `Due: ${b.hold_due_policy}`}
+                                  </span>
+                                )}
                               </div>
                             )}
                           </>
@@ -2216,6 +2254,15 @@ export default function AdminBookingManagement({
                               <Send size={12} /> {viewBooking.voucher_email_sent == 1 ? 'Resend Voucher Email' : 'Email Voucher to Customer'}
                             </>
                           )}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-success py-1.5 px-3 rounded-2 fw-bold text-xs d-flex align-items-center gap-1 text-white shadow-xs"
+                          style={{ background: '#25D366', borderColor: '#25D366' }}
+                          onClick={() => handleAdminShareWhatsApp(viewBooking)}
+                          title="Send official booking voucher via WhatsApp to customer"
+                        >
+                          <MessageSquare size={12} /> WhatsApp Voucher
                         </button>
                         <button
                           type="button"

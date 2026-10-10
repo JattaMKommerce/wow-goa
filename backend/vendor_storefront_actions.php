@@ -963,6 +963,29 @@ function dispatchBookingVoucherEmail($pdo, $bookingId, $recipientOverride = null
     $payStatus = htmlspecialchars($booking['payment_status'] ?? 'Paid');
     $plate = htmlspecialchars($booking['assigned_vehicle_plate'] ?? 'Allocating on Dispatch');
     $nowFmt = date('d M Y, h:i A');
+    $bType = strtolower($booking['type'] ?? ($booking['service_type'] ?? ''));
+    $isHotelBooking = ($bType === 'hotel' || stripos($bType, 'hotel') !== false || !empty($booking['hotel_name']) || stripos($itemName, 'hotel') !== false || stripos($itemName, 'resort') !== false);
+    $hotelRoom = htmlspecialchars($booking['room_type'] ?? 'Standard Resort Room');
+
+    $sectionHeader = $isHotelBooking ? 'Reserved Stay & Room Details' : 'Reserved Vehicle / Service Details';
+    $primaryRowLabel = $isHotelBooking ? 'Room Category' : 'Commercial Plate';
+    $primaryRowVal = $isHotelBooking ? $hotelRoom : $plate;
+    $pickupLabel = $isHotelBooking ? 'Check-in Schedule' : 'Pickup Schedule';
+    $dropLabel = $isHotelBooking ? 'Check-out Schedule' : 'Return Schedule';
+    $locLabel = $isHotelBooking ? 'Property Location' : 'Pickup Location';
+
+    $guidelinesHtml = $isHotelBooking ? <<<GUIDELINES
+        <li>Please present a <strong>Valid Physical Government ID</strong> (Aadhaar / Passport / Voter ID) for all adult guests at hotel check-in.</li>
+        <li>Standard check-in is from <strong>2:00 PM</strong> and check-out is by <strong>11:00 AM</strong> (early check-in subject to room availability).</li>
+        <li>Present this digital booking voucher or booking ID at the front desk reception upon arrival.</li>
+        <li>For airport transfer coordination or special concierge requests, our 24x7 Goa support team is ready to assist.</li>
+GUIDELINES
+    : <<<GUIDELINES
+        <li>Please present your <strong>Original Physical Driving License</strong> at key handover.</li>
+        <li>Helmets are mandatory for both rider and pillion on all 2-wheelers across Goa.</li>
+        <li>Vehicle should be returned with the same fuel level as recorded during handover.</li>
+        <li>For airport delivery, our handover executive coordinates directly outside arrivals.</li>
+GUIDELINES;
 
     $subject = "🎟️ Booking Voucher & Confirmation #{$bId} — {$itemName} | WOW GOA";
 
@@ -995,16 +1018,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helve
   </div>
   <div class="content">
     <p style="font-size: 14px; margin-top: 0;">Dear <strong>{$custName}</strong>,</p>
-    <p style="font-size: 13px; color: #475569; line-height: 1.5;">Thank you for booking with WOW GOA! Your reservation is confirmed. Please keep this voucher handy during vehicle pickup or service coordination.</p>
+    <p style="font-size: 13px; color: #475569; line-height: 1.5;">Thank you for booking with WOW GOA! Your reservation is confirmed. Please keep this voucher handy during service coordination.</p>
     
     <div class="highlight-box">
-      <div class="section-title">Reserved Vehicle / Service Details</div>
+      <div class="section-title">{$sectionHeader}</div>
       <div style="font-size: 16px; font-weight: 700; color: #0D1B2E; margin-bottom: 8px;">{$itemName}</div>
-      <div class="info-row"><span class="info-label">Commercial Plate</span><span class="info-val" style="color: #ea580c; font-family: monospace;">{$plate}</span></div>
-      <div class="info-row"><span class="info-label">Pickup Schedule</span><span class="info-val">{$pickupDate} at {$pickupTime}</span></div>
-      <div class="info-row"><span class="info-label">Pickup Location</span><span class="info-val">📍 {$pickupLoc}</span></div>
-      <div class="info-row"><span class="info-label">Return Schedule</span><span class="info-val">{$dropDate} at {$dropTime}</span></div>
-      <div class="info-row"><span class="info-label">Return Location</span><span class="info-val">📍 {$dropLoc}</span></div>
+      <div class="info-row"><span class="info-label">{$primaryRowLabel}</span><span class="info-val" style="color: #ea580c; font-weight: 700;">{$primaryRowVal}</span></div>
+      <div class="info-row"><span class="info-label">{$pickupLabel}</span><span class="info-val">{$pickupDate} at {$pickupTime}</span></div>
+      <div class="info-row"><span class="info-label">{$locLabel}</span><span class="info-val">📍 {$pickupLoc}</span></div>
+      <div class="info-row"><span class="info-label">{$dropLabel}</span><span class="info-val">{$dropDate} at {$dropTime}</span></div>
+      <div class="info-row"><span class="info-label">Return / Drop Location</span><span class="info-val">📍 {$dropLoc}</span></div>
     </div>
 
     <div class="highlight-box">
@@ -1015,17 +1038,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helve
     </div>
 
     <div class="highlight-box" style="border-left: 4px solid #FF6333;">
-      <div class="section-title" style="color: #ea580c;">Important Guidelines for Goa Rentals</div>
+      <div class="section-title" style="color: #ea580c;">Important Guidelines & Coordination</div>
       <ul style="font-size: 12px; color: #475569; margin: 0; padding-left: 18px; line-height: 1.6;">
-        <li>Please present your <strong>Original Physical Driving License</strong> at key handover.</li>
-        <li>Helmets are mandatory for both rider and pillion on all 2-wheelers across Goa.</li>
-        <li>Vehicle should be returned with the same fuel level as recorded during handover.</li>
-        <li>For airport delivery, our handover executive coordinates directly outside arrivals.</li>
+{$guidelinesHtml}
       </ul>
     </div>
 
     <div style="text-align: center; margin-top: 20px;">
-      <a href="http://localhost:5173" class="btn-cta">Track Booking Live & Manage Rental →</a>
+      <a href="http://localhost:5173/customer" class="btn-cta">Track Booking Live & Download A4 Voucher →</a>
       <div style="font-size: 11px; color: #94a3b8; margin-top: 8px;">Helpline: {$vendorPhone} • Email: bookings@wowgoa.com</div>
     </div>
   </div>
@@ -1046,13 +1066,15 @@ HTML;
 
     @mail($recipient, $subject, $html, $headers);
 
-    // Save dispatch record to backend/uploads/voucher_emails.log
+    // Save dispatch record to backend/uploads/voucher_emails.log and preview HTML files
     $logDir = __DIR__ . '/uploads';
     if (!is_dir($logDir)) {
         @mkdir($logDir, 0777, true);
     }
     $logEntry = "[" . date('Y-m-d H:i:s') . "] TO: $recipient | BOOKING: $cleanBookingId | ITEM: $itemName\n";
     @file_put_contents($logDir . '/voucher_emails.log', $logEntry, FILE_APPEND);
+    @file_put_contents($logDir . '/last_voucher_email.html', $html);
+    @file_put_contents($logDir . '/voucher_' . $cleanBookingId . '.html', $html);
 
     // Update database
     $pdo->prepare("UPDATE bookings SET 

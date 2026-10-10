@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   CheckCircle2, Gift, Clock, CreditCard, Lock, 
-  Compass, Calendar, MapPin, Check
+  Compass, Calendar, MapPin, Check, MessageSquare
 } from 'lucide-react';
 
 /**
@@ -112,6 +112,29 @@ export default function BookingConfirmationCard({
       onTrackPortal();
     } else {
       window.location.href = '/customer';
+    }
+  };
+
+  const handleShareWhatsApp = () => {
+    const cleanPhone = String(customerPhone || '').replace(/\D/g, '');
+    const waPhone = cleanPhone ? (cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone) : '';
+    const bId = String(bookingId || '').replace(/^#/, '');
+
+    const summaryText = 
+      `🎟️ *WOW GOA — BOOKING CONFIRMATION VOUCHER*\\n\\n` +
+      `*Booking ID:* #${bId}\\n` +
+      `*Guest Name:* ${customerName}\\n` +
+      (serviceTitle ? `*Service:* ${serviceTitle}\\n` : '') +
+      (totalAmount !== null ? `*Total Amount:* ₹${Number(totalAmount).toLocaleString('en-IN')}\\n` : '') +
+      (amountPaid !== null ? `*Amount Paid:* ₹${Number(amountPaid).toLocaleString('en-IN')}\\n` : '') +
+      (paymentStatus ? `*Payment Status:* ${paymentStatus}\\n` : '') +
+      `\\nTrack booking itinerary or download official A4 voucher:\\n` +
+      `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}/customer\\n\\n` +
+      `*WOW GOA Rentals & Stays* • Helpline: +91 9916933476`;
+
+    const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(summaryText)}`;
+    if (typeof window !== 'undefined') {
+      window.open(waUrl, '_blank');
     }
   };
 
@@ -325,14 +348,26 @@ export default function BookingConfirmationCard({
           <p className="text-muted text-xs mb-3" style={{ lineHeight: 1.45 }}>
             {renderPortalDescription()}
           </p>
-          <button 
-            type="button" 
-            id="track-booking-portal-btn"
-            className="btn btn-warning text-dark fw-bold rounded-pill px-4 py-2.5 text-xs d-flex align-items-center justify-content-center gap-2 shadow-sm w-100 font-heading"
-            onClick={handlePortalRedirect}
-          >
-            <span>Track in WOW GOA Customer Portal →</span>
-          </button>
+          <div className="d-flex flex-column gap-2">
+            <button 
+              type="button" 
+              id="track-booking-portal-btn"
+              className="btn btn-warning text-dark fw-bold rounded-pill px-4 py-2.5 text-xs d-flex align-items-center justify-content-center gap-2 shadow-sm w-100 font-heading"
+              onClick={handlePortalRedirect}
+            >
+              <span>Track in WOW GOA Customer Portal →</span>
+            </button>
+            <button
+              type="button"
+              id="share-voucher-whatsapp-btn"
+              className="btn btn-success text-white fw-bold rounded-pill px-4 py-2.5 text-xs d-flex align-items-center justify-content-center gap-2 shadow-sm w-100 font-heading"
+              style={{ background: '#25D366', borderColor: '#25D366' }}
+              onClick={handleShareWhatsApp}
+            >
+              <MessageSquare size={15} />
+              <span>Send / Share Voucher on WhatsApp</span>
+            </button>
+          </div>
         </div>
       )}
 

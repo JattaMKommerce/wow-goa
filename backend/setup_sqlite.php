@@ -38,7 +38,24 @@ CREATE TABLE vendors (
   city VARCHAR(100),
   role VARCHAR(50) DEFAULT 'vendor',
   admin_id VARCHAR(50),
+  allow_hold_booking INT DEFAULT 1,
+  hold_type VARCHAR(20) DEFAULT 'percentage',
+  hold_value DECIMAL(10,2) DEFAULT 20.00,
+  hold_due_policy VARCHAR(100) DEFAULT 'checkin',
+  min_booking_amount DECIMAL(10,2) DEFAULT 500.00,
   created_at DATE
+);
+
+CREATE TABLE IF NOT EXISTS vendor_hold_settings (
+  id VARCHAR(50) PRIMARY KEY,
+  vendor_id VARCHAR(50) NOT NULL UNIQUE,
+  allow_hold_booking INT DEFAULT 1,
+  hold_type VARCHAR(20) DEFAULT 'percentage',
+  hold_value DECIMAL(10,2) DEFAULT 20.00,
+  hold_due_policy VARCHAR(100) DEFAULT 'checkin',
+  min_booking_amount DECIMAL(10,2) DEFAULT 500.00,
+  created_at DATETIME,
+  updated_at DATETIME
 );
 
 CREATE TABLE IF NOT EXISTS hotels (

@@ -146,10 +146,102 @@ export default function HotelBookingModal({
     }
   };
   
-  // Selection State (Preserve selected room and rate plan from HotelDetailsPage)
-  const [selectedRoom, setSelectedRoom] = useState(selectedBookingItem.preselected_room || null);
-  const [selectedRatePlan, setSelectedRatePlan] = useState(selectedBookingItem.preselected_rate_plan || null);
-  const [numRooms, setNumRooms] = useState(initialNumRooms);
+  // Multi-Room Selection State (Preserves each room's identity, meal plan, quantity & rate independently)
+  const [selectedRooms, setSelectedRooms] = useState(() => {
+    if (Array.isArray(selectedBookingItem?.preselected_rooms) && selectedBookingItem.preselected_rooms.length > 0) {
+      return selectedBookingItem.preselected_rooms.map(item => ({
+        room: item.room,
+        plan: item.plan,
+        quantity: Math.max(1, parseInt(item.quantity || 1, 10)),
+        adults: item.adults != null ? item.adults : (item.room?.base_occupancy || 2),
+        children: item.children != null ? item.children : 0
+      }));
+    }
+    if (selectedBookingItem?.preselected_room) {
+      return [{
+        room: selectedBookingItem.preselected_room,
+        plan: selectedBookingItem.preselected_rate_plan || null,
+        quantity: Math.max(1, parseInt(selectedBookingItem.num_rooms || initialNumRooms || 1, 10)),
+        adults: parseInt(selectedBookingItem.adults || initialAdults || 2, 10),
+        children: parseInt(selectedBookingItem.children || initialChildren || 0, 10)
+      }];
+    }
+    return [];
+  });
+
+  // Track active plan per room type for cards
+  const [selectedPlanByRoom, setSelectedPlanByRoom] = useState({});
+
+  // Single-room proxies for backward compatibility across all legacy consumers
+  const selectedRoom = selectedRooms[0]?.room || null;
+  const selectedRatePlan = selectedRooms[0]?.plan || null;
+  const numRooms = selectedRooms.reduce((acc, r) => acc + (parseInt(r.quantity || 1, 10)), 0) || 1;
+
+  // Backward-compatible setters for any legacy handlers
+  const handleUpdateRoomQty = (room, plan, newQty) => {
+    const qty = Math.max(0, parseInt(newQty, 10) || 0);
+    setSelectedRooms(prev => {
+      const existingIdx = prev.findIndex(item => item.room?.id === room.id);
+      if (qty <= 0) {
+        return prev.filter(item => item.room?.id !== room.id);
+      }
+      const chosenPlan = plan || (existingIdx >= 0 ? prev[existingIdx].plan : (room.rate_plans?.find(p => p.meal_plan === 'EP') || room.rate_plans?.[0] || null));
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          plan: chosenPlan,
+          quantity: qty
+        };
+        return updated;
+      }
+      return [
+        ...prev,
+        {
+          room,
+          plan: chosenPlan,
+          quantity: qty,
+          adults: room.base_occupancy || 2,
+          children: 0
+        }
+      ];
+    });
+  };
+
+  const handleSelectRoomPlan = (room, plan) => {
+    setSelectedPlanByRoom(prev => ({ ...prev, [room.id]: plan.id }));
+    setSelectedRooms(prev => {
+      const idx = prev.findIndex(item => item.room?.id === room.id);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], plan };
+        return updated;
+      }
+      return prev;
+    });
+  };
+
+  const setSelectedRoom = (room) => {
+    if (!room) {
+      setSelectedRooms([]);
+      return;
+    }
+    handleUpdateRoomQty(room, null, 1);
+  };
+
+  const setSelectedRatePlan = (plan) => {
+    if (!plan) return;
+    if (selectedRooms.length > 0) {
+      handleSelectRoomPlan(selectedRooms[0].room, plan);
+    }
+  };
+
+  const setNumRooms = (n) => {
+    const val = Math.max(1, parseInt(n, 10) || 1);
+    if (selectedRooms.length > 0) {
+      handleUpdateRoomQty(selectedRooms[0].room, selectedRooms[0].plan, val);
+    }
+  };
   
   // Guest Details State
   const [guestName, setGuestName] = useState('');
@@ -170,16 +262,20 @@ export default function HotelBookingModal({
   // Keep guest configuration & room/plan synced with selectedBookingItem if it changes
   useEffect(() => {
     if (selectedBookingItem) {
-      if (selectedBookingItem.num_rooms) setNumRooms(parseInt(selectedBookingItem.num_rooms, 10));
       if (selectedBookingItem.adults) setAdults(parseInt(selectedBookingItem.adults, 10));
       if (selectedBookingItem.children !== undefined && selectedBookingItem.children !== null) {
         setChildren(parseInt(selectedBookingItem.children, 10));
       }
-      if (selectedBookingItem.preselected_room) {
-        setSelectedRoom(selectedBookingItem.preselected_room);
-      }
-      if (selectedBookingItem.preselected_rate_plan) {
-        setSelectedRatePlan(selectedBookingItem.preselected_rate_plan);
+      if (Array.isArray(selectedBookingItem.preselected_rooms) && selectedBookingItem.preselected_rooms.length > 0) {
+        setSelectedRooms(selectedBookingItem.preselected_rooms);
+      } else if (selectedBookingItem.preselected_room) {
+        setSelectedRooms([{
+          room: selectedBookingItem.preselected_room,
+          plan: selectedBookingItem.preselected_rate_plan || null,
+          quantity: Math.max(1, parseInt(selectedBookingItem.num_rooms || 1, 10)),
+          adults: parseInt(selectedBookingItem.adults || 2, 10),
+          children: parseInt(selectedBookingItem.children || 0, 10)
+        }]);
       }
     }
   }, [
@@ -187,7 +283,8 @@ export default function HotelBookingModal({
     selectedBookingItem?.adults,
     selectedBookingItem?.children,
     selectedBookingItem?.preselected_room,
-    selectedBookingItem?.preselected_rate_plan
+    selectedBookingItem?.preselected_rate_plan,
+    selectedBookingItem?.preselected_rooms
   ]);
 
   // Customer Wallet Cashback & Loyalty State
@@ -334,6 +431,10 @@ export default function HotelBookingModal({
   // Vendor Cancellation Policy State
   const [vendorCancellationPolicy, setVendorCancellationPolicy] = useState(null);
   const [policyAgreed, setPolicyAgreed] = useState(false);
+
+  // Vendor Hold Booking State
+  const [vendorHoldSettings, setVendorHoldSettings] = useState(null);
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState('full'); // 'full' | 'hold'
   
   // Confirmation State
   const [bookingId, setBookingId] = useState(null);
@@ -381,6 +482,13 @@ export default function HotelBookingModal({
         setVendorCancellationPolicy(res.policy);
       }
     }).catch(console.error);
+
+    // Fetch Vendor Hold Settings for Hotel
+    api.fetchVendorHoldSettings(hotelVendorId).then(res => {
+      if (res) {
+        setVendorHoldSettings(res);
+      }
+    }).catch(err => console.warn('Could not fetch hotel vendor hold settings:', err));
 
     // Connect customer storefront to real room inventory (Phase 1, Item 2)
     setLoadingRooms(true);
@@ -439,20 +547,43 @@ export default function HotelBookingModal({
     });
   }, [selectedBookingItem?.id, modalCheckInDate, modalCheckOutDate, numRooms]);
 
-  // Pricing Logic (dynamic nights, meal plan & extra guests)
-  const nightlyRoomRate = selectedRatePlan?.calculated_price || selectedRatePlan?.base_price || (selectedRoom ? parseFloat(selectedRoom.selling_price || 0) : parseFloat(selectedBookingItem.price || 0));
-  const baseRoomTotal = nightlyRoomRate * nights * numRooms;
+  // Pricing Logic (dynamic nights, meal plan & extra guests across multi-room selections)
+  const roomLineItems = useMemo(() => {
+    if (selectedRooms.length === 0) return [];
+    return selectedRooms.map(item => {
+      const room = item.room;
+      const plan = item.plan;
+      const qty = Math.max(1, parseInt(item.quantity || 1, 10));
+      const nightlyRate = plan?.calculated_price || plan?.base_price || (room ? parseFloat(room.selling_price || 0) : parseFloat(selectedBookingItem?.price || 0));
+      const roomNightsTotal = nightlyRate * nights * qty;
+      const baseOcc = (parseInt(room?.base_occupancy || 2, 10)) * qty;
+      const itemAdults = item.adults != null ? item.adults : baseOcc;
+      const itemChildren = item.children != null ? item.children : 0;
+      const extraAdultsCount = Math.max(0, itemAdults - baseOcc);
+      const extraAdultRate = parseFloat(plan?.extra_adult_rate || room?.extra_adult_charge || 0);
+      const extraAdultTotal = extraAdultsCount * extraAdultRate * nights;
+      const extraChildRate = parseFloat(plan?.extra_child_rate || room?.extra_child_charge || 0);
+      const extraChildTotal = itemChildren * extraChildRate * nights;
+      return {
+        room,
+        plan,
+        quantity: qty,
+        adults: itemAdults,
+        children: itemChildren,
+        nightlyRate,
+        roomNightsTotal,
+        extraAdultTotal,
+        extraChildTotal,
+        lineTotal: roomNightsTotal + extraAdultTotal + extraChildTotal
+      };
+    });
+  }, [selectedRooms, nights, selectedBookingItem]);
 
-  // Extra Guest Calculations
-  const baseOcc = (parseInt(selectedRoom?.base_occupancy || 2, 10)) * numRooms;
-  const extraAdultsCount = Math.max(0, (parseInt(adults, 10) || 2) - baseOcc);
-  const extraAdultRate = parseFloat(selectedRatePlan?.extra_adult_rate || selectedRoom?.extra_adult_charge || 0);
-  const extraAdultTotal = extraAdultsCount * extraAdultRate * nights;
-
-  const extraChildRate = parseFloat(selectedRatePlan?.extra_child_rate || selectedRoom?.extra_child_charge || 0);
-  const extraChildTotal = (parseInt(children, 10) || 0) * extraChildRate * nights;
-
-  const roomTotal = baseRoomTotal + extraAdultTotal + extraChildTotal;
+  const baseRoomTotal = roomLineItems.reduce((acc, r) => acc + r.roomNightsTotal, 0);
+  const extraAdultTotal = roomLineItems.reduce((acc, r) => acc + r.extraAdultTotal, 0);
+  const extraChildTotal = roomLineItems.reduce((acc, r) => acc + r.extraChildTotal, 0);
+  const roomTotal = roomLineItems.reduce((acc, r) => acc + r.lineTotal, 0);
+  const nightlyRoomRate = selectedRooms[0]?.plan?.calculated_price || selectedRooms[0]?.plan?.base_price || selectedRooms[0]?.room?.selling_price || (roomLineItems[0]?.nightlyRate || 0);
   const gst = Math.round(roomTotal * 0.18);
   const platformFee = 250;
 
@@ -489,10 +620,29 @@ export default function HotelBookingModal({
   const appliedWalletAmount = (useWalletCashback && walletBalance > 0) ? Math.min(walletBalance, maxWalletBenefit) : 0;
   const finalTotalPayable = Math.max(0, totalAmount - appliedWalletAmount);
 
+  const isHoldOptionAllowed = Boolean(
+    vendorHoldSettings && 
+    vendorHoldSettings.allow_hold_booking !== 0 && 
+    finalTotalPayable >= (vendorHoldSettings.min_booking_amount || 500)
+  );
+
+  const calculatedHoldAmount = useMemo(() => {
+    if (!isHoldOptionAllowed) return finalTotalPayable;
+    if (vendorHoldSettings.hold_type === 'fixed') {
+      return Math.min(finalTotalPayable, Math.max(100, Number(vendorHoldSettings.hold_value || 1500)));
+    }
+    const pct = Math.min(90, Math.max(5, Number(vendorHoldSettings.hold_value || 20)));
+    return Math.round(finalTotalPayable * (pct / 100));
+  }, [isHoldOptionAllowed, vendorHoldSettings, finalTotalPayable]);
+
+  const remainingBalanceDue = Math.max(0, finalTotalPayable - calculatedHoldAmount);
+
   const isPayAtHotel = paymentOption === 'pay_at_hotel' || paymentOption === 'hotel';
+  const isHoldBooking = (!isPayAtHotel && isHoldOptionAllowed && selectedPaymentMode === 'hold');
   let payableNow = 0;
   if (!isPayAtHotel) {
-    if (paymentOption === 'partial') payableNow = Math.max(0, advanceAmount - appliedWalletAmount);
+    if (isHoldBooking) payableNow = calculatedHoldAmount;
+    else if (paymentOption === 'partial') payableNow = Math.max(0, advanceAmount - appliedWalletAmount);
     else payableNow = finalTotalPayable;
   }
 
@@ -577,6 +727,25 @@ export default function HotelBookingModal({
       const customerId = `c_${cleanGuestPhone || Date.now()}`;
       const customerEmail = guestEmail || `${cleanGuestPhone || 'guest'}@hotel.wowgoa.com`;
 
+      const payloadSelectedRooms = selectedRooms.map(item => ({
+        room_type_id: item.room?.id,
+        room_type_name: item.room?.name,
+        rate_plan_id: item.plan?.id || `rp-${item.room?.id}-${(item.plan?.meal_plan || 'EP').toLowerCase()}`,
+        meal_plan: item.plan?.meal_plan || 'EP',
+        quantity: Math.max(1, parseInt(item.quantity || 1, 10)),
+        base_occupancy: item.room?.base_occupancy || 2,
+        adults: item.adults != null ? item.adults : (item.room?.base_occupancy || 2),
+        children: item.children != null ? item.children : 0,
+        nightly_rate: item.plan?.calculated_price || item.plan?.base_price || item.room?.selling_price || 0,
+        cancellation_policy: item.plan?.cancellation_policy || item.room?.cancellation_policy || ''
+      }));
+
+      const primaryRoom = payloadSelectedRooms[0] || {};
+      const roomsSummary = payloadSelectedRooms.map(r => `${r.quantity}x ${r.room_type_name} (${r.meal_plan})`).join(', ');
+      const totalNumRooms = payloadSelectedRooms.reduce((sum, r) => sum + r.quantity, 0) || numRooms;
+      const uniquePlans = Array.from(new Set(payloadSelectedRooms.map(r => r.meal_plan)));
+      const overallMealPlan = uniquePlans.length === 1 ? uniquePlans[0] : 'Mixed';
+
       const bookingPayload = {
         idempotency_key: idempotencyKey,
         name: guestName,
@@ -597,18 +766,20 @@ export default function HotelBookingModal({
         drop_time: checkOutTime,
         check_in_date: modalCheckInDate,
         check_out_date: modalCheckOutDate,
-        checkin_time: checkInTime,
+        check_in_time: checkInTime,
         checkout_time: checkOutTime,
         item_id: selectedBookingItem.id,
-        item_name: selectedBookingItem.name,
+        item_name: payloadSelectedRooms.length > 1 ? `${selectedBookingItem.name} (${roomsSummary})` : `${selectedBookingItem.name} - ${primaryRoom.room_type_name || 'Deluxe Room'}`,
         hotel_name: selectedBookingItem.name,
         hotel_location: selectedBookingItem.area || selectedBookingItem.location || 'Goa',
-        room_type_id: selectedRoom?.id,
-        room_type: selectedRoom?.name || 'Deluxe Room',
-        rate_plan_id: selectedRatePlan?.id,
-        meal_plan: selectedRatePlan?.meal_plan || 'EP',
-        cancellation_policy: selectedRatePlan?.cancellation_policy || '',
-        num_rooms: numRooms,
+        room_type_id: primaryRoom.room_type_id,
+        room_type: payloadSelectedRooms.length > 1 ? roomsSummary : (primaryRoom.room_type_name || 'Deluxe Room'),
+        rate_plan_id: primaryRoom.rate_plan_id,
+        meal_plan: overallMealPlan,
+        cancellation_policy: primaryRoom.cancellation_policy || '',
+        num_rooms: totalNumRooms,
+        selected_rooms: payloadSelectedRooms,
+        rooms_summary: roomsSummary,
         adults: adults,
         children: children,
         package_type: isDriverActive ? 'Hotel Booking (with Chauffeur)' : 'Hotel Booking',
@@ -624,13 +795,17 @@ export default function HotelBookingModal({
         amount_paid: payableNow,
         total_paid: totalAmount,
         paid_amount: payableNow,
-        remaining_amount: isPayAtHotel ? finalTotalPayable : Math.max(0, finalTotalPayable - payableNow),
-        pending_amount: isPayAtHotel ? finalTotalPayable : Math.max(0, finalTotalPayable - payableNow),
+        remaining_amount: isPayAtHotel ? finalTotalPayable : (isHoldBooking ? remainingBalanceDue : Math.max(0, finalTotalPayable - payableNow)),
+        pending_amount: isPayAtHotel ? finalTotalPayable : (isHoldBooking ? remainingBalanceDue : Math.max(0, finalTotalPayable - payableNow)),
+        is_hold_booking: isHoldBooking ? 1 : 0,
+        hold_amount: isHoldBooking ? calculatedHoldAmount : 0,
+        remaining_due_amount: isHoldBooking ? remainingBalanceDue : (isPayAtHotel ? finalTotalPayable : 0),
+        hold_due_policy: vendorHoldSettings?.hold_due_policy || 'checkin',
         driver_required: isDriverActive ? 1 : 0,
         driver_charge: isDriverActive ? driverCharge : 0,
         driver_service_type: isDriverActive ? driverServiceType : '',
         status: isPayAtHotel ? 'Confirmed' : 'Pending',
-        payment_status: isPayAtHotel ? 'Pay at Hotel (Pending)' : (payableNow > 0 ? 'Submitted' : 'Pending'),
+        payment_status: isPayAtHotel ? 'Pay at Hotel (Pending)' : (isHoldBooking ? 'Partially Paid (Hold)' : (payableNow > 0 ? 'Submitted' : 'Pending')),
         payment_verification_status: isPayAtHotel ? 'Not Required' : 'Pending Verification',
         payment_method: paymentMethodName,
         payment_reference: paymentRefToUse,
@@ -648,15 +823,17 @@ export default function HotelBookingModal({
         traveller_details_json: JSON.stringify(travellerDetails),
         price_breakdown_json: JSON.stringify(priceBreakdown),
         customizations: JSON.stringify({
-            selected_room_type: selectedRoom?.id,
-            room_type_id: selectedRoom?.id,
-            selected_room_name: selectedRoom?.name,
-            room_type_name: selectedRoom?.name,
-            rate_plan_id: selectedRatePlan?.id,
-            meal_plan: selectedRatePlan?.meal_plan || 'EP',
-            cancellation_policy: selectedRatePlan?.cancellation_policy || '',
+            selected_rooms: payloadSelectedRooms,
+            rooms_summary: roomsSummary,
+            selected_room_type: primaryRoom.room_type_id,
+            room_type_id: primaryRoom.room_type_id,
+            selected_room_name: primaryRoom.room_type_name,
+            room_type_name: primaryRoom.room_type_name,
+            rate_plan_id: primaryRoom.rate_plan_id,
+            meal_plan: overallMealPlan,
+            cancellation_policy: primaryRoom.cancellation_policy || '',
             num_guests: numGuests,
-            num_rooms: numRooms,
+            num_rooms: totalNumRooms,
             adults: adults,
             children: children,
             check_in_date: modalCheckInDate,
@@ -835,23 +1012,18 @@ export default function HotelBookingModal({
                   if (amenities.length === 0 && rt.amenities_json) {
                     try { amenities = JSON.parse(rt.amenities_json || '[]'); } catch(e){}
                   }
-                  const isSelected = selectedRoom?.id === rt.id;
+                  const selectedEntry = selectedRooms.find(item => item.room?.id === rt.id);
+                  const isSelected = Boolean(selectedEntry && selectedEntry.quantity > 0);
+                  const selectedQty = selectedEntry ? selectedEntry.quantity : 0;
                   const roomImg = (rt.images && rt.images[0]) || hotelAllImages[0];
                   const plans = rt.rate_plans || [];
-                  const activePlanForRoom = (isSelected && selectedRatePlan) 
-                    ? selectedRatePlan 
-                    : (plans.find(p => p.meal_plan === 'EP') || plans[0]);
+                  const activePlanForRoom = selectedEntry?.plan || (selectedPlanByRoom[rt.id] ? plans.find(p => p.id === selectedPlanByRoom[rt.id]) : null) || (plans.find(p => p.meal_plan === 'EP') || plans[0]);
+                  const maxRoomLimit = Math.min(5, rt.available_rooms != null ? rt.available_rooms : 5);
 
                   return (
                       <div key={rt.id} className="col-12">
                           <div 
-                            className={`card shadow-sm border ${isSelected ? 'border-primary border-2 shadow' : ''} h-100 overflow-hidden cursor-pointer`} 
-                            onClick={() => {
-                              setSelectedRoom(rt);
-                              if (plans.length > 0 && (!selectedRatePlan || selectedRoom?.id !== rt.id)) {
-                                setSelectedRatePlan(plans.find(p => p.meal_plan === 'EP') || plans[0]);
-                              }
-                            }}
+                            className={`card shadow-sm border ${isSelected ? 'border-primary border-2 shadow' : ''} h-100 overflow-hidden`} 
                           >
                               <div className="d-flex flex-column flex-md-row">
                                   <div style={{ width: '100%', maxWidth: '190px', background: '#f8f9fa', minHeight: '140px' }} className="d-none d-md-block position-relative overflow-hidden">
@@ -866,17 +1038,22 @@ export default function HotelBookingModal({
                                           Sold Out
                                         </span>
                                       )}
+                                      {rt.available_rooms != null && rt.available_rooms <= 3 && rt.available_rooms > 0 && (
+                                        <span className="position-absolute bottom-0 start-0 m-1.5 badge bg-warning text-dark text-xxs">
+                                          Only {rt.available_rooms} left!
+                                        </span>
+                                      )}
                                   </div>
                                   <div className="card-body p-3 flex-grow-1">
                                       <div className="d-flex justify-content-between align-items-start mb-2">
                                           <div>
-                                              <h6 className="fw-bold mb-1 text-dark fs-6">{rt.name}</h6>
+                                              <h6 className="fw-bold mb-1 text-dark fs-6 font-heading">{rt.name}</h6>
                                               <div className="text-muted text-xs">
                                                   <Users size={12} className="me-1 inline"/> Up to {rt.max_occupancy} Guests • {rt.bed_type} Bed {rt.room_size ? `• ${rt.room_size} sq.ft` : ''}
                                               </div>
                                           </div>
                                           <div className="text-end">
-                                              <h5 className="fw-bold text-primary mb-0">
+                                              <h5 className="fw-bold text-primary mb-0 font-heading">
                                                 ₹{parseInt(activePlanForRoom?.calculated_price || activePlanForRoom?.base_price || rt.selling_price || 0).toLocaleString('en-IN')}
                                               </h5>
                                               <small className="text-muted text-xxs">/ night ({activePlanForRoom?.meal_plan || 'EP'})</small>
@@ -895,15 +1072,14 @@ export default function HotelBookingModal({
                                           <span className="text-muted text-xxs fw-bold text-uppercase d-block mb-1">Select Meal Plan:</span>
                                           <div className="d-flex flex-wrap gap-1.5">
                                             {plans.map(p => {
-                                              const isPlanActive = isSelected && selectedRatePlan?.id === p.id;
+                                              const isPlanActive = activePlanForRoom?.id === p.id;
                                               return (
                                                 <button
                                                   key={p.id}
                                                   type="button"
                                                   onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setSelectedRoom(rt);
-                                                    setSelectedRatePlan(p);
+                                                    handleSelectRoomPlan(rt, p);
                                                   }}
                                                   className={`btn btn-sm text-xxs rounded-pill px-2.5 py-0.5 fw-bold ${isPlanActive ? 'btn-primary' : 'btn-outline-secondary'}`}
                                                 >
@@ -915,16 +1091,60 @@ export default function HotelBookingModal({
                                         </div>
                                       )}
                                       
-                                      <div className="d-flex justify-content-between align-items-center mt-2 pt-1">
+                                      <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-2 border-top gap-2">
                                           <div className="text-success text-xxs fw-semibold">
                                             ✓ {activePlanForRoom?.cancellation_policy || 'Free Cancellation up to 48 hrs before check-in'}
                                           </div>
-                                          <button 
-                                            type="button"
-                                            className={`btn btn-sm px-3 py-1 fw-bold text-xs ${isSelected ? 'btn-primary' : 'btn-outline-primary'}`}
-                                          >
-                                              {isSelected ? '✓ Selected' : 'Select Room'}
-                                          </button>
+
+                                          <div className="d-flex align-items-center gap-2">
+                                            {selectedQty === 0 ? (
+                                              <button 
+                                                type="button"
+                                                disabled={rt.is_available === false}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleUpdateRoomQty(rt, activePlanForRoom, 1);
+                                                }}
+                                                className="btn btn-sm btn-outline-primary px-3 py-1.5 fw-bold text-xs rounded-pill d-flex align-items-center gap-1 shadow-sm font-heading"
+                                              >
+                                                  + Add Room
+                                              </button>
+                                            ) : (
+                                              <div className="d-flex align-items-center gap-2">
+                                                <span className="badge bg-success-subtle text-success border border-success-subtle text-xxs px-2 py-1 rounded-pill fw-bold">
+                                                  ✓ {selectedQty} Selected
+                                                </span>
+                                                <div className="input-group input-group-sm" style={{ width: '105px' }}>
+                                                  <button
+                                                    type="button"
+                                                    className="btn btn-outline-secondary fw-bold px-2 py-0.5"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleUpdateRoomQty(rt, activePlanForRoom, selectedQty - 1);
+                                                    }}
+                                                    title="Decrease quantity"
+                                                  >
+                                                    -
+                                                  </button>
+                                                  <span className="input-group-text bg-white fw-bold px-2 text-center justify-content-center flex-grow-1 text-xs">
+                                                    {selectedQty}
+                                                  </span>
+                                                  <button
+                                                    type="button"
+                                                    className="btn btn-outline-secondary fw-bold px-2 py-0.5"
+                                                    disabled={selectedQty >= maxRoomLimit}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleUpdateRoomQty(rt, activePlanForRoom, selectedQty + 1);
+                                                    }}
+                                                    title="Increase quantity"
+                                                  >
+                                                    +
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
                                       </div>
                                   </div>
                               </div>
@@ -935,10 +1155,26 @@ export default function HotelBookingModal({
           </div>
       )}
       
-      <div className="mt-4 text-end">
+      <div className="mt-4 p-3 rounded-3 border bg-light d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
+          <div>
+            <div className="fw-bold text-dark fs-6 font-heading">
+              {selectedRooms.length > 0 ? (
+                <span>
+                  {selectedRooms.reduce((acc, r) => acc + (r.quantity || 1), 0)} Room{selectedRooms.reduce((acc, r) => acc + (r.quantity || 1), 0) > 1 ? 's' : ''} Selected
+                </span>
+              ) : (
+                <span className="text-muted">No rooms selected yet. Select at least 1 room to continue.</span>
+              )}
+            </div>
+            {selectedRooms.length > 0 && (
+              <div className="text-muted text-xs mt-0.5">
+                {selectedRooms.map(r => `${r.quantity}x ${r.room?.name || 'Room'} (${r.plan?.meal_plan || 'EP'})`).join(', ')} • <strong>₹{roomTotal.toLocaleString('en-IN')}</strong> ({nights}N + 18% GST)
+              </div>
+            )}
+          </div>
           <button 
-              className="btn btn-primary px-5 fw-bold" 
-              disabled={!selectedRoom} 
+              className="btn btn-primary px-5 fw-bold rounded-pill shadow-sm" 
+              disabled={selectedRooms.length === 0} 
               onClick={() => setStep(2)}
           >
               Continue to Guest Details <ArrowRight size={16} className="ms-1"/>
@@ -978,25 +1214,34 @@ export default function HotelBookingModal({
             </div>
         </div>
 
-        {/* Selected Room & Rate Plan Confirmation Card */}
-        {selectedRoom && (
-          <div className="p-3 mb-3 rounded-3 border d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
-            <div>
-              <div className="d-flex align-items-center gap-2">
-                <span className="badge bg-primary text-white text-xxs px-2 py-0.5 rounded">Selected Room</span>
-                <strong className="text-dark fs-6 font-heading">{selectedRoom.name}</strong>
-              </div>
-              <div className="text-muted text-xs mt-1 d-flex flex-wrap gap-2 align-items-center">
-                <span>Plan: <strong className="text-dark">{selectedRatePlan?.name || selectedRatePlan?.meal_plan_label || selectedRatePlan?.meal_plan || 'EP Room Only'}</strong></span>
-                <span>•</span>
-                <span>{nights} {nights === 1 ? 'Night' : 'Nights'} ({formatDisplayDate ? formatDisplayDate(modalCheckInDate) : modalCheckInDate} – {formatDisplayDate ? formatDisplayDate(modalCheckOutDate) : modalCheckOutDate})</span>
-                <span>•</span>
-                <span>{numRooms} {numRooms === 1 ? 'Room' : 'Rooms'}</span>
-              </div>
+        {/* Selected Room & Rate Plan Confirmation Card (Multi-Room Itemized) */}
+        {roomLineItems.length > 0 && (
+          <div className="p-3 mb-3 rounded-3 border" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+            <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+              <span className="badge bg-primary text-white text-xxs px-2 py-0.5 rounded">
+                Selected Accommodations ({numRooms} {numRooms === 1 ? 'Room' : 'Rooms'})
+              </span>
+              <span className="text-muted text-xs">
+                {nights} {nights === 1 ? 'Night' : 'Nights'} ({formatDisplayDate ? formatDisplayDate(modalCheckInDate) : modalCheckInDate} – {formatDisplayDate ? formatDisplayDate(modalCheckOutDate) : modalCheckOutDate})
+              </span>
             </div>
-            <div className="text-sm-end">
-              <span className="text-muted text-xxs text-uppercase d-block">Room Rate</span>
-              <span className="fw-bold text-dark fs-6 font-heading">₹{nightlyRoomRate.toLocaleString('en-IN')}<small className="text-muted fw-normal text-xxs"> / night</small></span>
+            <div className="d-flex flex-column gap-2">
+              {roomLineItems.map((item, idx) => (
+                <div key={idx} className="d-flex justify-content-between align-items-center bg-white p-2.5 rounded-2 border">
+                  <div>
+                    <strong className="text-dark fs-6 d-block font-heading">
+                      {item.quantity}x {item.room?.name || 'Room'}
+                    </strong>
+                    <div className="text-muted text-xs">
+                      Plan: <span className="fw-semibold text-dark">{item.plan?.name || item.plan?.meal_plan || 'Room Only (EP)'}</span> • ₹{item.nightlyRate.toLocaleString('en-IN')}/night
+                    </div>
+                  </div>
+                  <div className="text-end">
+                    <span className="fw-black text-dark font-heading">₹{item.lineTotal.toLocaleString('en-IN')}</span>
+                    <small className="text-muted d-block text-xxs">Total ({nights}N)</small>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1135,7 +1380,7 @@ export default function HotelBookingModal({
                             <small className="text-muted d-block text-xxs">{opt.desc}</small>
                           </div>
                           <span className="badge bg-dark text-warning fw-bold px-2 py-1 text-xs">
-                            +₹{opt.price.toLocaleString('en-IN')}
+                            +<CurrencyPriceDisplay amountInr={opt.price} color="#facc15" inline />
                           </span>
                         </div>
                       </div>
@@ -1189,8 +1434,14 @@ export default function HotelBookingModal({
         <div className="p-3 bg-light rounded-3 d-flex justify-content-between align-items-center mb-4 border">
           <div>
             <span className="text-muted text-xs d-block">Total Stay &amp; Services ({nights} Night{nights>1?'s':''})</span>
-            <strong className="text-dark fs-5 font-heading">₹{totalAmount.toLocaleString('en-IN')}</strong>
-            {driverOptionEnabled && driverRequired && <span className="badge bg-warning text-dark text-xxs ms-2">✓ Chauffeur Included (+₹{driverCharge.toLocaleString('en-IN')})</span>}
+            <strong className="text-dark fs-5 font-heading">
+              <CurrencyPriceDisplay amountInr={totalAmount} />
+            </strong>
+            {driverOptionEnabled && driverRequired && (
+              <span className="badge bg-warning text-dark text-xxs ms-2">
+                ✓ Chauffeur Included (+<CurrencyPriceDisplay amountInr={driverCharge} color="#000000" inline />)
+              </span>
+            )}
           </div>
           <button 
               className="btn btn-primary px-4 py-2 fw-bold" 
@@ -1266,7 +1517,7 @@ export default function HotelBookingModal({
                       <span className="badge bg-primary text-white">Recommended</span>
                     </div>
                     <div className="text-muted small">
-                      Scan the vendor static QR with Google Pay, PhonePe, Paytm or BHIM to pay <strong>₹{totalAmount.toLocaleString('en-IN')}</strong>.
+                      Pay instantly or reserve with a token advance using UPI (Google Pay, PhonePe, Paytm, BHIM).
                     </div>
                   </div>
                 </div>
@@ -1293,6 +1544,101 @@ export default function HotelBookingModal({
               </div>
             </div>
 
+            {/* MakeMyTrip-Style Hold Booking Selection (When Static QR is active) */}
+            {paymentOption === 'static_qr' && isHoldOptionAllowed && (
+              <div className="card shadow-sm border border-warning rounded-4 overflow-hidden mb-3" style={{ background: '#fffdf5' }}>
+                <div className="card-header bg-warning bg-opacity-10 border-bottom border-warning border-opacity-25 py-2 px-3 d-flex align-items-center justify-content-between">
+                  <span className="fw-bold text-dark text-xs text-uppercase d-flex align-items-center gap-1.5" style={{ letterSpacing: '0.5px' }}>
+                    <span>⚡</span> Flexible Payment Option
+                  </span>
+                  <span className="badge bg-warning text-dark text-xxs fw-bold px-2 py-0.5 rounded-pill shadow-xs">
+                    MMT-Style Advance Hold
+                  </span>
+                </div>
+                <div className="card-body p-3">
+                  <div className="d-flex flex-column gap-2.5">
+                    {/* Option 1: Pay Full Amount */}
+                    <div 
+                      className={`p-3 rounded-3 border transition-all cursor-pointer ${selectedPaymentMode === 'full' ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'border-light-subtle bg-white'}`}
+                      style={{ cursor: 'pointer', transition: 'all 0.2s ease', borderWidth: selectedPaymentMode === 'full' ? '2px' : '1px' }}
+                      onClick={() => setSelectedPaymentMode('full')}
+                    >
+                      <div className="d-flex align-items-start justify-content-between gap-2">
+                        <div className="d-flex align-items-start gap-2.5">
+                          <input 
+                            type="radio" 
+                            name="hotelPaymentChoiceOption" 
+                            checked={selectedPaymentMode === 'full'} 
+                            onChange={() => setSelectedPaymentMode('full')}
+                            className="form-check-input mt-1" 
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <div>
+                            <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                              <span className="fw-bold text-dark text-sm">Pay Full Amount</span>
+                              <span className="badge bg-success text-white text-xxs fw-bold px-2 py-0.5 rounded-pill">
+                                Instant 100% Confirmed
+                              </span>
+                            </div>
+                            <div className="text-muted text-xs mt-0.5">
+                              Pay full balance now. Zero pending dues at check-in reception.
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-end flex-shrink-0">
+                          <div className="fw-black text-dark fs-6">
+                            <CurrencyPriceDisplay amountInr={finalTotalPayable} />
+                          </div>
+                          <div className="text-xxs text-muted">Zero pending balance</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Option 2: Hold Booking with Token Advance */}
+                    <div 
+                      className={`p-3 rounded-3 border transition-all cursor-pointer ${selectedPaymentMode === 'hold' ? 'border-warning bg-warning bg-opacity-10 shadow-sm' : 'border-light-subtle bg-white'}`}
+                      style={{ cursor: 'pointer', transition: 'all 0.2s ease', borderWidth: selectedPaymentMode === 'hold' ? '2px' : '1px' }}
+                      onClick={() => setSelectedPaymentMode('hold')}
+                    >
+                      <div className="d-flex align-items-start justify-content-between gap-2">
+                        <div className="d-flex align-items-start gap-2.5">
+                          <input 
+                            type="radio" 
+                            name="hotelPaymentChoiceOption" 
+                            checked={selectedPaymentMode === 'hold'} 
+                            onChange={() => setSelectedPaymentMode('hold')}
+                            className="form-check-input mt-1" 
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <div>
+                            <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                              <span className="fw-bold text-dark text-sm">🔒 Hold Booking by paying token advance</span>
+                              <span className="badge bg-warning text-dark fw-bold text-xxs px-2 py-0.5 rounded-pill">
+                                {(vendorHoldSettings.hold_type === 'percent' || vendorHoldSettings.hold_type === 'percentage') 
+                                  ? `${vendorHoldSettings.hold_value}% Advance` 
+                                  : <span>Flat <CurrencyPriceDisplay amountInr={Number(vendorHoldSettings.hold_value)} inline /> Advance</span>}
+                              </span>
+                            </div>
+                            <div className="text-muted text-xs mt-0.5">
+                              Pay just <strong><CurrencyPriceDisplay amountInr={calculatedHoldAmount} inline /></strong> now to hold your room reservation. Remaining balance <strong><CurrencyPriceDisplay amountInr={remainingBalanceDue} inline /></strong> payable {vendorHoldSettings.hold_due_policy === '24h_before' ? '24 hours before check-in' : 'at hotel check-in'}.
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-end flex-shrink-0">
+                          <div className="fw-black text-warning fs-6">
+                            <CurrencyPriceDisplay amountInr={calculatedHoldAmount} color="#d97706" />
+                          </div>
+                          <div className="text-xxs text-danger fw-semibold">
+                            <CurrencyPriceDisplay amountInr={remainingBalanceDue} color="#dc2626" inline /> due later
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Static QR Details Card - Direct to Vendor */}
             {paymentOption === 'static_qr' && (() => {
               const activeVendorPayment = paymentSettings && paymentSettings.length > 0 ? (
@@ -1304,7 +1650,7 @@ export default function HotelBookingModal({
 
               return isVendorPaymentConfigured ? (
                 <StaticQRPaymentCard
-                  amount={totalAmount}
+                  amount={payableNow}
                   upiId={activeVendorPayment.upi_id || ''}
                   accountName={activeVendorPayment.account_name || activeVendorPayment.display_name || selectedBookingItem.name}
                   qrImageUrl={activeVendorPayment.qr_image_url || ''}
@@ -1334,7 +1680,7 @@ export default function HotelBookingModal({
               policy={vendorCancellationPolicy}
               agreed={policyAgreed}
               onAgreementChange={setPolicyAgreed}
-              customerPayment={totalAmount}
+              customerPayment={payableNow}
             />
 
             {(() => {
@@ -1349,12 +1695,12 @@ export default function HotelBookingModal({
               return (
                 <div className="mt-4 text-end">
                   <button 
-                    className="btn btn-warning px-5 py-2.5 fw-bold w-100 shadow-sm rounded-3" 
+                    className="btn px-5 py-2.5 fw-bold w-100 shadow-sm rounded-3 text-white" 
                     onClick={handleConfirmBooking}
                     disabled={isSubmitDisabled}
-                    style={{ fontSize: '0.95rem', opacity: isSubmitDisabled ? 0.65 : 1 }}
+                    style={{ fontSize: '0.95rem', opacity: isSubmitDisabled ? 0.65 : 1, background: isHoldBooking ? '#f59e0b' : '#ffc107', borderColor: isHoldBooking ? '#f59e0b' : '#ffc107', color: isHoldBooking ? '#ffffff' : '#000000' }}
                   >
-                    {isProcessing ? 'Confirming Booking...' : (isPayAtHotel ? `Confirm Booking (Pay ₹${totalAmount.toLocaleString('en-IN')} at Hotel)` : `Submit Payment of ₹${totalAmount.toLocaleString('en-IN')}`)}
+                    {isProcessing ? 'Confirming Booking...' : (isPayAtHotel ? `Confirm Booking (Pay ₹${totalAmount.toLocaleString('en-IN')} at Hotel)` : (isHoldBooking ? `Confirm & Hold Booking (Pay ₹${payableNow.toLocaleString('en-IN')} Advance)` : `Submit Payment of ₹${payableNow.toLocaleString('en-IN')}`))}
                   </button>
                 </div>
               );
@@ -1370,7 +1716,12 @@ export default function HotelBookingModal({
                 </div>
                 <h6 className="fw-bold text-dark mb-1">Foreign Customer Stay Reservation</h6>
                 <div className="text-muted small mb-3">
-                  Payable in your local currency: <strong className="text-primary font-heading"><CurrencyPriceDisplay amountInr={totalAmount} size="md" highlight /></strong>
+                  Payable in your local currency: <strong className="text-primary font-heading"><CurrencyPriceDisplay amountInr={payableNow} size="md" highlight /></strong>
+                  {isHoldBooking && (
+                    <div className="text-xs text-muted mt-1">
+                      (Hold advance token of <CurrencyPriceDisplay amountInr={payableNow} inline /> • Remaining <CurrencyPriceDisplay amountInr={remainingBalanceDue} inline /> due {vendorHoldSettings?.hold_due_policy === '24h_before' ? '24h before check-in' : 'at check-in'})
+                    </div>
+                  )}
                 </div>
                 <div className="alert alert-info border border-info border-opacity-25 text-start py-2.5 px-3 mb-0" style={{ fontSize: '0.82rem' }}>
                   <strong>Notice:</strong> International Online Card Payment Gateway is currently being integrated for seamless checkout. Your room will be provisionally reserved directly with {selectedBookingItem.name} upon confirmation, and our operations team / hotel will reach out to provide you with secure international payment settlement instructions.
@@ -1383,7 +1734,7 @@ export default function HotelBookingModal({
               policy={vendorCancellationPolicy}
               agreed={policyAgreed}
               onAgreementChange={setPolicyAgreed}
-              customerPayment={totalAmount}
+              customerPayment={payableNow}
             />
 
             <div className="mt-4 text-end">
@@ -1393,7 +1744,7 @@ export default function HotelBookingModal({
                 disabled={isProcessing || !policyAgreed}
                 style={{ fontSize: '0.95rem', opacity: (!policyAgreed || isProcessing) ? 0.65 : 1, background: '#FF6333', borderColor: '#FF6333' }}
               >
-                {isProcessing ? 'Confirming Reservation...' : <>Confirm &amp; Reserve Stay (<CurrencyPriceDisplay amountInr={totalAmount} size="sm" color="#ffffff" />)</>}
+                {isProcessing ? 'Confirming Reservation...' : <>Confirm &amp; Reserve Stay (<CurrencyPriceDisplay amountInr={payableNow} size="sm" color="#ffffff" />)</>}
               </button>
             </div>
           </>
@@ -1404,8 +1755,8 @@ export default function HotelBookingModal({
 
   const renderStep4 = () => {
     const selectedCustom = paymentSettings.find(m => m.id?.toString() === paymentOption?.toString());
-    const effectiveAmountPaid = isPayAtHotel ? 0 : (paymentOption === 'partial' ? advanceAmount : finalTotalPayable);
-    const effectiveRemaining = isPayAtHotel ? finalTotalPayable : (paymentOption === 'partial' ? Math.max(0, finalTotalPayable - advanceAmount) : 0);
+    const effectiveAmountPaid = isPayAtHotel ? 0 : (isHoldBooking ? calculatedHoldAmount : (paymentOption === 'partial' ? advanceAmount : finalTotalPayable));
+    const effectiveRemaining = isPayAtHotel ? finalTotalPayable : (isHoldBooking ? remainingBalanceDue : (paymentOption === 'partial' ? Math.max(0, finalTotalPayable - advanceAmount) : 0));
 
     return (
       <div className="py-2 animate-fade-in" style={{ maxWidth: '520px', margin: '0 auto' }}>
@@ -1432,8 +1783,8 @@ export default function HotelBookingModal({
           totalAmount={totalAmount}
           amountPaid={effectiveAmountPaid}
           remainingBalance={effectiveRemaining}
-          paymentMode={isPayAtHotel ? 'Pay at Hotel Front Desk' : (selectedCustom?.method_name || (paymentOption === 'upi_direct' ? 'Online / UPI' : 'Prepaid'))}
-          paymentStatus={isPayAtHotel ? 'Confirmed (Pay at Hotel)' : 'Confirmed & Paid'}
+          paymentMode={isPayAtHotel ? 'Pay at Hotel Front Desk' : (isHoldBooking ? 'Hold Token Advance (UPI)' : (selectedCustom?.method_name || (paymentOption === 'upi_direct' ? 'Online / UPI' : 'Prepaid')))}
+          paymentStatus={isPayAtHotel ? 'Confirmed (Pay at Hotel)' : (isHoldBooking ? 'Partially Paid (Hold)' : 'Confirmed & Paid')}
           onClose={handleHotelModalClose}
         />
       </div>
@@ -1704,10 +2055,31 @@ export default function HotelBookingModal({
                                 </div>
                             )}
 
-                            <div className="d-flex justify-content-between align-items-baseline border-top border-dark pt-2 fw-bold text-primary">
+                            {isHoldBooking ? (
+                              <div className="border-top border-dark pt-2">
+                                <div className="d-flex justify-content-between align-items-center mb-1 text-muted text-xs">
+                                  <span>Total Stay Value:</span>
+                                  <span className="fw-bold text-dark"><CurrencyPriceDisplay amountInr={finalTotalPayable} /></span>
+                                </div>
+                                <div className="d-flex justify-content-between align-items-baseline mb-1 fw-bold text-success">
+                                  <span style={{ fontSize: '14px' }}>🔒 Hold Advance (Pay Today):</span>
+                                  <CurrencyPriceDisplay amountInr={calculatedHoldAmount} size="lg" highlight />
+                                </div>
+                                <div className="d-flex justify-content-between align-items-center py-1 px-2 rounded-2 mt-1" style={{ background: '#fef2f2', border: '1px dashed #fca5a5' }}>
+                                  <span className="text-danger fw-semibold" style={{ fontSize: '11px' }}>
+                                    ⏳ Balance Due ({vendorHoldSettings?.hold_due_policy === '24h_before' ? '24h Before Check-in' : 'At Check-in'}):
+                                  </span>
+                                  <span className="fw-bold text-danger text-xs">
+                                    <CurrencyPriceDisplay amountInr={remainingBalanceDue} color="#dc2626" />
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="d-flex justify-content-between align-items-baseline border-top border-dark pt-2 fw-bold text-primary">
                                 <span style={{ fontSize: '15px' }}>Total Payable:</span>
                                 <CurrencyPriceDisplay amountInr={finalTotalPayable} size="lg" highlight />
-                            </div>
+                              </div>
+                            )}
 
                             {/* 10% Cashback Earning Preview */}
                             <div className="mt-2.5 p-2 rounded-3 text-center" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
