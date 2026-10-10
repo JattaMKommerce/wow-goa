@@ -1,7 +1,5 @@
 import TaxiServicesPage from './pages/customer/TaxiServicesPage';
-import B2BDispatches from './pages/taxi/B2BDispatches';
-import ChauffeurPortal from './pages/taxi/ChauffeurPortal';
-import LiveFleetDirectory from './pages/taxi/LiveFleetDirectory';
+import TaxiOperationsHub from './pages/taxi/TaxiOperationsHub';
 
 import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import './App.css';
@@ -92,8 +90,7 @@ export default function App() {
       // Derive tab directly from URL path — most reliable on refresh
       if (p.startsWith('/v/')) return 'vendor-storefront';
       if (p.startsWith('/taxi-dispatch') || p.startsWith('/taxi/dispatch')) return 'taxi-dispatch';
-      if (p.startsWith('/taxi-chauffeur') || p.startsWith('/taxi/chauffeur')) return 'taxi-chauffeur';
-      if (p.startsWith('/taxi-fleet') || p.startsWith('/taxi/fleet')) return 'taxi-fleet';
+      if (p.startsWith('/taxi/login') || p.startsWith('/taxi-portal') || p.startsWith('/taxi-dispatch') || p.startsWith('/taxi-chauffeur') || p.startsWith('/taxi-fleet')) return 'portal';
       if (p.startsWith('/taxi')) return 'taxi';
       if ((p === '/vehicle' || p === '/vehicles' || p.startsWith('/vehicle/') || p.startsWith('/vehicles/')) && p !== '/vehicle/login') return 'selfdrive';
       if (p.startsWith('/admin') || p === '/portal' || p.startsWith('/sub-admin') || p.startsWith('/subadmin') || p.startsWith('/superadmin') || p.startsWith('/super-admin') || p === '/vendor' || p === '/hotel-vendor' || p === '/flight-vendor' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login') return 'portal';
@@ -754,7 +751,7 @@ export default function App() {
       else if (cleanPath === 'craft' || cleanPath === 'craftmytrip') newTab = 'craftmytrip';
       else if (cleanPath === 'custom-trip') newTab = 'custom-trip';
       else if (cleanPath === 'customer' || cleanPath.startsWith('customer') || cleanPath === 'my-bookings') newTab = 'customer';
-      else if (cleanPath === 'admin' || cleanPath === 'portal' || cleanPath === 'superadmin' || cleanPath === 'vendor' || cleanPath === 'hotel-vendor' || cleanPath === 'hotel-pms' || cleanPath === 'flight-vendor' || cleanPath === 'sub-admin' || cleanPath === 'subadmin' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login') newTab = 'portal';
+      else if (cleanPath === 'admin' || cleanPath === 'portal' || cleanPath === 'superadmin' || cleanPath === 'vendor' || cleanPath === 'hotel-vendor' || cleanPath === 'hotel-pms' || cleanPath === 'flight-vendor' || cleanPath === 'sub-admin' || cleanPath === 'subadmin' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login' || p === '/taxi/login' || cleanPath === 'taxi-portal' || cleanPath === 'taxi-dispatch' || cleanPath === 'taxi-chauffeur' || cleanPath === 'taxi-fleet') newTab = 'portal';
       else if (cleanPath === 'dashboard') newTab = 'dashboard';
       else if (cleanPath === 'b2b' || cleanPath.startsWith('b2b') || p === '/register' || p.startsWith('/vendor/register')) newTab = 'b2b';
       else if (cleanPath === 'driver') newTab = 'driver';
@@ -1854,7 +1851,7 @@ export default function App() {
   }
 
   // ─── ADMIN / SUPERADMIN / VENDOR / SUBADMIN PORTALS ───────────────────────
-  if (activeTab === 'portal' || path.startsWith('/admin') || path === '/portal' || path.startsWith('/sub-admin') || path.startsWith('/subadmin') || path.startsWith('/superadmin') || path.startsWith('/super-admin') || path === '/vendor' || path === '/hotel-vendor' || path === '/flight-vendor' || path === '/vehicle/login' || path === '/hotel/login' || path === '/flight/login' || ((currentUser?.role === 'subadmin' || currentUser?.role === 'sub_admin') && (path === '/portal' || activeTab === 'portal'))) {
+  if (activeTab === 'portal' || path.startsWith('/admin') || path === '/portal' || path.startsWith('/sub-admin') || path.startsWith('/subadmin') || path.startsWith('/superadmin') || path.startsWith('/super-admin') || path === '/vendor' || path === '/hotel-vendor' || path === '/flight-vendor' || path === '/vehicle/login' || path === '/hotel/login' || path === '/flight/login' || path === '/taxi/login' || path === '/taxi-portal' || path === '/taxi-dispatch' || path === '/taxi-chauffeur' || path === '/taxi-fleet' || ((currentUser?.role === 'subadmin' || currentUser?.role === 'sub_admin') && (path === '/portal' || activeTab === 'portal'))) {
     // ── Dedicated Vendor Login Routes ─────────────────────────────────────────
     if (path === '/vehicle/login') {
       if (currentUser && (currentUser.role === 'vendor' || currentUser.role === 'vehicle_vendor')) {
@@ -1914,6 +1911,41 @@ export default function App() {
           />
         );
       }
+    }
+
+    // ── Dedicated Taxi Vendor Login & Operations Hub ──────────────────────────
+    if (path === '/taxi/login') {
+      if (currentUser && (currentUser.role === 'taxi_vendor' || currentUser.role === 'admin' || currentUser.role === 'superadmin')) {
+        window.history.replaceState(null, '', '/taxi-portal');
+        setCurrentPath('/taxi-portal');
+      } else {
+        return (
+          <VendorLoginPage
+            vendorType="taxi"
+            onLoginSuccess={(u) => handleVendorLoginSuccess(u, '/taxi-portal')}
+            onNavigateHome={() => handleTabChange('taxi')}
+            onNavigateRegister={() => {
+              handleTabChange('b2b');
+              window.history.pushState(null, '', '/b2b/register?vendor=taxi_vendor');
+              setCurrentPath('/b2b/register');
+            }}
+          />
+        );
+      }
+    }
+
+    if (path === '/taxi-portal' || path === '/taxi-dispatch' || path === '/taxi-chauffeur' || path === '/taxi-fleet') {
+      let initialDesk = 'dispatch';
+      if (path === '/taxi-chauffeur') initialDesk = 'chauffeur';
+      else if (path === '/taxi-fleet') initialDesk = 'fleet';
+
+      return (
+        <TaxiOperationsHub
+          initialTab={initialDesk}
+          onLogout={handleLogout}
+          onNavigateHome={() => handleTabChange('taxi')}
+        />
+      );
     }
 
     // Superadmin route guard
@@ -2329,68 +2361,7 @@ export default function App() {
             </>
           )}
 
-                              {activeTab === 'taxi-dispatch' && (
-            <div className="container-fluid py-4 px-md-4" style={{ minHeight: '85vh' }}>
-              <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
-                <div className="d-flex align-items-center gap-2">
-                  <span className="badge rounded-pill bg-dark text-white px-3 py-1.5 fw-bold">Taxi Operations Desk</span>
-                  <span className="text-muted small">Live Dispatch Kanban & Flight Radar</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <button className="btn btn-sm btn-outline-dark rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi')}>
-                    ← Back to Taxi Search
-                  </button>
-                  <button className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi-fleet')}>
-                    Live Fleet Directory
-                  </button>
-                  <button className="btn btn-sm btn-primary rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi-chauffeur')}>
-                    Chauffeur Portal
-                  </button>
-                </div>
-              </div>
-              <B2BDispatches />
-            </div>
-          )}
 
-          {activeTab === 'taxi-chauffeur' && (
-            <div className="container-fluid py-4 px-md-4" style={{ minHeight: '85vh' }}>
-              <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
-                <div className="d-flex align-items-center gap-2">
-                  <span className="badge rounded-pill bg-success text-white px-3 py-1.5 fw-bold">Chauffeur Duty Desk</span>
-                  <span className="text-muted small">Driver Duty & Ride Execution</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <button className="btn btn-sm btn-outline-dark rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi')}>
-                    ← Back to Taxi Search
-                  </button>
-                  <button className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi-dispatch')}>
-                    Dispatcher Desk
-                  </button>
-                </div>
-              </div>
-              <ChauffeurPortal />
-            </div>
-          )}
-
-          {activeTab === 'taxi-fleet' && (
-            <div className="container-fluid py-4 px-md-4" style={{ minHeight: '85vh' }}>
-              <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
-                <div className="d-flex align-items-center gap-2">
-                  <span className="badge rounded-pill bg-primary text-white px-3 py-1.5 fw-bold">Live Fleet Directory</span>
-                  <span className="text-muted small">Inter-Fleet Partner Cabs & Tariffs</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <button className="btn btn-sm btn-outline-dark rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi')}>
-                    ← Back to Taxi Search
-                  </button>
-                  <button className="btn btn-sm btn-primary rounded-pill px-3 fw-semibold" onClick={() => handleTabChange('taxi-dispatch')}>
-                    Dispatcher Desk
-                  </button>
-                </div>
-              </div>
-              <LiveFleetDirectory />
-            </div>
-          )}
 
           {activeTab === 'taxi' && (
             <>

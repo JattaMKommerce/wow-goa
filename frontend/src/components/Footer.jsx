@@ -336,6 +336,16 @@ export default function Footer({ setActiveTab }) {
                     FAQs &amp; Guidelines
                   </button>
                 </li>
+                <li className="mt-2.5 pt-2 border-top border-secondary">
+                  <a 
+                    href="/taxi/login" 
+                    className="footer-link d-flex align-items-center gap-1.5 text-decoration-none text-muted"
+                    style={{ fontSize: '12px' }}
+                  >
+                    <Car size={13} className="text-warning" />
+                    <span>Taxi Fleet Partner Login</span>
+                  </a>
+                </li>
               </ul>
             </div>
 

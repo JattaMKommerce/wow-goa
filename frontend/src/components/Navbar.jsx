@@ -263,36 +263,23 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
                       </a>
                     </li>
                   )}
-                                    <li>
-                    <a 
-                      className="dropdown-item d-flex align-items-center gap-2 py-2 fw-bold text-dark" 
-                      style={{ fontSize: '13px' }}
-                      href="/taxi-dispatch"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setActiveTab('taxi-dispatch');
-                        window.history.pushState(null, '', '/taxi-dispatch');
-                        window.dispatchEvent(new PopStateEvent('popstate'));
-                      }}
-                    >
-                      <span>📋 Dispatcher Desk</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a 
-                      className="dropdown-item d-flex align-items-center gap-2 py-2 fw-bold text-dark" 
-                      style={{ fontSize: '13px' }}
-                      href="/taxi-chauffeur"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setActiveTab('taxi-chauffeur');
-                        window.history.pushState(null, '', '/taxi-chauffeur');
-                        window.dispatchEvent(new PopStateEvent('popstate'));
-                      }}
-                    >
-                      <span>🚖 Chauffeur Portal</span>
-                    </a>
-                  </li>
+                  {(currentUser.role === 'taxi_vendor' || ['admin', 'superadmin'].includes(currentUser.role)) && (
+                    <li>
+                      <a 
+                        className="dropdown-item d-flex align-items-center gap-2 py-2 fw-bold text-dark" 
+                        style={{ fontSize: '13px' }}
+                        href="/taxi-portal"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setActiveTab('portal');
+                          window.history.pushState(null, '', '/taxi-portal');
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                        }}
+                      >
+                        <span>🚕 Taxi Fleet Operations</span>
+                      </a>
+                    </li>
+                  )}
 
                   <li><hr className="dropdown-divider my-1" /></li>
                   <li>

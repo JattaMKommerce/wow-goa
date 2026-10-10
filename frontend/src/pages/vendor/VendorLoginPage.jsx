@@ -36,6 +36,16 @@ const VENDOR_LOGIN_CONFIG = {
     destination: '/flight-vendor',
     registerType: 'flight_vendor',
     registerLabel: 'Register as a Flight Vendor'
+  },
+  taxi: {
+    role: 'taxi_vendor',
+    title: 'Taxi & Fleet Operator Portal',
+    subtitle: 'Chauffeurs, Dispatch Desks & B2B Cab Fleet Network',
+    badge: 'TAXI FLEET OPERATOR LOGIN',
+    icon: Car,
+    destination: '/taxi-portal',
+    registerType: 'taxi_vendor',
+    registerLabel: 'Register as a Taxi Fleet Partner'
   }
 };
 
