@@ -3,12 +3,11 @@ import shutil
 import zipfile
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-workspace_root = os.path.abspath(os.path.join(base_dir, "..", ".."))
 dist_dir = os.path.join(base_dir, "frontend", "dist")
 backend_src = os.path.join(base_dir, "backend")
 
 temp_dir = os.path.join(base_dir, "temp_cpanel_build")
-zip_out = os.path.join(workspace_root, "cpanel_deploy.zip")
+zip_out = os.path.join(base_dir, "cpanel_ready_deploy.zip")
 
 print("Building cPanel Deployment Package...")
 print(f"Base Directory: {base_dir}")
