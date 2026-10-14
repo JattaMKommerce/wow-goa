@@ -1,6 +1,17 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api/';
+const isLocal = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+const getBaseUrl = () => {
+  if (isLocal) return 'http://127.0.0.1:8000/api/';
+  if (typeof window !== 'undefined' && window.__TAXI_API_URL__) {
+    return window.__TAXI_API_URL__.endsWith('/') ? window.__TAXI_API_URL__ : `${window.__TAXI_API_URL__}/`;
+  }
+  return '/taxi-api/api/';
+};
+
+const API_BASE_URL = getBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
