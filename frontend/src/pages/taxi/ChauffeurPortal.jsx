@@ -9,7 +9,7 @@ import {
   Headphones
 } from 'lucide-react';
 import { useAuth } from '../../context/TaxiAuthContext';
-import VIPPlacardModal from '../../components/taxi/VIPPlacardModal';
+import VIPPlacardModal from '../../components/taxi/dispatches/VIPPlacardModal';
 
 const ChauffeurPortal = () => {
   const { activeRole, setActiveRole } = useAuth();

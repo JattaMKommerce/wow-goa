@@ -2267,6 +2267,73 @@ export default function App() {
     );
   }
 
+  // ─── TAXI / APEX CHAUFFEUR STANDALONE VIEW ───────────────────────────────
+  if (
+    (path === '/taxi' || (path.startsWith('/taxi') && !path.startsWith('/taxi-') && !path.startsWith('/taxi/login') && !path.startsWith('/taxi/dispatch')) || activeTab === 'taxi') &&
+    path !== '/taxi-portal' && path !== '/taxi-dispatch' && path !== '/taxi-chauffeur' && path !== '/taxi-fleet'
+  ) {
+    return (
+      <div className="d-flex flex-column min-vh-100 bg-white">
+        <Navbar
+          activeTab={activeTab}
+          setActiveTab={handleTabChange}
+          currentUser={currentUser}
+          triggerOpenLogin={() => setShowLoginModal(true)}
+          onOpenLogin={() => setShowLoginModal(true)}
+          onLogout={handleLogout}
+        />
+        <TaxiServicesPage
+          pickupLoc={pickupLoc}
+          dropLoc={dropLoc}
+          pickupDate={pickupDate}
+          pickupTime={pickupTime}
+          onBookTaxi={handleOpenBooking}
+          onNavigateToConsole={() => {
+            window.history.pushState(null, '', '/taxi-portal');
+            setCurrentPath('/taxi-portal');
+            setActiveTab('portal');
+          }}
+        />
+        <Footer setActiveTab={handleTabChange} />
+        <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLogin} />
+        {selectedBookingItem && (
+          <BookingModal
+            key={selectedBookingItem ? `${selectedBookingItem.id || selectedBookingItem.name}_${lastConfirmedBooking?.id || 'new'}` : 'closed'}
+            selectedBookingItem={selectedBookingItem}
+            setSelectedBookingItem={setSelectedBookingItem}
+            onCloseModal={handleCloseBookingModal}
+            showSuccess={Boolean(showSuccess && lastConfirmedBooking)}
+            setShowSuccess={setShowSuccess}
+            userName={userName}
+            setUserName={setUserName}
+            userPhone={userPhone}
+            setUserPhone={setUserPhone}
+            userEmail={userEmail}
+            setUserEmail={setUserEmail}
+            userLicense={userLicense}
+            setUserLicense={setUserLicense}
+            pickupLoc={pickupLoc}
+            dropLoc={dropLoc}
+            setDropLoc={setDropLoc}
+            pickupDate={pickupDate}
+            pickupTime={pickupTime}
+            dropDate={dropDate}
+            dropTime={dropTime}
+            bookingDays={bookingDays}
+            handleConfirmBooking={handleConfirmBooking}
+            lastConfirmedBooking={lastConfirmedBooking}
+            setLastConfirmedBooking={setLastConfirmedBooking}
+            allPackages={packages}
+            allCars={cars}
+            allBikes={bikes}
+          />
+        )}
+        <AIChatbot />
+        <WhatsAppWidget />
+      </div>
+    );
+  }
+
   // ─── MAIN PUBLIC STOREFRONT VIEW ──────────────────────────────────────────
   return (
     <div className="d-flex flex-column min-vh-100 bg-white">

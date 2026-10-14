@@ -8,11 +8,11 @@ import {
   Check, RefreshCw, Plane, UserCheck, Receipt, Building2, 
   Printer, AlertTriangle, FileText, CheckCircle, Sparkles, Crown, LayoutGrid
 } from 'lucide-react';
-import AIMatchmakerModal from '../../components/taxi/AIMatchmakerModal';
-import FlightRadarDesk from '../../components/taxi/FlightRadarDesk';
-import VIPPlacardModal from '../../components/taxi/VIPPlacardModal';
-import HotSwapReassignModal from '../../components/taxi/HotSwapReassignModal';
-import DispatchKanbanBoard from '../../components/taxi/DispatchKanbanBoard';
+import AIMatchmakerModal from '../../components/taxi/dispatches/AIMatchmakerModal';
+import FlightRadarDesk from '../../components/taxi/dispatches/FlightRadarDesk';
+import VIPPlacardModal from '../../components/taxi/dispatches/VIPPlacardModal';
+import HotSwapReassignModal from '../../components/taxi/dispatches/HotSwapReassignModal';
+import DispatchKanbanBoard from '../../components/taxi/dispatches/DispatchKanbanBoard';
 
 const B2BDispatches = () => {
   const [bookings, setBookings] = useState([]);

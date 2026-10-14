@@ -33,3 +33,8 @@ Thumbs.db
 # Scratch debug scripts
 scratch/
 
+# SQLite WAL and temp files
+*.sqlite-shm
+*.sqlite-wal
+backend/*.sqlite-shm
+backend/*.sqlite-wal
