@@ -169,6 +169,10 @@ export default function B2BPortalPage({
   }
 
   const handleSelectServiceFromHome = (serviceKey) => {
+    if (serviceKey === 'taxi') {
+      window.location.href = '/taxi';
+      return;
+    }
     setActiveServiceTab(serviceKey);
     // Route to appropriate active mode tab
     if (hasCommission) {

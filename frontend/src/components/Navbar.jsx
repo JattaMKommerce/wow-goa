@@ -50,6 +50,23 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
               );
             })}
 
+                        {/* Taxi Services Direct Link */}
+            <li className="nav-item">
+              <a 
+                className={`nav-link ${activeTab === 'taxi' ? 'active' : ''}`} 
+                href="/taxi" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveTab('taxi');
+                  setTimeout(() => {
+                    document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }, 50);
+                }}
+              >
+                <span>🚕 Cabs & Taxis</span>
+              </a>
+            </li>
+
             {/* Customer Bookings Link */}
             <li className="nav-item">
               <a 
@@ -246,6 +263,24 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
                       </a>
                     </li>
                   )}
+                  {(currentUser.role === 'taxi_vendor' || ['admin', 'superadmin'].includes(currentUser.role)) && (
+                    <li>
+                      <a 
+                        className="dropdown-item d-flex align-items-center gap-2 py-2 fw-bold text-dark" 
+                        style={{ fontSize: '13px' }}
+                        href="/taxi-portal"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setActiveTab('portal');
+                          window.history.pushState(null, '', '/taxi-portal');
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                        }}
+                      >
+                        <span>🚕 Taxi Fleet Operations</span>
+                      </a>
+                    </li>
+                  )}
+
                   <li><hr className="dropdown-divider my-1" /></li>
                   <li>
                     <button 

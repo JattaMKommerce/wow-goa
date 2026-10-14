@@ -1,3 +1,6 @@
+import TaxiServicesPage from './pages/customer/TaxiServicesPage';
+import TaxiOperationsHub from './pages/taxi/TaxiOperationsHub';
+
 import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import './App.css';
 import { useSiteConfig } from './context/SiteConfigContext';
@@ -86,6 +89,9 @@ export default function App() {
       const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '/';
       // Derive tab directly from URL path — most reliable on refresh
       if (p.startsWith('/v/')) return 'vendor-storefront';
+      if (p.startsWith('/taxi-dispatch') || p.startsWith('/taxi/dispatch')) return 'taxi-dispatch';
+      if (p.startsWith('/taxi/login') || p.startsWith('/taxi-portal') || p.startsWith('/taxi-dispatch') || p.startsWith('/taxi-chauffeur') || p.startsWith('/taxi-fleet')) return 'portal';
+      if (p.startsWith('/taxi')) return 'taxi';
       if ((p === '/vehicle' || p === '/vehicles' || p.startsWith('/vehicle/') || p.startsWith('/vehicles/')) && p !== '/vehicle/login') return 'selfdrive';
       if (p.startsWith('/admin') || p === '/portal' || p.startsWith('/sub-admin') || p.startsWith('/subadmin') || p.startsWith('/superadmin') || p.startsWith('/super-admin') || p === '/vendor' || p === '/hotel-vendor' || p === '/flight-vendor' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login') return 'portal';
       if (p.startsWith('/b2b') || p === '/register' || p.startsWith('/vendor/register')) return 'b2b';
@@ -745,7 +751,7 @@ export default function App() {
       else if (cleanPath === 'craft' || cleanPath === 'craftmytrip') newTab = 'craftmytrip';
       else if (cleanPath === 'custom-trip') newTab = 'custom-trip';
       else if (cleanPath === 'customer' || cleanPath.startsWith('customer') || cleanPath === 'my-bookings') newTab = 'customer';
-      else if (cleanPath === 'admin' || cleanPath === 'portal' || cleanPath === 'superadmin' || cleanPath === 'vendor' || cleanPath === 'hotel-vendor' || cleanPath === 'hotel-pms' || cleanPath === 'flight-vendor' || cleanPath === 'sub-admin' || cleanPath === 'subadmin' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login') newTab = 'portal';
+      else if (cleanPath === 'admin' || cleanPath === 'portal' || cleanPath === 'superadmin' || cleanPath === 'vendor' || cleanPath === 'hotel-vendor' || cleanPath === 'hotel-pms' || cleanPath === 'flight-vendor' || cleanPath === 'sub-admin' || cleanPath === 'subadmin' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login' || p === '/taxi/login' || cleanPath === 'taxi-portal' || cleanPath === 'taxi-dispatch' || cleanPath === 'taxi-chauffeur' || cleanPath === 'taxi-fleet') newTab = 'portal';
       else if (cleanPath === 'dashboard') newTab = 'dashboard';
       else if (cleanPath === 'b2b' || cleanPath.startsWith('b2b') || p === '/register' || p.startsWith('/vendor/register')) newTab = 'b2b';
       else if (cleanPath === 'driver') newTab = 'driver';
@@ -785,6 +791,10 @@ export default function App() {
     const pathMap = {
       'packages': '/packages',
       'selfdrive': '/self-drive',
+      'taxi': '/taxi',
+      'taxi-dispatch': '/taxi-dispatch',
+      'taxi-chauffeur': '/taxi-chauffeur',
+      'taxi-fleet': '/taxi-fleet',
       'hotels': '/hotels',
       'cars': '/cars',
       'bikes': '/bikes',
@@ -803,7 +813,7 @@ export default function App() {
 
     if (['hotels', 'flights', 'craftmytrip', 'activities'].includes(normalizedTab)) {
       setSearchTriggered(true);
-    } else if (['selfdrive', 'packages', 'cars', 'home'].includes(normalizedTab)) {
+    } else if (['selfdrive', 'packages', 'cars', 'home', 'taxi'].includes(normalizedTab)) {
       setSearchTriggered(false);
     }
   };
@@ -1514,9 +1524,10 @@ export default function App() {
       const isTripPkg = !isActivity && !isSelfDrivePkg && (selectedBookingItem.package_type === 'Trip Package' || selectedBookingItem.type === 'package' || String(selectedBookingItem.id || '').startsWith('pkg-') || String(selectedBookingItem.id || '').startsWith('package-') || Boolean(selectedBookingItem.duration && !selectedBookingItem.seating && !selectedBookingItem.engine));
       const isHotel = !isActivity && (selectedBookingItem.type === 'hotel' || Boolean(selectedBookingItem.stars || selectedBookingItem.hotel_name));
       const isFlight = !isActivity && (selectedBookingItem.type === 'flight' || Boolean(selectedBookingItem.airline));
+      const isTaxi = selectedBookingItem.type === 'taxi' || selectedBookingItem.package_type === 'Taxi Transfer' || String(selectedBookingItem.id || '').startsWith('tx-');
       const vType = normalizeVehicleType(selectedBookingItem);
-      const isCar = !isActivity && !isTripPkg && !isSelfDrivePkg && (vType === 'car');
-      const isBike = !isActivity && !isTripPkg && !isSelfDrivePkg && (vType === 'bike');
+      const isCar = !isActivity && !isTripPkg && !isSelfDrivePkg && !isTaxi && (vType === 'car');
+      const isBike = !isActivity && !isTripPkg && !isSelfDrivePkg && !isTaxi && (vType === 'bike');
 
       let detectedType = 'selfdrive';
       let detectedPkgType = 'Self Drive Package';
@@ -1536,6 +1547,9 @@ export default function App() {
       } else if (isFlight) {
         detectedType = 'flight';
         detectedPkgType = 'Flight Booking';
+      } else if (isTaxi) {
+        detectedType = 'taxi';
+        detectedPkgType = 'Taxi Chauffeur Transfer';
       } else if (isCar) {
         detectedType = 'car';
         detectedPkgType = 'Car Rental';
@@ -1625,6 +1639,31 @@ export default function App() {
         cashback_preview: res?.cashback_preview || res?.booking?.cashback_preview || null
       };
       
+            // Phase 2: Live Sync with Django Taxi Dispatcher Desk
+      if (isTaxi) {
+        try {
+          await fetch('http://127.0.0.1:8000/api/dispatches/bookings/create-booking/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              booking_reference: confirmedBooking.id,
+              passenger_name: userName,
+              passenger_phone: cleanPhone,
+              pickup_location: payload.pickup_location || 'Goa Airport',
+              dropoff_location: payload.drop_location || 'North / South Goa',
+              pickup_time: `${pDate} ${payload.pickup_time || '10:00 AM'}`,
+              vehicle_class_requested: (selectedBookingItem.category || 'SEDAN').toUpperCase(),
+              flight_number: extraDetails.flight_number || '',
+              total_fare_inr: totalCost,
+              special_instructions: `Booked via Wow Goa Web - ${selectedBookingItem.name}`
+            })
+          });
+          console.log('Successfully dispatched booking to Django Dispatcher Desk!');
+        } catch (syncErr) {
+          console.warn('Taxi dispatch sync warning:', syncErr);
+        }
+      }
+
       setLastConfirmedBooking(confirmedBooking);
 
       // Set customer phone and local bookings for instant Customer Portal access
@@ -1813,7 +1852,7 @@ export default function App() {
   }
 
   // ─── ADMIN / SUPERADMIN / VENDOR / SUBADMIN PORTALS ───────────────────────
-  if (activeTab === 'portal' || path.startsWith('/admin') || path === '/portal' || path.startsWith('/sub-admin') || path.startsWith('/subadmin') || path.startsWith('/superadmin') || path.startsWith('/super-admin') || path === '/vendor' || path === '/hotel-vendor' || path === '/flight-vendor' || path === '/vehicle/login' || path === '/hotel/login' || path === '/flight/login' || ((currentUser?.role === 'subadmin' || currentUser?.role === 'sub_admin') && (path === '/portal' || activeTab === 'portal'))) {
+  if (activeTab === 'portal' || path.startsWith('/admin') || path === '/portal' || path.startsWith('/sub-admin') || path.startsWith('/subadmin') || path.startsWith('/superadmin') || path.startsWith('/super-admin') || path === '/vendor' || path === '/hotel-vendor' || path === '/flight-vendor' || path === '/vehicle/login' || path === '/hotel/login' || path === '/flight/login' || path === '/taxi/login' || path === '/taxi-portal' || path === '/taxi-dispatch' || path === '/taxi-chauffeur' || path === '/taxi-fleet' || ((currentUser?.role === 'subadmin' || currentUser?.role === 'sub_admin') && (path === '/portal' || activeTab === 'portal'))) {
     // ── Dedicated Vendor Login Routes ─────────────────────────────────────────
     if (path === '/vehicle/login') {
       if (currentUser && (currentUser.role === 'vendor' || currentUser.role === 'vehicle_vendor')) {
@@ -1873,6 +1912,41 @@ export default function App() {
           />
         );
       }
+    }
+
+    // ── Dedicated Taxi Vendor Login & Operations Hub ──────────────────────────
+    if (path === '/taxi/login') {
+      if (currentUser && (currentUser.role === 'taxi_vendor' || currentUser.role === 'admin' || currentUser.role === 'superadmin')) {
+        window.history.replaceState(null, '', '/taxi-portal');
+        setCurrentPath('/taxi-portal');
+      } else {
+        return (
+          <VendorLoginPage
+            vendorType="taxi"
+            onLoginSuccess={(u) => handleVendorLoginSuccess(u, '/taxi-portal')}
+            onNavigateHome={() => handleTabChange('taxi')}
+            onNavigateRegister={() => {
+              handleTabChange('b2b');
+              window.history.pushState(null, '', '/b2b/register?vendor=taxi_vendor');
+              setCurrentPath('/b2b/register');
+            }}
+          />
+        );
+      }
+    }
+
+    if (path === '/taxi-portal' || path === '/taxi-dispatch' || path === '/taxi-chauffeur' || path === '/taxi-fleet') {
+      let initialDesk = 'dispatch';
+      if (path === '/taxi-chauffeur') initialDesk = 'chauffeur';
+      else if (path === '/taxi-fleet') initialDesk = 'fleet';
+
+      return (
+        <TaxiOperationsHub
+          initialTab={initialDesk}
+          onLogout={handleLogout}
+          onNavigateHome={() => handleTabChange('taxi')}
+        />
+      );
     }
 
     // Superadmin route guard
@@ -2283,6 +2357,21 @@ export default function App() {
                 onViewVehicle={(veh) => handleOpenDetails(veh, normalizeVehicleType(veh))}
                 onBook={handleOpenBooking}
                 onViewDetails={(veh) => handleOpenDetails(veh, normalizeVehicleType(veh))}
+              />
+              <FeaturesGrid />
+            </>
+          )}
+
+
+
+          {activeTab === 'taxi' && (
+            <>
+              <TaxiServicesPage
+                pickupLoc={pickupLoc}
+                dropLoc={dropLoc}
+                pickupDate={pickupDate}
+                pickupTime={pickupTime}
+                onBookTaxi={handleOpenBooking}
               />
               <FeaturesGrid />
             </>
