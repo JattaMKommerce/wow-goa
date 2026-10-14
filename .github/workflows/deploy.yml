@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/implementation
+      - feature/neww
   workflow_dispatch:
 
 jobs:
@@ -53,7 +54,7 @@ jobs:
             -H "X-Deploy-Secret: WowGoaDeploySecret_2026_SecureKey" \
             -H "Content-Type: application/octet-stream" \
             --data-binary "@deploy_bundle.zip" \
-            "https://wowgoa.in/backend/deploy_v2.php")
+            "https://wowgoa.in/backend/deploy_receiver.php")
           
           HTTP_BODY=$(echo "$RESPONSE" | sed '$d')
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
