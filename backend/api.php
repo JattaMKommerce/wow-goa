@@ -591,11 +591,52 @@ if (!$connected) {
             "ALTER TABLE bikes ADD COLUMN has_mobile_holder INT DEFAULT 1",
             "ALTER TABLE bikes ADD COLUMN delivery_options VARCHAR(255) DEFAULT 'Airport (Mopa & Dabolim), Hotel Handover, Hub Pickup'",
             "ALTER TABLE bikes ADD COLUMN min_age INT DEFAULT 18",
-            "ALTER TABLE bikes ADD COLUMN terms_json TEXT DEFAULT NULL"
+            "ALTER TABLE bikes ADD COLUMN terms_json TEXT DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN status VARCHAR(50) DEFAULT 'published'",
+            "ALTER TABLE packages ADD COLUMN admin_id VARCHAR(100) DEFAULT 'admin'",
+            "ALTER TABLE packages ADD COLUMN hotel_source VARCHAR(50) DEFAULT 'inventory'",
+            "ALTER TABLE packages ADD COLUMN hotel_inventory_id VARCHAR(50) DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN hotel_selection_type VARCHAR(50) DEFAULT 'specific'",
+            "ALTER TABLE packages ADD COLUMN hotel_category VARCHAR(100) DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN hotel_room_type VARCHAR(100) DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN hotel_custom_json TEXT DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN vehicle_source VARCHAR(50) DEFAULT 'inventory'",
+            "ALTER TABLE packages ADD COLUMN vehicle_inventory_id VARCHAR(50) DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN vehicle_type VARCHAR(50) DEFAULT 'car'",
+            "ALTER TABLE packages ADD COLUMN vehicle_custom_json TEXT DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN driver_included BOOLEAN DEFAULT 0",
+            "ALTER TABLE packages ADD COLUMN driver_type VARCHAR(50) DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN driver_pricing_type VARCHAR(50) DEFAULT 'included'",
+            "ALTER TABLE packages ADD COLUMN driver_amount INT DEFAULT 0",
+            "ALTER TABLE packages ADD COLUMN sightseeing_custom_json TEXT DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN activity_source VARCHAR(50) DEFAULT 'inventory'",
+            "ALTER TABLE packages ADD COLUMN activity_inventory_id VARCHAR(50) DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN activity_custom_json TEXT DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN flight_source VARCHAR(50) DEFAULT 'inventory'",
+            "ALTER TABLE packages ADD COLUMN flight_inventory_id VARCHAR(50) DEFAULT NULL",
+            "ALTER TABLE packages ADD COLUMN flight_custom_json TEXT DEFAULT NULL",
+            "CREATE TABLE IF NOT EXISTS vendor_hold_settings (id VARCHAR(50) PRIMARY KEY, vendor_id VARCHAR(50) NOT NULL UNIQUE, allow_hold_booking INT DEFAULT 1, hold_type VARCHAR(20) DEFAULT 'percentage', hold_value DECIMAL(10,2) DEFAULT 20.00, hold_due_policy VARCHAR(100) DEFAULT 'checkin', min_booking_amount DECIMAL(10,2) DEFAULT 500.00, created_at DATETIME, updated_at DATETIME)",
+            "ALTER TABLE vendors ADD COLUMN allow_hold_booking INT DEFAULT 1",
+            "ALTER TABLE vendors ADD COLUMN hold_type VARCHAR(20) DEFAULT 'percentage'",
+            "ALTER TABLE vendors ADD COLUMN hold_value DECIMAL(10,2) DEFAULT 20.00",
+            "ALTER TABLE vendors ADD COLUMN hold_due_policy VARCHAR(100) DEFAULT 'checkin'",
+            "ALTER TABLE vendors ADD COLUMN min_booking_amount DECIMAL(10,2) DEFAULT 500.00",
+            "ALTER TABLE bookings ADD COLUMN is_hold_booking INT DEFAULT 0",
+            "ALTER TABLE bookings ADD COLUMN hold_amount DECIMAL(10,2) DEFAULT 0.00",
+            "ALTER TABLE bookings ADD COLUMN remaining_due_amount DECIMAL(10,2) DEFAULT 0.00",
+            "ALTER TABLE bookings ADD COLUMN hold_due_policy VARCHAR(100) DEFAULT 'checkin'"
         ];
         foreach ($drvAlters as $da) {
             try { $pdo->exec($da); } catch (Exception $e) {}
         }
+        try {
+            $pdo->exec("UPDATE cars SET image = REPLACE(image, 'http://localhost:8000', '') WHERE image LIKE '%localhost:8000%'");
+            $pdo->exec("UPDATE cars SET images_json = REPLACE(images_json, 'http:\/\/localhost:8000', '') WHERE images_json LIKE '%localhost:8000%'");
+            $pdo->exec("UPDATE bikes SET image = REPLACE(image, 'http://localhost:8000', '') WHERE image LIKE '%localhost:8000%'");
+            $pdo->exec("UPDATE bikes SET images_json = REPLACE(images_json, 'http:\/\/localhost:8000', '') WHERE images_json LIKE '%localhost:8000%'");
+            $pdo->exec("UPDATE hotels SET image = REPLACE(image, 'http://localhost:8000', '') WHERE image LIKE '%localhost:8000%'");
+            $pdo->exec("UPDATE packages SET image = REPLACE(image, 'http://localhost:8000', '') WHERE image LIKE '%localhost:8000%'");
+        } catch (Exception $e) {}
         try {
             VendorWalletAlertService::ensureSchema($pdo);
         } catch (Exception $e) {}

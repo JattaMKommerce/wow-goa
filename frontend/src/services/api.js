@@ -130,6 +130,21 @@ import {
 // GET (Read) Functions with Resilient Fallbacks
 // ==========================================
 
+export function sanitizeItemImages(item) {
+  if (!item || typeof item !== 'object') return item;
+  const clean = (url) => {
+    if (typeof url !== 'string') return url;
+    return url.replace(/^http:\/\/(localhost|127\.0\.0\.1):8000/, '');
+  };
+  if (item.image) item.image = clean(item.image);
+  if (item.image_url) item.image_url = clean(item.image_url);
+  if (item.imageUrl) item.imageUrl = clean(item.imageUrl);
+  if (typeof item.images_json === 'string') {
+    item.images_json = item.images_json.replace(/http:\\\/\\\/(localhost|127\.0\.0\.1):8000/g, '').replace(/http:\/\/(localhost|127\.0\.0\.1):8000/g, '');
+  }
+  return item;
+}
+
 export async function fetchCars(params = {}) {
   try {
     let url = `${API_BASE}?resource=cars`;
@@ -138,7 +153,7 @@ export async function fetchCars(params = {}) {
     const res = await apiFetch(url, fetchOpts);
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(data) ? data.map(sanitizeItemImages) : [];
   } catch (err) {
     console.warn('[API] Cars fetch fallback used:', err.message);
     return [];
@@ -153,7 +168,7 @@ export async function fetchBikes(params = {}) {
     const res = await apiFetch(url, fetchOpts);
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(data) ? data.map(sanitizeItemImages) : [];
   } catch (err) {
     console.warn('[API] Bikes fetch fallback used:', err.message);
     return [];
@@ -187,7 +202,7 @@ export async function fetchHotels(params = {}) {
     const res = await apiFetch(url);
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(data) ? data.map(sanitizeItemImages) : [];
   } catch (err) {
     console.warn('[API] Hotels fetch fallback used:', err.message);
     return [];
@@ -251,7 +266,7 @@ export async function fetchPackages() {
     const res = await apiFetch(`${API_BASE}?resource=packages`);
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(data) ? data.map(sanitizeItemImages) : [];
   } catch (err) {
     console.warn('[API] Packages fetch fallback used:', err.message);
     return [];
