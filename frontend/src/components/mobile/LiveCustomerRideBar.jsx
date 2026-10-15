@@ -106,36 +106,54 @@ export default function LiveCustomerRideBar() {
 
   return (
     <>
-      {/* ── FLOATING MINI BOTTOM BAR (Visible on mobile above bottom nav, bottom right on desktop) ── */}
+      {/* ── FLOATING MINI BOTTOM BAR (Centered Floating Island: Never covered by Luzia AI or WhatsApp) ── */}
+      <style>{`
+        .live-customer-ride-island {
+          position: fixed;
+          bottom: 24px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: min(520px, calc(100vw - 32px));
+          z-index: 1060;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-radius: 20px;
+          padding: 12px 16px;
+          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 0 0 1.5px rgba(255, 255, 255, 0.2);
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+        .live-customer-ride-island:hover {
+          transform: translateX(-50%) translateY(-2px);
+          box-shadow: 0 16px 42px rgba(0, 0, 0, 0.55), 0 0 0 2px rgba(255, 255, 255, 0.3);
+        }
+        @media (max-width: 768px) {
+          .live-customer-ride-island {
+            bottom: 78px;
+            width: calc(100vw - 20px);
+            padding: 10px 12px;
+          }
+        }
+      `}</style>
       <aside 
         aria-label="Active Ride Tracker"
+        className="live-customer-ride-island"
         style={{
-          position: 'fixed',
-          bottom: typeof window !== 'undefined' && window.innerWidth <= 768 ? '74px' : '24px',
-          left: typeof window !== 'undefined' && window.innerWidth <= 768 ? '12px' : 'auto',
-          right: typeof window !== 'undefined' && window.innerWidth <= 768 ? '12px' : '24px',
-          width: typeof window !== 'undefined' && window.innerWidth <= 768 ? 'auto' : '380px',
-          zIndex: 999,
           background: isRequested ? '#78350f' : (isDriverArrived ? '#7c3aed' : (isOnTrip ? '#16a34a' : (isCompleted ? '#0f172a' : '#0B192C'))),
           color: '#ffffff',
-          borderRadius: '18px',
-          padding: '12px 16px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          cursor: 'pointer',
-          transition: 'all 0.3s cubic-bezier(0.2, 0, 0, 1)',
           animation: (isDriverArrived || isRequested) ? 'pulse 2s infinite' : 'none'
         }}
         onClick={() => setIsExpanded(true)}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
           <div style={{
             width: '38px',
             height: '38px',
             borderRadius: '12px',
-            background: 'rgba(255, 255, 255, 0.15)',
+            background: 'rgba(255, 255, 255, 0.18)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -145,35 +163,32 @@ export default function LiveCustomerRideBar() {
             {isRequested ? '⏳' : (isDriverArrived ? '📍' : (isOnTrip ? '🚗' : (isCompleted ? '🏁' : '🚕')))}
           </div>
 
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
               <span style={{
-                fontSize: '0.68rem',
+                fontSize: '0.66rem',
                 fontWeight: 900,
                 textTransform: 'uppercase',
-                background: isRequested ? '#b45309' : 'rgba(255,255,255,0.2)',
-                padding: '2px 6px',
+                background: isRequested ? '#b45309' : 'rgba(255,255,255,0.22)',
+                padding: '2px 7px',
                 borderRadius: '6px',
                 letterSpacing: '0.04em'
               }}>
-                {isRequested && 'AWAITING DRIVER ACCEPT'}
+                {isRequested && 'AWAITING DRIVER'}
                 {isDriverArrived && 'CHAUFFEUR ARRIVED'}
                 {isOnTrip && 'RIDE IN PROGRESS'}
                 {isCompleted && 'RIDE COMPLETED'}
                 {isEnRoute && 'CHAUFFEUR EN ROUTE'}
               </span>
-              <span style={{ fontSize: '0.74rem', opacity: 0.85, fontWeight: 700 }}>
-                OTP: <strong style={{ color: '#fef08a' }}>{activeRide.otp || '4821'}</strong>
-              </span>
             </div>
 
             <div style={{
-              fontSize: '0.86rem',
+              fontSize: '0.84rem',
               fontWeight: 800,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              marginTop: '2px'
+              marginTop: '3px'
             }}>
               {isRequested && `Waiting for ${activeRide.chauffeur || 'Suresh Naik'} to accept`}
               {isDriverArrived && 'Chauffeur is waiting at pickup spot!'}
@@ -184,27 +199,51 @@ export default function LiveCustomerRideBar() {
           </div>
         </div>
 
-        <button 
-          type="button"
-          aria-label="Expand ride details"
-          style={{
-            background: 'rgba(255, 255, 255, 0.2)',
-            border: 'none',
-            color: '#ffffff',
-            borderRadius: '10px',
-            padding: '6px 12px',
-            fontSize: '0.76rem',
-            fontWeight: 800,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            flexShrink: 0,
-            cursor: 'pointer'
-          }}
-        >
-          <span>Track</span>
-          <ChevronUp size={14} />
-        </button>
+        {/* ── HIGH-VISIBILITY PROMINENT OTP BADGE ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: '8px' }}>
+          <div 
+            style={{
+              background: '#fef08a',
+              color: '#713f12',
+              borderRadius: '10px',
+              padding: '4px 10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+              border: '1.5px solid #fde047'
+            }}
+            title="Share this OTP with your chauffeur upon boarding"
+          >
+            <span style={{ fontSize: '0.68rem', fontWeight: 900, textTransform: 'uppercase', opacity: 0.9 }}>
+              OTP
+            </span>
+            <strong style={{ fontSize: '1.05rem', fontWeight: 900, letterSpacing: '0.06em', color: '#1e293b' }}>
+              {activeRide.otp || '4821'}
+            </strong>
+          </div>
+
+          <button 
+            type="button"
+            aria-label="Expand ride details"
+            style={{
+              background: 'rgba(255, 255, 255, 0.22)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: '#ffffff',
+              borderRadius: '10px',
+              padding: '6px 10px',
+              fontSize: '0.74rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '3px',
+              cursor: 'pointer'
+            }}
+          >
+            <span>Track</span>
+            <ChevronUp size={14} />
+          </button>
+        </div>
       </aside>
 
       {/* ── EXPANDED FULL-SCREEN / MODAL RIDE TRACKING SHEET ── */}
