@@ -6540,7 +6540,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
         
         include_once __DIR__ . '/taxi_dispatch_actions.php';
-        include_once 'hotel_pms_get.php';
+        if (str_starts_with($resource, 'pms_')) {
+            include_once 'hotel_pms_get.php';
+        }
         
         echo json_encode(["status" => "online", "database" => "connected"]);
         exit;

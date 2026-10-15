@@ -10,6 +10,19 @@ if (!isset($pdo)) {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 }
 
+// Self-healing: auto-create taxi tables if they do not exist
+try {
+    $tblCheck = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='taxi_dispatches'")->fetchColumn();
+    if (!$tblCheck) {
+        $migrateScript = __DIR__ . '/migrate_taxi_dispatch_system.php';
+        if (file_exists($migrateScript)) {
+            include_once $migrateScript;
+        }
+    }
+} catch (\Throwable $e) {
+    // Non-fatal if already initialized
+}
+
 // ============================================================================
 // 1. GET REQUESTS (Live Tracking, Vendor Feed, Driver Queue, Fleet Telematics)
 // ============================================================================
