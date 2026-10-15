@@ -18,7 +18,8 @@ import {
   ChevronRight,
   Plane,
   AlertCircle,
-  Binoculars
+  Binoculars,
+  Globe
 } from 'lucide-react';
 import { getTodayDateStr, getNextDayDateStr, validateBookingDates } from '../utils/dateUtils';
 import UnifiedFilterPopover, { countActiveTabFilters } from './common/UnifiedFilterPopover';
@@ -629,6 +630,24 @@ export default function SearchWidget({
           >
             <Wand2 />
             <span>Craft My Trip ✨</span>
+          </button>
+          <button 
+            type="button" 
+            role="tab"
+            aria-selected={activeTab === 'visa'}
+            className={`widget-tab-btn ${activeTab === 'visa' ? 'active' : ''}`}
+            onClick={() => { 
+              setActiveTab('visa'); 
+              setActiveDropdown(null); 
+              setValidationError(''); 
+              setTimeout(() => {
+                document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
+              }, 50);
+            }}
+            title="India Tourist e-Visa Assistance for Goa"
+          >
+            <Globe />
+            <span>🛂 Visa Services</span>
           </button>
         </div>
 

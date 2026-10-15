@@ -3,7 +3,7 @@ import {
   Compass, MapPin, Phone, Mail, Clock, ShieldCheck, 
   Car, Bike, Building2, Package, Sparkles, Navigation, 
   CreditCard, CheckCircle2, HelpCircle, ExternalLink, 
-  X, FileText, ChevronRight, MessageSquare
+  X, FileText, ChevronRight, MessageSquare, Globe
 } from 'lucide-react';
 import { useSiteConfig } from '../context/SiteConfigContext';
 
@@ -235,6 +235,12 @@ export default function Footer({ setActiveTab }) {
                   <a href="/craft" onClick={(e) => handleNavClick(e, 'craftmytrip')} className="footer-link d-flex align-items-center gap-1.5 text-decoration-none">
                     <Sparkles size={13} className="text-warning" />
                     <span>Craft My Trip</span>
+                  </a>
+                </li>
+                <li className="mb-2">
+                  <a href="/visa" onClick={(e) => handleNavClick(e, 'visa')} className="footer-link d-flex align-items-center gap-1.5 text-decoration-none">
+                    <Globe size={13} className="text-warning" />
+                    <span>Goa Tourist e-Visa</span>
                   </a>
                 </li>
               </ul>

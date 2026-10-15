@@ -95,6 +95,23 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
               </a>
             </li>
 
+            {/* Direct 1-Click Goa Tourist Visa for International Guests */}
+            <li className="nav-item">
+              <a 
+                className={`nav-link ${activeTab === 'visa' ? 'active' : ''}`} 
+                style={{ color: activeTab === 'visa' ? '#38bdf8' : '#ffffff', fontWeight: 700 }}
+                href="/visa" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveTab('visa');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                title="India Tourist e-Visa Assistance for Goa"
+              >
+                <span>🛂 Goa Visa</span>
+              </a>
+            </li>
+
 
 
             {/* Custom Trip Enquiry Button */}

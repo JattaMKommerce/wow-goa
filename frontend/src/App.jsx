@@ -64,6 +64,7 @@ import RoleAccessDeniedModal from './components/vendor/RoleAccessDeniedModal';
 import PublicVendorStorefrontPage from './pages/vendor/PublicVendorStorefrontPage';
 import TaxiVendorPortalPage from './pages/vendor/TaxiVendorPortalPage';
 import CustomerCabsPage from './pages/customer/CustomerCabsPage';
+import VisaSection from './components/visa/VisaSection';
 import MobileBottomNav from './components/mobile/MobileBottomNav';
 import MobileInstallBanner from './components/mobile/MobileInstallBanner';
 import MobileVacationQuickBar from './components/mobile/MobileVacationQuickBar';
@@ -96,6 +97,7 @@ export default function App() {
       // Derive tab directly from URL path — most reliable on refresh
       if (p.startsWith('/v/')) return 'vendor-storefront';
       if (p.startsWith('/cabs') || p.startsWith('/taxi')) return 'cabs';
+      if (p.startsWith('/visa')) return 'visa';
       if ((p === '/vehicle' || p === '/vehicles' || p.startsWith('/vehicle/') || p.startsWith('/vehicles/')) && p !== '/vehicle/login') return 'selfdrive';
       if (p.startsWith('/admin') || p === '/portal' || p.startsWith('/sub-admin') || p.startsWith('/subadmin') || p.startsWith('/superadmin') || p.startsWith('/super-admin') || p === '/vendor' || p === '/hotel-vendor' || p === '/flight-vendor' || p === '/taxi-vendor' || p.startsWith('/taxi-vendor') || p === '/chauffeur' || p === '/chauffer' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login' || p === '/taxi/login') return 'portal';
       if (p.startsWith('/b2b') || p === '/register' || p.startsWith('/vendor/register')) return 'b2b';
@@ -807,6 +809,7 @@ export default function App() {
       'custom-trip': '/custom-trip',
       'customer': '/customer',
       'b2b': '/b2b',
+      'visa': '/visa',
       'portal': currentUser?.role === 'taxi_vendor' ? '/taxi-vendor' : (currentUser?.role === 'chauffeur' || currentUser?.role === 'chauffer' ? '/chauffeur' : (currentUser?.role === 'hotel_vendor' ? '/hotel-vendor' : (currentUser?.role === 'flight_vendor' ? '/flight-vendor' : (currentUser?.role === 'vendor' ? '/vendor' : (currentUser?.role === 'superadmin' ? '/superadmin' : '/admin'))))),
       'dashboard': '/dashboard'
     };
@@ -2398,6 +2401,10 @@ export default function App() {
 
           {(activeTab === 'cabs' || activeTab === 'taxi') && (
             <CustomerCabsPage onBookCab={handleOpenBooking} />
+          )}
+
+          {activeTab === 'visa' && (
+            <VisaSection setActiveTab={handleTabChange} />
           )}
 
           {activeTab === 'selfdrive' && (
