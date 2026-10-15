@@ -1316,73 +1316,69 @@ export default function CustomerCabsPage({ onBookCab }) {
         </div>
 
         {/* Main: Spacious 2-Column Split (Confirmed Card + Full Map) */}
-        <div style={{ display: 'flex', width: '100%', minHeight: 'auto', alignItems: 'stretch' }}>
+        <div 
+          className="cabs-confirmed-split-layout"
+          style={{ display: 'flex', width: '100%', minHeight: 'auto', alignItems: 'stretch' }}
+        >
 
-          {/* ── LEFT: Spacious Confirmed Trip Details Card (420px) ── */}
-          <div style={{ width: '420px', minWidth: '380px', background: '#ffffff', borderRight: '1px solid #e5e7eb', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '16px', flexShrink: 0 }}>
+          {/* ── LEFT: Spacious Confirmed Trip Details Card (Stretched Breadth-wise, Clean & Uncongested) ── */}
+          <div 
+            className="cabs-confirmed-left-panel"
+            style={{ 
+              width: '490px', 
+              minWidth: '440px', 
+              maxWidth: '520px', 
+              background: '#ffffff', 
+              borderRight: '1px solid #e5e7eb', 
+              padding: '24px 28px', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '18px', 
+              flexShrink: 0 
+            }}
+          >
 
             {/* 1. Header & Arrival Time */}
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span style={{ 
-                  width: '10px', 
-                  height: '10px', 
-                  borderRadius: '50%', 
-                  background: activeConfirmedRide.status === 'Requested' ? '#f59e0b' : (activeConfirmedRide.status === 'Declined' || activeConfirmedRide.status === 'Cancelled' ? '#ef4444' : (activeConfirmedRide.status === 'Driver Arrived' ? '#7c3aed' : '#22c55e')), 
-                  display: 'inline-block' 
-                }}></span>
-                <span style={{ 
-                  fontSize: '13px', 
-                  fontWeight: 700, 
-                  color: activeConfirmedRide.status === 'Requested' ? '#d97706' : (activeConfirmedRide.status === 'Declined' || activeConfirmedRide.status === 'Cancelled' ? '#dc2626' : (activeConfirmedRide.status === 'Driver Arrived' ? '#7c3aed' : '#16a34a')), 
-                  textTransform: 'uppercase', 
-                  letterSpacing: '0.04em' 
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  background: activeConfirmedRide.status === 'Requested' ? '#fef3c7' : (activeConfirmedRide.status === 'Declined' || activeConfirmedRide.status === 'Cancelled' ? '#fee2e2' : (activeConfirmedRide.status === 'Driver Arrived' ? '#ede9fe' : '#ecfdf5')),
+                  color: activeConfirmedRide.status === 'Requested' ? '#b45309' : (activeConfirmedRide.status === 'Declined' || activeConfirmedRide.status === 'Cancelled' ? '#b91c1c' : (activeConfirmedRide.status === 'Driver Arrived' ? '#6d28d9' : '#047857')),
+                  border: `1px solid ${activeConfirmedRide.status === 'Requested' ? '#fde68a' : (activeConfirmedRide.status === 'Declined' || activeConfirmedRide.status === 'Cancelled' ? '#fca5a5' : (activeConfirmedRide.status === 'Driver Arrived' ? '#c4b5fd' : '#a7f3d0'))}`
                 }}>
-                  {activeConfirmedRide.status === 'Requested' ? 'Connecting to Nearest Chauffeur' : (activeConfirmedRide.status === 'Declined' ? 'Duty Declined by Driver' : (activeConfirmedRide.status === 'Cancelled' ? 'Trip Cancelled' : (activeConfirmedRide.status === 'Driver Arrived' ? 'Chauffeur At Pickup Location' : (activeConfirmedRide.status === 'In Progress' ? 'Ride In Progress' : (activeConfirmedRide.status === 'Completed' ? 'Ride Completed' : 'Booking Confirmed')))))}
+                  <span style={{ 
+                    width: '6px', 
+                    height: '6px', 
+                    borderRadius: '50%', 
+                    background: activeConfirmedRide.status === 'Requested' ? '#d97706' : (activeConfirmedRide.status === 'Declined' || activeConfirmedRide.status === 'Cancelled' ? '#dc2626' : (activeConfirmedRide.status === 'Driver Arrived' ? '#7c3aed' : '#16a34a')) 
+                  }} />
+                  {activeConfirmedRide.status === 'Requested' ? 'Connecting to Chauffeur' : (activeConfirmedRide.status === 'Declined' ? 'Duty Declined' : (activeConfirmedRide.status === 'Cancelled' ? 'Trip Cancelled' : (activeConfirmedRide.status === 'Driver Arrived' ? 'Chauffeur At Pickup' : (activeConfirmedRide.status === 'In Progress' ? 'Ride In Progress' : (activeConfirmedRide.status === 'Completed' ? 'Ride Completed' : 'Booking Confirmed')))))}
                 </span>
               </div>
-              <h2 style={{ fontWeight: 800, fontSize: '24px', color: '#111827', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
-                {activeConfirmedRide.status === 'Requested' ? 'Waiting for Driver to Accept...' : (activeConfirmedRide.status === 'Declined' ? '🔴 Chauffeur Declined Duty' : (activeConfirmedRide.status === 'Cancelled' ? '❌ Booking Cancelled' : (activeConfirmedRide.status === 'Driver Arrived' ? '📍 Chauffeur Has Arrived!' : (activeConfirmedRide.status === 'In Progress' ? 'Heading to Destination ➔' : (activeConfirmedRide.status === 'Completed' ? 'Trip Concluded' : '🎉 Ride Accepted! Driver Arriving in ~2 mins')))))}
+              <h2 style={{ fontWeight: 800, fontSize: '23px', color: '#0f172a', margin: '0 0 6px', letterSpacing: '-0.02em', lineHeight: 1.25 }}>
+                {activeConfirmedRide.status === 'Requested' ? 'Waiting for Driver to Accept...' : (activeConfirmedRide.status === 'Declined' ? 'Chauffeur Unavailable' : (activeConfirmedRide.status === 'Cancelled' ? 'Booking Cancelled' : (activeConfirmedRide.status === 'Driver Arrived' ? 'Chauffeur Has Arrived!' : (activeConfirmedRide.status === 'In Progress' ? 'Heading to Destination' : (activeConfirmedRide.status === 'Completed' ? 'Trip Concluded' : 'Ride Accepted! Driver En Route')))))}
               </h2>
-              <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
-                {activeConfirmedRide.status === 'Requested' ? 'Trip request sent to chauffeur Suresh Naik. Ringing companion app...' : (activeConfirmedRide.status === 'Declined' ? 'The chauffeur was unable to accept this booking offer. Tap Find Another Chauffeur below.' : (activeConfirmedRide.status === 'Cancelled' ? 'This ride was cancelled. View past rides or book a new cab anytime.' : (activeConfirmedRide.status === 'Driver Arrived' ? 'Please meet your chauffeur outside and share the 4-digit Ride OTP below.' : `${activeConfirmedRide.vehicle?.name || 'Prime Sedan'} · ${activeConfirmedRide.vehicle?.model || 'Maruti Suzuki Dzire'}`)))}
+              <p style={{ fontSize: '13px', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+                {activeConfirmedRide.status === 'Requested' 
+                  ? `Booking offer dispatched to ${activeConfirmedRide.chauffeur?.name || 'chauffeur'}. Screen updates automatically once accepted.` 
+                  : (activeConfirmedRide.status === 'Declined' 
+                    ? 'The chauffeur was unavailable for this duty. Tap Find Another Chauffeur below.' 
+                    : (activeConfirmedRide.status === 'Cancelled' 
+                      ? 'This ride was cancelled. View past rides or book a new cab anytime.' 
+                      : (activeConfirmedRide.status === 'Driver Arrived' 
+                        ? 'Please meet your chauffeur outside and share the 4-digit Ride OTP below.' 
+                        : `${activeConfirmedRide.vehicle?.name || 'Prime Sedan'} · ${activeConfirmedRide.vehicle?.model || 'Maruti Suzuki Dzire'}`)))}
               </p>
             </div>
-
-            {/* Radar Banner for Awaiting Driver Acceptance */}
-            {activeConfirmedRide.status === 'Requested' && (
-              <div style={{
-                background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-                border: '1.5px solid #fde68a',
-                borderRadius: '14px',
-                padding: '12px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px'
-              }}>
-                <div style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '50%',
-                  background: '#fde68a',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '18px',
-                  flexShrink: 0
-                }}>
-                  📡
-                </div>
-                <div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#92400e' }}>
-                    Chauffeur Alert Sent
-                  </div>
-                  <div style={{ fontSize: '11.5px', color: '#78350f', marginTop: '1px', lineHeight: 1.35 }}>
-                    Suresh Naik has received your booking offer. Screen updates automatically once accepted!
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Declined Banner with Re-dispatch */}
             {activeConfirmedRide.status === 'Declined' && (
@@ -1529,42 +1525,43 @@ export default function CustomerCabsPage({ onBookCab }) {
               </div>
             )}
 
-            {/* 2. Trip State Indicator: OTP Box (when waiting/arrived) OR Ride In Progress (when started) OR Destination Reached (when completed) */}
+            {/* 2. Trip State Indicator: OTP Box (Clean & Balanced) */}
             {activeConfirmedRide.status !== 'In Progress' && activeConfirmedRide.status !== 'Completed' && activeConfirmedRide.status !== 'Cancelled' && activeConfirmedRide.status !== 'Declined' && (
               <div style={{ 
                 background: activeConfirmedRide.status === 'Driver Arrived' ? '#faf5ff' : '#f8fafc', 
                 border: activeConfirmedRide.status === 'Driver Arrived' ? '2px solid #7c3aed' : '1px solid #e2e8f0', 
                 borderRadius: '14px', 
-                padding: '16px 18px', 
+                padding: '16px 20px', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'space-between',
+                gap: '16px',
                 boxShadow: activeConfirmedRide.status === 'Driver Arrived' ? '0 4px 16px rgba(124, 58, 237, 0.15)' : 'none'
               }}>
                 <div>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '3px' }}>
                     Start Trip OTP
                   </span>
-                  <span style={{ fontSize: '12px', color: '#475569' }}>Share with driver to start ride</span>
+                  <span style={{ fontSize: '12.5px', color: '#334155', fontWeight: 500 }}>Share with driver to start ride</span>
                 </div>
 
                 {/* 4 Clean Separated Digit Pills */}
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                   {otpDigits.map((digit, idx) => (
                     <div
                       key={idx}
                       style={{
-                        width: '38px',
-                        height: '44px',
+                        width: '42px',
+                        height: '46px',
                         background: '#0f172a',
                         color: '#ffffff',
-                        borderRadius: '8px',
+                        borderRadius: '10px',
                         fontSize: '22px',
                         fontWeight: 800,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+                        boxShadow: '0 2px 8px rgba(15,23,42,0.18)'
                       }}
                     >
                       {digit}
@@ -1579,7 +1576,7 @@ export default function CustomerCabsPage({ onBookCab }) {
               <div style={{
                 background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
                 borderRadius: '14px',
-                padding: '16px 18px',
+                padding: '16px 20px',
                 color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
@@ -1643,33 +1640,65 @@ export default function CustomerCabsPage({ onBookCab }) {
             )}
 
             {/* 3. Assigned Driver & Vehicle Card */}
-            <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: '#f1f5f9', border: '2px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
+            <div style={{ 
+              background: '#ffffff', 
+              border: '1px solid #e2e8f0', 
+              borderRadius: '14px', 
+              padding: '16px 18px', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '14px', 
+              boxShadow: '0 1px 4px rgba(0,0,0,0.04)' 
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                  <div style={{ 
+                    width: '46px', 
+                    height: '46px', 
+                    borderRadius: '50%', 
+                    background: '#f1f5f9', 
+                    border: '1.5px solid #e2e8f0', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    fontSize: '22px',
+                    flexShrink: 0
+                  }}>
                     👨‍✈️
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '15.5px', color: '#111827' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: '15.5px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {activeConfirmedRide.chauffeur?.name || 'Suresh Naik'}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                      ★ {activeConfirmedRide.chauffeur?.rating || '4.93'} · {activeConfirmedRide.chauffeur?.trips || '1,840'} trips · {activeConfirmedRide.status === 'Requested' ? '⏳ Acceptance Pending' : '🟢 Accepted'}
+                    <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                      <span style={{ color: '#d97706', fontWeight: 700 }}>★ {activeConfirmedRide.chauffeur?.rating || '4.93'}</span>
+                      <span style={{ opacity: 0.5 }}>•</span>
+                      <span>{activeConfirmedRide.chauffeur?.trips || '1,840'} trips</span>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                  <div style={{ background: '#0f172a', color: '#ffffff', borderRadius: '8px', padding: '5px 10px', fontWeight: 800, fontSize: '13px', letterSpacing: '0.04em' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
+                  <div style={{ 
+                    background: '#0f172a', 
+                    color: '#ffffff', 
+                    borderRadius: '8px', 
+                    padding: '4px 9px', 
+                    fontWeight: 800, 
+                    fontSize: '12.5px', 
+                    letterSpacing: '0.05em',
+                    fontFamily: 'monospace, -apple-system'
+                  }}>
                     {activeConfirmedRide.chauffeur?.vehiclePlate || 'GA-03-Z-8899'}
                   </div>
                   <span style={{ 
                     fontSize: '10.5px', 
-                    fontWeight: 800, 
+                    fontWeight: 700, 
                     color: activeConfirmedRide.status === 'Requested' ? '#b45309' : (activeConfirmedRide.status === 'Completed' ? '#0f172a' : '#16a34a'),
                     background: activeConfirmedRide.status === 'Requested' ? '#fef3c7' : (activeConfirmedRide.status === 'Completed' ? '#e2e8f0' : '#ecfdf5'),
                     padding: '2px 8px',
-                    borderRadius: '6px'
+                    borderRadius: '6px',
+                    letterSpacing: '0.02em'
                   }}>
                     {activeConfirmedRide.status === 'Requested' ? 'Awaiting Accept' : (activeConfirmedRide.status === 'Completed' ? 'Trip Ended' : (activeConfirmedRide.status === 'In Progress' ? 'Driving' : 'En Route'))}
                   </span>
@@ -1686,16 +1715,19 @@ export default function CustomerCabsPage({ onBookCab }) {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '8px',
-                    padding: '10px',
-                    background: '#000000',
+                    padding: '10px 14px',
+                    background: '#0f172a',
                     color: '#ffffff',
                     borderRadius: '10px',
                     textDecoration: 'none',
-                    fontWeight: 600,
-                    fontSize: '13.5px'
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    transition: 'opacity 0.2s'
                   }}
+                  onMouseOver={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.opacity = '1'; }}
                 >
-                  <Phone size={15} /> Call Driver
+                  <Phone size={14} /> Call Driver
                 </a>
                 <a
                   href={`https://wa.me/919822144510?text=Hi%20driver,%20my%20Goa%20cab%20booking%20is%20${activeConfirmedRide.refId}`}
@@ -1707,69 +1739,124 @@ export default function CustomerCabsPage({ onBookCab }) {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '8px',
-                    padding: '10px',
+                    padding: '10px 14px',
                     background: '#25D366',
                     color: '#ffffff',
                     borderRadius: '10px',
                     textDecoration: 'none',
-                    fontWeight: 600,
-                    fontSize: '13.5px'
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    transition: 'opacity 0.2s'
                   }}
+                  onMouseOver={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.opacity = '1'; }}
                 >
-                  <MessageSquare size={15} /> WhatsApp
+                  <MessageSquare size={14} /> WhatsApp
                 </a>
               </div>
             </div>
 
-            {/* 4. Trip Route & Fare Summary (With Ola/Uber Style Add Stop) */}
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* 4. Trip Route & Fare Summary (With Add Stop) */}
+            <div style={{ 
+              background: '#f8fafc', 
+              border: '1px solid #e2e8f0', 
+              borderRadius: '14px', 
+              padding: '18px 20px', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '14px' 
+            }}>
               
-              {/* Pickup */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', marginTop: '6px', flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Pickup Point</div>
-                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {activeConfirmedRide.pickup}
-                  </div>
-                </div>
-              </div>
+              {/* Pickup & Destination Timeline */}
+              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                
+                {/* Continuous vertical connector line */}
+                <div style={{
+                  position: 'absolute',
+                  left: '6px',
+                  top: '12px',
+                  bottom: '12px',
+                  width: '2px',
+                  background: 'linear-gradient(to bottom, #22c55e 0%, #cbd5e1 50%, #ef4444 100%)',
+                  zIndex: 0
+                }} />
 
-              {/* Intermediate Via Stops (Ola / Uber style) */}
-              {activeConfirmedRide.stops && activeConfirmedRide.stops.map((stop, sIdx) => (
-                <div key={sIdx}>
-                  <div style={{ borderLeft: '2px dashed #f59e0b', marginLeft: '3px', height: '12px' }} />
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: '#fffbeb', padding: '8px 10px', borderRadius: '8px', border: '1px solid #fde68a' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#d97706', marginTop: '4px', flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '10.5px', color: '#b45309', fontWeight: 700, textTransform: 'uppercase' }}>
-                        🛑 Via Stop {sIdx + 1}
-                      </div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#78350f' }}>
-                        {stop.name || stop}
-                      </div>
+                {/* Pickup Point */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', position: 'relative', zIndex: 1 }}>
+                  <div style={{ 
+                    width: '14px', 
+                    height: '14px', 
+                    borderRadius: '50%', 
+                    background: '#22c55e', 
+                    border: '3px solid #ffffff', 
+                    boxShadow: '0 0 0 1px #22c55e', 
+                    marginTop: '2px', 
+                    flexShrink: 0 
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Pickup Point
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>
-                      +₹{stop.extraFare || 220}
-                    </span>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a', lineHeight: 1.35, marginTop: '2px' }}>
+                      {activeConfirmedRide.pickup}
+                    </div>
                   </div>
                 </div>
-              ))}
 
-              <div style={{ borderLeft: '2px dashed #cbd5e1', marginLeft: '3px', height: '14px' }} />
+                {/* Intermediate Via Stops */}
+                {activeConfirmedRide.stops && activeConfirmedRide.stops.map((stop, sIdx) => (
+                  <div key={sIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', position: 'relative', zIndex: 1 }}>
+                    <div style={{ 
+                      width: '14px', 
+                      height: '14px', 
+                      borderRadius: '50%', 
+                      background: '#f59e0b', 
+                      border: '3px solid #ffffff', 
+                      boxShadow: '0 0 0 1px #f59e0b', 
+                      marginTop: '2px', 
+                      flexShrink: 0 
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '6px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '10px', color: '#b45309', fontWeight: 700, textTransform: 'uppercase' }}>
+                          🛑 Via Stop {sIdx + 1}
+                        </div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#78350f', marginTop: '1px' }}>
+                          {stop.name || stop}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', background: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>
+                        +₹{stop.extraFare || 220}
+                      </span>
+                    </div>
+                  </div>
+                ))}
 
-              {/* Destination */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#ef4444', marginTop: '6px', flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Final Destination</div>
-                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {activeConfirmedRide.dropoff}
+                {/* Final Destination */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', position: 'relative', zIndex: 1 }}>
+                  <div style={{ 
+                    width: '14px', 
+                    height: '14px', 
+                    borderRadius: '3px', 
+                    background: '#ef4444', 
+                    border: '3px solid #ffffff', 
+                    boxShadow: '0 0 0 1px #ef4444', 
+                    marginTop: '2px', 
+                    flexShrink: 0 
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Final Destination
+                    </div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a', lineHeight: 1.35, marginTop: '2px' }}>
+                      {activeConfirmedRide.dropoff}
+                    </div>
                   </div>
                 </div>
+
               </div>
 
-              {/* Ola/Uber Style "+ Add Stop" button */}
+              {/* Clean Add Stop button */}
               {activeConfirmedRide.status !== 'Completed' && activeConfirmedRide.status !== 'Declined' && (
                 <button
                   type="button"
@@ -1778,36 +1865,34 @@ export default function CustomerCabsPage({ onBookCab }) {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
-                    padding: '8px 12px',
-                    background: '#ffffff',
-                    border: '1.5px dashed #2563eb',
-                    borderRadius: '8px',
-                    color: '#2563eb',
+                    gap: '7px',
+                    padding: '9px 14px',
+                    background: '#eff6ff',
+                    border: '1px dashed #3b82f6',
+                    borderRadius: '10px',
+                    color: '#1d4ed8',
                     fontSize: '12.5px',
                     fontWeight: 700,
                     cursor: 'pointer',
                     marginTop: '2px',
                     transition: 'all 0.2s'
                   }}
-                  onMouseOver={(e) => { e.currentTarget.style.background = '#eff6ff'; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = '#ffffff'; }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = '#dbeafe'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#eff6ff'; }}
                 >
-                  <Plus size={14} /> + Add Stop along route (Ola / Uber style)
+                  <Plus size={14} /> Add Stop Along Route
                 </button>
               )}
 
               {/* Fare Summary */}
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <span style={{ fontSize: '13px', color: '#64748b', display: 'block' }}>
-                    {activeConfirmedRide.stops?.length ? `Total Trip Fare (${activeConfirmedRide.stops.length} via stop added)` : 'Estimated Fare (Cash / UPI on arrival)'}
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', display: 'block' }}>
+                    {activeConfirmedRide.stops?.length ? `Total Fare (${activeConfirmedRide.stops.length} stop added)` : 'Estimated Fare'}
                   </span>
-                  {activeConfirmedRide.stops?.length > 0 && (
-                    <span style={{ fontSize: '11px', color: '#059669', fontWeight: 600 }}>Includes intermediate stops</span>
-                  )}
+                  <span style={{ fontSize: '11.5px', color: '#64748b' }}>Pay via Cash or UPI at dropoff</span>
                 </div>
-                <span style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>₹{activeConfirmedRide.fare}</span>
+                <span style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a' }}>₹{activeConfirmedRide.fare}</span>
               </div>
             </div>
 
@@ -1875,7 +1960,7 @@ export default function CustomerCabsPage({ onBookCab }) {
           </div>
 
           {/* ── RIGHT: Clean Framed Live Map (Compact & Aligned, NOT big from down) ── */}
-          <div style={{ flex: 1, background: '#f8fafc', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ flex: 1, minWidth: '340px', background: '#f8fafc', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             
             {/* Map Card: Clean bounded height with rounded corners */}
             <div style={{

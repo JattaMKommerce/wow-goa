@@ -1416,3 +1416,18 @@ body.voucher-modal-active {
 .custom-table tr:hover td {
   background: rgba(248, 250, 252, 0.8);
 }
+
+/* Confirmed Ride Left Panel Responsiveness */
+@media (max-width: 960px) {
+  .cabs-confirmed-split-layout {
+    flex-direction: column !important;
+  }
+  .cabs-confirmed-left-panel {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+}
+
