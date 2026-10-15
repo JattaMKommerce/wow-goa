@@ -1,0 +1,26 @@
+{
+  "name": "WOW GOA | Vacation Cabs & Self Drive",
+  "short_name": "WOW GOA",
+  "description": "Premium Chauffeur Cabs, Airport Transfers & Self-Drive Rentals across Goa",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B192C",
+  "theme_color": "#0B192C",
+  "scope": "/",
+  "categories": ["travel", "transportation", "lifestyle"],
+  "icons": [
+    {
+      "src": "/wowgoa-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/wowgoa-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

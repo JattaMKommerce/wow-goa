@@ -3143,5 +3143,70 @@
   box-shadow: 0 6px 20px rgba(255, 193, 7, 0.45) !important;
 }
 
+/* ── Ola & Uber Interactive Cab Map Animations ── */
+@keyframes routeDashAnimation {
+  0% { stroke-dashoffset: 48; }
+  100% { stroke-dashoffset: 0; }
+}
 
+.animate-route {
+  animation: routeDashAnimation 1.5s linear infinite;
+}
 
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.hover-bg-light:hover {
+  background-color: #f8fafc !important;
+}
+
+/* ── Mobile PWA & Unified Vacation App Styles ── */
+@media (max-width: 767.98px) {
+  body {
+    padding-bottom: 72px; /* Buffer for mobile bottom navigation */
+  }
+
+  .mobile-bottom-nav {
+    display: flex !important;
+  }
+
+  /* Safe area padding for newer notch iPhones */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    body {
+      padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    }
+  }
+
+  .footer-copyright {
+    margin-bottom: 24px;
+  }
+}
+
+@keyframes spinAnimation {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-animation {
+  animation: spinAnimation 1s linear infinite;
+}
+
+/* ── Cabs 3-Column Mobile Responsiveness ── */
+@media (max-width: 991.98px) {
+  .cabs-3col-layout {
+    flex-direction: column !important;
+  }
+  .cabs-left-panel,
+  .cabs-center-panel {
+    width: 100% !important;
+    min-width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+  .cabs-right-map-panel {
+    width: 100% !important;
+    min-width: 100% !important;
+    padding: 14px 14px 20px !important;
+  }
+}

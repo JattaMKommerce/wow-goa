@@ -62,6 +62,12 @@ import CustomerActivitiesTab from './components/customer/CustomerActivitiesTab';
 import VendorLoginPage from './pages/vendor/VendorLoginPage';
 import RoleAccessDeniedModal from './components/vendor/RoleAccessDeniedModal';
 import PublicVendorStorefrontPage from './pages/vendor/PublicVendorStorefrontPage';
+import TaxiVendorPortalPage from './pages/vendor/TaxiVendorPortalPage';
+import CustomerCabsPage from './pages/customer/CustomerCabsPage';
+import MobileBottomNav from './components/mobile/MobileBottomNav';
+import MobileInstallBanner from './components/mobile/MobileInstallBanner';
+import MobileVacationQuickBar from './components/mobile/MobileVacationQuickBar';
+import LiveCustomerRideBar from './components/mobile/LiveCustomerRideBar';
 
 // Import Mock Data & API Service
 import { 
@@ -89,11 +95,9 @@ export default function App() {
       const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '/';
       // Derive tab directly from URL path — most reliable on refresh
       if (p.startsWith('/v/')) return 'vendor-storefront';
-      if (p.startsWith('/taxi-dispatch') || p.startsWith('/taxi/dispatch')) return 'taxi-dispatch';
-      if (p.startsWith('/taxi/login') || p.startsWith('/taxi-portal') || p.startsWith('/taxi-dispatch') || p.startsWith('/taxi-chauffeur') || p.startsWith('/taxi-fleet')) return 'portal';
-      if (p.startsWith('/taxi')) return 'taxi';
+      if (p.startsWith('/cabs') || p.startsWith('/taxi')) return 'cabs';
       if ((p === '/vehicle' || p === '/vehicles' || p.startsWith('/vehicle/') || p.startsWith('/vehicles/')) && p !== '/vehicle/login') return 'selfdrive';
-      if (p.startsWith('/admin') || p === '/portal' || p.startsWith('/sub-admin') || p.startsWith('/subadmin') || p.startsWith('/superadmin') || p.startsWith('/super-admin') || p === '/vendor' || p === '/hotel-vendor' || p === '/flight-vendor' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login') return 'portal';
+      if (p.startsWith('/admin') || p === '/portal' || p.startsWith('/sub-admin') || p.startsWith('/subadmin') || p.startsWith('/superadmin') || p.startsWith('/super-admin') || p === '/vendor' || p === '/hotel-vendor' || p === '/flight-vendor' || p === '/taxi-vendor' || p.startsWith('/taxi-vendor') || p === '/chauffeur' || p === '/chauffer' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login' || p === '/taxi/login') return 'portal';
       if (p.startsWith('/b2b') || p === '/register' || p.startsWith('/vendor/register')) return 'b2b';
       if (p.startsWith('/driver')) return 'driver';
       if (p.startsWith('/customer')) return 'customer';
@@ -770,6 +774,7 @@ export default function App() {
     let normalizedTab = newTab;
     if (normalizedTab === 'self drive' || normalizedTab === 'self-drive' || normalizedTab === 'vehicle' || normalizedTab === 'vehicles') normalizedTab = 'selfdrive';
     if (normalizedTab === 'trip packages') normalizedTab = 'packages';
+    if (normalizedTab === 'taxi' || normalizedTab === 'taxis' || normalizedTab === 'cab' || normalizedTab === 'cabs') normalizedTab = 'cabs';
     if (normalizedTab === 'craft' || normalizedTab === 'craft-my-trip') normalizedTab = 'craftmytrip';
     if (normalizedTab === 'my-trips' || normalizedTab === 'track-booking' || normalizedTab === 'my-bookings') normalizedTab = 'customer';
     if (normalizedTab === 'sightseeing' || normalizedTab === 'sightseeing-activities') normalizedTab = 'activities';
@@ -791,10 +796,8 @@ export default function App() {
     const pathMap = {
       'packages': '/packages',
       'selfdrive': '/self-drive',
-      'taxi': '/taxi',
-      'taxi-dispatch': '/taxi-dispatch',
-      'taxi-chauffeur': '/taxi-chauffeur',
-      'taxi-fleet': '/taxi-fleet',
+      'cabs': '/cabs',
+      'taxi': '/cabs',
       'hotels': '/hotels',
       'cars': '/cars',
       'bikes': '/bikes',
@@ -804,7 +807,7 @@ export default function App() {
       'custom-trip': '/custom-trip',
       'customer': '/customer',
       'b2b': '/b2b',
-      'portal': currentUser?.role === 'hotel_vendor' ? '/hotel-vendor' : (currentUser?.role === 'flight_vendor' ? '/flight-vendor' : (currentUser?.role === 'vendor' ? '/vendor' : (currentUser?.role === 'superadmin' ? '/superadmin' : '/admin'))),
+      'portal': currentUser?.role === 'taxi_vendor' ? '/taxi-vendor' : (currentUser?.role === 'chauffeur' || currentUser?.role === 'chauffer' ? '/chauffeur' : (currentUser?.role === 'hotel_vendor' ? '/hotel-vendor' : (currentUser?.role === 'flight_vendor' ? '/flight-vendor' : (currentUser?.role === 'vendor' ? '/vendor' : (currentUser?.role === 'superadmin' ? '/superadmin' : '/admin'))))),
       'dashboard': '/dashboard'
     };
     const targetPath = pathMap[normalizedTab] || `/${normalizedTab}`;
@@ -1935,17 +1938,46 @@ export default function App() {
       }
     }
 
-    if (path === '/taxi-portal' || path === '/taxi-dispatch' || path === '/taxi-chauffeur' || path === '/taxi-fleet') {
-      let initialDesk = 'dispatch';
-      if (path === '/taxi-chauffeur') initialDesk = 'chauffeur';
-      else if (path === '/taxi-fleet') initialDesk = 'fleet';
-
+    // Taxi & Cab Vendor & Chauffeur route guard
+    if (path === '/taxi-vendor' || path === '/chauffeur' || path === '/chauffer' || 
+        ((currentUser?.role === 'taxi_vendor' || currentUser?.role === 'chauffeur' || currentUser?.role === 'chauffer' || currentUser?.role === 'dispatcher') && 
+         (path === '/portal' || path === '/taxi-vendor' || path === '/chauffeur' || path === '/chauffer'))) {
+      if (!currentUser) {
+        return (
+          <VendorLoginPage
+            vendorType="taxi"
+            onLoginSuccess={(u) => handleVendorLoginSuccess(u, (path === '/chauffeur' || path === '/chauffer' || u?.role === 'chauffeur' || u?.role === 'chauffer') ? '/chauffeur' : '/taxi-vendor')}
+            onNavigateHome={() => handleTabChange('selfdrive')}
+            onNavigateRegister={() => {
+              handleTabChange('b2b');
+              window.history.pushState(null, '', '/b2b/register?vendor=taxi_vendor');
+              setCurrentPath('/b2b/register');
+            }}
+          />
+        );
+      }
+      if (path === '/chauffeur' || path === '/chauffer' || currentUser.role === 'chauffeur' || currentUser.role === 'chauffer') {
+        try { localStorage.setItem('active_role', 'DRIVER'); } catch (e) {}
+      }
+      if (currentUser.role !== 'taxi_vendor' && currentUser.role !== 'admin' && currentUser.role !== 'superadmin' && currentUser.role !== 'chauffeur' && currentUser.role !== 'chauffer' && currentUser.role !== 'dispatcher') {
+        return (
+          <RoleAccessDeniedModal
+            currentUser={currentUser}
+            expectedRole="Taxi & Cab Vendor / Chauffeur"
+            onLogout={handleLogout}
+            onNavigateHome={() => handleTabChange('selfdrive')}
+          />
+        );
+      }
       return (
-        <TaxiOperationsHub
-          initialTab={initialDesk}
-          onLogout={handleLogout}
-          onNavigateHome={() => handleTabChange('taxi')}
-        />
+        <>
+          <TaxiVendorPortalPage
+            currentUser={currentUser}
+            triggerOpenLogin={() => setShowLoginModal(true)}
+            onLogout={handleLogout}
+          />
+          <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLogin} />
+        </>
       );
     }
 
@@ -2267,73 +2299,6 @@ export default function App() {
     );
   }
 
-  // ─── TAXI / APEX CHAUFFEUR STANDALONE VIEW ───────────────────────────────
-  if (
-    (path === '/taxi' || (path.startsWith('/taxi') && !path.startsWith('/taxi-') && !path.startsWith('/taxi/login') && !path.startsWith('/taxi/dispatch')) || activeTab === 'taxi') &&
-    path !== '/taxi-portal' && path !== '/taxi-dispatch' && path !== '/taxi-chauffeur' && path !== '/taxi-fleet'
-  ) {
-    return (
-      <div className="d-flex flex-column min-vh-100 bg-white">
-        <Navbar
-          activeTab={activeTab}
-          setActiveTab={handleTabChange}
-          currentUser={currentUser}
-          triggerOpenLogin={() => setShowLoginModal(true)}
-          onOpenLogin={() => setShowLoginModal(true)}
-          onLogout={handleLogout}
-        />
-        <TaxiServicesPage
-          pickupLoc={pickupLoc}
-          dropLoc={dropLoc}
-          pickupDate={pickupDate}
-          pickupTime={pickupTime}
-          onBookTaxi={handleOpenBooking}
-          onNavigateToConsole={() => {
-            window.history.pushState(null, '', '/taxi-portal');
-            setCurrentPath('/taxi-portal');
-            setActiveTab('portal');
-          }}
-        />
-        <Footer setActiveTab={handleTabChange} />
-        <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLogin} />
-        {selectedBookingItem && (
-          <BookingModal
-            key={selectedBookingItem ? `${selectedBookingItem.id || selectedBookingItem.name}_${lastConfirmedBooking?.id || 'new'}` : 'closed'}
-            selectedBookingItem={selectedBookingItem}
-            setSelectedBookingItem={setSelectedBookingItem}
-            onCloseModal={handleCloseBookingModal}
-            showSuccess={Boolean(showSuccess && lastConfirmedBooking)}
-            setShowSuccess={setShowSuccess}
-            userName={userName}
-            setUserName={setUserName}
-            userPhone={userPhone}
-            setUserPhone={setUserPhone}
-            userEmail={userEmail}
-            setUserEmail={setUserEmail}
-            userLicense={userLicense}
-            setUserLicense={setUserLicense}
-            pickupLoc={pickupLoc}
-            dropLoc={dropLoc}
-            setDropLoc={setDropLoc}
-            pickupDate={pickupDate}
-            pickupTime={pickupTime}
-            dropDate={dropDate}
-            dropTime={dropTime}
-            bookingDays={bookingDays}
-            handleConfirmBooking={handleConfirmBooking}
-            lastConfirmedBooking={lastConfirmedBooking}
-            setLastConfirmedBooking={setLastConfirmedBooking}
-            allPackages={packages}
-            allCars={cars}
-            allBikes={bikes}
-          />
-        )}
-        <AIChatbot />
-        <WhatsAppWidget />
-      </div>
-    );
-  }
-
   // ─── MAIN PUBLIC STOREFRONT VIEW ──────────────────────────────────────────
   return (
     <div className="d-flex flex-column min-vh-100 bg-white">
@@ -2431,17 +2396,8 @@ export default function App() {
 
 
 
-          {activeTab === 'taxi' && (
-            <>
-              <TaxiServicesPage
-                pickupLoc={pickupLoc}
-                dropLoc={dropLoc}
-                pickupDate={pickupDate}
-                pickupTime={pickupTime}
-                onBookTaxi={handleOpenBooking}
-              />
-              <FeaturesGrid />
-            </>
+          {(activeTab === 'cabs' || activeTab === 'taxi') && (
+            <CustomerCabsPage onBookCab={handleOpenBooking} />
           )}
 
           {activeTab === 'selfdrive' && (
@@ -3078,6 +3034,11 @@ export default function App() {
       {activeTab !== 'portal' && <WhatsAppWidget />}
       <AIChatbot />
       <PopupRenderer popups={liveConfig?.popups || []} onAction={() => {}} />
+
+      {/* Mobile-Friendly PWA Bottom Bar & Live Active Ride Pill */}
+      <LiveCustomerRideBar />
+      <MobileInstallBanner />
+      <MobileBottomNav activeTab={activeTab} setActiveTab={handleTabChange} />
     </div>
   );
 }

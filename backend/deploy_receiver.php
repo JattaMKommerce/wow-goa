@@ -48,6 +48,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         @unlink($tempZip);
         
         echo json_encode(['success' => true, 'message' => 'Deployment deployed and extracted successfully!']);
+        
+        // Execute database migration if script exists
+        $migrateScript = __DIR__ . '/migrate_taxi_dispatch_system.php';
+        if (file_exists($migrateScript)) {
+            try {
+                include_once $migrateScript;
+            } catch (\Throwable $t) {
+                // Non-fatal if already migrated
+            }
+        }
     } else {
         http_response_code(500);
         echo json_encode(['error' => 'Failed to extract package']);

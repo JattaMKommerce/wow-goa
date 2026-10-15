@@ -6539,6 +6539,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;
         }
         
+        include_once __DIR__ . '/taxi_dispatch_actions.php';
         include_once 'hotel_pms_get.php';
         
         echo json_encode(["status" => "online", "database" => "connected"]);
@@ -6568,6 +6569,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tenant_id = getTenantId();
 
     try {
+        include_once __DIR__ . '/taxi_dispatch_actions.php';
         // Hotel PMS actions must only be invoked for actual PMS-related actions
         $pmsActions = [
             'add_master_hotel', 'add_hotel', 'create_hotel',

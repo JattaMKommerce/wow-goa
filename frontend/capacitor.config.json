@@ -1,0 +1,22 @@
+{
+  "appId": "com.wowgoa.cabs",
+  "appName": "WOW GOA Cabs & Vacation",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#0B192C",
+      "showSpinner": false
+    }
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">WOW GOA Cabs &amp; Vacation</string>
+    <string name="title_activity_main">WOW GOA Cabs &amp; Vacation</string>
+    <string name="package_name">com.wowgoa.cabs</string>
+    <string name="custom_url_scheme">com.wowgoa.cabs</string>
+</resources>

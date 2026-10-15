@@ -50,20 +50,34 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
               );
             })}
 
-                        {/* Taxi Services Direct Link */}
+            {/* Direct 1-Click Cabs & Taxi Storefront */}
             <li className="nav-item">
               <a 
-                className={`nav-link ${activeTab === 'taxi' ? 'active' : ''}`} 
-                href="/taxi" 
+                className={`nav-link ${activeTab === 'cabs' ? 'active' : ''}`}
+                style={{ color: activeTab === 'cabs' ? '#ff9f1c' : '#ffffff', fontWeight: 700 }}
+                href="/cabs" 
                 onClick={(e) => {
                   e.preventDefault();
-                  setActiveTab('taxi');
-                  setTimeout(() => {
-                    document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
-                  }, 50);
+                  setActiveTab('cabs');
                 }}
               >
-                <span>🚕 Cabs & Taxis</span>
+                <span>🚕 Cabs & Taxi</span>
+              </a>
+            </li>
+
+            {/* Direct 1-Click Chauffeur & Driver Companion App */}
+            <li className="nav-item">
+              <a 
+                className={`nav-link ${activeTab === 'portal' ? 'active' : ''}`} 
+                style={{ color: activeTab === 'portal' ? '#4ade80' : 'rgba(255,255,255,0.85)', fontWeight: 600 }}
+                href="/driver" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveTab('portal');
+                }}
+                title="Chauffeur Mobile Companion App"
+              >
+                <span>👨‍✈️ Driver App</span>
               </a>
             </li>
 
@@ -81,8 +95,10 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
               </a>
             </li>
 
+
+
             {/* Custom Trip Enquiry Button */}
-            <li className="nav-item ms-lg-2 me-1">
+            <li className="nav-item ms-lg-1 me-1">
               <button 
                 type="button" 
                 className="btn btn-enquire-nav" 
@@ -93,7 +109,7 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
                   }, 50);
                 }}
               >
-                Enquire Your Own Package
+                Enquire Package
               </button>
             </li>
 
@@ -263,24 +279,24 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
                       </a>
                     </li>
                   )}
-                  {(currentUser.role === 'taxi_vendor' || ['admin', 'superadmin'].includes(currentUser.role)) && (
+                  {(currentUser.role === 'taxi_vendor' || currentUser.role === 'chauffeur' || currentUser.role === 'chauffer') && (
                     <li>
                       <a 
                         className="dropdown-item d-flex align-items-center gap-2 py-2 fw-bold text-dark" 
                         style={{ fontSize: '13px' }}
-                        href="/taxi-portal"
+                        href={(currentUser.role === 'chauffeur' || currentUser.role === 'chauffer') ? '/chauffeur' : '/taxi-vendor'}
                         onClick={(e) => {
                           e.preventDefault();
                           setActiveTab('portal');
-                          window.history.pushState(null, '', '/taxi-portal');
+                          const dest = (currentUser.role === 'chauffeur' || currentUser.role === 'chauffer') ? '/chauffeur' : '/taxi-vendor';
+                          window.history.pushState(null, '', dest);
                           window.dispatchEvent(new PopStateEvent('popstate'));
                         }}
                       >
-                        <span>🚕 Taxi Fleet Operations</span>
+                        <span>{(currentUser.role === 'chauffeur' || currentUser.role === 'chauffer') ? '👔 Chauffeur Portal' : '🚕 Taxi & Cab Vendor Portal'}</span>
                       </a>
                     </li>
                   )}
-
                   <li><hr className="dropdown-divider my-1" /></li>
                   <li>
                     <button 
@@ -307,6 +323,7 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
           </ul>
         </div>
       </div>
+
     </nav>
   );
 }

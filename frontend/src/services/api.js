@@ -4259,3 +4259,149 @@ export async function updateStorefrontLead(leadId, notes) {
     return { success: false, error: err.message };
   }
 }
+
+// ============================================================================
+// TAXI B2B & STOREFRONT DISPATCH API HELPERS
+// ============================================================================
+
+export async function createCabBooking(bookingData) {
+  try {
+    const res = await apiFetch(`${API_BASE}?action=cab_create_booking`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bookingData)
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] createCabBooking error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function fetchVendorDispatches(vendorId = 'taxi_vendor_goa') {
+  try {
+    const res = await apiFetch(`${API_BASE}?resource=vendor_dispatches&vendor_id=${encodeURIComponent(vendorId)}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] fetchVendorDispatches error:', err.message);
+    return { success: false, dispatches: [], counts: {} };
+  }
+}
+
+export async function assignVendorDispatch(assignData) {
+  try {
+    const res = await apiFetch(`${API_BASE}?action=vendor_assign_dispatch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(assignData)
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] assignVendorDispatch error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function fetchDriverActiveDuty(driverId = 'drv-suresh') {
+  try {
+    const res = await apiFetch(`${API_BASE}?resource=driver_active_duty&driver_id=${encodeURIComponent(driverId)}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] fetchDriverActiveDuty error:', err.message);
+    return { success: false };
+  }
+}
+
+export async function updateDriverTripStatus(statusData) {
+  try {
+    const res = await apiFetch(`${API_BASE}?action=driver_update_status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(statusData)
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] updateDriverTripStatus error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function pingDriverGps(telematicsData) {
+  try {
+    const res = await apiFetch(`${API_BASE}?action=driver_ping_gps`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(telematicsData)
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] pingDriverGps error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function fetchRideLiveTrack(dispatchId = '', phone = '') {
+  try {
+    let url = `${API_BASE}?resource=ride_live_track`;
+    if (dispatchId) url += `&id=${encodeURIComponent(dispatchId)}`;
+    if (phone) url += `&phone=${encodeURIComponent(phone)}`;
+    const res = await apiFetch(url);
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] fetchRideLiveTrack error:', err.message);
+    return { success: false };
+  }
+}
+
+export async function fetchVendorTelematics() {
+  try {
+    const res = await apiFetch(`${API_BASE}?resource=vendor_telematics`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] fetchVendorTelematics error:', err.message);
+    return { success: false, active_units: [] };
+  }
+}
+
+export async function rateCustomerTrip(rateData) {
+  try {
+    const res = await apiFetch(`${API_BASE}?action=customer_rate_trip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rateData)
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] rateCustomerTrip error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function fetchCustomerPastTrips(phone = '') {
+  try {
+    let url = `${API_BASE}?resource=customer_trips`;
+    if (phone) url += `&phone=${encodeURIComponent(phone)}`;
+    const res = await apiFetch(url);
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] fetchCustomerPastTrips error:', err.message);
+    return { success: false, trips: [] };
+  }
+}
+
+export async function cancelCabRide(dispatchId, reason = 'Cancelled by passenger') {
+  try {
+    const res = await apiFetch(`${API_BASE}?action=cancel_booking`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dispatch_id: dispatchId, reason })
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] cancelCabRide error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+// Re-export unified Taxi B2B operations client as default export
+export { default } from './taxiApiClient';

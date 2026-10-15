@@ -15,6 +15,7 @@ dist-ssr/
 .vite/
 *.log
 backend/*.log
+backend/qa_e2e_results.json
 
 # Environment variables & local configs
 *.local
