@@ -1,5 +1,5 @@
 // WOW GOA Vacation Mobility PWA Service Worker
-const CACHE_NAME = 'wow-goa-v1';
+const CACHE_NAME = 'wow-goa-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
