@@ -1927,6 +1927,158 @@ export default function CustomerCabsPage({ onBookCab }) {
               </div>
             </div>
 
+            {/* ── LIVE RIDE STATUS & OTP POP-UP CARD BELOW MAP ── */}
+            <div 
+              className="live-trip-popup-card shadow-lg"
+              style={{
+                background: (activeConfirmedRide?.status === 'Pending' || activeConfirmedRide?.status === 'Requested' || !activeConfirmedRide?.status)
+                  ? 'linear-gradient(135deg, #78350f 0%, #451a03 100%)'
+                  : (activeConfirmedRide?.status === 'Driver Arrived'
+                    ? 'linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%)'
+                    : (activeConfirmedRide?.status === 'In Progress'
+                      ? 'linear-gradient(135deg, #15803d 0%, #14532d 100%)'
+                      : (activeConfirmedRide?.status === 'Completed'
+                        ? 'linear-gradient(135deg, #0f172a 0%, #020617 100%)'
+                        : 'linear-gradient(135deg, #0B192C 0%, #1e293b 100%)'))),
+                borderRadius: '16px',
+                padding: '16px 20px',
+                color: '#ffffff',
+                border: '1.5px solid rgba(255, 255, 255, 0.2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                boxShadow: '0 12px 30px rgba(0,0,0,0.22)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              {/* Top Row: Status Pill + Glowing OTP */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.18)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '18px',
+                    flexShrink: 0
+                  }}>
+                    {(activeConfirmedRide?.status === 'Pending' || activeConfirmedRide?.status === 'Requested' || !activeConfirmedRide?.status) ? '⏳' : (activeConfirmedRide?.status === 'Driver Arrived' ? '📍' : (activeConfirmedRide?.status === 'In Progress' ? '🚗' : '🚕'))}
+                  </div>
+                  <div>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      background: (activeConfirmedRide?.status === 'Pending' || activeConfirmedRide?.status === 'Requested' || !activeConfirmedRide?.status) ? '#b45309' : 'rgba(255,255,255,0.22)',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      letterSpacing: '0.04em'
+                    }}>
+                      {(activeConfirmedRide?.status === 'Pending' || activeConfirmedRide?.status === 'Requested' || !activeConfirmedRide?.status) && 'AWAITING DRIVER'}
+                      {activeConfirmedRide?.status === 'Driver Arrived' && 'CHAUFFEUR ARRIVED'}
+                      {activeConfirmedRide?.status === 'In Progress' && 'RIDE IN PROGRESS'}
+                      {activeConfirmedRide?.status === 'Completed' && 'RIDE COMPLETED'}
+                      {activeConfirmedRide?.status === 'Confirmed' && 'CHAUFFEUR EN ROUTE'}
+                    </span>
+                    <div style={{ fontSize: '13.5px', fontWeight: 800, marginTop: '2px' }}>
+                      {(activeConfirmedRide?.status === 'Pending' || activeConfirmedRide?.status === 'Requested' || !activeConfirmedRide?.status) && `Waiting for ${activeConfirmedRide?.chauffeur?.name || 'Suresh Naik'} to accept`}
+                      {activeConfirmedRide?.status === 'Driver Arrived' && 'Chauffeur is waiting at your pickup spot!'}
+                      {activeConfirmedRide?.status === 'In Progress' && `Heading to ${activeConfirmedRide?.dropoff?.slice(0, 25)}`}
+                      {activeConfirmedRide?.status === 'Completed' && `Trip Concluded • ₹${activeConfirmedRide?.fare || 2450}`}
+                      {activeConfirmedRide?.status === 'Confirmed' && `${activeConfirmedRide?.chauffeur?.name || 'Suresh Naik'} · ${activeConfirmedRide?.carName || 'Innova Crysta'}`}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Big High-Visibility OTP Badge */}
+                <div style={{
+                  background: '#fef08a',
+                  color: '#713f12',
+                  borderRadius: '12px',
+                  padding: '6px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                  border: '1.5px solid #fde047'
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '9.5px', fontWeight: 900, textTransform: 'uppercase', opacity: 0.9 }}>
+                      START TRIP OTP
+                    </span>
+                    <strong style={{ fontSize: '1.25rem', fontWeight: 900, letterSpacing: '0.12em', color: '#1e293b', lineHeight: 1.1 }}>
+                      {activeConfirmedRide?.otp || '4821'}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Middle Row: Chauffeur Details & Quick Contact */}
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.2)',
+                borderRadius: '12px',
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px'
+              }}>
+                <div style={{ fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span>👨‍✈️ <strong>{activeConfirmedRide?.chauffeur?.name || 'Suresh Naik'}</strong></span>
+                  <span style={{ opacity: 0.7 }}>•</span>
+                  <span>🚘 {activeConfirmedRide?.carName || 'Toyota Innova Crysta'}</span>
+                  <span style={{ opacity: 0.7 }}>•</span>
+                  <span style={{ background: 'rgba(255,255,255,0.18)', padding: '2px 7px', borderRadius: '6px', fontFamily: 'monospace', fontWeight: 800 }}>
+                    {activeConfirmedRide?.chauffeur?.vehiclePlate || 'GA-03-Z-8899'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <a
+                    href={`tel:${activeConfirmedRide?.chauffeur?.phone || '+919822144510'}`}
+                    style={{
+                      background: 'rgba(255,255,255,0.25)',
+                      color: '#ffffff',
+                      textDecoration: 'none',
+                      padding: '5px 12px',
+                      borderRadius: '8px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    📞 Call Driver
+                  </a>
+                  <a
+                    href={`https://wa.me/${String(activeConfirmedRide?.chauffeur?.phone || '919822144510').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi Suresh, I am your passenger for booking (${activeConfirmedRide?.refId || activeConfirmedRide?.id}). Pickup at: ${activeConfirmedRide?.pickup}.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      background: '#25D366',
+                      color: '#ffffff',
+                      textDecoration: 'none',
+                      padding: '5px 12px',
+                      borderRadius: '8px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    💬 WhatsApp
+                  </a>
+                </div>
+              </div>
+            </div>
+
           </div>
 
         </div>

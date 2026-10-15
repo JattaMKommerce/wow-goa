@@ -85,6 +85,15 @@ export default function LiveCustomerRideBar() {
 
   if (!activeRide) return null;
 
+  // If customer is on the Cabs booking page, the dedicated in-page card below the map is already displayed
+  const isCabsPage = typeof window !== 'undefined' && (
+    window.location.pathname === '/cabs' || 
+    window.location.pathname === '/taxi' ||
+    window.location.pathname.startsWith('/cabs') ||
+    window.location.pathname.startsWith('/taxi')
+  );
+  if (isCabsPage) return null;
+
   const isRequested = activeRide.status === 'Requested';
   const isDriverArrived = activeRide.status === 'Driver Arrived';
   const isOnTrip = activeRide.status === 'In Progress';
