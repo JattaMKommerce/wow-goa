@@ -66,7 +66,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
             <Car size={22} color="#ffffff" />
           </div>
           <div>
-            <h1 style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', margin: 0 }}>APEX FLEET</h1>
+            <h1 style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', margin: 0 }}>WOW GOA FLEET</h1>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 500, margin: 0 }}>
               {activeRole === 'DISPATCHER' ? 'Control Room Operations' : 'Executive Fleet Management'}
             </p>

@@ -196,7 +196,7 @@ const Header = ({ title, onViewWebsite, onRoleChange }) => {
           fontWeight: 600
         }}>
           <Shield size={13} color="#334155" />
-          <span>{user?.company_name || 'Apex Fleet'}</span>
+          <span>{user?.company_name || 'Wow Goa Fleet'}</span>
         </div>
       </div>
     </header>

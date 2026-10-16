@@ -101,7 +101,7 @@ const Login = ({ onBackToWebsite }) => {
             letterSpacing: '-0.02em',
             margin: 0
           }}>
-            APEX FLEET
+            WOW GOA FLEET
           </h1>
           <p style={{ 
             fontSize: '0.85rem', 
@@ -110,7 +110,7 @@ const Login = ({ onBackToWebsite }) => {
             letterSpacing: '0.01em',
             fontWeight: 500
           }}>
-            Executive Fleet & Corporate Mobility Console
+            Executive Fleet &amp; Corporate Mobility Console
           </p>
         </div>
 
