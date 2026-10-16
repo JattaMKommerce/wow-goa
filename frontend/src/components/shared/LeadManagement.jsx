@@ -3,7 +3,7 @@ import {
   Users, Search, Filter, Download, Plus, Phone, Mail, MessageSquare, 
   Building, Car, CheckCircle, XCircle, Clock, Trash2, Eye, Edit3, 
   Shield, Tag, Calendar, MapPin, X, ArrowUpRight, PhoneCall, AlertCircle, 
-  RefreshCw, Sparkles, UserCheck, Activity, Radio, Save, Send, UserPlus, CornerDownRight, Check, ExternalLink
+  RefreshCw, Sparkles, UserCheck, Activity, Radio, Save, Send, UserPlus, CornerDownRight, Check, ExternalLink, Globe
 } from 'lucide-react';
 import * as api from '../../services/api';
 import { parseTravelDate } from '../../utils/dateUtils';
@@ -11,6 +11,7 @@ import AIChatbotToggle from '../common/AIChatbotToggle';
 
 const SOURCE_TABS = [
   'All',
+  'Goa Tourist Visa',
   'Hotel Enquiries',
   'Vehicle Rental',
   'Vendor Onboarding',
@@ -47,6 +48,7 @@ const NEXT_ACTION_PRESETS = [
 
 function SourceBadge({ source }) {
   const configs = {
+    'Goa Tourist Visa': { bg: '#fff1f2', color: '#e11d48', border: '#fecdd3', icon: Globe },
     'Hotel Enquiries': { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe', icon: Building },
     'Vehicle Rental': { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa', icon: Car },
     'Vendor Onboarding': { bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe', icon: Shield },
