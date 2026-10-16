@@ -254,7 +254,7 @@ export default function VendorPortalPage({
         <div className="px-3 py-3 d-flex align-items-center gap-2 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <Compass size={22} style={{ color: '#FF6333' }} />
           <div>
-            <div className="fw-extrabold text-white" style={{ fontSize: '15px' }}>TRIPGALILEO</div>
+            <div className="fw-extrabold text-white" style={{ fontSize: '15px' }}>WOW GOA</div>
             <div className="fw-bold text-uppercase" style={{ fontSize: '0.55rem', letterSpacing: '2px', color: '#00B8D9' }}>Vehicle PMS</div>
           </div>
         </div>
@@ -277,7 +277,7 @@ export default function VendorPortalPage({
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="btn btn-sm p-1 border-0 text-white-50" style={{ background: 'transparent' }}><Menu size={20} /></button>
             <div>
               <div className="fw-bold text-white" style={{ fontSize: '14px' }}>{PAGE_TITLES[activeTab] || 'Vehicle PMS'}</div>
-              <div className="text-white-50" style={{ fontSize: '0.68rem' }}>TripGalileo Vendor Console</div>
+              <div className="text-white-50" style={{ fontSize: '0.68rem' }}>Wow Goa Vendor Console</div>
             </div>
           </div>
           <div className="d-flex align-items-center gap-3">

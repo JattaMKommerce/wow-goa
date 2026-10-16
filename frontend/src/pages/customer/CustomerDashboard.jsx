@@ -377,7 +377,7 @@ export default function CustomerDashboard({ currentUser, triggerOpenLogin, booki
         <div className="px-3 py-3 d-flex align-items-center gap-2 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <Compass size={22} style={{ color: '#FF6333' }} />
           <div>
-            <div className="fw-extrabold text-white" style={{ fontSize: '15px' }}>TRIPGALILEO</div>
+            <div className="fw-extrabold text-white" style={{ fontSize: '15px' }}>WOW GOA</div>
             <div className="fw-bold text-uppercase" style={{ fontSize: '0.55rem', letterSpacing: '2px', color: '#00B8D9' }}>My Account</div>
           </div>
         </div>

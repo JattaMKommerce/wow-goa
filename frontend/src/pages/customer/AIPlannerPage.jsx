@@ -44,7 +44,7 @@ export default function AIPlannerPage() {
 
   // Chat conversation log
   const [chatMessages, setChatMessages] = useState([
-    { sender: 'ai', text: "Welcome to TripGalileo Goa Self-Drive Holidays. How would you like to plan your trip?", time: "10:30 AM" },
+    { sender: 'ai', text: "Welcome to Wow Goa Holidays. How would you like to plan your trip?", time: "10:30 AM" },
     { sender: 'user', text: "I'm looking for a 4-day North Goa trip for 2 adults with a hatchback.", time: "10:31 AM" },
     { sender: 'ai', text: "Great! I found 5 suitable options for your 4-day North Goa trip for 2 adults. Let's build your perfect holiday step by step.", time: "10:31 AM" }
   ]);
@@ -206,7 +206,7 @@ export default function AIPlannerPage() {
             
             <div>
               <div className="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
-                <h4 className="fw-bold m-0 font-heading">TripGalileo AI Planner</h4>
+                <h4 className="fw-bold m-0 font-heading">Wow Goa AI Planner</h4>
                 <span className="badge bg-success-light text-success fw-semibold border border-success px-2.5 py-1 rounded">
                   Plan your Goa holiday with AI
                 </span>

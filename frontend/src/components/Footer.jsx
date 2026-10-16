@@ -13,18 +13,18 @@ export default function Footer({ setActiveTab }) {
 
   const phone = liveConfig?.phone || '+91 76765 73476';
   const cleanPhone = phone.replace(/\D/g, '');
-  const email = liveConfig?.email || 'support@tripgalileo.com';
+  const email = liveConfig?.email || 'support@wowgoa.in';
   const address = liveConfig?.address || 'Calangute - Baga Main Road, North Goa, 403516';
-  const whatsappUrl = `https://wa.me/${cleanPhone || '917676573476'}?text=${encodeURIComponent('Hi TripGalileo, I would like to inquire about vehicle rentals and holiday bookings in Goa.')}`;
+  const whatsappUrl = `https://wa.me/${cleanPhone || '917676573476'}?text=${encodeURIComponent('Hi Wow Goa Concierge, I would like to inquire about cabs, vehicle rentals and holiday bookings in Goa.')}`;
 
   // Policies data for interactive modal
   const infoModalsData = {
     privacy: {
       title: 'Privacy Policy',
-      subtitle: 'How TripGalileo protects your personal information',
+      subtitle: 'How Wow Goa protects your personal information',
       content: (
         <div>
-          <p className="text-secondary small">TripGalileo is committed to safeguarding customer personal and booking data in strict adherence to data protection standards.</p>
+          <p className="text-secondary small">Wow Goa is committed to safeguarding customer personal and booking data in strict adherence to data protection standards.</p>
           <h6 className="fw-bold mt-3 mb-1 text-dark">1. Information We Collect</h6>
           <p className="text-muted small">We collect your name, phone number, email address, driving license / identity verification for vehicle rentals, and booking preferences to facilitate reservations.</p>
           <h6 className="fw-bold mt-3 mb-1 text-dark">2. Secure Document Verification</h6>
@@ -155,12 +155,12 @@ export default function Footer({ setActiveTab }) {
                   <Compass size={22} />
                 </div>
                 <div>
-                  <span className="text-white fw-black fs-5 line-height-1 d-block font-heading">TripGalileo</span>
-                  <span className="text-warning text-uppercase fw-bold text-xxs" style={{ letterSpacing: '1px' }}>Goa Self-Drive &amp; Stays</span>
+                  <span className="text-white fw-black fs-5 line-height-1 d-block font-heading">Wow Goa</span>
+                  <span className="text-warning text-uppercase fw-bold text-xxs" style={{ letterSpacing: '1px' }}>Goa Travel, Cabs &amp; Stays</span>
                 </div>
               </a>
               <p className="small text-muted mb-3" style={{ lineHeight: '1.6', fontSize: '0.85rem' }}>
-                TripGalileo is Goa’s leading multi-vendor rental marketplace. Connect directly with certified local hosts for clean cars, bikes, and luxury villas.
+                Wow Goa is Goa’s premier travel &amp; concierge marketplace. Connect directly with certified local hosts for airport cabs, luxury villas, rentals and tours.
               </p>
               <div className="d-flex flex-column gap-1.5 mb-3 text-xxs text-light">
                 <span className="d-flex align-items-center gap-1.5 text-muted">
@@ -413,7 +413,7 @@ export default function Footer({ setActiveTab }) {
               </div>
               <div className="col-md-6 text-center text-md-end">
                 <p className="small text-muted mb-0">
-                  &copy; 2026 TripGalileo Technologies. All rights reserved. Registered Tourism Network in Goa.
+                  &copy; 2026 Wow Goa. All rights reserved. Registered Tourism Network in Goa.
                 </p>
               </div>
             </div>

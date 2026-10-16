@@ -95,7 +95,7 @@ export default function PackageCheckoutStep3({
                   </div>
 
                   <div className="alert alert-success d-flex align-items-center gap-2 py-2 small mb-0">
-                      <ShieldCheck size={16}/> Your booking is protected by TripGalileo Guarantee.
+                      <ShieldCheck size={16}/> Your booking is protected by Wow Goa Guarantee.
                   </div>
                </div>
 

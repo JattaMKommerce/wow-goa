@@ -1760,7 +1760,7 @@ export default function FlightVendorPortalPage({
           <div className="d-flex align-items-center gap-2 min-w-0">
             <Compass size={22} style={{ color: '#00B8D9', flexShrink: 0 }} />
             <div className="min-w-0">
-              <div className="fw-extrabold text-white text-truncate" style={{ fontSize: '15px' }}>TRIPGALILEO</div>
+              <div className="fw-extrabold text-white text-truncate" style={{ fontSize: '15px' }}>WOW GOA</div>
               <div className="fw-bold text-uppercase text-truncate" style={{ fontSize: '0.55rem', letterSpacing: '1.5px', color: '#00B8D9' }}>Flight Operator PMS</div>
             </div>
           </div>
@@ -1823,7 +1823,7 @@ export default function FlightVendorPortalPage({
                 {PAGE_TITLES[activeTab] || 'Flight PMS'}
               </div>
               <div className="text-white-50 text-truncate d-none d-sm-block" style={{ fontSize: '0.68rem' }}>
-                TripGalileo Flight Operator Console
+                Wow Goa Flight Operator Console
               </div>
             </div>
           </div>

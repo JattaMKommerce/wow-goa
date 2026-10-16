@@ -412,7 +412,7 @@ export default function PackageCheckoutStep2({
               </div>
               <div className="alert alert-success d-flex align-items-center gap-2 py-2 px-2.5 small mb-0 mt-3" style={{ fontSize: '11px' }}>
                 <ShieldCheck size={15} className="text-success flex-shrink-0" />
-                <span>Protected by TripGalileo Guarantee</span>
+                <span>Protected by Wow Goa Guarantee</span>
               </div>
             </div>
 
