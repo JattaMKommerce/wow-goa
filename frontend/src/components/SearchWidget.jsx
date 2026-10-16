@@ -19,12 +19,58 @@ import {
   Plane,
   AlertCircle,
   Binoculars,
-  Globe
+  Globe,
+  ShieldCheck,
+  CheckCircle2,
+  Clock,
+  ArrowUpDown,
+  Sparkles
 } from 'lucide-react';
 import { getTodayDateStr, getNextDayDateStr, validateBookingDates } from '../utils/dateUtils';
 import UnifiedFilterPopover, { countActiveTabFilters } from './common/UnifiedFilterPopover';
+import { POPULAR_NATIONALITIES, VISA_TYPES } from './visa/VisaSection';
 
 // ─── STATIC DATASETS ──────────────────────────────────────────────────────────
+
+const CAB_POPULAR_PICKUPS = [
+  { name: 'Manohar Intl Airport, Mopa (GOX)', type: 'Airport', tag: 'North Goa Terminal', note: 'Flight Tracking & Free Handover' },
+  { name: 'Dabolim International Airport (GOI)', type: 'Airport', tag: 'Central/South Terminal', note: 'Flight Tracking & Free Handover' },
+  { name: 'Madgaon Railway Station (MAO)', type: 'Station', tag: 'South Goa Junction', note: 'Direct Station Pickup' },
+  { name: 'Thivim Railway Station (THVM)', type: 'Station', tag: 'North Goa Junction', note: 'Direct Station Pickup' },
+  { name: 'Calangute Beach / Circle', type: 'Beach Hub', tag: 'North Goa', note: 'Doorstep Pickup' },
+  { name: 'Candolim Beach Road', type: 'Beach Hub', tag: 'North Goa', note: 'Doorstep Pickup' },
+  { name: 'Baga Beach & Tito’s Lane', type: 'Beach Hub', tag: 'North Goa', note: 'Doorstep Pickup' },
+  { name: 'Panaji City (Fontainhas / Bus Stand)', type: 'City', tag: 'Central Goa', note: 'City Center Pickup' },
+  { name: 'Anjuna / Vagator Beach', type: 'Beach Hub', tag: 'North Goa', note: 'Doorstep Pickup' },
+  { name: 'Colva / Benaulim Beach', type: 'Beach Hub', tag: 'South Goa', note: 'Doorstep Pickup' }
+];
+
+const CAB_POPULAR_DROPS = [
+  { name: 'Candolim Beach & Fort Aguada', tag: 'North Goa Coast', icon: '🏖️' },
+  { name: 'Calangute Beach & Resorts', tag: 'North Goa Coast', icon: '🏖️' },
+  { name: 'Baga Beach & Nightlife Hub', tag: 'North Goa Coast', icon: '🏖️' },
+  { name: 'Anjuna & Vagator Cliffs', tag: 'North Goa Bohemian', icon: '🏖️' },
+  { name: 'Morjim & Ashvem Beach', tag: 'North Goa Luxury', icon: '🌴' },
+  { name: 'Panaji Latin Quarter & Casinos', tag: 'Central Goa Heritage', icon: '🏛️' },
+  { name: 'Colva, Benaulim & Varca', tag: 'South Goa Luxury Resorts', icon: '🌴' },
+  { name: 'Palolem Beach & Agonda', tag: 'Scenic South Goa', icon: '🌊' },
+  { name: 'Manohar Intl Airport, Mopa (GOX)', tag: 'Airport Departure', icon: '✈️' },
+  { name: 'Dabolim International Airport (GOI)', tag: 'Airport Departure', icon: '✈️' }
+];
+
+const CAB_SERVICE_OPTIONS = [
+  { id: 'Airport Transfer', title: 'Airport Transfer', desc: 'Mopa (GOX) or Dabolim (GOI) Terminal Handover & Live Flight Tracking', icon: '✈️' },
+  { id: 'Point-to-Point', title: 'Point-to-Point Local', desc: 'Fast beach hops, dinner rides, villas & railway station transfers', icon: '📍' },
+  { id: 'Sightseeing Tour', title: 'Full-Day Sightseeing', desc: 'Dedicated 8-Hour / 80km coastal, church & spice plantation tour', icon: '🏖️' }
+];
+
+const CAB_FLEET_CLASSES = [
+  { id: 'sedan', name: 'Prime Sedan', seats: '4 Seats', bags: '3 Bags', model: 'Dzire / Etios', tag: 'Most Popular', icon: '🚕', desc: 'Spacious AC sedan with dedicated boot space' },
+  { id: 'suv', name: 'Executive SUV', seats: '6 Seats', bags: '4 Bags', model: 'Innova Crysta / Ertiga', tag: 'Family Favorite', icon: '🚙', desc: 'Captain recliner seats & dual AC' },
+  { id: 'hatchback', name: 'Normal Hatchback', seats: '4 Seats', bags: '2 Bags', model: 'WagonR / Swift', tag: 'Budget Friendly', icon: '🚗', desc: 'Swift & affordable beach hops' },
+  { id: 'luxury', name: 'VIP Luxury Chauffeur', seats: '4 Seats', bags: '3 Bags', model: 'Mercedes / Fortuner', tag: 'VIP Elite', icon: '👑', desc: 'Suited chauffeur, chilled water & mints' },
+  { id: 'coach', name: 'Tourist Maxi Coach', seats: '13 Seats', bags: '10 Bags', model: 'Force Urbania / Tempo', tag: 'Group Holidays', icon: '🚐', desc: 'High-roof AC luxury mini-coach' }
+];
 
 const POPULAR_FROM_CITIES = [
   { city: 'Hubli', state: 'Karnataka', country: 'India', code: 'HBX' },
@@ -137,10 +183,31 @@ export default function SearchWidget({
   flightClass = 'economy',
   setFlightClass,
   appliedFilters = {},
-  setAppliedFilters
+  setAppliedFilters,
+  visaCountry = 'GB',
+  setVisaCountry,
+  visaType = '30days',
+  setVisaType,
+  visaAirport = 'GOX',
+  setVisaAirport,
+  cabServiceType = 'Airport Transfer',
+  setCabServiceType
 }) {
-  // Popover state: 'from' | 'to' | 'date-pickup' | 'date-drop' | 'guests' | 'filters' | 'flight-from' | 'flight-to' | 'passengers' | null
+  // Popover state: 'from' | 'to' | 'date-pickup' | 'date-drop' | 'guests' | 'filters' | 'flight-from' | 'flight-to' | 'passengers' | 'cab-type' | 'cab-pickup' | 'cab-drop' | 'cab-schedule' | 'cab-class' | 'visa-country' | 'visa-airport' | 'visa-date' | 'visa-tier' | 'visa-docs' | null
   const [activeDropdown, setActiveDropdown] = useState(null);
+
+  // Cab specific states
+  const [cabVehicleClass, setCabVehicleClass] = useState('sedan');
+  const [cabPickupSearch, setCabPickupSearch] = useState('');
+  const [cabDropSearch, setCabDropSearch] = useState('');
+
+  // Visa specific states
+  const [visaCountrySearch, setVisaCountrySearch] = useState('');
+
+  const selectedCountryObj = (POPULAR_NATIONALITIES && POPULAR_NATIONALITIES.find(c => c.code === visaCountry)) || { code: 'GB', name: 'United Kingdom', flag: '🇬🇧', stayLimit: 'Max 180 days continuous stay' };
+  const visaTypeObj = (VISA_TYPES && VISA_TYPES.find(v => v.id === visaType)) || { id: '30days', title: '30-Day Tourist e-Visa', entries: 'Double Entry', validity: '30 days from date of first entry into India', leadTime: 'Apply 30 to 4 days before departure' };
+  const cabVehicleObj = CAB_FLEET_CLASSES.find(c => c.id === cabVehicleClass) || CAB_FLEET_CLASSES[0];
+  const cabServiceObj = CAB_SERVICE_OPTIONS.find(s => s.id === cabServiceType) || CAB_SERVICE_OPTIONS[0];
 
   // Geolocation & Status
   const [isLocating, setIsLocating] = useState(false);
@@ -393,6 +460,17 @@ export default function SearchWidget({
       if (!pickupDate || pickupDate < todayStr) {
         setValidationError('Flight departure date cannot be in the past.');
         return;
+      }
+    } else if (activeTab === 'cabs') {
+      if (!pickupLoc) {
+        setPickupLoc('Manohar Intl Airport, Mopa (GOX)');
+      }
+      if (!dropLoc) {
+        setDropLoc('Candolim Beach');
+      }
+    } else if (activeTab === 'visa') {
+      if (!pickupDate || pickupDate < todayStr) {
+        setPickupDate(todayStr);
       }
     }
 
@@ -1900,6 +1978,572 @@ export default function SearchWidget({
               </div>
 
             </div>
+          ) : activeTab === 'cabs' ? (
+            /* ──────────────────────────────────────────────────────────────────
+                TAB: TAXIS & AIRPORT CABS
+            ────────────────────────────────────────────────────────────────── */
+            <div className="booking-inputs-grid">
+              
+              {/* Cab Field 1: Service Type */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'cab-type' ? null : 'cab-type')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><Car size={13} className="text-warning" /> Trip Service</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="input-block-val text-truncate" title={cabServiceObj.title}>
+                  {cabServiceObj.title}
+                </div>
+                <span className="input-block-sub">Fixed Rate · Zero Surge</span>
+
+                {activeDropdown === 'cab-type' && (
+                  <div className="tg-popover-card shadow-xl p-3" style={{ width: '320px' }} onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small"><Car size={14} className="text-warning me-1" /> Select Cab Service Type</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+                    <div className="d-flex flex-column gap-2">
+                      {CAB_SERVICE_OPTIONS.map(opt => (
+                        <div
+                          key={opt.id}
+                          className={`p-2.5 rounded-3 border cursor-pointer transition-all ${cabServiceType === opt.id ? 'border-warning bg-warning bg-opacity-10' : 'bg-light hover-bg-white'}`}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            if (setCabServiceType) setCabServiceType(opt.id);
+                            setActiveDropdown('cab-pickup');
+                          }}
+                        >
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <span className="fw-bold text-dark small">{opt.icon} {opt.title}</span>
+                            {cabServiceType === opt.id && <Check size={14} className="text-warning" />}
+                          </div>
+                          <p className="text-muted small mb-0" style={{ fontSize: '11px', lineHeight: '1.3' }}>{opt.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Cab Field 2: Pickup Location */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'cab-pickup' ? null : 'cab-pickup')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><MapPin size={13} className="text-warning" /> Pickup Location</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="input-block-val text-truncate" title={pickupLoc || 'Manohar Intl Airport, Mopa (GOX)'}>
+                  {pickupLoc || 'Manohar Intl Airport, Mopa (GOX)'}
+                </div>
+                <span className="input-block-sub">Goa Airports, Stations &amp; Hotels</span>
+
+                {activeDropdown === 'cab-pickup' && (
+                  <div className="tg-popover-card shadow-xl p-3" style={{ width: '340px' }} onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small"><MapPin size={14} className="text-primary me-1" /> Choose Cab Pickup</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <div className="position-relative mb-2">
+                      <SearchIcon size={16} className="position-absolute text-muted" style={{ top: '10px', left: '10px' }} />
+                      <input 
+                        type="text" 
+                        className="form-control form-control-sm ps-4 pe-4" 
+                        placeholder="Search Mopa, Dabolim, Calangute, Hotel..." 
+                        value={cabPickupSearch} 
+                        onChange={e => setCabPickupSearch(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && cabPickupSearch.trim()) {
+                            setPickupLoc(cabPickupSearch.trim());
+                            setActiveDropdown('cab-drop');
+                          }
+                        }}
+                        autoFocus 
+                      />
+                      {cabPickupSearch && (
+                        <button type="button" className="btn btn-sm btn-link position-absolute p-0 text-muted" style={{ top: '6px', right: '10px' }} onClick={() => setCabPickupSearch('')}>
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-light w-100 text-start d-flex align-items-center gap-2 p-2 rounded-2 mb-2"
+                      style={{ background: '#fff7ed', color: '#c2410c' }}
+                      onClick={() => handleUseCurrentLocation('pickup')}
+                      disabled={isLocating}
+                    >
+                      {isLocating ? <Loader2 size={16} className="animate-spin" /> : <Navigation size={16} />}
+                      <span className="fw-bold small">{isLocating ? 'Detecting...' : '📍 Use Current Location (GPS)'}</span>
+                    </button>
+
+                    <div className="fw-bold text-muted small mb-1" style={{ fontSize: '11px', textTransform: 'uppercase' }}>Popular Goa Hubs:</div>
+                    <div className="d-flex flex-column gap-1" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                      {CAB_POPULAR_PICKUPS
+                        .filter(p => !cabPickupSearch || p.name.toLowerCase().includes(cabPickupSearch.toLowerCase()) || p.tag.toLowerCase().includes(cabPickupSearch.toLowerCase()))
+                        .map((hub, idx) => (
+                          <div 
+                            key={idx}
+                            className={`p-2 rounded d-flex align-items-center justify-content-between cursor-pointer ${pickupLoc === hub.name ? 'bg-warning bg-opacity-10 text-dark fw-bold' : 'hover-bg-light text-dark'}`}
+                            style={{ cursor: 'pointer', fontSize: '13px' }}
+                            onClick={() => {
+                              setPickupLoc(hub.name);
+                              setActiveDropdown('cab-drop');
+                            }}
+                          >
+                            <div>
+                              <div className="fw-bold">{hub.name}</div>
+                              <div className="text-muted small" style={{ fontSize: '11px' }}>{hub.tag} · {hub.note}</div>
+                            </div>
+                            {pickupLoc === hub.name && <Check size={14} className="text-warning flex-shrink-0" />}
+                          </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Cab Field 3: Drop Destination */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'cab-drop' ? null : 'cab-drop')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><MapPin size={13} className="text-warning" /> Drop Location</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="input-block-val text-truncate" title={dropLoc || 'Candolim Beach'}>
+                  {dropLoc || 'Candolim Beach'}
+                </div>
+                <span className="input-block-sub">Any Resort, Villa or Airport</span>
+
+                {activeDropdown === 'cab-drop' && (
+                  <div className="tg-popover-card shadow-xl p-3" style={{ width: '340px' }} onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small"><MapPin size={14} className="text-success me-1" /> Choose Cab Dropoff</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <div className="d-flex gap-2 mb-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-1 py-1"
+                        style={{ fontSize: '12px' }}
+                        onClick={() => {
+                          const currentP = pickupLoc;
+                          const currentD = dropLoc;
+                          setPickupLoc(currentD || 'Candolim Beach');
+                          setDropLoc(currentP || 'Manohar Intl Airport, Mopa (GOX)');
+                        }}
+                      >
+                        <ArrowUpDown size={13} />
+                        <span>Swap Pickup &amp; Drop</span>
+                      </button>
+                    </div>
+
+                    <div className="position-relative mb-2">
+                      <SearchIcon size={16} className="position-absolute text-muted" style={{ top: '10px', left: '10px' }} />
+                      <input 
+                        type="text" 
+                        className="form-control form-control-sm ps-4 pe-4" 
+                        placeholder="Search Hotel, Beach, City, Airport..." 
+                        value={cabDropSearch} 
+                        onChange={e => setCabDropSearch(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && cabDropSearch.trim()) {
+                            setDropLoc(cabDropSearch.trim());
+                            setActiveDropdown('cab-schedule');
+                          }
+                        }}
+                        autoFocus 
+                      />
+                      {cabDropSearch && (
+                        <button type="button" className="btn btn-sm btn-link position-absolute p-0 text-muted" style={{ top: '6px', right: '10px' }} onClick={() => setCabDropSearch('')}>
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="fw-bold text-muted small mb-1" style={{ fontSize: '11px', textTransform: 'uppercase' }}>Popular Goa Destinations:</div>
+                    <div className="d-flex flex-column gap-1" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                      {CAB_POPULAR_DROPS
+                        .filter(d => !cabDropSearch || d.name.toLowerCase().includes(cabDropSearch.toLowerCase()) || d.tag.toLowerCase().includes(cabDropSearch.toLowerCase()))
+                        .map((drop, idx) => (
+                          <div 
+                            key={idx}
+                            className={`p-2 rounded d-flex align-items-center justify-content-between cursor-pointer ${dropLoc === drop.name ? 'bg-success bg-opacity-10 text-dark fw-bold' : 'hover-bg-light text-dark'}`}
+                            style={{ cursor: 'pointer', fontSize: '13px' }}
+                            onClick={() => {
+                              setDropLoc(drop.name);
+                              setActiveDropdown('cab-schedule');
+                            }}
+                          >
+                            <div>
+                              <div className="fw-bold">{drop.icon} {drop.name}</div>
+                              <div className="text-muted small" style={{ fontSize: '11px' }}>{drop.tag}</div>
+                            </div>
+                            {dropLoc === drop.name && <Check size={14} className="text-success flex-shrink-0" />}
+                          </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Cab Field 4: Pickup Date & Time */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'cab-schedule' ? null : 'cab-schedule')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><CalendarIcon size={13} className="text-warning" /> Pickup Schedule</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="d-flex align-items-baseline gap-1 mt-1">
+                  <span className="fw-black text-dark" style={{ fontSize: '26px', lineHeight: '1' }}>{displayPickupDay}</span>
+                  <span className="text-dark fw-bold" style={{ fontSize: '15px' }}>{displayPickupMonthYear}</span>
+                </div>
+                <span className="input-block-sub d-flex align-items-center gap-1">
+                  <Clock size={11} className="text-warning" /> At {pickupTime || '14:30'} · Flight Delay Tracked
+                </span>
+
+                {activeDropdown === 'cab-schedule' && (
+                  <div className="tg-popover-card shadow-xl p-3" style={{ width: '340px' }} onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small"><CalendarIcon size={14} className="text-warning me-1" /> Select Cab Date &amp; Time</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <CalendarPickerView
+                      title="Select Pickup Date"
+                      selectedDate={pickupDate}
+                      minDate={todayStr}
+                      onSelect={(d) => {
+                        setPickupDate(d);
+                      }}
+                      onClose={() => {}}
+                    />
+
+                    <div className="pt-2 mt-2 border-top">
+                      <label className="fw-bold text-dark small d-flex align-items-center gap-1 mb-1">
+                        <Clock size={13} className="text-warning" /> Pickup Time (Flight / Hotel)
+                      </label>
+                      <select 
+                        className="form-select form-select-sm"
+                        value={pickupTime || '14:30'}
+                        onChange={e => {
+                          setPickupTime(e.target.value);
+                        }}
+                      >
+                        {['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','14:30','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','23:30'].map(t => (
+                          <option key={t} value={t}>{t} hrs</option>
+                        ))}
+                      </select>
+                      <div className="d-flex justify-content-end mt-2">
+                        <button 
+                          type="button" 
+                          className="btn btn-sm btn-primary px-3 rounded-pill fw-bold"
+                          onClick={() => setActiveDropdown('cab-class')}
+                        >
+                          Confirm Schedule →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Cab Field 5: Vehicle Preference */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'cab-class' ? null : 'cab-class')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><Car size={13} className="text-warning" /> Vehicle Fleet</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="d-flex align-items-baseline gap-1 mt-1">
+                  <span className="fw-bold text-dark" style={{ fontSize: '18px', lineHeight: '1.2' }}>{cabVehicleObj.name}</span>
+                </div>
+                <span className="input-block-sub">{cabVehicleObj.seats} · {cabVehicleObj.model}</span>
+
+                {activeDropdown === 'cab-class' && (
+                  <div className="tg-popover-card shadow-xl p-3" style={{ width: '340px' }} onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small"><Car size={14} className="text-warning me-1" /> Choose Tourist Fleet Tier</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <div className="d-flex flex-column gap-2">
+                      {CAB_FLEET_CLASSES.map(cls => (
+                        <div
+                          key={cls.id}
+                          className={`p-2.5 rounded-3 border cursor-pointer ${cabVehicleClass === cls.id ? 'border-warning bg-warning bg-opacity-10' : 'bg-light hover-bg-white'}`}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            setCabVehicleClass(cls.id);
+                            setActiveDropdown(null);
+                          }}
+                        >
+                          <div className="d-flex align-items-center justify-content-between">
+                            <span className="fw-bold text-dark small">{cls.icon} {cls.name}</span>
+                            <span className="badge bg-secondary bg-opacity-10 text-dark" style={{ fontSize: '10px' }}>{cls.seats} · {cls.bags}</span>
+                          </div>
+                          <div className="text-muted small mt-1" style={{ fontSize: '11px' }}>{cls.model}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          ) : activeTab === 'visa' ? (
+            /* ──────────────────────────────────────────────────────────────────
+                TAB: GOA TOURIST VISA SERVICES
+            ────────────────────────────────────────────────────────────────── */
+            <div className="booking-inputs-grid">
+              
+              {/* Visa Field 1: Nationality */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'visa-country' ? null : 'visa-country')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><Globe size={13} className="text-warning" /> Your Nationality</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="input-block-val text-truncate" title={`${selectedCountryObj.flag} ${selectedCountryObj.name}`}>
+                  {selectedCountryObj.flag} {selectedCountryObj.name}
+                </div>
+                <span className="input-block-sub">{selectedCountryObj.stayLimit || '165+ Countries Eligible'}</span>
+
+                {activeDropdown === 'visa-country' && (
+                  <div className="tg-popover-card shadow-xl p-3" style={{ width: '340px' }} onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small"><Globe size={14} className="text-warning me-1" /> Select Passport Country</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <div className="position-relative mb-2">
+                      <SearchIcon size={16} className="position-absolute text-muted" style={{ top: '10px', left: '10px' }} />
+                      <input 
+                        type="text" 
+                        className="form-control form-control-sm ps-4 pe-4" 
+                        placeholder="Search UK, Russia, Germany, USA..." 
+                        value={visaCountrySearch} 
+                        onChange={e => setVisaCountrySearch(e.target.value)} 
+                        autoFocus 
+                      />
+                      {visaCountrySearch && (
+                        <button type="button" className="btn btn-sm btn-link position-absolute p-0 text-muted" style={{ top: '6px', right: '10px' }} onClick={() => setVisaCountrySearch('')}>
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="d-flex flex-column gap-1" style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                      {POPULAR_NATIONALITIES
+                        .filter(c => !visaCountrySearch || c.name.toLowerCase().includes(visaCountrySearch.toLowerCase()) || c.code.toLowerCase().includes(visaCountrySearch.toLowerCase()))
+                        .map(c => (
+                          <div
+                            key={c.code}
+                            className={`p-2 rounded d-flex align-items-center justify-content-between cursor-pointer ${visaCountry === c.code ? 'bg-warning bg-opacity-10 text-dark fw-bold' : 'hover-bg-light text-dark'}`}
+                            style={{ cursor: 'pointer', fontSize: '13px' }}
+                            onClick={() => {
+                              if (setVisaCountry) setVisaCountry(c.code);
+                              setActiveDropdown('visa-airport');
+                            }}
+                          >
+                            <div className="d-flex align-items-center gap-2">
+                              <span style={{ fontSize: '18px' }}>{c.flag}</span>
+                              <div>
+                                <div className="fw-bold">{c.name}</div>
+                                <div className="text-muted small" style={{ fontSize: '10px' }}>{c.stayLimit}</div>
+                              </div>
+                            </div>
+                            {visaCountry === c.code && <Check size={14} className="text-warning flex-shrink-0" />}
+                          </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Visa Field 2: Port of Entry */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'visa-airport' ? null : 'visa-airport')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><Plane size={13} className="text-warning" /> Goa Port of Entry</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="input-block-val text-truncate">
+                  {visaAirport === 'GOI' ? 'Dabolim Airport (GOI)' : visaAirport === 'SEAPORT' ? 'Mormugao Seaport' : 'Manohar Intl Mopa (GOX)'}
+                </div>
+                <span className="input-block-sub">e-Visa Biometric Counters Verified</span>
+
+                {activeDropdown === 'visa-airport' && (
+                  <div className="tg-popover-card shadow-xl p-3" style={{ width: '320px' }} onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small"><Plane size={14} className="text-warning me-1" /> Authorized Goa Ports</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <div className="d-flex flex-column gap-2">
+                      {[
+                        { code: 'GOX', name: 'Manohar Intl Airport (Mopa - GOX)', desc: 'North Goa International Gateway · Fast e-Visa biometric queues', tag: 'Recommended' },
+                        { code: 'GOI', name: 'Dabolim International Airport (GOI)', desc: 'Central/South Goa Airport · Dedicated e-Visa immigration counter', tag: 'South Goa' },
+                        { code: 'SEAPORT', name: 'Mormugao Seaport (Cruise Terminal)', desc: 'Designated international seaport for authorized cruise arrivals', tag: 'Cruise Ships' }
+                      ].map(port => (
+                        <div
+                          key={port.code}
+                          className={`p-2.5 rounded-3 border cursor-pointer ${visaAirport === port.code ? 'border-warning bg-warning bg-opacity-10' : 'bg-light hover-bg-white'}`}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            if (setVisaAirport) setVisaAirport(port.code);
+                            setActiveDropdown('visa-date');
+                          }}
+                        >
+                          <div className="d-flex align-items-center justify-content-between">
+                            <span className="fw-bold text-dark small">✈️ {port.name}</span>
+                            <span className="badge bg-primary bg-opacity-10 text-primary" style={{ fontSize: '10px' }}>{port.tag}</span>
+                          </div>
+                          <div className="text-muted small mt-1" style={{ fontSize: '11px' }}>{port.desc}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Visa Field 3: Expected Arrival Date */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'visa-date' ? null : 'visa-date')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><CalendarIcon size={13} className="text-warning" /> Travel / Arrival Date</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="d-flex align-items-baseline gap-1 mt-1">
+                  <span className="fw-black text-dark" style={{ fontSize: '26px', lineHeight: '1' }}>{displayPickupDay}</span>
+                  <span className="text-dark fw-bold" style={{ fontSize: '15px' }}>{displayPickupMonthYear}</span>
+                </div>
+                <span className="input-block-sub">{displayPickupWeekday} · Apply 4-120 days prior</span>
+
+                {activeDropdown === 'visa-date' && (
+                  <div className="tg-popover-card shadow-xl p-3" onClick={e => e.stopPropagation()}>
+                    <CalendarPickerView
+                      title="Expected Landing Date in Goa"
+                      selectedDate={pickupDate}
+                      minDate={todayStr}
+                      onSelect={(d) => {
+                        setPickupDate(d);
+                        setActiveDropdown('visa-tier');
+                      }}
+                      onClose={() => setActiveDropdown(null)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Visa Field 4: Visa Duration Tier */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'visa-tier' ? null : 'visa-tier')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><Compass size={13} className="text-warning" /> Visa Duration</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="input-block-val text-truncate" title={visaTypeObj.title}>
+                  {visaTypeObj.title}
+                </div>
+                <span className="input-block-sub">{visaTypeObj.entries}</span>
+
+                {activeDropdown === 'visa-tier' && (
+                  <div className="tg-popover-card shadow-xl p-3" style={{ width: '330px' }} onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small"><Compass size={14} className="text-warning me-1" /> Choose Tourist Visa Tier</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <div className="d-flex flex-column gap-2">
+                      {VISA_TYPES.map(vt => (
+                        <div
+                          key={vt.id}
+                          className={`p-2.5 rounded-3 border cursor-pointer ${visaType === vt.id ? 'border-warning bg-warning bg-opacity-10' : 'bg-light hover-bg-white'}`}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            if (setVisaType) setVisaType(vt.id);
+                            setActiveDropdown('visa-docs');
+                          }}
+                        >
+                          <div className="d-flex align-items-center justify-content-between">
+                            <span className="fw-bold text-dark small">🛂 {vt.title}</span>
+                            <span className="badge bg-warning bg-opacity-10 text-dark" style={{ fontSize: '10px' }}>{vt.entries}</span>
+                          </div>
+                          <div className="text-muted small mt-1" style={{ fontSize: '11px' }}>{vt.validity} · {vt.leadTime}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Visa Field 5: Document Sizing & Rules */}
+              <div 
+                className="input-block position-relative" 
+                onClick={() => setActiveDropdown(activeDropdown === 'visa-docs' ? null : 'visa-docs')}
+              >
+                <span className="input-block-label d-flex align-items-center justify-content-between">
+                  <span className="d-flex align-items-center gap-1"><ShieldCheck size={13} className="text-success" /> Pre-Flight Check</span>
+                  <ChevronDown size={14} />
+                </span>
+                <div className="d-flex align-items-baseline gap-1 mt-1">
+                  <span className="fw-bold text-success" style={{ fontSize: '17px', lineHeight: '1.2' }}>Document Specs</span>
+                </div>
+                <span className="input-block-sub">PDF 10-300KB · Photo 1:1</span>
+
+                {activeDropdown === 'visa-docs' && (
+                  <div className="tg-popover-card shadow-xl p-3" style={{ width: '330px' }} onClick={e => e.stopPropagation()}>
+                    <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                      <span className="fw-bold text-dark small"><ShieldCheck size={14} className="text-success me-1" /> Bureau of Immigration Standards</span>
+                      <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
+                    </div>
+
+                    <div className="p-2.5 rounded-3 bg-light mb-2 small text-muted">
+                      <div className="mb-1 text-dark fw-bold">Official Upload Constraints:</div>
+                      <div className="d-flex align-items-center gap-1.5 mb-1"><CheckCircle2 size={13} className="text-success" /> <strong>Passport PDF:</strong> 10 KB to 300 KB max</div>
+                      <div className="d-flex align-items-center gap-1.5 mb-1"><CheckCircle2 size={13} className="text-success" /> <strong>Tourist Photo:</strong> 1:1 square, 350x350px min</div>
+                      <div className="d-flex align-items-center gap-1.5"><CheckCircle2 size={13} className="text-success" /> <strong>Passport Validity:</strong> 6+ months from arrival</div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-warning w-100 fw-bold small text-dark d-flex align-items-center justify-content-center gap-1 py-2 rounded-2"
+                      onClick={() => {
+                        setActiveDropdown(null);
+                        setTimeout(() => {
+                          document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
+                        }, 50);
+                      }}
+                    >
+                      <Sparkles size={14} />
+                      <span>Launch Document Sizer ⚡</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </div>
           ) : (
             /* ──────────────────────────────────────────────────────────────────
                 TAB: TRIP PACKAGES
@@ -2215,7 +2859,9 @@ export default function SearchWidget({
                activeTab === 'hotels' ? 'SEARCH HOTELS' :
                activeTab === 'flights' ? 'SEARCH FLIGHTS' :
                activeTab === 'activities' ? 'SEARCH ACTIVITIES' :
-               activeTab === 'craftmytrip' ? 'START CRAFTING TRIP ✨' : 'SEARCH PACKAGES'}
+               activeTab === 'craftmytrip' ? 'START CRAFTING TRIP ✨' :
+               activeTab === 'cabs' ? 'SEARCH AIRPORT & LOCAL CABS 🚕' :
+               activeTab === 'visa' ? 'CHECK VISA ELIGIBILITY 🛂' : 'SEARCH PACKAGES'}
             </button>
           </div>
 

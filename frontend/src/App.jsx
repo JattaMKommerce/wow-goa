@@ -197,6 +197,12 @@ export default function App() {
   const [flightInfants, setFlightInfants] = useState(0);
   const [flightClass, setFlightClass] = useState('economy');
 
+  // Visa & Cab Specific State
+  const [visaCountry, setVisaCountry] = useState('GB');
+  const [visaType, setVisaType] = useState('30days');
+  const [visaAirport, setVisaAirport] = useState('GOX');
+  const [cabServiceType, setCabServiceType] = useState('Airport Transfer');
+
   // Filters state
   const [appliedFilters, setAppliedFilters] = useState({});
   const [hotelFilterStars, setHotelFilterStars] = useState('All');
@@ -2354,6 +2360,14 @@ export default function App() {
         setFlightClass={setFlightClass}
         appliedFilters={appliedFilters}
         setAppliedFilters={setAppliedFilters}
+        visaCountry={visaCountry}
+        setVisaCountry={setVisaCountry}
+        visaType={visaType}
+        setVisaType={setVisaType}
+        visaAirport={visaAirport}
+        setVisaAirport={setVisaAirport}
+        cabServiceType={cabServiceType}
+        setCabServiceType={setCabServiceType}
       />
 
       {/* Dynamic Results & Content Section */}
@@ -2400,11 +2414,24 @@ export default function App() {
 
 
           {(activeTab === 'cabs' || activeTab === 'taxi') && (
-            <CustomerCabsPage onBookCab={handleOpenBooking} />
+            <CustomerCabsPage 
+              onBookCab={handleOpenBooking}
+              initialPickup={pickupLoc}
+              initialDrop={dropLoc}
+              initialDate={pickupDate}
+              initialTime={pickupTime}
+              initialServiceType={cabServiceType}
+            />
           )}
 
           {activeTab === 'visa' && (
-            <VisaSection setActiveTab={handleTabChange} />
+            <VisaSection 
+              setActiveTab={handleTabChange}
+              initialCountry={visaCountry}
+              initialType={visaType}
+              initialAirport={visaAirport}
+              initialTravelDate={pickupDate}
+            />
           )}
 
           {activeTab === 'selfdrive' && (

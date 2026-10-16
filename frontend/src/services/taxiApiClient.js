@@ -349,7 +349,7 @@ function handleMockRoute(method, url, data) {
         user: {
           id: 1,
           username: isChauffeur ? 'Executive Chauffeur' : (isDispatcher ? 'Control Room Dispatcher' : 'Fleet Director'),
-          email: isChauffeur ? 'chauffeur@tripgalileo.com' : 'taxivendor@tripgalileo.com',
+          email: isChauffeur ? 'chauffeur@wowgoa.in' : 'taxivendor@wowgoa.in',
           role: role,
           company_name: 'WOW GOA B2B Fleet'
         }

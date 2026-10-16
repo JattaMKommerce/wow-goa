@@ -155,7 +155,14 @@ const TOURIST_VEHICLES = [
   }
 ];
 
-export default function CustomerCabsPage({ onBookCab }) {
+export default function CustomerCabsPage({ 
+  onBookCab,
+  initialPickup,
+  initialDrop,
+  initialDate,
+  initialTime,
+  initialServiceType
+}) {
   // Page View Modes: 'landing' (Uber storefront) | 'booking' (Dedicated Tourist Booking Page) | 'confirmed'
   const [currentView, setCurrentView] = useState(() => {
     try {
@@ -184,16 +191,36 @@ export default function CustomerCabsPage({ onBookCab }) {
   const [activeCategoryTab, setActiveCategoryTab] = useState('All');
   
   // Trip Configuration State
-  const [serviceType, setServiceType] = useState('Point-to-Point'); // 'Point-to-Point', 'Airport Transfer', 'Sightseeing Tour', 'Intercity'
+  const [serviceType, setServiceType] = useState(initialServiceType || 'Point-to-Point'); // 'Point-to-Point', 'Airport Transfer', 'Sightseeing Tour', 'Intercity'
   const [pickupNow, setPickupNow] = useState(true);
-  const [pickupLocation, setPickupLocation] = useState('Manohar Intl Airport, Mopa (GOX)');
-  const [dropoffLocation, setDropoffLocation] = useState('Candolim Beach');
+  const [pickupLocation, setPickupLocation] = useState(initialPickup || 'Manohar Intl Airport, Mopa (GOX)');
+  const [dropoffLocation, setDropoffLocation] = useState(initialDrop || 'Candolim Beach');
   
   // Date & Time Scheduling States
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [selectedTime, setSelectedTime] = useState('14:30');
+  const [selectedDate, setSelectedDate] = useState(() => initialDate || new Date().toISOString().split('T')[0]);
+  const [selectedTime, setSelectedTime] = useState(initialTime || '14:30');
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  useEffect(() => {
+    if (initialPickup) setPickupLocation(initialPickup);
+  }, [initialPickup]);
+
+  useEffect(() => {
+    if (initialDrop) setDropoffLocation(initialDrop);
+  }, [initialDrop]);
+
+  useEffect(() => {
+    if (initialDate) setSelectedDate(initialDate);
+  }, [initialDate]);
+
+  useEffect(() => {
+    if (initialTime) setSelectedTime(initialTime);
+  }, [initialTime]);
+
+  useEffect(() => {
+    if (initialServiceType) setServiceType(initialServiceType);
+  }, [initialServiceType]);
 
   // Filters on Dedicated Booking Page: Seats & Vehicle Class
   const [seatFilter, setSeatFilter] = useState('all'); // 'all', '4', '6', '13'

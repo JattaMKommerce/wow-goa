@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Globe, Clock, FileText, CheckCircle2, ArrowRight, 
   HelpCircle, MessageSquare, Phone, Calendar, User, Mail, 
@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { createLead } from '../../services/api';
 
-const POPULAR_NATIONALITIES = [
+export const POPULAR_NATIONALITIES = [
   { code: 'GB', name: 'United Kingdom', flag: '🇬🇧', stayLimit: 'Max 180 days continuous stay' },
   { code: 'RU', name: 'Russia', flag: '🇷🇺', stayLimit: 'Max 90 days continuous stay' },
   { code: 'DE', name: 'Germany', flag: '🇩🇪', stayLimit: 'Max 90 days continuous stay' },
@@ -31,7 +31,7 @@ const POPULAR_NATIONALITIES = [
   { code: 'OTHER', name: 'Other Eligible International Country', flag: '🌐', stayLimit: '165+ Countries Eligible' }
 ];
 
-const VISA_TYPES = [
+export const VISA_TYPES = [
   {
     id: '30days',
     title: '30-Day Tourist e-Visa',
@@ -89,9 +89,16 @@ const FAQS = [
   }
 ];
 
-export default function VisaSection({ setActiveTab }) {
-  const [selectedCountry, setSelectedCountry] = useState('GB');
-  const [selectedType, setSelectedType] = useState('30days');
+export default function VisaSection({ 
+  setActiveTab,
+  initialCountry,
+  initialType,
+  initialAirport,
+  initialTravelDate
+}) {
+  const [selectedCountry, setSelectedCountry] = useState(initialCountry || 'GB');
+  const [selectedType, setSelectedType] = useState(initialType || '30days');
+  const [selectedAirport, setSelectedAirport] = useState(initialAirport || 'GOX');
   const [activeInfoTab, setActiveInfoTab] = useState('eligibility'); // 'eligibility' | 'documents' | 'tiers' | 'goa_entry'
   const [openFaq, setOpenFaq] = useState(null);
   
@@ -108,12 +115,30 @@ export default function VisaSection({ setActiveTab }) {
     name: '',
     phone: '',
     email: '',
-    travelDate: '',
+    travelDate: initialTravelDate || '',
     notes: ''
   });
   const [sent, setSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [leadRef, setLeadRef] = useState(null);
+
+  useEffect(() => {
+    if (initialCountry) setSelectedCountry(initialCountry);
+  }, [initialCountry]);
+
+  useEffect(() => {
+    if (initialType) setSelectedType(initialType);
+  }, [initialType]);
+
+  useEffect(() => {
+    if (initialAirport) setSelectedAirport(initialAirport);
+  }, [initialAirport]);
+
+  useEffect(() => {
+    if (initialTravelDate) {
+      setFormData(prev => ({ ...prev, travelDate: initialTravelDate }));
+    }
+  }, [initialTravelDate]);
 
   // Document Pre-Flight Validator states
   const [activeDocCheckTab, setActiveDocCheckTab] = useState('pdf'); // 'pdf' | 'photo'
@@ -146,6 +171,7 @@ export default function VisaSection({ setActiveTab }) {
         notes: [
           `Country: ${country.name} (${country.flag})`,
           `Selected Category: ${visa.title}`,
+          `Arrival Port: ${selectedAirport === 'GOI' ? 'Dabolim Airport (GOI)' : selectedAirport === 'SEAPORT' ? 'Mormugao Seaport' : 'Manohar Intl Airport Mopa (GOX)'}`,
           `Approx Travel Date: ${formData.travelDate || 'Not specified'}`,
           `Eligibility Checklist: ${allChecksPassed ? '100% Eligible (5/5 passed)' : 'Partial / Review Needed'}`,
           formData.notes ? `Guest Note: ${formData.notes}` : ''
