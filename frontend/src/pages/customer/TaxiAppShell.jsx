@@ -5,9 +5,9 @@ import AppDownloadModal from '../../components/mobile/AppDownloadModal';
 import AppUpdateModal from '../../components/mobile/AppUpdateModal';
 
 // Current client bundle metadata
-export const CURRENT_CLIENT_BUNDLE_ID = 'wowgoa_cabs_20261022_v252';
-export const CURRENT_CLIENT_VERSION = '2.5.2';
-export const CURRENT_CLIENT_VERSION_CODE = 252;
+export const CURRENT_CLIENT_BUNDLE_ID = 'wowgoa_cabs_20261022_v253';
+export const CURRENT_CLIENT_VERSION = '2.5.3';
+export const CURRENT_CLIENT_VERSION_CODE = 253;
 
 /**
  * TaxiAppShell: Full-Screen Dedicated Ola / Uber Cab Application Host

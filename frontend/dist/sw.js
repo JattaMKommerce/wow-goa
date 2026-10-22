@@ -1,5 +1,5 @@
 // WOW GOA Vacation Mobility PWA & Cab App Service Worker
-const CACHE_NAME = 'wow-goa-v252';
+const CACHE_NAME = 'wow-goa-v253';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.webmanifest',

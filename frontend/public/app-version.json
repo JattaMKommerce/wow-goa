@@ -1,17 +1,17 @@
 {
-  "version": "2.5.2",
-  "versionCode": 252,
-  "bundleId": "wowgoa_cabs_20261022_v252",
+  "version": "2.5.3",
+  "versionCode": 253,
+  "bundleId": "wowgoa_cabs_20261022_v253",
   "releaseDate": "2026-10-22",
   "title": "New Smooth Rapido Cab Experience! 🚖",
-  "description": "Upgraded with a smooth draggable bottom sheet and 3 clean car options (Goa Mini, Prime Sedan, Goa SUV) — no clutter, just smooth booking.",
+  "description": "Fixed rendering issue and activated smooth 3-car draggable booking interface.",
   "changelog": [
+    "Fixed screen rendering crash",
     "3 Smooth Rapido Car Options (Goa Mini, Prime Sedan, Goa SUV)",
-    "Interactive draggable bottom sheet (drag up/down smoothly)",
-    "Clean uncluttered full-screen interactive map",
+    "Interactive draggable bottom sheet",
     "Instant booking with zero congestion"
   ],
-  "forceUpdate": false,
+  "forceUpdate": true,
   "requiresNativeApkUpdate": false,
   "downloadUrl": "https://wowgoa.in/download/wowgoa-cabs.apk",
   "minSupportedVersion": "1.0.0"

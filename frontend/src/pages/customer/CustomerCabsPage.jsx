@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { 
   Car, Calendar, Clock, MapPin, ArrowRight, X, Shield, 
   Sparkles, CheckCircle2, ChevronDown, LocateFixed, Phone, 
