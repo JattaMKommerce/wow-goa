@@ -138,7 +138,10 @@ export default function CustomerCabsPage({
   initialServiceType,
   isNativeApp = false,
   onNavigateWebsite = null,
-  onShowApkModal = null
+  onShowApkModal = null,
+  cabUser = null,
+  onOpenAuth = null,
+  onLogout = null
 }) {
   // Navigation & Location States
   const [pickupLocation, setPickupLocation] = useState(initialPickup || 'Manohar Intl Airport, Mopa (GOX)');
@@ -155,18 +158,26 @@ export default function CustomerCabsPage({
   const [extraLuggage, setExtraLuggage] = useState(false);
   const [childSeat, setChildSeat] = useState(false);
 
-  // Rider Information
+  // Rider Information (Pre-filled from authenticated cabUser)
   const [touristName, setTouristName] = useState(() => {
+    if (cabUser?.name) return cabUser.name;
     try {
       return localStorage.getItem('wowgoa_rider_name') || '';
     } catch (e) { return ''; }
   });
   const [touristPhone, setTouristPhone] = useState(() => {
+    if (cabUser?.phone) return cabUser.phone;
     try {
       return localStorage.getItem('wowgoa_rider_phone') || '';
     } catch (e) { return ''; }
   });
   const [touristFlight, setTouristFlight] = useState('');
+
+  // Sync rider info if cabUser updates
+  useEffect(() => {
+    if (cabUser?.name) setTouristName(cabUser.name);
+    if (cabUser?.phone) setTouristPhone(cabUser.phone);
+  }, [cabUser]);
 
   // Modals & Drawers
   const [showSideDrawer, setShowSideDrawer] = useState(false);
@@ -1599,7 +1610,7 @@ export default function CustomerCabsPage({
             <div style={{
               background: '#0B192C',
               color: '#ffffff',
-              padding: '24px 20px 20px',
+              padding: '24px 20px 18px',
               display: 'flex',
               flexDirection: 'column',
               gap: '6px'
@@ -1620,9 +1631,71 @@ export default function CustomerCabsPage({
                   <X size={20} />
                 </button>
               </div>
-              <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px' }}>
-                Official Goa Cab & Airport Transfer Service
-              </span>
+
+              {/* Rider Profile Card in Drawer */}
+              {cabUser ? (
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  borderRadius: '12px',
+                  padding: '10px 12px',
+                  marginTop: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  border: '1px solid rgba(255, 255, 255, 0.12)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '50%',
+                      background: '#ff9f1c',
+                      color: '#0B192C',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 900,
+                      fontSize: '15px'
+                    }}>
+                      {cabUser.name ? cabUser.name[0].toUpperCase() : 'R'}
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff', display: 'block' }}>
+                        {cabUser.name || 'Valued Rider'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                        {cabUser.phone || cabUser.email || 'Verified Account'}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '9.5px', background: '#dcfce7', color: '#15803d', fontWeight: 800, padding: '2px 6px', borderRadius: '4px' }}>
+                    Verified
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setShowSideDrawer(false); onOpenAuth?.(); }}
+                  style={{
+                    background: 'rgba(255, 159, 28, 0.15)',
+                    border: '1px solid rgba(255, 159, 28, 0.4)',
+                    borderRadius: '12px',
+                    padding: '8px 12px',
+                    marginTop: '10px',
+                    color: '#ff9f1c',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    width: '100%'
+                  }}
+                >
+                  <span>Sign In / Register</span>
+                  <ArrowRight size={14} />
+                </button>
+              )}
             </div>
 
             {/* Drawer Menu Items */}
@@ -1736,6 +1809,33 @@ export default function CustomerCabsPage({
                 <Phone size={18} color="#10b981" />
                 <span>24/7 Helpline: +91 98221 44510</span>
               </a>
+
+              {/* Log Out / Switch Account */}
+              {cabUser && onLogout && (
+                <button
+                  type="button"
+                  onClick={() => { setShowSideDrawer(false); onLogout(); }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '11px 14px',
+                    borderRadius: '10px',
+                    background: '#fef2f2',
+                    border: '1px solid #fee2e2',
+                    width: '100%',
+                    textAlign: 'left',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: '#dc2626',
+                    cursor: 'pointer',
+                    marginTop: '8px'
+                  }}
+                >
+                  <Lock size={16} color="#dc2626" />
+                  <span>Switch Account / Sign Out</span>
+                </button>
+              )}
 
               {/* If web browser, link back to website */}
               {!isNativeApp && onNavigateWebsite && (
