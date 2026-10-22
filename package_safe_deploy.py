@@ -27,6 +27,8 @@ if os.path.exists(temp_frontend):
 os.makedirs(temp_frontend, exist_ok=True)
 
 for item in os.listdir(FRONTEND_DIST):
+    if item == "download":
+        continue # APK is already uploaded directly to server
     src = os.path.join(FRONTEND_DIST, item)
     dst = os.path.join(temp_frontend, item)
     if os.path.isdir(src):

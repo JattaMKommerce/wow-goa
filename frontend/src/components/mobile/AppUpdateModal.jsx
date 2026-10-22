@@ -45,17 +45,18 @@ export default function AppUpdateModal({
       console.warn('Cache clearing error:', e);
     }
 
-    // 4. If native Android app, also trigger APK download if newer native build exists
-    if (isNativeApp && updateInfo.downloadUrl) {
+    // 4. Only trigger APK download if server specifically flags a major native binary update
+    if (isNativeApp && updateInfo.requiresNativeApkUpdate && updateInfo.downloadUrl) {
       setTimeout(() => {
         window.location.href = updateInfo.downloadUrl;
       }, 500);
+      return;
     }
 
-    // 5. Reload app with cache bust query
+    // 5. Instant Over-The-Air Update: Reload app with cache bust query
     setTimeout(() => {
       window.location.href = window.location.pathname + `?mode=app&v=${Date.now()}`;
-    }, 800);
+    }, 600);
   };
 
   return (

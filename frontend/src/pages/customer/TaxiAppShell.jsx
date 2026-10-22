@@ -5,8 +5,9 @@ import AppDownloadModal from '../../components/mobile/AppDownloadModal';
 import AppUpdateModal from '../../components/mobile/AppUpdateModal';
 
 // Current client bundle metadata
-export const CURRENT_CLIENT_BUNDLE_ID = 'wowgoa_cabs_20261022_v250';
-export const CURRENT_CLIENT_VERSION = '2.5.0';
+export const CURRENT_CLIENT_BUNDLE_ID = 'wowgoa_cabs_20261022_v251';
+export const CURRENT_CLIENT_VERSION = '2.5.1';
+export const CURRENT_CLIENT_VERSION_CODE = 251;
 
 /**
  * TaxiAppShell: Full-Screen Dedicated Ola / Uber Cab Application Host
@@ -59,10 +60,13 @@ export default function TaxiAppShell({
       });
       if (res.ok) {
         const manifest = await res.json();
-        const storedBundle = localStorage.getItem('wowgoa_installed_bundle_id') || CURRENT_CLIENT_BUNDLE_ID;
+        const storedBundle = localStorage.getItem('wowgoa_installed_bundle_id');
 
-        // If server bundle is different or newer
-        if (manifest.bundleId && manifest.bundleId !== storedBundle) {
+        // Check if server version is newer than running client or stored bundle
+        const isBundleNewer = manifest.bundleId && (manifest.bundleId !== CURRENT_CLIENT_BUNDLE_ID || (storedBundle && manifest.bundleId !== storedBundle));
+        const isCodeHigher = manifest.versionCode && manifest.versionCode > CURRENT_CLIENT_VERSION_CODE;
+
+        if (isBundleNewer || isCodeHigher) {
           setUpdateInfo(manifest);
           setShowUpdateModal(true);
           return true;
