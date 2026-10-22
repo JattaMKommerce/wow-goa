@@ -64,6 +64,8 @@ import RoleAccessDeniedModal from './components/vendor/RoleAccessDeniedModal';
 import PublicVendorStorefrontPage from './pages/vendor/PublicVendorStorefrontPage';
 import TaxiVendorPortalPage from './pages/vendor/TaxiVendorPortalPage';
 import CustomerCabsPage from './pages/customer/CustomerCabsPage';
+import TaxiAppShell from './pages/customer/TaxiAppShell';
+import ApkDownloadPage from './pages/customer/ApkDownloadPage';
 import VisaSection from './components/visa/VisaSection';
 import MobileBottomNav from './components/mobile/MobileBottomNav';
 import MobileInstallBanner from './components/mobile/MobileInstallBanner';
@@ -1800,6 +1802,51 @@ export default function App() {
     );
   }
 
+  // ─── DIRECT APK DOWNLOAD / INSTALLATION PAGE ──────────────────────────────
+  if (path.startsWith('/download') || path === '/download-app' || path === '/get-app' || path === '/app' || activeTab === 'download-apk') {
+    return (
+      <ApkDownloadPage
+        onNavigateHome={() => {
+          handleTabChange('selfdrive');
+          window.history.pushState(null, '', '/');
+        }}
+        onLaunchWebCabs={() => {
+          setActiveTab('cabs');
+          window.history.pushState(null, '', '/cabs');
+        }}
+      />
+    );
+  }
+
+  // ─── DEDICATED TAXI APP SHELL (STRICTLY CABS ONLY, NO WEBSITE PAGES) ───────
+  // Isolated ride-hailing interface for APK installations and direct cab bookers
+  const isNativeApp = typeof window !== 'undefined' && (
+    Boolean(window.Capacitor?.isNativePlatform?.()) ||
+    window.location.protocol === 'capacitor:' ||
+    window.location.search.includes('mode=app') ||
+    window.location.search.includes('source=apk') ||
+    window.location.search.includes('app=taxi')
+  );
+
+  if (isNativeApp || path === '/cabs' || path === '/taxi' || path.startsWith('/cabs/') || path.startsWith('/taxi/') || activeTab === 'cabs' || activeTab === 'taxi') {
+    return (
+      <TaxiAppShell
+        onNavigateWebsite={() => {
+          handleTabChange('selfdrive');
+          window.history.pushState(null, '', '/');
+        }}
+        currentUser={currentUser}
+        pickupLoc={pickupLoc}
+        dropLoc={dropLoc}
+        pickupDate={pickupDate}
+        pickupTime={pickupTime}
+        cabServiceType={cabServiceType}
+        onBookCab={handleOpenBooking}
+        isNativeApp={isNativeApp}
+      />
+    );
+  }
+
   // ─── B2B TRAVEL AGENT / PARTNER PORTAL ROUTING ────────────────────────────
   if (path.startsWith('/b2b') || path === '/register' || path.startsWith('/vendor/register') || activeTab === 'b2b') {
     return (
@@ -2415,17 +2462,6 @@ export default function App() {
           )}
 
 
-
-          {(activeTab === 'cabs' || activeTab === 'taxi') && (
-            <CustomerCabsPage 
-              onBookCab={handleOpenBooking}
-              initialPickup={pickupLoc}
-              initialDrop={dropLoc}
-              initialDate={pickupDate}
-              initialTime={pickupTime}
-              initialServiceType={cabServiceType}
-            />
-          )}
 
           {activeTab === 'visa' && (
             <VisaSection 

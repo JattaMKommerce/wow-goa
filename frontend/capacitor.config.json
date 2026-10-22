@@ -1,6 +1,6 @@
 {
   "appId": "com.wowgoa.cabs",
-  "appName": "WOW GOA Cabs & Vacation",
+  "appName": "WOW GOA Cabs",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {

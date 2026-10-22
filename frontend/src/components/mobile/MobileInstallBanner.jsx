@@ -49,6 +49,16 @@ export default function MobileInstallBanner({ activeTab }) {
   }, []);
 
   const handleInstallClick = async () => {
+    // Direct APK download for Android users or anyone requesting the taxi app
+    if (!isIOS) {
+      const link = document.createElement('a');
+      link.href = '/download/wowgoa-cabs.apk';
+      link.download = 'wowgoa-cabs.apk';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const choice = await deferredPrompt.userChoice;
@@ -59,8 +69,7 @@ export default function MobileInstallBanner({ activeTab }) {
     } else if (isIOS) {
       setShowIOSModal(true);
     } else {
-      // Direct instructions fallback
-      alert('To install the WOW GOA App: Tap your browser menu (⋮) and select "Install App" or "Add to Home screen".');
+      window.location.href = '/download';
     }
   };
 

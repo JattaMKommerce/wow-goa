@@ -3,7 +3,7 @@ import {
   Compass, MapPin, Phone, Mail, Clock, ShieldCheck, 
   Car, Bike, Building2, Package, Sparkles, Navigation, 
   CreditCard, CheckCircle2, HelpCircle, ExternalLink, 
-  X, FileText, ChevronRight, MessageSquare, Globe
+  X, FileText, ChevronRight, MessageSquare, Globe, Download, QrCode
 } from 'lucide-react';
 import { useSiteConfig } from '../context/SiteConfigContext';
 
@@ -16,6 +16,13 @@ export default function Footer({ setActiveTab }) {
   const email = liveConfig?.email || 'support@wowgoa.in';
   const address = liveConfig?.address || 'Calangute - Baga Main Road, North Goa, 403516';
   const whatsappUrl = `https://wa.me/${cleanPhone || '917676573476'}?text=${encodeURIComponent('Hi Wow Goa Concierge, I would like to inquire about cabs, vehicle rentals and holiday bookings in Goa.')}`;
+
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const baseUrl = isLocal 
+    ? `http://192.168.1.23:${(typeof window !== 'undefined' && window.location.port) || '5173'}` 
+    : (typeof window !== 'undefined' ? window.location.origin : 'https://wowgoa.in');
+  const apkDownloadUrl = `${baseUrl}/download/wowgoa-cabs.apk`;
+  const footerQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(apkDownloadUrl)}`;
 
   // Policies data for interactive modal
   const infoModalsData = {
@@ -397,8 +404,64 @@ export default function Footer({ setActiveTab }) {
             </div>
           </div>
 
+          {/* ── DEDICATED TAXI APK DOWNLOAD & QR CODE CARD ── */}
+          <div className="mt-5 p-4 rounded-4" style={{ background: 'linear-gradient(135deg, rgba(255,159,28,0.12) 0%, rgba(30,62,98,0.4) 100%)', border: '1px solid rgba(255,159,28,0.3)' }}>
+            <div className="row align-items-center gy-3">
+              <div className="col-lg-8 col-md-7">
+                <div className="d-flex align-items-center gap-2 mb-1.5">
+                  <span className="badge bg-warning text-dark px-2 py-0.5 rounded-pill fw-bold" style={{ fontSize: '10px' }}>
+                    ANDROID APK
+                  </span>
+                  <span className="text-warning small fw-bold">Strictly Cabs &amp; Airport Transfers</span>
+                </div>
+                <h4 className="fw-bold text-white mb-1" style={{ fontSize: '1.25rem' }}>
+                  Download WOW GOA Cabs App (Direct APK)
+                </h4>
+                <p className="text-white-50 small mb-3" style={{ maxWidth: '580px' }}>
+                  Point your mobile camera at the QR code to download the standalone taxi booking app directly to your phone. Zero website clutter, live chauffeur GPS tracking, and instant ride OTP.
+                </p>
+                <div className="d-flex flex-wrap align-items-center gap-2.5">
+                  <a 
+                    href={apkDownloadUrl}
+                    download="wowgoa-cabs.apk"
+                    className="btn btn-warning btn-sm fw-bold px-3 py-2 rounded-pill d-inline-flex align-items-center gap-1.5 shadow-sm text-dark"
+                  >
+                    <Download size={15} strokeWidth={2.5} />
+                    <span>Download Taxi APK</span>
+                  </a>
+                  <a 
+                    href="/download"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (setActiveTab) setActiveTab('download-apk');
+                      window.history.pushState(null, '', '/download');
+                    }}
+                    className="btn btn-outline-light btn-sm fw-semibold px-3 py-2 rounded-pill d-inline-flex align-items-center gap-1.5"
+                  >
+                    <QrCode size={15} />
+                    <span>View QR &amp; Install Guide</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* QR Code display */}
+              <div className="col-lg-4 col-md-5 text-center text-md-end">
+                <div className="d-inline-flex flex-column align-items-center p-2.5 bg-white rounded-3 shadow">
+                  <img 
+                    src={footerQrUrl} 
+                    alt="Scan to Download WOW GOA Cabs APK" 
+                    style={{ width: '130px', height: '130px', display: 'block', borderRadius: '6px' }}
+                  />
+                  <span className="text-dark fw-bold mt-1.5" style={{ fontSize: '10.5px' }}>
+                    📸 Scan with phone camera
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Payment Badges & Copyright Row */}
-          <div className="border-top border-secondary pt-4 mt-5">
+          <div className="border-top border-secondary pt-4 mt-4">
             <div className="row align-items-center gy-3">
               <div className="col-md-6 text-center text-md-start">
                 <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-md-start gap-2">

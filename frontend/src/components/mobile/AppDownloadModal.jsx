@@ -12,9 +12,10 @@ export default function AppDownloadModal({
   isBookingPrompt = false, 
   onContinueWebBooking = null 
 }) {
-  const [activeSubTab, setActiveSubTab] = useState('instant'); // 'instant' | 'apk' | 'driver'
+  const [activeSubTab, setActiveSubTab] = useState('apk'); // 'apk' | 'web' | 'driver'
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [downloadStarted, setDownloadStarted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -26,15 +27,27 @@ export default function AppDownloadModal({
   const baseUrl = isLocalhost 
     ? `http://192.168.1.23:${(typeof window !== 'undefined' && window.location.port) || '5173'}` 
     : (typeof window !== 'undefined' ? window.location.origin : 'https://wowgoa.in');
-  const currentUrl = `${baseUrl}/cabs`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(currentUrl)}`;
+  
+  const apkDownloadUrl = `${baseUrl}/download/wowgoa-cabs.apk`;
+  const webAppUrl = `${baseUrl}/cabs`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(apkDownloadUrl)}`;
 
   const handleCopyLink = () => {
     try {
-      navigator.clipboard.writeText(currentUrl);
+      navigator.clipboard.writeText(apkDownloadUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {}
+  };
+
+  const handleDirectDownload = () => {
+    setDownloadStarted(true);
+    const link = document.createElement('a');
+    link.href = apkDownloadUrl;
+    link.download = 'wowgoa-cabs.apk';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const modalContent = (
@@ -94,10 +107,10 @@ export default function AppDownloadModal({
             />
             <div>
               <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 800, color: '#ff9f1c', letterSpacing: '0.06em' }}>
-                {isBookingPrompt ? 'RIDE TRACKING ON MOBILE' : 'MOBILE APPLICATION'}
+                OFFICIAL ANDROID APP
               </span>
               <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 900, color: '#ffffff' }}>
-                {isBookingPrompt ? 'Book on WOW GOA Mobile App' : 'Get WOW GOA On Your Phone'}
+                Download WOW GOA Cabs App
               </h4>
             </div>
           </div>
@@ -128,25 +141,6 @@ export default function AppDownloadModal({
         <div style={{ display: 'flex', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '4px 8px', flexShrink: 0 }}>
           <button
             type="button"
-            onClick={() => setActiveSubTab('instant')}
-            style={{
-              flex: 1,
-              padding: '9px 6px',
-              border: 'none',
-              background: activeSubTab === 'instant' ? '#ffffff' : 'transparent',
-              color: activeSubTab === 'instant' ? '#0f172a' : '#64748b',
-              fontWeight: 800,
-              fontSize: '0.8rem',
-              borderRadius: '10px',
-              boxShadow: activeSubTab === 'instant' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-              cursor: 'pointer'
-            }}
-          >
-            ⚡ Scan & 1-Tap App
-          </button>
-
-          <button
-            type="button"
             onClick={() => setActiveSubTab('apk')}
             style={{
               flex: 1,
@@ -161,7 +155,26 @@ export default function AppDownloadModal({
               cursor: 'pointer'
             }}
           >
-            🤖 Android APK
+            🤖 Android APK (QR)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('web')}
+            style={{
+              flex: 1,
+              padding: '9px 6px',
+              border: 'none',
+              background: activeSubTab === 'web' ? '#ffffff' : 'transparent',
+              color: activeSubTab === 'web' ? '#0f172a' : '#64748b',
+              fontWeight: 800,
+              fontSize: '0.8rem',
+              borderRadius: '10px',
+              boxShadow: activeSubTab === 'web' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+              cursor: 'pointer'
+            }}
+          >
+            🌐 Web App Link
           </button>
 
           <button
@@ -187,23 +200,17 @@ export default function AppDownloadModal({
         {/* Scrollable Modal Content */}
         <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
-          {/* TAB 1: INSTANT 1-TAP PWA & QR CODE */}
-          {activeSubTab === 'instant' && (
+          {/* TAB 1: STANDALONE ANDROID APK WITH DIRECT QR CODE */}
+          {activeSubTab === 'apk' && (
             <>
-              {isBookingPrompt ? (
-                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '14px', padding: '12px 14px', fontSize: '0.82rem', color: '#1e40af' }}>
-                  <strong>Tip for vacation in Goa:</strong> Open this ride on your mobile phone to receive <strong>Live Driver GPS arrival notifications</strong> and your <strong>4-digit Ride OTP</strong> while on the road!
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '14px', padding: '12px 14px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <ShieldCheck size={20} color="#16a34a" />
+                <div style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 700 }}>
+                  Dedicated Cab App: Strictly for taxi booking with live driver GPS & OTP verification. Zero website clutter.
                 </div>
-              ) : (
-                <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '14px', padding: '12px 14px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <Sparkles size={18} color="#16a34a" />
-                  <div style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 700 }}>
-                    Instant App: Works on 100% of Android & iPhone devices with 0 download needed!
-                  </div>
-                </div>
-              )}
+              </div>
 
-              {/* Centered, Clean QR Code Scanner Box */}
+              {/* Centered, Clean QR Code Scanner Box pointing to direct APK download */}
               <div style={{
                 background: '#f8fafc',
                 border: '1.5px dashed #cbd5e1',
@@ -225,56 +232,85 @@ export default function AppDownloadModal({
                 }}>
                   <img 
                     src={qrUrl} 
-                    alt="Scan to Open on Phone" 
-                    style={{ width: '150px', height: '150px', display: 'block', borderRadius: '8px' }}
+                    alt="Scan to Download Taxi APK" 
+                    style={{ width: '160px', height: '160px', display: 'block', borderRadius: '8px' }}
                   />
                 </div>
 
                 <div>
-                  <div style={{ fontSize: '0.88rem', fontWeight: 900, color: '#0f172a' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#0f172a' }}>
                     📸 Scan with Mobile Camera
                   </div>
                   <p style={{ margin: '2px 0 4px', fontSize: '0.78rem', color: '#64748b' }}>
-                    Point your phone camera here to open on your phone over Wi-Fi:
+                    Point phone camera here to start instant APK download:
                   </p>
-                  <code style={{ background: '#e2e8f0', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', color: '#0f172a', fontWeight: 700 }}>
-                    {currentUrl}
+                  <code style={{ background: '#e2e8f0', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', color: '#0f172a', fontWeight: 700, wordBreak: 'break-all' }}>
+                    {apkDownloadUrl}
                   </code>
                 </div>
 
-                {/* Copy Link Helper */}
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '10px',
-                    padding: '6px 12px',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    color: '#334155',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {copied ? <Check size={13} color="#16a34a" /> : <Copy size={13} />}
-                  <span>{copied ? 'Link Copied to Clipboard!' : 'Copy Mobile Link'}</span>
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {/* Direct 1-Tap Download Button */}
+                  <button
+                    type="button"
+                    onClick={handleDirectDownload}
+                    style={{
+                      background: '#16a34a',
+                      border: 'none',
+                      borderRadius: '10px',
+                      padding: '8px 14px',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(22, 163, 74, 0.3)'
+                    }}
+                  >
+                    <Download size={14} />
+                    <span>Download APK Directly</span>
+                  </button>
+
+                  {/* Copy Link Helper */}
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '10px',
+                      padding: '8px 14px',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      color: '#334155',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {copied ? <Check size={14} color="#16a34a" /> : <Copy size={14} />}
+                    <span>{copied ? 'Link Copied!' : 'Copy APK Link'}</span>
+                  </button>
+                </div>
+
+                {downloadStarted && (
+                  <div style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 700 }}>
+                    ✅ Download started! Open wowgoa-cabs.apk to install.
+                  </div>
+                )}
               </div>
 
-              {/* Instructions on Android / iPhone */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.76rem' }}>
-                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: '2px' }}>🤖 Android:</div>
-                  <span style={{ color: '#475569' }}>Open link in Chrome ➔ Tap <strong>"Install App"</strong> banner.</span>
-                </div>
-                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: '2px' }}>🍎 iPhone:</div>
-                  <span style={{ color: '#475569' }}>Open in Safari ➔ Tap Share ➔ <strong>"Add to Home Screen"</strong>.</span>
-                </div>
+              {/* Instructions */}
+              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.76rem', color: '#334155' }}>
+                <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>How to install on phone:</div>
+                <ol style={{ margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <li>Scan QR code or click <strong>Download APK Directly</strong>.</li>
+                  <li>When prompted, tap <em>"Download anyway"</em>.</li>
+                  <li>Open <strong>wowgoa-cabs.apk</strong> and tap <em>"Install"</em>.</li>
+                </ol>
               </div>
 
               {/* If triggered during booking: give user 1-click option to continue on web! */}
@@ -302,75 +338,58 @@ export default function AppDownloadModal({
                     <span>💻 Continue Booking on Web (Laptop / Desktop)</span>
                     <ArrowRight size={16} />
                   </button>
-                  <span style={{ fontSize: '0.74rem', color: '#94a3b8', textAlign: 'center' }}>
-                    Or scan the QR code above to finish booking on your phone!
-                  </span>
                 </div>
               )}
             </>
           )}
 
-          {/* TAB 2: STANDALONE ANDROID APK */}
-          {activeSubTab === 'apk' && (
+          {/* TAB 2: WEB TAXI APP */}
+          {activeSubTab === 'web' && (
             <>
-              <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '14px', padding: '12px 14px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <Download size={20} color="#0284c7" />
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: '0.86rem', color: '#1e40af' }}>Standalone Android APK Project</div>
-                  <div style={{ fontSize: '0.76rem', color: '#1d4ed8' }}>
-                    Native Android Gradle project generated in <code>frontend/android/</code>.
-                  </div>
-                </div>
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '14px', padding: '12px 14px', fontSize: '0.82rem', color: '#1e40af' }}>
+                You can also book directly in your browser without downloading the APK:
               </div>
 
-              <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '12px 14px', border: '1px solid #e2e8f0', fontSize: '0.78rem', color: '#334155' }}>
-                <div style={{ fontWeight: 800, marginBottom: '6px', color: '#0f172a' }}>Compile APK in 1 click via Android Studio:</div>
-                <ol style={{ margin: 0, paddingLeft: '16px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  <li>Run <code>npm run cap:open:android</code> in terminal.</li>
-                  <li>In Android Studio, click <strong>Build ➔ Build APK(s)</strong>.</li>
-                  <li>Send <code>app-debug.apk</code> to drivers or guests via WhatsApp!</li>
-                </ol>
-              </div>
+              <div style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '14px',
+                padding: '16px',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <code style={{ background: '#e2e8f0', padding: '6px 10px', borderRadius: '8px', fontSize: '13px', color: '#0f172a', fontWeight: 700 }}>
+                  {webAppUrl}
+                </code>
 
-              <a 
-                href="/manifest.webmanifest"
-                download="wowgoa-app.webmanifest"
-                style={{
-                  background: '#0B192C',
-                  color: '#ffffff',
-                  textDecoration: 'none',
-                  borderRadius: '12px',
-                  padding: '11px',
-                  fontSize: '0.82rem',
-                  fontWeight: 800,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
-              >
-                <Download size={15} />
-                <span>Download Web Manifest Package</span>
-              </a>
-
-              {isBookingPrompt && onContinueWebBooking && (
-                <button
-                  type="button"
-                  onClick={onContinueWebBooking}
+                <a
+                  href="/cabs"
+                  onClick={(e) => {
+                    if (onContinueWebBooking) {
+                      e.preventDefault();
+                      onContinueWebBooking();
+                    }
+                  }}
                   style={{
-                    background: '#f1f5f9',
-                    color: '#0f172a',
-                    border: '1px solid #cbd5e1',
+                    background: '#0B192C',
+                    color: '#ffffff',
+                    textDecoration: 'none',
                     borderRadius: '12px',
-                    padding: '10px',
-                    fontWeight: 700,
-                    fontSize: '0.82rem',
-                    cursor: 'pointer'
+                    padding: '11px',
+                    fontSize: '0.85rem',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
                   }}
                 >
-                  Skip & Continue Booking on Web
-                </button>
-              )}
+                  <Car size={16} />
+                  <span>Open Web Taxi App Now</span>
+                </a>
+              </div>
             </>
           )}
 

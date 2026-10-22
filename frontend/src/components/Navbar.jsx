@@ -67,6 +67,26 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
               </a>
             </li>
 
+            {/* Direct Taxi APK Download & QR Code */}
+            <li className="nav-item">
+              <a 
+                className="nav-link d-inline-flex align-items-center gap-1.5"
+                style={{ color: '#ff9f1c', fontWeight: 700 }}
+                href="/download" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveTab('download-apk');
+                  window.history.pushState(null, '', '/download');
+                }}
+                title="Scan QR to Download Official Taxi APK"
+              >
+                <span>📲 Taxi App</span>
+                <span className="badge bg-warning text-dark px-1.5 py-0.5 rounded-pill" style={{ fontSize: '9px', fontWeight: 900 }}>
+                  APK
+                </span>
+              </a>
+            </li>
+
             {/* Direct 1-Click Chauffeur & Driver Companion App */}
             <li className="nav-item">
               <a 

@@ -860,15 +860,15 @@ export default function CustomerCabsPage({
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'auto', background: '#fff', fontFamily: '"Uber Move Text", system-ui, -apple-system, sans-serif' }}>
 
         {/* Top Nav Bar */}
-        <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0 24px', height: '52px', minHeight: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0 16px', height: '52px', minHeight: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button type="button" onClick={() => setCurrentView('landing')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, color: '#111' }}>
-              <ArrowLeft size={18} /> Back
+              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13.5px', fontWeight: 600, color: '#111' }}>
+              <ArrowLeft size={16} /> Back
             </button>
-            <span style={{ fontWeight: 700, fontSize: '18px', color: '#111' }}>🚕 Goa Cabs</span>
+            <span style={{ fontWeight: 800, fontSize: '16px', color: '#111', whiteSpace: 'nowrap' }}>🚕 Goa Cabs</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
               onClick={() => setShowTripsHistoryModal(true)}
@@ -876,21 +876,21 @@ export default function CustomerCabsPage({
                 background: '#f8fafc',
                 border: '1px solid #cbd5e1',
                 borderRadius: '20px',
-                padding: '5px 12px',
-                fontSize: '12px',
+                padding: '4px 10px',
+                fontSize: '11.5px',
                 fontWeight: 700,
                 color: '#0f172a',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '5px'
               }}
             >
-              <Clock size={13} />
-              <span>Activity / Trips</span>
+              <Clock size={12} />
+              <span>Trips</span>
             </button>
-            <span style={{ fontSize: '13px', color: '#6b7280' }}>📞 +91 98221 44510</span>
-            <span style={{ background: '#000', color: '#fff', borderRadius: '20px', padding: '4px 14px', fontSize: '12px', fontWeight: 600 }}>Zero Surge</span>
+            <a href="tel:+919822144510" className="d-none d-sm-inline text-decoration-none" style={{ fontSize: '12px', color: '#6b7280', fontWeight: 600 }}>📞 +91 98221 44510</a>
+            <span style={{ background: '#000', color: '#fff', borderRadius: '20px', padding: '3px 10px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap' }}>Zero Surge</span>
           </div>
         </div>
 
@@ -898,7 +898,7 @@ export default function CustomerCabsPage({
         <div className="cabs-3col-layout" style={{ display: 'flex', width: '100%', minHeight: 'auto', alignItems: 'stretch' }}>
 
           {/* ── LEFT PANEL: Get a ride ── */}
-          <div className="cabs-left-panel" style={{ width: '310px', minWidth: '290px', background: '#fff', borderRight: '1px solid #e5e7eb', padding: '16px 16px', display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0 }}>
+          <div className="cabs-left-panel" style={{ width: '320px', minWidth: 0, maxWidth: '100%', background: '#fff', borderRight: '1px solid #e5e7eb', padding: '16px 16px', display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0 }}>
 
             <h2 style={{ fontWeight: 700, fontSize: '20px', color: '#111', margin: 0 }}>Get a ride</h2>
 
@@ -1056,7 +1056,7 @@ export default function CustomerCabsPage({
           </div>
 
           {/* ── CENTER PANEL: Choose a ride ── */}
-          <div className="cabs-center-panel" style={{ width: '450px', minWidth: '390px', background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+          <div className="cabs-center-panel" style={{ width: '450px', minWidth: 0, maxWidth: '100%', background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
 
             {/* Header */}
             <div style={{ padding: '14px 18px 6px', flexShrink: 0 }}>
@@ -1352,12 +1352,12 @@ export default function CustomerCabsPage({
           <div 
             className="cabs-confirmed-left-panel"
             style={{ 
-              width: '490px', 
-              minWidth: '440px', 
+              width: '100%', 
               maxWidth: '520px', 
+              minWidth: 0, 
               background: '#ffffff', 
               borderRight: '1px solid #e5e7eb', 
-              padding: '24px 28px', 
+              padding: '24px 24px', 
               display: 'flex', 
               flexDirection: 'column', 
               gap: '18px', 
@@ -1987,7 +1987,7 @@ export default function CustomerCabsPage({
           </div>
 
           {/* ── RIGHT: Clean Framed Live Map (Compact & Aligned, NOT big from down) ── */}
-          <div style={{ flex: 1, minWidth: '340px', background: '#f8fafc', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="cabs-confirmed-right-panel" style={{ flex: 1, minWidth: 0, maxWidth: '100%', background: '#f8fafc', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             
             {/* Map Card: Clean bounded height with rounded corners */}
             <div style={{
@@ -2013,7 +2013,7 @@ export default function CustomerCabsPage({
             </div>
 
             {/* Live Trip Safety & Service Badges for clean bottom balance */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
               <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '20px' }}>🛡️</span>
                 <div>
@@ -2419,6 +2419,38 @@ export default function CustomerCabsPage({
                     placeholder="Dropoff destination in Goa"
                     type="dropoff"
                   />
+                </div>
+
+                {/* 1-Tap Quick Goa Destinations for easy mobile picking */}
+                <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', padding: '6px 0 2px', scrollbarWidth: 'none' }}>
+                  {[
+                    { label: '✈️ Mopa (GOX)', name: 'Manohar Intl Airport, Mopa (GOX)' },
+                    { label: '✈️ Dabolim (GOI)', name: 'Dabolim Airport (GOI)' },
+                    { label: '🏖️ Candolim', name: 'Candolim Beach' },
+                    { label: '🏖️ Baga', name: 'Baga Beach' },
+                    { label: '🏛️ Panaji', name: 'Panaji City Centre' },
+                    { label: '🏖️ Calangute', name: 'Calangute Beach' }
+                  ].map(dest => (
+                    <button
+                      key={dest.label}
+                      type="button"
+                      onClick={() => setDropoffLocation(dest.name)}
+                      style={{
+                        whiteSpace: 'nowrap',
+                        background: '#f1f5f9',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '14px',
+                        padding: '3px 9px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#334155',
+                        cursor: 'pointer',
+                        flexShrink: 0
+                      }}
+                    >
+                      {dest.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
