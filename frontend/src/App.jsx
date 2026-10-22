@@ -68,7 +68,6 @@ import VisaSection from './components/visa/VisaSection';
 import MobileBottomNav from './components/mobile/MobileBottomNav';
 import MobileInstallBanner from './components/mobile/MobileInstallBanner';
 import MobileVacationQuickBar from './components/mobile/MobileVacationQuickBar';
-import LiveCustomerRideBar from './components/mobile/LiveCustomerRideBar';
 
 // Import Mock Data & API Service
 import { 
@@ -3069,8 +3068,6 @@ export default function App() {
       <AIChatbot />
       <PopupRenderer popups={liveConfig?.popups || []} onAction={() => {}} />
 
-      {/* Mobile-Friendly PWA Bottom Bar & Live Active Ride Pill */}
-      <LiveCustomerRideBar />
       <MobileInstallBanner />
       <MobileBottomNav activeTab={activeTab} setActiveTab={handleTabChange} />
     </div>
