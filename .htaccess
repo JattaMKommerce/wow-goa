@@ -17,7 +17,7 @@
   <FilesMatch "\.apk$">
     <IfModule mod_headers.c>
       Header set Content-Type "application/vnd.android.package-archive"
-      Header set Content-Disposition "attachment; filename=\"wowgoa-cabs.apk\""
+      Header set Content-Disposition "attachment; filename=wowgoa-cabs.apk"
       Header set Cache-Control "no-cache, no-store, must-revalidate"
     </IfModule>
     AddType application/vnd.android.package-archive .apk
