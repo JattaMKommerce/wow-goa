@@ -1,0 +1,17 @@
+{
+  "version": "2.5.0",
+  "versionCode": 250,
+  "bundleId": "wowgoa_cabs_20261022_v250",
+  "releaseDate": "2026-10-22",
+  "title": "New Cab App Update Available! 🚀",
+  "description": "We have updated WOW GOA CABS with a new authentication system, live driver tracking, and faster booking.",
+  "changelog": [
+    "Google Sign-In & Phone Number OTP verification",
+    "Real-time Ola/Uber cab booking interface",
+    "Live Goa Chauffeur GPS tracking & 4-digit ride OTP",
+    "Zero surge pricing guarantee with fixed rates"
+  ],
+  "forceUpdate": false,
+  "downloadUrl": "https://wowgoa.in/download/wowgoa-cabs.apk",
+  "minSupportedVersion": "1.0.0"
+}

@@ -1,8 +1,7 @@
-// WOW GOA Vacation Mobility PWA Service Worker
-const CACHE_NAME = 'wow-goa-v3';
+// WOW GOA Vacation Mobility PWA & Cab App Service Worker
+const CACHE_NAME = 'wow-goa-v250';
 const ASSETS_TO_CACHE = [
   '/',
-  '/index.html',
   '/manifest.webmanifest',
   '/wowgoa-logo.png',
   '/favicon.svg'
@@ -33,13 +32,20 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests and skip API or live telematics requests
+  // Only handle GET requests and skip API, telematics, and version checks
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (url.pathname.includes('/api') || url.pathname.includes('.php') || url.search.includes('resource=')) {
+  if (
+    url.pathname.includes('/api') || 
+    url.pathname.includes('.php') || 
+    url.pathname.includes('app-version.json') ||
+    url.search.includes('resource=') ||
+    url.search.includes('mode=app')
+  ) {
     return;
   }
 
+  // Network first with cache fallback strategy
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {

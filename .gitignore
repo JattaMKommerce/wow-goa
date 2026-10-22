@@ -8,8 +8,11 @@ dist-ssr/
 !frontend/dist/
 !frontend/dist/**
 
-# Large Archives & zips
+# Large Archives, APKs & zips
 *.zip
+*.apk
+frontend/public/download/*.apk
+frontend/dist/download/*.apk
 
 # Cache and temporary logs
 .vite/

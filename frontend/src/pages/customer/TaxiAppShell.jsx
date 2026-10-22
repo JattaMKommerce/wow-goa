@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import CustomerCabsPage from './CustomerCabsPage';
 import CabAuthScreen from '../../components/mobile/CabAuthScreen';
 import AppDownloadModal from '../../components/mobile/AppDownloadModal';
+import AppUpdateModal from '../../components/mobile/AppUpdateModal';
+
+// Current client bundle metadata
+export const CURRENT_CLIENT_BUNDLE_ID = 'wowgoa_cabs_20261022_v250';
+export const CURRENT_CLIENT_VERSION = '2.5.0';
 
 /**
  * TaxiAppShell: Full-Screen Dedicated Ola / Uber Cab Application Host
- * Flow:
- * 1. If user is not authenticated: Show authentic Mobile Auth Page (Google Sign-In & Phone Number + OTP).
- * 2. After authentication: Show the clean, spacious, uncongested Cab Booking Page.
+ * Features:
+ * 1. Automatic in-app update detection & notification (checks app-version.json)
+ * 2. If user is not authenticated: Show Mobile Auth Page (Google Sign-In & Phone Number + OTP).
+ * 3. After authentication: Show the clean, spacious, uncongested Cab Booking Page.
  */
 export default function TaxiAppShell({
   onNavigateWebsite,
@@ -21,6 +27,10 @@ export default function TaxiAppShell({
   isNativeApp = false
 }) {
   const [showApkModal, setShowApkModal] = useState(false);
+
+  // In-App Update States
+  const [updateInfo, setUpdateInfo] = useState(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   // Authenticated Cab User State (Persisted in localStorage)
   const [cabUser, setCabUser] = useState(() => {
@@ -39,6 +49,48 @@ export default function TaxiAppShell({
 
   // Controls whether the authentication screen or cab booking screen is shown
   const [showAuthScreen, setShowAuthScreen] = useState(() => !cabUser);
+
+  // Check for updates against server version manifest
+  const checkForAppUpdate = useCallback(async (manual = false) => {
+    try {
+      const res = await fetch(`/app-version.json?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+      });
+      if (res.ok) {
+        const manifest = await res.json();
+        const storedBundle = localStorage.getItem('wowgoa_installed_bundle_id') || CURRENT_CLIENT_BUNDLE_ID;
+
+        // If server bundle is different or newer
+        if (manifest.bundleId && manifest.bundleId !== storedBundle) {
+          setUpdateInfo(manifest);
+          setShowUpdateModal(true);
+          return true;
+        } else if (manual) {
+          return false;
+        }
+      }
+    } catch (e) {
+      console.warn('Update check error:', e);
+    }
+    return false;
+  }, []);
+
+  // Background update check on launch and every 3 minutes
+  useEffect(() => {
+    const initialTimer = setTimeout(() => {
+      checkForAppUpdate(false);
+    }, 2000);
+
+    const intervalTimer = setInterval(() => {
+      checkForAppUpdate(false);
+    }, 180000); // Check every 3 mins
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(intervalTimer);
+    };
+  }, [checkForAppUpdate]);
 
   // Auth Success Handler
   const handleAuthSuccess = (userObj) => {
@@ -102,10 +154,20 @@ export default function TaxiAppShell({
           cabUser={cabUser}
           onOpenAuth={() => setShowAuthScreen(true)}
           onLogout={handleLogout}
+          onCheckForUpdates={checkForAppUpdate}
+          currentAppVersion={CURRENT_CLIENT_VERSION}
         />
       )}
 
-      {/* APK download modal if triggered */}
+      {/* In-App Automatic Update Notification Modal */}
+      <AppUpdateModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        updateInfo={updateInfo}
+        isNativeApp={isNativeApp}
+      />
+
+      {/* APK download modal if triggered manually */}
       <AppDownloadModal
         isOpen={showApkModal}
         onClose={() => setShowApkModal(false)}

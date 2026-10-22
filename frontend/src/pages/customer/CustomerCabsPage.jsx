@@ -141,7 +141,9 @@ export default function CustomerCabsPage({
   onShowApkModal = null,
   cabUser = null,
   onOpenAuth = null,
-  onLogout = null
+  onLogout = null,
+  onCheckForUpdates = null,
+  currentAppVersion = '2.5.0'
 }) {
   // Navigation & Location States
   const [pickupLocation, setPickupLocation] = useState(initialPickup || 'Manohar Intl Airport, Mopa (GOX)');
@@ -1809,6 +1811,38 @@ export default function CustomerCabsPage({
                 <Phone size={18} color="#10b981" />
                 <span>24/7 Helpline: +91 98221 44510</span>
               </a>
+
+              {/* Check for Updates */}
+              {onCheckForUpdates && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const hasUpdate = await onCheckForUpdates(true);
+                    if (!hasUpdate) {
+                      alert("You're using the latest version of WOW GOA CABS (v" + (currentAppVersion || '2.5.0') + ")! ✅");
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '11px 14px',
+                    borderRadius: '10px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    width: '100%',
+                    textAlign: 'left',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#0f172a',
+                    cursor: 'pointer',
+                    marginTop: '4px'
+                  }}
+                >
+                  <RefreshCw size={16} color="#0B192C" />
+                  <span>Check for Updates (v{currentAppVersion || '2.5.0'})</span>
+                </button>
+              )}
 
               {/* Log Out / Switch Account */}
               {cabUser && onLogout && (
