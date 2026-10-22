@@ -95,6 +95,23 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '/';
+      const search = typeof window !== 'undefined' ? window.location.search : '';
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+      const protocol = typeof window !== 'undefined' ? window.location.protocol : '';
+      const ua = typeof window !== 'undefined' && window.navigator ? window.navigator.userAgent : '';
+      
+      const isNative = Boolean(window.Capacitor?.isNativePlatform?.()) ||
+        Boolean(window.Capacitor) ||
+        protocol === 'capacitor:' ||
+        search.includes('mode=app') ||
+        search.includes('source=apk') ||
+        search.includes('app=taxi') ||
+        ua.includes('Capacitor') ||
+        ua.includes('wowgoa.cabs') ||
+        (hostname === 'localhost' && protocol === 'https:');
+        
+      if (isNative) return 'cabs';
+
       // Derive tab directly from URL path — most reliable on refresh
       if (p.startsWith('/v/')) return 'vendor-storefront';
       if (p.startsWith('/cabs') || p.startsWith('/taxi')) return 'cabs';
@@ -1822,16 +1839,23 @@ export default function App() {
   // Isolated ride-hailing interface for APK installations and direct cab bookers
   const isNativeApp = typeof window !== 'undefined' && (
     Boolean(window.Capacitor?.isNativePlatform?.()) ||
+    Boolean(window.Capacitor) ||
     window.location.protocol === 'capacitor:' ||
     window.location.search.includes('mode=app') ||
     window.location.search.includes('source=apk') ||
-    window.location.search.includes('app=taxi')
+    window.location.search.includes('app=taxi') ||
+    (window.location.hostname === 'localhost' && window.location.protocol === 'https:') ||
+    (window.navigator && window.navigator.userAgent && (
+      window.navigator.userAgent.includes('Capacitor') ||
+      window.navigator.userAgent.includes('wowgoa.cabs') ||
+      (window.navigator.userAgent.includes('Android') && (window.navigator.userAgent.includes('wv') || window.navigator.userAgent.includes('Version/4.0')))
+    ))
   );
 
   if (isNativeApp || path === '/cabs' || path === '/taxi' || path.startsWith('/cabs/') || path.startsWith('/taxi/') || activeTab === 'cabs' || activeTab === 'taxi') {
     return (
       <TaxiAppShell
-        onNavigateWebsite={() => {
+        onNavigateWebsite={isNativeApp ? null : () => {
           handleTabChange('selfdrive');
           window.history.pushState(null, '', '/');
         }}
@@ -3108,7 +3132,6 @@ export default function App() {
       <AIChatbot />
       <PopupRenderer popups={liveConfig?.popups || []} onAction={() => {}} />
 
-      <MobileInstallBanner activeTab={activeTab} />
       <MobileBottomNav activeTab={activeTab} setActiveTab={handleTabChange} />
     </div>
   );

@@ -22,6 +22,15 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    configurations.all {
+        resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+            def requested = details.requested
+            if (requested.group == 'org.jetbrains.kotlin' && requested.name.startsWith("kotlin-stdlib-jdk")) {
+                details.useTarget("org.jetbrains.kotlin:kotlin-stdlib:1.8.22")
+            }
+        }
+    }
 }
 
 repositories {
