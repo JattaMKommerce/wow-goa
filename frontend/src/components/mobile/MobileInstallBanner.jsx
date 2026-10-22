@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, X, Share, PlusSquare, Sparkles, CheckCircle2 } from 'lucide-react';
 
-export default function MobileInstallBanner() {
+export default function MobileInstallBanner({ activeTab }) {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -115,14 +115,14 @@ export default function MobileInstallBanner() {
           <div style={{ minWidth: 0 }}>
             <div className="d-flex align-items-center gap-1.5">
               <span className="fw-bold text-white text-truncate" style={{ fontSize: '13px' }}>
-                WOW GOA App
+                {(activeTab === 'cabs' || activeTab === 'taxi') ? 'WOW GOA Cabs App' : 'WOW GOA App'}
               </span>
               <span className="badge bg-warning text-dark px-1.5 py-0.5 rounded-pill" style={{ fontSize: '8px', fontWeight: 800 }}>
                 FREE
               </span>
             </div>
             <p className="text-white-50 mb-0 text-truncate" style={{ fontSize: '10px' }}>
-              Instant Cabs & Self Drive on your phone
+              {(activeTab === 'cabs' || activeTab === 'taxi') ? 'Instant Airport Cabs & Live Chauffeur GPS' : 'Instant Cabs & Self Drive on your phone'}
             </p>
           </div>
         </div>

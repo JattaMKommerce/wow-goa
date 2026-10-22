@@ -2320,58 +2320,62 @@ export default function App() {
         onLogout={handleLogout}
       />
 
-      {/* Hero and Search Widget Container */}
-      <Hero />
-      <SearchWidget
-        activeTab={activeTab}
-        setActiveTab={handleTabChange}
-        pickupLoc={pickupLoc} 
-        setPickupLoc={setPickupLoc} 
-        dropLoc={dropLoc} 
-        setDropLoc={setDropLoc} 
-        pickupDate={pickupDate} 
-        setPickupDate={setPickupDate} 
-        dropDate={dropDate}
-        setDropDate={setDropDate}
-        pickupTime={pickupTime} 
-        setPickupTime={setPickupTime} 
-        dropTime={dropTime} 
-        setDropTime={setDropTime} 
-        handleSearchSubmit={handleSearchSubmit} 
-        setSearchTriggered={setSearchTriggered}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        hotelRooms={hotelRooms}
-        setHotelRooms={setHotelRooms}
-        hotelAdults={hotelAdults}
-        setHotelAdults={setHotelAdults}
-        hotelChildren={hotelChildren}
-        setHotelChildren={setHotelChildren}
-        hotelPriceRange={hotelPriceRange}
-        setHotelPriceRange={setHotelPriceRange}
-        flightAdults={flightAdults}
-        setFlightAdults={setFlightAdults}
-        flightChildren={flightChildren}
-        setFlightChildren={setFlightChildren}
-        flightInfants={flightInfants}
-        setFlightInfants={setFlightInfants}
-        flightClass={flightClass}
-        setFlightClass={setFlightClass}
-        appliedFilters={appliedFilters}
-        setAppliedFilters={setAppliedFilters}
-        visaCountry={visaCountry}
-        setVisaCountry={setVisaCountry}
-        visaType={visaType}
-        setVisaType={setVisaType}
-        visaAirport={visaAirport}
-        setVisaAirport={setVisaAirport}
-        cabServiceType={cabServiceType}
-        setCabServiceType={setCabServiceType}
-      />
+      {/* Hero and Search Widget Container - Only show on general portal tabs, NOT on dedicated Cabs tab */}
+      {activeTab !== 'cabs' && activeTab !== 'taxi' && (
+        <>
+          <Hero />
+          <SearchWidget
+            activeTab={activeTab}
+            setActiveTab={handleTabChange}
+            pickupLoc={pickupLoc} 
+            setPickupLoc={setPickupLoc} 
+            dropLoc={dropLoc} 
+            setDropLoc={setDropLoc} 
+            pickupDate={pickupDate} 
+            setPickupDate={setPickupDate} 
+            dropDate={dropDate}
+            setDropDate={setDropDate}
+            pickupTime={pickupTime} 
+            setPickupTime={setPickupTime} 
+            dropTime={dropTime} 
+            setDropTime={setDropTime} 
+            handleSearchSubmit={handleSearchSubmit} 
+            setSearchTriggered={setSearchTriggered}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            hotelRooms={hotelRooms}
+            setHotelRooms={setHotelRooms}
+            hotelAdults={hotelAdults}
+            setHotelAdults={setHotelAdults}
+            hotelChildren={hotelChildren}
+            setHotelChildren={setHotelChildren}
+            hotelPriceRange={hotelPriceRange}
+            setHotelPriceRange={setHotelPriceRange}
+            flightAdults={flightAdults}
+            setFlightAdults={setFlightAdults}
+            flightChildren={flightChildren}
+            setFlightChildren={setFlightChildren}
+            flightInfants={flightInfants}
+            setFlightInfants={setFlightInfants}
+            flightClass={flightClass}
+            setFlightClass={setFlightClass}
+            appliedFilters={appliedFilters}
+            setAppliedFilters={setAppliedFilters}
+            visaCountry={visaCountry}
+            setVisaCountry={setVisaCountry}
+            visaType={visaType}
+            setVisaType={setVisaType}
+            visaAirport={visaAirport}
+            setVisaAirport={setVisaAirport}
+            cabServiceType={cabServiceType}
+            setCabServiceType={setCabServiceType}
+          />
+        </>
+      )}
 
       {/* Dynamic Results & Content Section */}
-      <main className="py-5" id="results-section" style={{ scrollMarginTop: '80px', minHeight: '80vh' }}>
-        <div className="container">
+      <main className={activeTab === 'cabs' || activeTab === 'taxi' ? 'p-0 m-0 border-0' : 'py-5'} id="results-section" style={{ scrollMarginTop: '80px', minHeight: '80vh' }}>
+        <div className={activeTab === 'cabs' || activeTab === 'taxi' ? 'w-100 p-0 m-0' : 'container'}>
           <div className="tab-slide-enter">
           
           {activeTab === 'packages' && (
@@ -3068,7 +3072,7 @@ export default function App() {
       <AIChatbot />
       <PopupRenderer popups={liveConfig?.popups || []} onAction={() => {}} />
 
-      <MobileInstallBanner />
+      <MobileInstallBanner activeTab={activeTab} />
       <MobileBottomNav activeTab={activeTab} setActiveTab={handleTabChange} />
     </div>
   );

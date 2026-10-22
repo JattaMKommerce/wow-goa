@@ -16,7 +16,9 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
           <div>
             <span className="text-white">WOW </span>
             <span className="brand-accent">GOA</span>
-            <span className="brand-sub">Self Drive Holidays</span>
+            <span className="brand-sub">
+              {(activeTab === 'cabs' || activeTab === 'taxi') ? 'Taxis & Chauffeur' : 'Self Drive Holidays'}
+            </span>
           </div>
         </a>
         <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">

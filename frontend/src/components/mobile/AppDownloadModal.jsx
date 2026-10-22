@@ -23,9 +23,10 @@ export default function AppDownloadModal({
   if (!isOpen || !mounted) return null;
 
   const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const currentUrl = isLocalhost 
+  const baseUrl = isLocalhost 
     ? `http://192.168.1.23:${(typeof window !== 'undefined' && window.location.port) || '5173'}` 
-    : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173');
+    : (typeof window !== 'undefined' ? window.location.origin : 'https://wowgoa.in');
+  const currentUrl = `${baseUrl}/cabs`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(currentUrl)}`;
 
   const handleCopyLink = () => {
