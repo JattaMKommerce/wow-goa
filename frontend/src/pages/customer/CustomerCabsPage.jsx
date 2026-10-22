@@ -35,8 +35,23 @@ const GOA_LOCATIONS = [
   { name: 'Palolem Beach', category: 'Far South Coast', region: 'Scenic South', popular: true, emoji: '🏖️' }
 ];
 
-// Complete Tourist Fleet Categories (Normal, Sedan, Executive SUV, EV Green, Luxury VIP, Maxi Coach)
-const TOURIST_VEHICLES = [
+// ─── EXACT 3 RAPIDO-STYLE SMOOTH CAR OPTIONS ───
+export const RAPIDO_CAB_OPTIONS = [
+  {
+    id: 'normal-hatchback',
+    name: 'Goa Mini',
+    classType: 'normal',
+    seats: 4,
+    bags: 2,
+    model: 'Maruti WagonR / Swift AC',
+    baseFare: 280,
+    perKm: 20,
+    eta: 2,
+    badge: 'Affordable',
+    icon: '🚗',
+    desc: 'Pocket-friendly AC hatchback for swift point-to-point hops.',
+    features: ['Chilled AC', 'Fits 2 medium bags', 'Budget Friendly']
+  },
   {
     id: 'sedan-prime',
     name: 'Prime Sedan',
@@ -47,87 +62,30 @@ const TOURIST_VEHICLES = [
     baseFare: 350,
     perKm: 24,
     eta: 3,
-    badge: '★ Top Choice',
+    badge: '★ Top Pick',
     icon: '🚕',
-    desc: 'Spacious AC sedan with dedicated luggage boot, ideal for tourist airport and hotel transfers.',
+    desc: 'Spacious AC sedan with dedicated luggage boot.',
     features: ['Chilled AC', '350L luggage boot', 'Tourism-Certified Chauffeur']
   },
   {
     id: 'suv-executive',
-    name: 'Goa SUV Comfort',
+    name: 'Goa SUV',
     classType: 'suv',
     seats: 6,
     bags: 4,
     model: 'Maruti Ertiga / Kia Carens',
     baseFare: 550,
     perKm: 34,
-    eta: 5,
-    badge: 'Family Favorite',
+    eta: 4,
+    badge: '6-Seater XL',
     icon: '🚙',
-    desc: 'Plush 6-seater SUV with captain recliner seats, generous luggage boot, and dual AC.',
+    desc: 'Plush 6-seater SUV with generous luggage boot and dual AC.',
     features: ['Captain recliner seats', 'Dual-zone AC', 'Fits 4 large bags']
-  },
-  {
-    id: 'ev-green',
-    name: 'Goa EV Green',
-    classType: 'ev',
-    seats: 4,
-    bags: 3,
-    model: 'Tata Nexon EV / Tigor EV',
-    baseFare: 320,
-    perKm: 22,
-    eta: 4,
-    badge: '⚡ 100% Electric',
-    icon: '⚡',
-    desc: 'Whisper-quiet eco-friendly electric ride with zero tailpipe emissions across Goa.',
-    features: ['100% Zero Emission', 'Whisper-Quiet Cabin', 'Eco-friendly Green Ride']
-  },
-  {
-    id: 'luxury-vip',
-    name: 'Innova Crysta VIP',
-    classType: 'luxury',
-    seats: 7,
-    bags: 5,
-    model: 'Toyota Innova Crysta Luxury',
-    baseFare: 750,
-    perKm: 42,
-    eta: 4,
-    badge: 'VIP Elite',
-    icon: '👑',
-    desc: 'VIP luxury ride with plush leather recliners, complimentary bottled water, and executive chauffeur.',
-    features: ['VIP Executive Chauffeur', 'Leather Recliners', 'Complimentary Water & Chargers']
-  },
-  {
-    id: 'normal-hatchback',
-    name: 'Goa Mini',
-    classType: 'normal',
-    seats: 4,
-    bags: 2,
-    model: 'Maruti WagonR / Swift',
-    baseFare: 280,
-    perKm: 20,
-    eta: 4,
-    badge: 'Budget Friendly',
-    icon: '🚗',
-    desc: 'Affordable, clean AC hatchback for swift point-to-point hops and narrow beach lanes.',
-    features: ['Chilled AC', 'Fits 2 medium bags', 'Budget Friendly']
-  },
-  {
-    id: 'maxi-coach',
-    name: 'Tourist Maxi Coach',
-    classType: 'coach',
-    seats: 13,
-    bags: 10,
-    model: 'Force Urbania / Tempo Traveller',
-    baseFare: 2200,
-    perKm: 65,
-    eta: 10,
-    badge: 'Large Group',
-    icon: '🚐',
-    desc: 'High-roof tourist coach with pushback bucket seats, PA microphone, and huge rear luggage bay.',
-    features: ['High-roof walk-through aisle', 'Individual AC vents', 'Huge rear luggage compartment']
   }
 ];
+
+// Compatibility alias
+export const TOURIST_VEHICLES = RAPIDO_CAB_OPTIONS;
 
 export default function CustomerCabsPage({ 
   onBookCab,
@@ -189,6 +147,106 @@ export default function CustomerCabsPage({
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [activeBottomNav, setActiveBottomNav] = useState('ride'); // 'ride' | 'trips' | 'safety' | 'support'
   const [customerToast, setCustomerToast] = useState(null);
+
+  // ─── RAPIDO-STYLE INTERACTIVE DRAGGABLE SHEET ───
+  const SNAP_PEEK = 110;
+  const SNAP_HALF = 380;
+  const getSnapFull = useCallback(() => {
+    return typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.82, 600) : 560;
+  }, []);
+
+  const [sheetHeight, setSheetHeight] = useState(SNAP_HALF);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartYRef = useRef(0);
+  const dragStartHeightRef = useRef(SNAP_HALF);
+
+  // Resize listener
+  useEffect(() => {
+    const handleResize = () => {
+      setSheetHeight(prev => {
+        if (prev <= SNAP_PEEK + 40) return SNAP_PEEK;
+        if (prev >= 460) return getSnapFull();
+        return SNAP_HALF;
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [getSnapFull]);
+
+  // Touch drag handlers
+  const handleDragTouchStart = (e) => {
+    if (!e.touches || !e.touches[0]) return;
+    dragStartYRef.current = e.touches[0].clientY;
+    dragStartHeightRef.current = sheetHeight;
+    setIsDragging(true);
+  };
+
+  const handleDragTouchMove = (e) => {
+    if (!isDragging || !e.touches || !e.touches[0]) return;
+    const currentY = e.touches[0].clientY;
+    const deltaY = dragStartYRef.current - currentY;
+    const target = Math.max(SNAP_PEEK, Math.min(getSnapFull(), dragStartHeightRef.current + deltaY));
+    setSheetHeight(target);
+  };
+
+  const handleDragTouchEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    const snapFull = getSnapFull();
+    const mid1 = (SNAP_PEEK + SNAP_HALF) / 2;
+    const mid2 = (SNAP_HALF + snapFull) / 2;
+    if (sheetHeight < mid1) {
+      setSheetHeight(SNAP_PEEK);
+    } else if (sheetHeight > mid2) {
+      setSheetHeight(snapFull);
+    } else {
+      setSheetHeight(SNAP_HALF);
+    }
+  };
+
+  // Mouse drag handlers (Desktop testing)
+  const handleDragMouseDown = (e) => {
+    e.preventDefault();
+    dragStartYRef.current = e.clientY;
+    dragStartHeightRef.current = sheetHeight;
+    setIsDragging(true);
+
+    const onMouseMove = (moveEvent) => {
+      const deltaY = dragStartYRef.current - moveEvent.clientY;
+      const target = Math.max(SNAP_PEEK, Math.min(getSnapFull(), dragStartHeightRef.current + deltaY));
+      setSheetHeight(target);
+    };
+
+    const onMouseUp = () => {
+      setIsDragging(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+
+      setSheetHeight(currentH => {
+        const snapFull = getSnapFull();
+        const mid1 = (SNAP_PEEK + SNAP_HALF) / 2;
+        const mid2 = (SNAP_HALF + snapFull) / 2;
+        if (currentH < mid1) return SNAP_PEEK;
+        if (currentH > mid2) return snapFull;
+        return SNAP_HALF;
+      });
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  // Toggle state on clicking drag pill
+  const handleDragPillClick = () => {
+    const snapFull = getSnapFull();
+    if (sheetHeight <= SNAP_PEEK + 40) {
+      setSheetHeight(SNAP_HALF);
+    } else if (sheetHeight >= SNAP_HALF - 40 && sheetHeight <= SNAP_HALF + 40) {
+      setSheetHeight(snapFull);
+    } else {
+      setSheetHeight(SNAP_HALF);
+    }
+  };
 
   // Active Confirmed Trip State (Persisted across refreshes & vendor sync)
   const [isBooking, setIsBooking] = useState(false);
@@ -281,6 +339,7 @@ export default function CustomerCabsPage({
   const handleQuickDestinationSelect = (destName) => {
     setDropoffLocation(destName);
     setSheetStep('vehicles');
+    setSheetHeight(SNAP_HALF);
   };
 
   // Synchronize Live Ride with Backend Telematics & SQLite DB
@@ -510,20 +569,20 @@ export default function CustomerCabsPage({
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          2. FLOATING TOP APP BAR (NATIVE OLA/UBER STYLE)
+          2. FLOATING TOP CONTROLS (RAPIDO / UBER MINIMALIST STYLE)
          ══════════════════════════════════════════════════════════════════════ */}
       <div style={{
         position: 'absolute',
-        top: '12px',
-        left: '14px',
-        right: '14px',
+        top: '14px',
+        left: '16px',
+        right: '16px',
         zIndex: 1000,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '10px'
+        pointerEvents: 'none' /* Allows map gestures in empty space */
       }}>
-        {/* Left: Hamburger Menu Button */}
+        {/* Left: Floating Circular Hamburger Menu Button */}
         <button
           type="button"
           onClick={() => setShowSideDrawer(true)}
@@ -533,12 +592,13 @@ export default function CustomerCabsPage({
             borderRadius: '50%',
             background: '#ffffff',
             border: 'none',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.16)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
             color: '#0f172a',
+            pointerEvents: 'auto',
             flexShrink: 0
           }}
           title="Open Menu"
@@ -546,7 +606,7 @@ export default function CustomerCabsPage({
           <Menu size={22} />
         </button>
 
-        {/* Center: Brand Badge with Live Driver Pulse */}
+        {/* Center: Sleek Live Cabs Pill */}
         <div style={{
           background: 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(10px)',
@@ -556,11 +616,12 @@ export default function CustomerCabsPage({
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          border: '1px solid rgba(0,0,0,0.06)'
+          border: '1px solid rgba(0,0,0,0.06)',
+          pointerEvents: 'auto'
         }}>
           <div style={{
-            width: '24px',
-            height: '24px',
+            width: '22px',
+            height: '22px',
             borderRadius: '6px',
             background: '#0B192C',
             display: 'flex',
@@ -570,20 +631,18 @@ export default function CustomerCabsPage({
           }}>
             <img src="/wowgoa-logo.png" alt="WOW GOA" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '5px' }} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em' }}>WOW GOA</span>
-              <span style={{ background: '#ff9f1c', color: '#000', fontSize: '8.5px', fontWeight: 900, padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase' }}>CABS</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
-              <span style={{ fontSize: '9.5px', color: '#059669', fontWeight: 700 }}>140+ Cabs Live</span>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em' }}>WOW GOA</span>
+            <span style={{ background: '#ff9f1c', color: '#000', fontSize: '8.5px', fontWeight: 900, padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase' }}>CABS</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '4px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+            <span style={{ fontSize: '10px', color: '#059669', fontWeight: 700 }}>Live</span>
           </div>
         </div>
 
-        {/* Right: Quick 24/7 Helpline & SOS Trigger */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* Right: Floating Quick Helpline & Safety SOS */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
           <button
             type="button"
             onClick={() => setShowSafetyModal(true)}
@@ -608,59 +667,103 @@ export default function CustomerCabsPage({
           <a
             href="tel:+919822144510"
             style={{
+              width: '44px',
               height: '44px',
-              borderRadius: '24px',
+              borderRadius: '50%',
               background: '#0B192C',
               color: '#ffffff',
               textDecoration: 'none',
-              padding: '0 12px',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+              boxShadow: '0 4px 16px rgba(11,25,44,0.22)',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              fontWeight: 700,
+              justifyContent: 'center',
               flexShrink: 0
             }}
             title="24/7 Cab Helpline"
           >
-            <Phone size={14} color="#10b981" />
-            <span className="d-none d-sm-inline">Call Dispatch</span>
-            <span className="d-sm-none">Call</span>
+            <Phone size={17} color="#10b981" />
           </a>
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          3. OLA / UBER SLIDING BOTTOM SHEET
-         ══════════════════════════════════════════════════════════════════════ */}
-      <div 
-        className="ola-bottom-sheet"
+      {/* Floating GPS Recenter button just above the bottom sheet */}
+      <button
+        type="button"
+        onClick={() => {
+          window.dispatchEvent(new CustomEvent('wowgoa_map_recenter'));
+        }}
         style={{
           position: 'absolute',
-          bottom: '60px', /* Above bottom navigation bar */
+          right: '16px',
+          bottom: `${sheetHeight + 16}px`,
+          width: '46px',
+          height: '46px',
+          borderRadius: '50%',
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+          zIndex: 900,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: '#0B192C',
+          transition: isDragging ? 'none' : 'bottom 0.28s cubic-bezier(0.2, 0.9, 0.3, 1)'
+        }}
+        title="Locate Me"
+      >
+        <Navigation size={20} color="#0B192C" />
+      </button>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          3. RAPIDO-STYLE INTERACTIVE DRAGGABLE BOTTOM SHEET
+         ══════════════════════════════════════════════════════════════════════ */}
+      <div 
+        className="rapido-bottom-sheet"
+        style={{
+          position: 'absolute',
+          bottom: 0,
           left: 0,
           right: 0,
           zIndex: 950,
           background: '#ffffff',
           borderRadius: '24px 24px 0 0',
-          boxShadow: '0 -8px 30px rgba(0,0,0,0.16)',
-          maxHeight: '74vh',
+          boxShadow: '0 -10px 40px rgba(0,0,0,0.18)',
+          height: `${sheetHeight}px`,
+          maxHeight: '85vh',
           display: 'flex',
           flexDirection: 'column',
-          transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          transition: isDragging ? 'none' : 'height 0.28s cubic-bezier(0.2, 0.9, 0.3, 1)',
           overflow: 'hidden'
         }}
       >
-        {/* Drag Indicator Bar */}
-        <div style={{
-          width: '38px',
-          height: '4px',
-          background: '#cbd5e1',
-          borderRadius: '2px',
-          margin: '8px auto 4px',
-          flexShrink: 0
-        }} />
+        {/* DRAG HANDLE BAR (Interactive Drag Zone for Mobile Touch & Desktop Mouse) */}
+        <div
+          onMouseDown={handleDragMouseDown}
+          onTouchStart={handleDragTouchStart}
+          onTouchMove={handleDragTouchMove}
+          onTouchEnd={handleDragTouchEnd}
+          onClick={handleDragPillClick}
+          style={{
+            width: '100%',
+            padding: '10px 0 6px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            cursor: isDragging ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            touchAction: 'none',
+            flexShrink: 0
+          }}
+        >
+          <div style={{
+            width: '44px',
+            height: '4.5px',
+            background: isDragging ? '#0B192C' : '#cbd5e1',
+            borderRadius: '3px',
+            transition: 'background 0.2s ease'
+          }} />
+        </div>
 
         {/* ─── CASE A: RIDE IN PROGRESS / CONFIRMED DRIVER SCREEN ─────────────── */}
         {currentView === 'confirmed' && activeConfirmedRide && (
@@ -889,212 +992,281 @@ export default function CustomerCabsPage({
           </div>
         )}
 
-        {/* ─── CASE B: VEHICLE SELECTION STAGE (SIGNATURE OLA/UBER VIEW) ──────── */}
+        {/* ─── CASE B: VEHICLE SELECTION STAGE (RAPIDO / UBER CLEAN 3 CARS) ─── */}
         {currentView === 'booking' && sheetStep === 'vehicles' && (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
             
-            {/* Top Compact Route Pill (1-Tap to edit) */}
-            <div 
-              onClick={() => setSheetStep('search')}
-              style={{
-                padding: '8px 16px 6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderBottom: '1px solid #f1f5f9',
-                cursor: 'pointer',
-                flexShrink: 0
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                <div style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  background: '#f1f5f9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  <Navigation size={14} color="#0B192C" />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {pickupLocation.split(',')[0]} ➔ {dropoffLocation.split(',')[0]}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>
-                    {distanceKm} km · ~{durationMins} mins · Direct Route
-                  </div>
-                </div>
-              </div>
-              <button 
-                type="button" 
+            {/* ── SUB-CASE B1: PEEK / MINIMIZED BAR (When sheet is dragged down) ── */}
+            {sheetHeight <= 140 ? (
+              <div 
+                onClick={() => setSheetHeight(SNAP_HALF)}
                 style={{
-                  background: '#f1f5f9',
-                  border: 'none',
-                  borderRadius: '14px',
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  color: '#0f172a',
-                  cursor: 'pointer',
-                  flexShrink: 0
-                }}
-              >
-                Change
-              </button>
-            </div>
-
-            {/* Scrollable Vehicle Tier Cards */}
-            <div style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '6px 14px 4px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              {TOURIST_VEHICLES.map((v) => {
-                const isSelected = v.id === selectedVehicleId;
-                const fare = calculateFare(v);
-                return (
-                  <div
-                    key={v.id}
-                    onClick={() => setSelectedVehicleId(v.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '10px 14px',
-                      borderRadius: '14px',
-                      cursor: 'pointer',
-                      border: isSelected ? '2px solid #0B192C' : '1px solid #e2e8f0',
-                      background: isSelected ? '#f8fafc' : '#ffffff',
-                      boxShadow: isSelected ? '0 4px 14px rgba(0,0,0,0.06)' : 'none',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    {/* Vehicle Icon */}
-                    <div style={{
-                      width: '46px',
-                      height: '46px',
-                      borderRadius: '12px',
-                      background: isSelected ? '#0B192C' : '#f1f5f9',
-                      color: isSelected ? '#ffffff' : '#0f172a',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '24px',
-                      flexShrink: 0
-                    }}>
-                      <span>{v.icon}</span>
-                    </div>
-
-                    {/* Middle Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontWeight: 800, fontSize: '14px', color: '#0f172a' }}>{v.name}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#64748b', fontSize: '11px' }}>
-                          <Users size={11} />
-                          <span>{v.seats}</span>
-                        </div>
-                        {v.badge && (
-                          <span style={{
-                            background: v.badge.includes('Top') ? '#0B192C' : (v.badge.includes('Electric') ? '#dcfce7' : '#f1f5f9'),
-                            color: v.badge.includes('Top') ? '#ff9f1c' : (v.badge.includes('Electric') ? '#15803d' : '#0f172a'),
-                            fontSize: '9px',
-                            fontWeight: 800,
-                            padding: '1px 6px',
-                            borderRadius: '4px'
-                          }}>
-                            {v.badge}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {v.eta} min away · {v.features[0]}
-                      </div>
-                    </div>
-
-                    {/* Fare */}
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontWeight: 900, fontSize: '16px', color: '#0f172a' }}>
-                        ₹{fare}
-                      </div>
-                      <span style={{ fontSize: '9.5px', color: '#059669', fontWeight: 700, display: 'block' }}>
-                        Zero Surge
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Payment Row & Sticky Full-Width "Book [Vehicle]" Action Button */}
-            <div style={{
-              padding: '8px 14px 10px',
-              borderTop: '1px solid #f1f5f9',
-              background: '#ffffff',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              flexShrink: 0
-            }}>
-              {/* Payment selector pill */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    style={{
-                      padding: '5px 8px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      background: '#f8fafc',
-                      color: '#0f172a',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="cash">💵 Cash on Drop</option>
-                    <option value="upi">⚡ UPI (GPay / PhonePe)</option>
-                    <option value="card">💳 Card / Netbanking</option>
-                  </select>
-                </div>
-                <span style={{ fontSize: '11px', color: '#059669', fontWeight: 700 }}>
-                  🛡️ Fixed Goa Fare Guaranteed
-                </span>
-              </div>
-
-              {/* Signature Big Black Book CTA Button */}
-              <button
-                type="button"
-                onClick={() => setSheetStep('passenger')}
-                style={{
-                  width: '100%',
-                  background: '#0B192C',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '14px',
-                  padding: '13px 18px',
-                  fontSize: '15px',
-                  fontWeight: 800,
+                  padding: '4px 16px 12px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  boxShadow: '0 4px 16px rgba(11, 25, 44, 0.3)',
                   cursor: 'pointer'
                 }}
               >
-                <span>Book {selectedVehicle.name}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>₹{calculateFare(selectedVehicle)}</span>
-                  <ArrowRight size={17} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: '#0B192C',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '18px',
+                    color: '#ffffff',
+                    flexShrink: 0
+                  }}>
+                    {selectedVehicle.icon}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {pickupLocation.split(',')[0]} ➔ {dropoffLocation.split(',')[0]}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                      {selectedVehicle.name} · {selectedVehicle.eta} mins away
+                    </div>
+                  </div>
                 </div>
-              </button>
-            </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <span style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
+                    ₹{calculateFare(selectedVehicle)}
+                  </span>
+                  <button
+                    type="button"
+                    style={{
+                      background: '#0B192C',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '16px',
+                      padding: '7px 12px',
+                      fontSize: '11.5px',
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    View Cabs ➔
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ── SUB-CASE B2: HALF & FULL EXPANDED STATE (Smooth 3 Cars) ── */
+              <>
+                {/* Top Compact Route Pill */}
+                <div 
+                  onClick={() => {
+                    setSheetStep('search');
+                    setSheetHeight(getSnapFull());
+                  }}
+                  style={{
+                    padding: '4px 16px 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderBottom: '1px solid #f1f5f9',
+                    cursor: 'pointer',
+                    flexShrink: 0
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      background: '#f1f5f9',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <Navigation size={14} color="#0B192C" />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {pickupLocation.split(',')[0]} ➔ {dropoffLocation.split(',')[0]}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        {distanceKm} km · ~{durationMins} mins · Direct Route
+                      </div>
+                    </div>
+                  </div>
+                  <span 
+                    style={{
+                      background: '#f1f5f9',
+                      border: 'none',
+                      borderRadius: '14px',
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: '#0f172a',
+                      flexShrink: 0
+                    }}
+                  >
+                    Change
+                  </span>
+                </div>
+
+                {/* EXACT 3 SMOOTH CAR CARDS (Rapido Style) */}
+                <div style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  padding: '8px 16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  {RAPIDO_CAB_OPTIONS.map((v) => {
+                    const isSelected = v.id === selectedVehicleId;
+                    const fare = calculateFare(v);
+                    return (
+                      <div
+                        key={v.id}
+                        onClick={() => setSelectedVehicleId(v.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '10px 14px',
+                          borderRadius: '16px',
+                          cursor: 'pointer',
+                          border: isSelected ? '2px solid #0B192C' : '1px solid #e2e8f0',
+                          background: isSelected ? '#f8fafc' : '#ffffff',
+                          boxShadow: isSelected ? '0 4px 14px rgba(11, 25, 44, 0.08)' : 'none',
+                          transform: isSelected ? 'scale(1.01)' : 'scale(1)',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {/* Vehicle Icon in Rounded Badge */}
+                        <div style={{
+                          width: '46px',
+                          height: '46px',
+                          borderRadius: '14px',
+                          background: isSelected ? '#0B192C' : '#f1f5f9',
+                          color: isSelected ? '#ffffff' : '#0f172a',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '24px',
+                          flexShrink: 0,
+                          boxShadow: isSelected ? '0 2px 8px rgba(11,25,44,0.18)' : 'none'
+                        }}>
+                          <span>{v.icon}</span>
+                        </div>
+
+                        {/* Middle Info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontWeight: 800, fontSize: '14.5px', color: '#0f172a' }}>{v.name}</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#64748b', fontSize: '11px', fontWeight: 600 }}>
+                              <Users size={11} />
+                              <span>{v.seats}</span>
+                            </span>
+                            {v.badge && (
+                              <span style={{
+                                background: v.badge.includes('Top') ? '#0B192C' : '#f1f5f9',
+                                color: v.badge.includes('Top') ? '#ff9f1c' : '#475569',
+                                fontSize: '9px',
+                                fontWeight: 800,
+                                padding: '2px 6px',
+                                borderRadius: '4px'
+                              }}>
+                                {v.badge}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                            <strong style={{ color: '#059669' }}>{v.eta} min away</strong> · {v.model.split('/')[0]}
+                          </div>
+                        </div>
+
+                        {/* Fare */}
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <div style={{ fontWeight: 900, fontSize: '16.5px', color: '#0f172a' }}>
+                            ₹{fare}
+                          </div>
+                          <span style={{ fontSize: '9.5px', color: '#059669', fontWeight: 700, display: 'block' }}>
+                            Zero Surge
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Sticky Bottom Action & Payment Bar */}
+                <div style={{
+                  padding: '8px 16px calc(env(safe-area-inset-bottom, 0px) + 12px)',
+                  borderTop: '1px solid #f1f5f9',
+                  background: '#ffffff',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  flexShrink: 0
+                }}>
+                  {/* Payment selector pill */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <select
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        style={{
+                          padding: '5px 8px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          background: '#f8fafc',
+                          color: '#0f172a',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="cash">💵 Cash on Drop</option>
+                        <option value="upi">⚡ UPI (GPay / PhonePe)</option>
+                        <option value="card">💳 Card / Netbanking</option>
+                      </select>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#059669', fontWeight: 700 }}>
+                      🛡️ Fixed Goa Fare Guaranteed
+                    </span>
+                  </div>
+
+                  {/* Signature Rapido-style Big Book CTA Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSheetStep('passenger');
+                      setSheetHeight(getSnapFull());
+                    }}
+                    style={{
+                      width: '100%',
+                      background: '#0B192C',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '16px',
+                      padding: '14px 20px',
+                      fontSize: '15.5px',
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      boxShadow: '0 4px 18px rgba(11, 25, 44, 0.28)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span>Book {selectedVehicle.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '17px', fontWeight: 900 }}>₹{calculateFare(selectedVehicle)}</span>
+                      <ArrowRight size={18} />
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
 
           </div>
         )}
@@ -1108,7 +1280,10 @@ export default function CustomerCabsPage({
               <span style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>Where are you heading?</span>
               <button
                 type="button"
-                onClick={() => setSheetStep('vehicles')}
+                onClick={() => {
+                  setSheetStep('vehicles');
+                  setSheetHeight(SNAP_HALF);
+                }}
                 style={{
                   background: '#f1f5f9',
                   border: 'none',
@@ -1276,7 +1451,10 @@ export default function CustomerCabsPage({
             {/* View Cabs Button */}
             <button
               type="button"
-              onClick={() => setSheetStep('vehicles')}
+              onClick={() => {
+                setSheetStep('vehicles');
+                setSheetHeight(SNAP_HALF);
+              }}
               style={{
                 width: '100%',
                 background: '#0B192C',
@@ -1304,7 +1482,10 @@ export default function CustomerCabsPage({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button
                   type="button"
-                  onClick={() => setSheetStep('vehicles')}
+                  onClick={() => {
+                    setSheetStep('vehicles');
+                    setSheetHeight(SNAP_HALF);
+                  }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 >
                   <ArrowLeft size={18} color="#0f172a" />
@@ -1461,123 +1642,7 @@ export default function CustomerCabsPage({
 
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          4. FIXED BOTTOM APP NAVIGATION BAR (NATIVE APP STANDARD)
-         ══════════════════════════════════════════════════════════════════════ */}
-      <nav style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: '60px',
-        background: '#ffffff',
-        borderTop: '1px solid #e2e8f0',
-        zIndex: 1100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        padding: '0 8px calc(env(safe-area-inset-bottom, 0px) + 2px)'
-      }}>
-        {/* 1. Ride (Home Map) */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveBottomNav('ride');
-            if (activeConfirmedRide) {
-              // Stay in confirmed view
-            } else {
-              setSheetStep('vehicles');
-            }
-          }}
-          style={{
-            background: 'none',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '2px',
-            color: activeBottomNav === 'ride' ? '#0B192C' : '#94a3b8',
-            fontWeight: activeBottomNav === 'ride' ? 800 : 500,
-            fontSize: '11px',
-            cursor: 'pointer',
-            padding: '4px 12px'
-          }}
-        >
-          <Car size={20} color={activeBottomNav === 'ride' ? '#0B192C' : '#94a3b8'} />
-          <span>Ride</span>
-        </button>
 
-        {/* 2. Activity / Trips */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveBottomNav('trips');
-            setShowTripsHistoryModal(true);
-          }}
-          style={{
-            background: 'none',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '2px',
-            color: activeBottomNav === 'trips' ? '#0B192C' : '#94a3b8',
-            fontWeight: activeBottomNav === 'trips' ? 800 : 500,
-            fontSize: '11px',
-            cursor: 'pointer',
-            padding: '4px 12px'
-          }}
-        >
-          <Clock size={20} color={activeBottomNav === 'trips' ? '#0B192C' : '#94a3b8'} />
-          <span>Trips</span>
-        </button>
-
-        {/* 3. Safety SOS */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveBottomNav('safety');
-            setShowSafetyModal(true);
-          }}
-          style={{
-            background: 'none',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '2px',
-            color: activeBottomNav === 'safety' ? '#dc2626' : '#94a3b8',
-            fontWeight: activeBottomNav === 'safety' ? 800 : 500,
-            fontSize: '11px',
-            cursor: 'pointer',
-            padding: '4px 12px'
-          }}
-        >
-          <ShieldAlert size={20} color={activeBottomNav === 'safety' ? '#dc2626' : '#94a3b8'} />
-          <span>Safety</span>
-        </button>
-
-        {/* 4. Support / WhatsApp */}
-        <a
-          href="https://wa.me/919822144510?text=Hello%20WOW%20GOA%20Cabs,%20I%20need%20assistance%20with%20cab%20booking"
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            textDecoration: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '2px',
-            color: '#94a3b8',
-            fontSize: '11px',
-            cursor: 'pointer',
-            padding: '4px 12px'
-          }}
-        >
-          <MessageSquare size={20} color="#25D366" />
-          <span>Support</span>
-        </a>
-      </nav>
 
       {/* ══════════════════════════════════════════════════════════════════════
           5. SIDE NAVIGATION DRAWER (HAMBURGER MENU)

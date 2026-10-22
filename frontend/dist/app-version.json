@@ -1,15 +1,15 @@
 {
-  "version": "2.5.1",
-  "versionCode": 251,
-  "bundleId": "wowgoa_cabs_20261022_v251",
+  "version": "2.5.2",
+  "versionCode": 252,
+  "bundleId": "wowgoa_cabs_20261022_v252",
   "releaseDate": "2026-10-22",
-  "title": "New Cab App Update Available! 🚀",
-  "description": "We have upgraded WOW GOA CABS with a dedicated Ola/Uber booking interface, instant Google & Phone OTP sign-in, and live driver tracking.",
+  "title": "New Smooth Rapido Cab Experience! 🚖",
+  "description": "Upgraded with a smooth draggable bottom sheet and 3 clean car options (Goa Mini, Prime Sedan, Goa SUV) — no clutter, just smooth booking.",
   "changelog": [
-    "Google Sign-In & Phone Number OTP verification",
-    "Dedicated full-screen Ola/Uber cab booking layout",
-    "Live Goa Chauffeur GPS tracking & 4-digit ride OTP",
-    "Instant In-App updates without re-downloading APK"
+    "3 Smooth Rapido Car Options (Goa Mini, Prime Sedan, Goa SUV)",
+    "Interactive draggable bottom sheet (drag up/down smoothly)",
+    "Clean uncluttered full-screen interactive map",
+    "Instant booking with zero congestion"
   ],
   "forceUpdate": false,
   "requiresNativeApkUpdate": false,
