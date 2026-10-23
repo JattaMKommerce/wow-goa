@@ -1,20 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import CustomerCabsPage from './CustomerCabsPage';
 import CabAuthScreen from '../../components/mobile/CabAuthScreen';
 import AppDownloadModal from '../../components/mobile/AppDownloadModal';
-import AppUpdateModal from '../../components/mobile/AppUpdateModal';
-
-// Current client bundle metadata
-export const CURRENT_CLIENT_BUNDLE_ID = 'wowgoa_cabs_20261022_v253';
-export const CURRENT_CLIENT_VERSION = '2.5.3';
-export const CURRENT_CLIENT_VERSION_CODE = 253;
 
 /**
  * TaxiAppShell: Full-Screen Dedicated Ola / Uber Cab Application Host
- * Features:
- * 1. Automatic in-app update detection & notification (checks app-version.json)
- * 2. If user is not authenticated: Show Mobile Auth Page (Google Sign-In & Phone Number + OTP).
- * 3. After authentication: Show the clean, spacious, uncongested Cab Booking Page.
+ * Behavior:
+ * 1. Desktop & Web Browser (isNativeApp = false): Directly displays the authentic Ola/Uber cab experience we created. NO authentication modal / gate.
+ * 2. Downloaded Mobile App (isNativeApp = true): Provides mobile sign-in / OTP authentication only inside the app.
  */
 export default function TaxiAppShell({
   onNavigateWebsite,
@@ -28,10 +21,6 @@ export default function TaxiAppShell({
   isNativeApp = false
 }) {
   const [showApkModal, setShowApkModal] = useState(false);
-
-  // In-App Update States
-  const [updateInfo, setUpdateInfo] = useState(null);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   // Authenticated Cab User State (Persisted in localStorage)
   const [cabUser, setCabUser] = useState(() => {
@@ -48,55 +37,10 @@ export default function TaxiAppShell({
     return null;
   });
 
-  // Controls whether the authentication screen or cab booking screen is shown
-  const [showAuthScreen, setShowAuthScreen] = useState(() => !cabUser);
+  // ONLY show auth screen if strictly inside the downloaded mobile app AND user is not authenticated.
+  // On website (wowgoa.in/cabs, desktop or mobile web browser), NEVER show this auth gate.
+  const [showAuthScreen, setShowAuthScreen] = useState(() => Boolean(isNativeApp && !cabUser));
 
-  // Check for updates against server version manifest
-  const checkForAppUpdate = useCallback(async (manual = false) => {
-    try {
-      const res = await fetch(`/app-version.json?t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-      });
-      if (res.ok) {
-        const manifest = await res.json();
-        const storedBundle = localStorage.getItem('wowgoa_installed_bundle_id');
-
-        // Check if server version is newer than running client or stored bundle
-        const isBundleNewer = manifest.bundleId && (manifest.bundleId !== CURRENT_CLIENT_BUNDLE_ID || (storedBundle && manifest.bundleId !== storedBundle));
-        const isCodeHigher = manifest.versionCode && manifest.versionCode > CURRENT_CLIENT_VERSION_CODE;
-
-        if (isBundleNewer || isCodeHigher) {
-          setUpdateInfo(manifest);
-          setShowUpdateModal(true);
-          return true;
-        } else if (manual) {
-          return false;
-        }
-      }
-    } catch (e) {
-      console.warn('Update check error:', e);
-    }
-    return false;
-  }, []);
-
-  // Background update check on launch and every 3 minutes
-  useEffect(() => {
-    const initialTimer = setTimeout(() => {
-      checkForAppUpdate(false);
-    }, 2000);
-
-    const intervalTimer = setInterval(() => {
-      checkForAppUpdate(false);
-    }, 180000); // Check every 3 mins
-
-    return () => {
-      clearTimeout(initialTimer);
-      clearInterval(intervalTimer);
-    };
-  }, [checkForAppUpdate]);
-
-  // Auth Success Handler
   const handleAuthSuccess = (userObj) => {
     setCabUser(userObj);
     try {
@@ -108,18 +52,8 @@ export default function TaxiAppShell({
     setShowAuthScreen(false);
   };
 
-  // Skip / Guest Mode
   const handleSkipAuth = () => {
     setShowAuthScreen(false);
-  };
-
-  // Logout / Switch Account Handler
-  const handleLogout = () => {
-    try {
-      localStorage.removeItem('wowgoa_cab_user');
-    } catch (e) {}
-    setCabUser(null);
-    setShowAuthScreen(true);
   };
 
   return (
@@ -136,15 +70,15 @@ export default function TaxiAppShell({
       overflow: 'hidden',
       position: 'relative'
     }}>
-      {/* ── STEP 1: AUTHENTICATION SCREEN (Google Sign-In & Phone Number + OTP) ── */}
-      {showAuthScreen ? (
+      {/* ── STEP 1: AUTHENTICATION SCREEN ONLY FOR DOWNLOADED MOBILE APP ── */}
+      {isNativeApp && showAuthScreen ? (
         <CabAuthScreen
           onAuthSuccess={handleAuthSuccess}
           onSkip={handleSkipAuth}
-          isNativeApp={isNativeApp}
+          isNativeApp={true}
         />
       ) : (
-        /* ── STEP 2: CLEAN, SPACIOUS, UNCONGESTED CAB BOOKING PAGE ── */
+        /* ── STEP 2: AUTHENTIC CAB EXPERIENCE WE CREATED (WEBSITE & AUTHENTICATED APP) ── */
         <CustomerCabsPage 
           onBookCab={onBookCab}
           initialPickup={pickupLoc}
@@ -156,22 +90,10 @@ export default function TaxiAppShell({
           onNavigateWebsite={onNavigateWebsite}
           onShowApkModal={() => setShowApkModal(true)}
           cabUser={cabUser}
-          onOpenAuth={() => setShowAuthScreen(true)}
-          onLogout={handleLogout}
-          onCheckForUpdates={checkForAppUpdate}
-          currentAppVersion={CURRENT_CLIENT_VERSION}
         />
       )}
 
-      {/* In-App Automatic Update Notification Modal */}
-      <AppUpdateModal
-        isOpen={showUpdateModal}
-        onClose={() => setShowUpdateModal(false)}
-        updateInfo={updateInfo}
-        isNativeApp={isNativeApp}
-      />
-
-      {/* APK download modal if triggered manually */}
+      {/* APK download modal if triggered */}
       <AppDownloadModal
         isOpen={showApkModal}
         onClose={() => setShowApkModal(false)}

@@ -1,15 +1,15 @@
 {
-  "version": "2.5.3",
-  "versionCode": 253,
-  "bundleId": "wowgoa_cabs_20261022_v253",
-  "releaseDate": "2026-10-22",
-  "title": "New Smooth Rapido Cab Experience! 🚖",
-  "description": "Fixed rendering issue and activated smooth 3-car draggable booking interface.",
+  "version": "2.5.4",
+  "versionCode": 254,
+  "bundleId": "wowgoa_cabs_20261023_v254",
+  "releaseDate": "2026-10-23",
+  "title": "WOW GOA Official Tourist Cab Services 🚖",
+  "description": "Restored official Goa tourist fleet with zero surge pricing, live map tracking, and seamless airport transfers.",
   "changelog": [
-    "Fixed screen rendering crash",
-    "3 Smooth Rapido Car Options (Goa Mini, Prime Sedan, Goa SUV)",
-    "Interactive draggable bottom sheet",
-    "Instant booking with zero congestion"
+    "Official tourist fleet: Hatchback, Prime Sedan, Executive SUV, VIP Luxury & Maxi Coach",
+    "Direct seamless booking on desktop and mobile",
+    "Zero surge pricing guaranteed 24/7 across all Goa hubs",
+    "Verified chauffeurs and real-time live map tracking"
   ],
   "forceUpdate": true,
   "requiresNativeApkUpdate": false,
