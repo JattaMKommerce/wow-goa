@@ -1852,13 +1852,10 @@ export default function App() {
     ))
   );
 
-  if (isNativeApp || path === '/cabs' || path === '/taxi' || path.startsWith('/cabs/') || path.startsWith('/taxi/') || activeTab === 'cabs' || activeTab === 'taxi') {
+  if (isNativeApp) {
     return (
       <TaxiAppShell
-        onNavigateWebsite={isNativeApp ? null : () => {
-          handleTabChange('selfdrive');
-          window.history.pushState(null, '', '/');
-        }}
+        onNavigateWebsite={null}
         currentUser={currentUser}
         pickupLoc={pickupLoc}
         dropLoc={dropLoc}
@@ -2486,6 +2483,17 @@ export default function App() {
           )}
 
 
+
+          {(activeTab === 'cabs' || activeTab === 'taxi') && (
+            <CustomerCabsPage 
+              onBookCab={handleOpenBooking}
+              initialPickup={pickupLoc}
+              initialDrop={dropLoc}
+              initialDate={pickupDate}
+              initialTime={pickupTime}
+              initialServiceType={cabServiceType}
+            />
+          )}
 
           {activeTab === 'visa' && (
             <VisaSection 
