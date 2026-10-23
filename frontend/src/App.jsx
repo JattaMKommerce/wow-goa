@@ -70,6 +70,7 @@ import VisaSection from './components/visa/VisaSection';
 import MobileBottomNav from './components/mobile/MobileBottomNav';
 import MobileInstallBanner from './components/mobile/MobileInstallBanner';
 import MobileVacationQuickBar from './components/mobile/MobileVacationQuickBar';
+import LiveCustomerRideBar from './components/mobile/LiveCustomerRideBar';
 
 // Import Mock Data & API Service
 import { 
@@ -3139,6 +3140,9 @@ export default function App() {
       {activeTab !== 'portal' && <WhatsAppWidget />}
       <AIChatbot />
       <PopupRenderer popups={liveConfig?.popups || []} onAction={() => {}} />
+
+      {/* Live Active Ride Island & OTP Floating Bar */}
+      <LiveCustomerRideBar />
 
       <MobileBottomNav activeTab={activeTab} setActiveTab={handleTabChange} />
     </div>

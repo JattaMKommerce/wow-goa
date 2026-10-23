@@ -252,6 +252,38 @@ export default function LiveCustomerRideBar() {
             <span>Track</span>
             <ChevronUp size={14} />
           </button>
+
+          <button 
+            type="button"
+            aria-label="Dismiss ride bar"
+            onClick={(e) => {
+              e.stopPropagation();
+              try {
+                localStorage.removeItem('wowgoa_active_ride');
+                const dispatches = JSON.parse(localStorage.getItem('wowgoa_taxi_dispatches') || '[]');
+                const updated = dispatches.map(d => ({ ...d, dismissed: true }));
+                localStorage.setItem('wowgoa_taxi_dispatches', JSON.stringify(updated));
+              } catch(err) {}
+              setActiveRide(null);
+            }}
+            style={{
+              background: 'rgba(255, 255, 255, 0.18)',
+              border: 'none',
+              color: '#ffffff',
+              borderRadius: '50%',
+              width: '24px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              marginLeft: '2px',
+              padding: 0
+            }}
+            title="Dismiss ride bar"
+          >
+            <X size={13} />
+          </button>
         </div>
       </aside>
 
