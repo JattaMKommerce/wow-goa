@@ -2537,7 +2537,7 @@ export default function SearchWidget({
                       }}
                     >
                       <Sparkles size={14} />
-                      <span>Launch Document Sizer ⚡</span>
+                      <span>Apply for Goa Visa ⚡</span>
                     </button>
                   </div>
                 )}
