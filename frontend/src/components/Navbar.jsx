@@ -1,11 +1,24 @@
 import React from 'react';
-import { Compass, LogOut, User } from 'lucide-react';
+import { Compass, LogOut, User, ChevronDown } from 'lucide-react';
 import { useSiteConfig } from '../context/SiteConfigContext';
 
 export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOpenLogin, onOpenLogin, onLogout }) {
   const { liveConfig } = useSiteConfig();
   const headerLinks = liveConfig?.menus?.header || [];
   const handleOpenLogin = triggerOpenLogin || onOpenLogin;
+
+  // Filter core primary links
+  const coreCategoryIds = ['selfdrive', 'packages', 'hotels', 'flights'];
+  const primaryLinks = headerLinks.filter(l => coreCategoryIds.includes(l.id));
+
+  // Determine if any item inside the "More" dropdown is active
+  const isMoreActive = activeTab === 'activities' || 
+    activeTab === 'craftmytrip' || 
+    activeTab === 'craft' || 
+    activeTab === 'visa' || 
+    activeTab === 'download-apk' || 
+    (activeTab === 'portal' && (!currentUser || currentUser.role === 'driver'));
+
   return (
     <nav className="navbar navbar-expand-lg navbar-dark premium-navbar">
       <div className="container-fluid px-xl-5 px-lg-4 px-3" style={{ maxWidth: '1440px' }}>
@@ -27,12 +40,9 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
 
         <div className="collapse navbar-collapse justify-content-end" id="navbarNav">
           <ul className="navbar-nav align-items-center gap-1">
-            {headerLinks.map(link => {
-              // Active state match
-              const isActive = activeTab === link.id || 
-                (link.id === 'craftmytrip' && (activeTab === 'craftmytrip' || activeTab === 'craft')) ||
-                (link.id === 'selfdrive' && (activeTab === 'selfdrive' || activeTab === 'home')) ||
-                activeTab === link.href.replace('/', '');
+            {/* 1. Self Drive */}
+            {primaryLinks.filter(l => l.id === 'selfdrive').map(link => {
+              const isActive = activeTab === 'selfdrive' || activeTab === 'home';
               return (
                 <li key={link.id} className="nav-item">
                   <a 
@@ -52,7 +62,7 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
               );
             })}
 
-            {/* Direct 1-Click Cabs & Taxi Storefront */}
+            {/* 2. Cabs & Taxi */}
             <li className="nav-item">
               <a 
                 className={`nav-link ${activeTab === 'cabs' ? 'active' : ''}`}
@@ -67,43 +77,156 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
               </a>
             </li>
 
-            {/* Direct Taxi APK Download & QR Code */}
-            <li className="nav-item">
+            {/* 3. Other Core Links (Trip Packages, Hotels, Flights) */}
+            {primaryLinks.filter(l => l.id !== 'selfdrive').map(link => {
+              const isActive = activeTab === link.id || activeTab === link.href.replace('/', '');
+              return (
+                <li key={link.id} className="nav-item">
+                  <a 
+                    className={`nav-link ${isActive ? 'active' : ''}`} 
+                    href={link.href} 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveTab(link.id);
+                      setTimeout(() => {
+                        document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
+                      }, 50);
+                    }}
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              );
+            })}
+
+            {/* 4. More Services Dropdown */}
+            <li className="nav-item dropdown">
               <a 
-                className="nav-link d-inline-flex align-items-center gap-1.5"
-                style={{ color: '#ff9f1c', fontWeight: 700 }}
-                href="/download" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveTab('download-apk');
-                  window.history.pushState(null, '', '/download');
-                }}
-                title="Scan QR to Download Official Taxi APK"
+                className={`nav-link dropdown-toggle d-inline-flex align-items-center gap-1 ${isMoreActive ? 'active' : ''}`}
+                style={{ color: isMoreActive ? '#ff9f1c' : 'rgba(255,255,255,0.85)', fontWeight: isMoreActive ? 700 : 500 }}
+                href="#" 
+                id="moreServicesDropdown" 
+                role="button" 
+                data-bs-toggle="dropdown" 
+                aria-expanded="false"
               >
-                <span>📲 Taxi App</span>
-                <span className="badge bg-warning text-dark px-1.5 py-0.5 rounded-pill" style={{ fontSize: '9px', fontWeight: 900 }}>
-                  APK
-                </span>
+                <span>More</span>
+                <ChevronDown size={13} className="opacity-75" />
               </a>
+              <ul 
+                className="dropdown-menu dropdown-menu-end shadow-lg border-0 py-2 mt-2" 
+                aria-labelledby="moreServicesDropdown"
+                style={{ 
+                  minWidth: '230px', 
+                  background: 'rgba(11, 25, 44, 0.98)', 
+                  backdropFilter: 'blur(12px)',
+                  borderRadius: '12px', 
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  boxShadow: '0 12px 30px rgba(0,0,0,0.5)'
+                }}
+              >
+                {/* Sightseeing & Activities */}
+                <li>
+                  <a 
+                    className={`dropdown-item d-flex align-items-center justify-content-between py-2 px-3 text-white ${activeTab === 'activities' ? 'bg-primary' : ''}`}
+                    href="/activities" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveTab('activities');
+                      setTimeout(() => {
+                        document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
+                      }, 50);
+                    }}
+                  >
+                    <span className="d-flex align-items-center gap-2">
+                      <span>🏖️</span>
+                      <span style={{ fontSize: '13px' }}>Sightseeing & Activities</span>
+                    </span>
+                  </a>
+                </li>
+
+                {/* Craft My Trip */}
+                <li>
+                  <a 
+                    className={`dropdown-item d-flex align-items-center justify-content-between py-2 px-3 text-white ${(activeTab === 'craftmytrip' || activeTab === 'craft') ? 'bg-primary' : ''}`}
+                    href="/craft" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveTab('craftmytrip');
+                      setTimeout(() => {
+                        document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
+                      }, 50);
+                    }}
+                  >
+                    <span className="d-flex align-items-center gap-2">
+                      <span>✨</span>
+                      <span style={{ fontSize: '13px' }}>Craft My Trip</span>
+                    </span>
+                    <span className="badge rounded-pill bg-warning text-dark px-2 py-0.5" style={{ fontSize: '9px', fontWeight: 800 }}>Custom</span>
+                  </a>
+                </li>
+
+                <li><hr className="dropdown-divider my-1 border-secondary opacity-25" /></li>
+
+                {/* Goa Tourist Visa */}
+                <li>
+                  <a 
+                    className={`dropdown-item d-flex align-items-center justify-content-between py-2 px-3 text-white ${activeTab === 'visa' ? 'bg-primary' : ''}`}
+                    href="/visa" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveTab('visa');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  >
+                    <span className="d-flex align-items-center gap-2">
+                      <span>🛂</span>
+                      <span style={{ color: '#38bdf8', fontWeight: 600, fontSize: '13px' }}>Goa Tourist Visa</span>
+                    </span>
+                    <span className="badge rounded-pill bg-info text-dark px-2 py-0.5" style={{ fontSize: '9px', fontWeight: 800 }}>e-Visa</span>
+                  </a>
+                </li>
+
+                {/* Taxi APK Download */}
+                <li>
+                  <a 
+                    className={`dropdown-item d-flex align-items-center justify-content-between py-2 px-3 text-white ${activeTab === 'download-apk' ? 'bg-primary' : ''}`}
+                    href="/download" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveTab('download-apk');
+                      window.history.pushState(null, '', '/download');
+                    }}
+                  >
+                    <span className="d-flex align-items-center gap-2">
+                      <span>📲</span>
+                      <span style={{ color: '#ff9f1c', fontWeight: 600, fontSize: '13px' }}>Taxi Customer App</span>
+                    </span>
+                    <span className="badge rounded-pill bg-warning text-dark px-2 py-0.5" style={{ fontSize: '9px', fontWeight: 900 }}>APK</span>
+                  </a>
+                </li>
+
+                {/* Driver Companion App */}
+                <li>
+                  <a 
+                    className={`dropdown-item d-flex align-items-center justify-content-between py-2 px-3 text-white ${activeTab === 'portal' ? 'bg-primary' : ''}`}
+                    href="/driver" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveTab('portal');
+                    }}
+                  >
+                    <span className="d-flex align-items-center gap-2">
+                      <span>👨‍✈️</span>
+                      <span style={{ color: '#4ade80', fontWeight: 600, fontSize: '13px' }}>Driver Companion App</span>
+                    </span>
+                    <span className="badge rounded-pill bg-success text-white px-2 py-0.5" style={{ fontSize: '9px', fontWeight: 800 }}>Partner</span>
+                  </a>
+                </li>
+              </ul>
             </li>
 
-            {/* Direct 1-Click Chauffeur & Driver Companion App */}
-            <li className="nav-item">
-              <a 
-                className={`nav-link ${activeTab === 'portal' ? 'active' : ''}`} 
-                style={{ color: activeTab === 'portal' ? '#4ade80' : 'rgba(255,255,255,0.85)', fontWeight: 600 }}
-                href="/driver" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveTab('portal');
-                }}
-                title="Chauffeur Mobile Companion App"
-              >
-                <span>👨‍✈️ Driver App</span>
-              </a>
-            </li>
-
-            {/* Customer Bookings Link */}
+            {/* 5. Customer Bookings Link */}
             <li className="nav-item">
               <a 
                 className={`nav-link ${activeTab === 'customer' ? 'active' : ''}`} 
@@ -114,23 +237,6 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
                 }}
               >
                 <span>🎫 My Bookings</span>
-              </a>
-            </li>
-
-            {/* Direct 1-Click Goa Tourist Visa for International Guests */}
-            <li className="nav-item">
-              <a 
-                className={`nav-link ${activeTab === 'visa' ? 'active' : ''}`} 
-                style={{ color: activeTab === 'visa' ? '#38bdf8' : '#ffffff', fontWeight: 700 }}
-                href="/visa" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveTab('visa');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                title="India Tourist e-Visa Assistance for Goa"
-              >
-                <span>🛂 Goa Visa</span>
               </a>
             </li>
 
