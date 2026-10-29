@@ -2,14 +2,14 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Globe, Clock, FileText, CheckCircle2, ArrowRight, 
   HelpCircle, MessageSquare, Calendar, User, Mail, 
-  Sparkles, ChevronDown, ChevronUp, AlertCircle, Check,
-  ShieldCheck, Plane, MapPin, Camera, AlertTriangle,
-  Upload, X, ShieldAlert, Award, Phone, Compass
+  Sparkles, AlertCircle, Check, ShieldCheck, Plane, 
+  MapPin, Camera, AlertTriangle, Upload, X, ShieldAlert, 
+  Award, Phone, Compass
 } from 'lucide-react';
 import { createLead } from '../../services/api';
 import { COUNTRIES } from '../../utils/countryCurrencyData';
 
-// ─── AUTHORITATIVE DATASETS (Kept intact for cross-component compatibility) ───
+// ─── AUTHORITATIVE DATASETS (Maintained for cross-component compatibility) ───
 
 export const POPULAR_NATIONALITIES = [
   { 
@@ -382,19 +382,19 @@ export const VISA_TYPES = [
   {
     id: '30days',
     title: '30-Day Tourist e-Visa',
-    subtitle: 'Short Vacations & Beach Breaks',
+    subtitle: 'Short Vacation / Beach Trip',
     entries: 'Double Entry',
     validity: '30 days from date of first entry into India',
     bestFor: '1 to 4 week holidays, charter flight guests',
     leadTime: 'Apply 30 to 4 days before flight',
     govtFee: 'Approx. $25–$40 Official Fee',
     processingHours: '24 to 72 Hours',
-    features: ['Double entry permitted', 'Biometrics on arrival in Goa', 'Quick turnaround']
+    features: ['Double entry permitted', 'Biometrics on arrival in Goa', 'Fast turnaround']
   },
   {
     id: '1year',
     title: '1-Year Tourist e-Visa',
-    subtitle: '⭐ Most Popular for Goa Winter Visitors',
+    subtitle: '⭐ Most Popular for Goa Visitors',
     entries: 'Multiple Entry',
     validity: '365 days from date ETA is granted',
     bestFor: 'Winter sun stays, repeat trips, extended vacations',
@@ -407,7 +407,7 @@ export const VISA_TYPES = [
   {
     id: '5years',
     title: '5-Year Tourist e-Visa',
-    subtitle: 'Frequent Travelers & Long-Term Lovers of Goa',
+    subtitle: 'Frequent Travelers to India',
     entries: 'Multiple Entry',
     validity: '5 years from date ETA is granted',
     bestFor: 'Frequent travelers & regular Goa vacationers',
@@ -416,41 +416,10 @@ export const VISA_TYPES = [
     processingHours: '48 to 96 Hours',
     badge: 'Best Value',
     features: ['Multiple entries over 5 full years', 'Max 90 or 180 days continuous stay', 'Best long-term value']
-  },
-  {
-    id: 'business',
-    title: '1-Year Business e-Visa',
-    subtitle: 'Conferences, Trade & Business Visits',
-    entries: 'Multiple Entry',
-    validity: '365 days from grant date',
-    bestFor: 'Corporate meetings, seminars, tradeshows in Goa',
-    leadTime: 'Apply up to 120 days before flight',
-    govtFee: 'Approx. $80–$100 Official Fee',
-    processingHours: '48 to 96 Hours',
-    features: ['Multiple business entries', 'Company letter or card required', 'Valid at Goa Mopa & Dabolim']
   }
 ];
 
-const ESSENTIAL_FAQS = [
-  {
-    q: 'Can international flights land directly in Goa with an Indian e-Visa?',
-    a: 'Yes! Both Manohar International Airport, Mopa (GOX in North Goa) and Dabolim Airport (GOI in South Goa) have authorized Bureau of Immigration e-Visa desks equipped with fast-track biometric scanners. You do not need to transit through Mumbai or Delhi.'
-  },
-  {
-    q: 'When is the ideal time window to submit my visa application?',
-    a: 'For a 30-Day e-Visa, submit between 30 days and at least 4 business days before departure. For 1-Year and 5-Year e-Visas, you can apply up to 120 days in advance. We recommend applying 7 to 10 days before your flight for peace of mind.'
-  },
-  {
-    q: 'What exact documents do I need to provide?',
-    a: 'You only need two items: (1) A clear photo or scan of your passport front bio-page (valid for at least 6 months), and (2) A recent square passport-style photo with a white background. If you do not have files handy right now, you can submit the form and send them to our Visa Officer on WhatsApp.'
-  },
-  {
-    q: 'How will I receive my approved visa?',
-    a: 'The Bureau of Immigration issues an official Electronic Travel Authorization (ETA) in PDF format. We verify it and email it directly to you, plus send a copy to your WhatsApp. Simply print a copy to present at the Goa immigration counter.'
-  }
-];
-
-// ─── STREAMLINED VISA CONSULTANT COMPONENT ────────────────────────────────────
+// ─── PURE WHITE, FULL-WIDTH, STREAMLINED VISA SECTION ────────────────────────
 
 export default function VisaSection({ 
   setActiveTab,
@@ -459,14 +428,11 @@ export default function VisaSection({
   initialAirport,
   initialTravelDate
 }) {
-  // Visa parameters
   const [selectedCountry, setSelectedCountry] = useState(initialCountry || 'GB');
   const [selectedType, setSelectedType] = useState(initialType || '1year');
-  const [openFaq, setOpenFaq] = useState(null);
 
-  // Form states - Exactly what a visa consultant asks the client
+  // Exact fields needed by a professional visa specialist
   const [formData, setFormData] = useState({
-    // Applicant details (as shown in passport)
     givenName: '',
     surname: '',
     dob: '',
@@ -474,32 +440,22 @@ export default function VisaSection({
     nationality: initialCountry || 'GB',
     passportNumber: '',
     passportExpiry: '',
-    
-    // Trip & stay details
     arrivalDate: initialTravelDate || '',
     arrivalPort: initialAirport || 'GOX',
-    stayLocation: '', // Hotel/Resort/Villa name or area in Goa
+    stayLocation: '',
     travelers: '2',
-    
-    // Contact & delivery
     email: '',
     phoneCode: '+44',
     phone: '',
-    
-    // Document upload preference
-    docsViaWhatsApp: false,
+    docsViaWhatsApp: true, // Default to convenient WhatsApp flow to avoid mobile friction
     passportScanName: '',
     photoScanName: '',
-    
-    // Additional requests
     notes: ''
   });
 
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [leadRef, setLeadRef] = useState(null);
-
-  const formRef = useRef(null);
 
   // Sync props
   useEffect(() => {
@@ -542,7 +498,7 @@ export default function VisaSection({
     }
   }, [selectedCountry]);
 
-  // Real-time 6-month passport validity calculation
+  // Real-time 6-month passport validity check
   const passportValidityWarning = useMemo(() => {
     if (!formData.passportExpiry) return null;
     const expiry = new Date(formData.passportExpiry);
@@ -553,28 +509,13 @@ export default function VisaSection({
     sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
 
     if (expiry < travel) {
-      return 'Passport will already be expired before your planned arrival date in Goa.';
+      return 'Passport will be expired before your planned arrival date in Goa.';
     }
     if (expiry < sixMonthsLater) {
-      return 'Indian Bureau of Immigration requires at least 6 months validity from arrival date. Your passport expires sooner; please renew before applying.';
+      return 'Indian Bureau of Immigration requires at least 6 months validity from arrival date. Your passport expires sooner; please renew.';
     }
     return null;
   }, [formData.passportExpiry, formData.arrivalDate]);
-
-  // Handle client file attachments
-  const handlePassportFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFormData(prev => ({ ...prev, passportScanName: file.name }));
-    }
-  };
-
-  const handlePhotoFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFormData(prev => ({ ...prev, photoScanName: file.name }));
-    }
-  };
 
   // Form submission handler
   const handleSubmitApplication = async (e) => {
@@ -596,14 +537,14 @@ export default function VisaSection({
         notes: [
           `Country: ${country.name} (${country.flag})`,
           `Category: ${visa.title}`,
-          `Passport No: ${formData.passportNumber.toUpperCase().trim() || 'Not provided'}`,
+          `Passport No: ${formData.passportNumber.toUpperCase().trim() || 'Pending'}`,
           `Passport Expiry: ${formData.passportExpiry || 'Not specified'}`,
           `DOB: ${formData.dob || 'Not specified'} | Gender: ${formData.gender}`,
           `Arrival Port: ${formData.arrivalPort === 'GOI' ? 'Dabolim Airport (GOI)' : formData.arrivalPort === 'SEAPORT' ? 'Mormugao Seaport' : 'Manohar Intl Mopa (GOX)'}`,
           `Arrival Date: ${formData.arrivalDate || 'Not specified'}`,
           `Goa Hotel/Stay: ${formData.stayLocation || 'Not specified'}`,
           `Travelers: ${formData.travelers} Pax`,
-          `Docs Submission: ${formData.docsViaWhatsApp ? 'Sending on WhatsApp' : (formData.passportScanName ? `Attached: ${formData.passportScanName}` : 'Pending docs')}`,
+          `Docs Submission: ${formData.docsViaWhatsApp ? 'Sending on WhatsApp' : (formData.passportScanName ? `Attached: ${formData.passportScanName}` : 'Pending')}`,
           formData.notes ? `Guest Note: ${formData.notes}` : ''
         ].filter(Boolean).join(' | ')
       };
@@ -612,8 +553,7 @@ export default function VisaSection({
       setLeadRef(generatedId);
       setSent(true);
     } catch (err) {
-      console.warn('[Visa Application] Lead sync note:', err.message);
-      // Resilient fallback: ensure customer experience is never blocked
+      console.warn('[Visa Application] Lead save note:', err.message);
       setLeadRef(generatedId);
       setSent(true);
     } finally {
@@ -637,112 +577,96 @@ export default function VisaSection({
   )}`;
 
   return (
-    <div style={{ background: '#0B192C', minHeight: '90vh', color: '#ffffff', fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <div style={{ 
+      background: '#ffffff', 
+      minHeight: '100vh', 
+      width: '100%', 
+      color: '#0f172a', 
+      fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' 
+    }}>
       
-      {/* ── 1. CLEAN HERO BANNER ── */}
+      {/* ── TOP HERO HEADER: FULL-WIDTH, CLEAN WHITE / SOFT SLATE ── */}
       <div style={{ 
-        background: 'linear-gradient(180deg, #132A44 0%, #0D2036 50%, #0B192C 100%)', 
-        padding: '36px 20px 28px', 
-        borderBottom: '1px solid rgba(255,255,255,0.08)' 
+        background: '#ffffff', 
+        borderBottom: '1px solid #e2e8f0', 
+        padding: '36px clamp(20px, 4vw, 56px)' 
       }}>
-        <div style={{ maxWidth: '1160px', margin: '0 auto' }}>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-            <div style={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              background: 'rgba(56,189,248,0.12)', 
-              border: '1px solid rgba(56,189,248,0.3)', 
-              borderRadius: '20px', 
-              padding: '4px 12px' 
-            }}>
-              <Globe size={13} color="#38bdf8" />
-              <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#38bdf8', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
-                Goa Tourist e-Visa Desk
-              </span>
-            </div>
-
-            <div style={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: '5px', 
-              background: 'rgba(34,197,94,0.12)', 
-              border: '1px solid rgba(34,197,94,0.3)', 
-              borderRadius: '20px', 
-              padding: '4px 12px' 
-            }}>
-              <ShieldCheck size={13} color="#4ade80" />
-              <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#4ade80' }}>
-                99.4% Pre-Check Accuracy · Fast Turnaround
-              </span>
-            </div>
-          </div>
-
-          <h1 style={{ fontSize: 'clamp(1.8rem, 3.8vw, 2.5rem)', fontWeight: 800, margin: '0 0 10px', color: '#ffffff', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-            India Tourist e-Visa <span style={{ color: '#FF6B35' }}>Application for Goa</span>
-          </h1>
-          
-          <p style={{ fontSize: '14.5px', color: '#94a3b8', margin: '0 0 22px', maxWidth: '780px', lineHeight: 1.55 }}>
-            Apply for your official Electronic Travel Authorization (ETA) for visiting Goa. Our dedicated visa officers pre-check your passport specifications and ensure fast biometric entry at Manohar Intl (GOX) or Dabolim (GOI) airports.
-          </p>
-
-          {/* 3 Core Trust Pillars */}
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', 
-            gap: '12px'
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          <span style={{ 
+            display: 'inline-flex', 
+            alignItems: 'center', 
+            gap: '6px', 
+            background: '#fff7ed', 
+            border: '1px solid #fed7aa', 
+            color: '#c2410c', 
+            fontSize: '11.5px', 
+            fontWeight: 700, 
+            padding: '4px 12px', 
+            borderRadius: '20px', 
+            textTransform: 'uppercase', 
+            letterSpacing: '0.03em' 
           }}>
-            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(56,189,248,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Clock size={18} color="#38bdf8" />
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>24 to 72 Hours Processing</div>
-                <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>Official ETA delivered directly to email</div>
-              </div>
-            </div>
+            <Globe size={13} color="#ea580c" />
+            Official India Tourist e-Visa Desk · Goa
+          </span>
 
-            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255,107,53,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <ShieldCheck size={18} color="#FF6B35" />
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>Human Specialist Pre-Check</div>
-                <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>Eliminates common photo &amp; bio errors</div>
-              </div>
-            </div>
-
-            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(34,197,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Plane size={18} color="#4ade80" />
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>Direct Goa Ports (GOX / GOI)</div>
-                <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>Dedicated biometric counters &amp; cab pickup</div>
-              </div>
-            </div>
-          </div>
-
+          <span style={{ 
+            display: 'inline-flex', 
+            alignItems: 'center', 
+            gap: '6px', 
+            background: '#f0fdf4', 
+            border: '1px solid #bbf7d0', 
+            color: '#15803d', 
+            fontSize: '11.5px', 
+            fontWeight: 700, 
+            padding: '4px 12px', 
+            borderRadius: '20px' 
+          }}>
+            <ShieldCheck size={13} color="#16a34a" />
+            99.4% Pre-Check Accuracy · 24–72h Approval
+          </span>
         </div>
+
+        <h1 style={{ 
+          fontSize: 'clamp(1.8rem, 3.2vw, 2.4rem)', 
+          fontWeight: 800, 
+          color: '#0f172a', 
+          margin: '0 0 8px', 
+          letterSpacing: '-0.02em', 
+          lineHeight: 1.2 
+        }}>
+          Goa Tourist e-Visa <span style={{ color: '#ea580c' }}>Application</span>
+        </h1>
+        
+        <p style={{ fontSize: '14.5px', color: '#475569', margin: 0, maxWidth: '880px', lineHeight: 1.55 }}>
+          Direct electronic travel authorization for international visitors traveling to Goa. Verified by visa specialists before government filing to guarantee fast biometric entry at Manohar Intl (GOX) or Dabolim (GOI) airports.
+        </p>
       </div>
 
-      {/* ── 2. VISA DURATION TIERS SELECTOR (CLEAR 3 CARDS) ── */}
-      <div style={{ maxWidth: '1160px', margin: '0 auto', padding: '28px 20px 10px' }}>
-        <div style={{ marginBottom: '14px' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 4px', color: '#ffffff' }}>
-            1. Select Your Visa Category
-          </h2>
-          <p style={{ fontSize: '12.5px', color: '#94a3b8', margin: 0 }}>
-            Choose the duration matching your holiday schedule in Goa:
-          </p>
+      {/* ── VISA DURATION SELECTOR (3 CLEAN CARDS, FULL WIDTH) ── */}
+      <div style={{ 
+        padding: '28px clamp(20px, 4vw, 56px) 12px', 
+        borderBottom: '1px solid #f1f5f9' 
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 2px', color: '#0f172a' }}>
+              Choose Visa Duration
+            </h2>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+              Select the option that best fits your holiday duration in Goa:
+            </p>
+          </div>
+
+          <span style={{ fontSize: '12px', color: '#0284c7', fontWeight: 700 }}>
+            {country.flag} Applying for {country.name} passport
+          </span>
         </div>
 
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', 
-          gap: '12px',
-          marginBottom: '26px'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+          gap: '16px'
         }}>
           {VISA_TYPES.map(vt => {
             const isSelected = selectedType === vt.id;
@@ -751,39 +675,34 @@ export default function VisaSection({
                 key={vt.id}
                 onClick={() => setSelectedType(vt.id)}
                 style={{
-                  background: isSelected ? 'linear-gradient(135deg, #1b3558 0%, #132238 100%)' : '#132238',
+                  background: isSelected ? '#fff7ed' : '#ffffff',
                   borderRadius: '12px',
-                  padding: '16px',
-                  border: isSelected ? '2px solid #FF6B35' : '1px solid rgba(255,255,255,0.08)',
+                  padding: '16px 20px',
+                  border: isSelected ? '2px solid #ea580c' : '1px solid #e2e8f0',
                   cursor: 'pointer',
                   position: 'relative',
-                  transition: 'all 0.2s ease',
-                  boxShadow: isSelected ? '0 8px 20px rgba(255, 107, 53, 0.22)' : 'none'
+                  transition: 'all 0.15s ease',
+                  boxShadow: isSelected ? '0 4px 16px rgba(234, 88, 12, 0.12)' : '0 1px 3px rgba(0,0,0,0.03)'
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: isSelected ? '#FF6B35' : '#ffffff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: isSelected ? '#ea580c' : '#0f172a' }}>
                     {vt.title}
                   </div>
                   <span style={{ 
-                    fontSize: '10.5px', 
+                    fontSize: '11px', 
                     fontWeight: 700, 
-                    padding: '2px 8px', 
+                    padding: '3px 8px', 
                     borderRadius: '6px', 
-                    background: isSelected ? 'rgba(255,107,53,0.25)' : 'rgba(56,189,248,0.12)', 
-                    color: isSelected ? '#FF6B35' : '#38bdf8',
-                    border: isSelected ? '1px solid #FF6B35' : '1px solid rgba(56,189,248,0.25)'
+                    background: isSelected ? '#fed7aa' : '#f1f5f9', 
+                    color: isSelected ? '#9a3412' : '#475569' 
                   }}>
                     {vt.entries}
                   </span>
                 </div>
 
-                <div style={{ fontSize: '11.5px', color: '#fed7aa', marginBottom: '6px', fontWeight: 600 }}>
-                  {vt.subtitle || vt.validity}
-                </div>
-
-                <div style={{ fontSize: '11.5px', color: '#94a3b8', lineHeight: 1.45, marginBottom: '8px' }}>
-                  {vt.bestFor}
+                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '8px' }}>
+                  {vt.subtitle}
                 </div>
 
                 <div style={{ 
@@ -791,13 +710,13 @@ export default function VisaSection({
                   alignItems: 'center', 
                   justifyContent: 'space-between', 
                   paddingTop: '8px', 
-                  borderTop: '1px solid rgba(255,255,255,0.06)',
-                  fontSize: '11px',
-                  color: '#cbd5e1'
+                  borderTop: '1px solid #f1f5f9', 
+                  fontSize: '11.5px', 
+                  color: '#475569' 
                 }}>
-                  <span>Turnaround: <strong style={{ color: '#4ade80' }}>{vt.processingHours}</strong></span>
-                  <span style={{ color: isSelected ? '#FF6B35' : '#38bdf8', fontWeight: 700 }}>
-                    {isSelected ? '✓ Selected' : 'Tap to select'}
+                  <span>Turnaround: <strong style={{ color: '#16a34a' }}>{vt.processingHours}</strong></span>
+                  <span style={{ color: isSelected ? '#ea580c' : '#0284c7', fontWeight: 700 }}>
+                    {isSelected ? '✓ Selected' : 'Select tier'}
                   </span>
                 </div>
               </div>
@@ -806,62 +725,63 @@ export default function VisaSection({
         </div>
       </div>
 
-      {/* ── 3. MAIN SPLIT: APPLICATION FORM (LEFT) + SUMMARY & SUPPORT (RIGHT) ── */}
-      <div ref={formRef} style={{ maxWidth: '1160px', margin: '0 auto', padding: '0 20px 48px' }}>
+      {/* ── MAIN 2-COLUMN SECTION: APPLICATION FORM (LEFT) + SUMMARY (RIGHT) ── */}
+      <div style={{ 
+        padding: '32px clamp(20px, 4vw, 56px) 56px' 
+      }}>
         
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'minmax(0, 1.7fr) minmax(300px, 1fr)', 
-          gap: '24px', 
+          gridTemplateColumns: 'minmax(0, 1.9fr) minmax(320px, 1fr)', 
+          gap: '36px', 
           alignItems: 'start' 
         }}>
           
-          {/* ── LEFT: STRUCTURED VISA APPLICATION FORM ── */}
+          {/* ── LEFT COLUMN: STREAMLINED FORM ── */}
           <div>
-            
             {sent ? (
               /* Success Confirmation Card */
               <div style={{ 
                 background: '#ffffff', 
-                color: '#0f172a', 
+                border: '1px solid #e2e8f0', 
                 borderRadius: '16px', 
-                padding: '32px 24px', 
+                padding: '40px 32px', 
                 textAlign: 'center',
-                boxShadow: '0 12px 32px rgba(0,0,0,0.25)'
+                boxShadow: '0 8px 24px rgba(0,0,0,0.06)'
               }}>
                 <div style={{ 
                   display: 'inline-flex', 
                   alignItems: 'center', 
                   justifyContent: 'center', 
-                  width: '56px', 
-                  height: '56px', 
+                  width: '60px', 
+                  height: '60px', 
                   borderRadius: '50%', 
                   background: '#dcfce7', 
                   color: '#16a34a', 
-                  marginBottom: '14px' 
+                  marginBottom: '16px' 
                 }}>
-                  <CheckCircle2 size={36} />
+                  <CheckCircle2 size={38} />
                 </div>
 
-                <h3 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 6px', color: '#166534' }}>
+                <h3 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 6px', color: '#166534' }}>
                   Visa Application Received
                 </h3>
 
                 <div style={{ 
-                  fontSize: '12.5px', 
+                  fontSize: '13px', 
                   fontWeight: 800, 
                   color: '#15803d', 
                   background: '#dcfce7', 
                   display: 'inline-block', 
-                  padding: '4px 14px', 
+                  padding: '5px 16px', 
                   borderRadius: '8px', 
-                  marginBottom: '16px' 
+                  marginBottom: '18px' 
                 }}>
                   Application Reference #{leadRef || 'VISA-GUEST'}
                 </div>
 
-                <p style={{ fontSize: '13.5px', color: '#334155', margin: '0 0 20px', lineHeight: 1.55, maxWidth: '520px', marginInline: 'auto' }}>
-                  Thank you, <strong>{fullName}</strong>! Your application for <strong>{visa.title}</strong> from <strong>{country.name} ({country.flag})</strong> has been received by our Goa Visa Desk.
+                <p style={{ fontSize: '14px', color: '#475569', margin: '0 0 24px', lineHeight: 1.6, maxWidth: '560px', marginInline: 'auto' }}>
+                  Thank you, <strong>{fullName}</strong>! Your application for <strong>{visa.title}</strong> has been logged. Our duty officer has queued your documents for 24–72 hour expedited clearance.
                 </p>
 
                 {/* Summary Table */}
@@ -869,11 +789,11 @@ export default function VisaSection({
                   background: '#f8fafc', 
                   border: '1px solid #e2e8f0', 
                   borderRadius: '10px', 
-                  padding: '14px 18px', 
+                  padding: '16px 20px', 
                   textAlign: 'left', 
-                  marginBottom: '22px',
-                  fontSize: '12.5px',
-                  lineHeight: 1.7
+                  marginBottom: '24px',
+                  fontSize: '13px',
+                  lineHeight: 1.8
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
                     <span style={{ color: '#64748b' }}>Applicant Name:</span>
@@ -884,20 +804,24 @@ export default function VisaSection({
                     <strong>{formData.passportNumber.toUpperCase() || 'Pending'}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', padding: '6px 0' }}>
-                    <span style={{ color: '#64748b' }}>Expected Arrival Date:</span>
+                    <span style={{ color: '#64748b' }}>Nationality:</span>
+                    <strong>{country.flag} {country.name}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', padding: '6px 0' }}>
+                    <span style={{ color: '#64748b' }}>Expected Arrival:</span>
                     <strong>{formData.arrivalDate || 'Upcoming Trip'}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', padding: '6px 0' }}>
-                    <span style={{ color: '#64748b' }}>Goa Port of Entry:</span>
-                    <strong>{formData.arrivalPort === 'GOI' ? 'Dabolim (GOI)' : 'Manohar Intl Mopa (GOX)'}</strong>
+                    <span style={{ color: '#64748b' }}>Arrival Port:</span>
+                    <strong>{formData.arrivalPort === 'GOI' ? 'Dabolim Airport (GOI)' : 'Manohar Intl Mopa (GOX)'}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '6px' }}>
-                    <span style={{ color: '#64748b' }}>Status:</span>
-                    <strong style={{ color: '#16a34a' }}>● Queued for Pre-Check (24–72h Turnaround)</strong>
+                    <span style={{ color: '#64748b' }}>Delivery Channel:</span>
+                    <strong style={{ color: '#16a34a' }}>● Electronic PDF (ETA) via Email &amp; WhatsApp</strong>
                   </div>
                 </div>
 
-                {/* Primary Action: Direct WhatsApp Handshake */}
+                {/* Primary WhatsApp Action */}
                 <a
                   href={whatsappUrl}
                   target="_blank"
@@ -910,588 +834,568 @@ export default function VisaSection({
                     background: '#25D366',
                     color: '#ffffff',
                     textDecoration: 'none',
-                    padding: '13px 22px',
+                    padding: '14px 24px',
                     borderRadius: '10px',
                     fontWeight: 800,
-                    fontSize: '14px',
+                    fontSize: '14.5px',
                     width: '100%',
                     boxSizing: 'border-box',
-                    boxShadow: '0 6px 20px rgba(37,211,102,0.35)',
+                    boxShadow: '0 4px 16px rgba(37,211,102,0.3)',
                     marginBottom: '14px'
                   }}
                 >
-                  <MessageSquare size={18} /> Open WhatsApp with Visa Officer (Ref #{leadRef})
+                  <MessageSquare size={18} /> Open WhatsApp to Connect with Visa Officer
                 </a>
 
-                {/* Secondary Action: Reset */}
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSent(false);
-                      setLeadRef(null);
-                      setFormData({
-                        givenName: '',
-                        surname: '',
-                        dob: '',
-                        gender: 'Male',
-                        nationality: selectedCountry,
-                        passportNumber: '',
-                        passportExpiry: '',
-                        arrivalDate: '',
-                        arrivalPort: 'GOX',
-                        stayLocation: '',
-                        travelers: '2',
-                        email: '',
-                        phoneCode: '+44',
-                        phone: '',
-                        docsViaWhatsApp: false,
-                        passportScanName: '',
-                        photoScanName: '',
-                        notes: ''
-                      });
-                    }}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      fontSize: '12.5px',
-                      color: '#64748b',
-                      cursor: 'pointer',
-                      textDecoration: 'underline'
-                    }}
-                  >
-                    Submit another applicant (e.g. family member or friend)
-                  </button>
-                </div>
+                {/* Submit Another Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSent(false);
+                    setLeadRef(null);
+                    setFormData({
+                      givenName: '',
+                      surname: '',
+                      dob: '',
+                      gender: 'Male',
+                      nationality: selectedCountry,
+                      passportNumber: '',
+                      passportExpiry: '',
+                      arrivalDate: '',
+                      arrivalPort: 'GOX',
+                      stayLocation: '',
+                      travelers: '2',
+                      email: '',
+                      phoneCode: '+44',
+                      phone: '',
+                      docsViaWhatsApp: true,
+                      passportScanName: '',
+                      photoScanName: '',
+                      notes: ''
+                    });
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '13px',
+                    color: '#64748b',
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  Submit another applicant (e.g. family member or travel companion)
+                </button>
               </div>
             ) : (
               /* The Clean Application Form */
               <form 
-                onSubmit={handleSubmitApplication} 
+                onSubmit={handleSubmitApplication}
                 style={{ 
                   background: '#ffffff', 
-                  color: '#0f172a', 
+                  border: '1px solid #e2e8f0', 
                   borderRadius: '16px', 
-                  padding: '26px 24px', 
-                  boxShadow: '0 12px 32px rgba(0,0,0,0.22)' 
+                  padding: '32px clamp(18px, 3vw, 36px)', 
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.04)' 
                 }}
               >
                 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ 
-                    fontSize: '11px', 
-                    fontWeight: 800, 
-                    textTransform: 'uppercase', 
-                    letterSpacing: '0.04em', 
-                    color: '#c2410c', 
-                    background: '#ffedd5', 
-                    padding: '3px 8px', 
-                    borderRadius: '6px' 
-                  }}>
-                    Visa Application Desk
-                  </div>
-                  <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 700 }}>
-                    ● Human Officer Online
-                  </span>
+                <div style={{ marginBottom: '24px', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 4px', color: '#0f172a' }}>
+                    1. Applicant &amp; Passport Information
+                  </h3>
+                  <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0 }}>
+                    Must match your passport Machine Readable Zone (MRZ) exactly to avoid airport boarding delays.
+                  </p>
                 </div>
 
-                <h3 style={{ fontSize: '19px', fontWeight: 800, margin: '0 0 4px', color: '#0f172a' }}>
-                  Applicant &amp; Travel Information
-                </h3>
-                <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 20px', lineHeight: 1.45 }}>
-                  Please fill in the details below exactly as they appear on your passport machine-readable zone.
-                </p>
-
-                {/* ── STEP 1: TRAVELER & PASSPORT DETAILS ── */}
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px', marginBottom: '18px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', color: '#0f172a' }}>
-                    <User size={16} color="#FF6B35" />
-                    <strong style={{ fontSize: '13.5px' }}>1. Primary Applicant &amp; Passport</strong>
-                  </div>
-
-                  {/* Given Name & Surname (2 Columns) */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Given / First &amp; Middle Name(s) *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. John Edward"
-                        value={formData.givenName}
-                        onChange={(e) => setFormData({ ...formData, givenName: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '13px',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Surname / Family Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Smith"
-                        value={formData.surname}
-                        onChange={(e) => setFormData({ ...formData, surname: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '13px',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* DOB, Gender & Nationality (3 Columns) */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 1.2fr', gap: '10px', marginBottom: '12px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Date of Birth *
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={formData.dob}
-                        onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '9px 10px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '12.5px',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Gender *
-                      </label>
-                      <select
-                        value={formData.gender}
-                        onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '9px 8px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '12.5px',
-                          background: '#fff',
-                          outline: 'none',
-                          cursor: 'pointer',
-                          boxSizing: 'border-box'
-                        }}
-                      >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Passport Nationality *
-                      </label>
-                      <select
-                        value={selectedCountry}
-                        onChange={(e) => {
-                          setSelectedCountry(e.target.value);
-                          setFormData(prev => ({ ...prev, nationality: e.target.value }));
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '9px 10px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '12.5px',
-                          background: '#fff',
-                          outline: 'none',
-                          cursor: 'pointer',
-                          boxSizing: 'border-box'
-                        }}
-                      >
-                        {POPULAR_NATIONALITIES.map(nat => (
-                          <option key={nat.code} value={nat.code}>
-                            {nat.flag} {nat.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Passport Number & Passport Expiry (2 Columns) */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Passport Number *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. 123456789"
-                        value={formData.passportNumber}
-                        onChange={(e) => setFormData({ ...formData, passportNumber: e.target.value.toUpperCase() })}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '13px',
-                          outline: 'none',
-                          letterSpacing: '0.04em',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Passport Expiry Date *
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={formData.passportExpiry}
-                        onChange={(e) => setFormData({ ...formData, passportExpiry: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '9px 10px',
-                          borderRadius: '8px',
-                          border: passportValidityWarning ? '1px solid #f59e0b' : '1px solid #cbd5e1',
-                          fontSize: '12.5px',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Smart Passport 6-month validity warning */}
-                  {passportValidityWarning && (
-                    <div style={{ 
-                      marginTop: '10px', 
-                      background: '#fffbeb', 
-                      border: '1px solid #fde68a', 
-                      borderRadius: '8px', 
-                      padding: '8px 12px', 
-                      fontSize: '11.5px', 
-                      color: '#b45309',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      <AlertTriangle size={15} color="#d97706" style={{ flexShrink: 0 }} />
-                      <span>{passportValidityWarning}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── STEP 2: TRIP & STAY DETAILS ── */}
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px', marginBottom: '18px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', color: '#0f172a' }}>
-                    <Plane size={16} color="#FF6B35" />
-                    <strong style={{ fontSize: '13.5px' }}>2. Travel Schedule &amp; Goa Arrival</strong>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Expected Arrival Date in Goa *
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={formData.arrivalDate}
-                        onChange={(e) => setFormData({ ...formData, arrivalDate: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '9px 10px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '12.5px',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Goa Arrival Port *
-                      </label>
-                      <select
-                        value={formData.arrivalPort}
-                        onChange={(e) => setFormData({ ...formData, arrivalPort: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '9px 10px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '12.5px',
-                          background: '#fff',
-                          outline: 'none',
-                          cursor: 'pointer',
-                          boxSizing: 'border-box'
-                        }}
-                      >
-                        <option value="GOX">Manohar Intl Mopa (GOX) - North Goa</option>
-                        <option value="GOI">Dabolim Airport (GOI) - South Goa</option>
-                        <option value="SEAPORT">Mormugao Seaport - Cruise</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Hotel / Resort / Villa Name or Area in Goa *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Taj Fort Aguada, Candolim or Resort in Anjuna"
-                        value={formData.stayLocation}
-                        onChange={(e) => setFormData({ ...formData, stayLocation: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '9px 12px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '12.5px',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Total Applicants / Travelers
-                      </label>
-                      <select
-                        value={formData.travelers}
-                        onChange={(e) => setFormData({ ...formData, travelers: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '9px 10px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '12.5px',
-                          background: '#fff',
-                          outline: 'none',
-                          cursor: 'pointer',
-                          boxSizing: 'border-box'
-                        }}
-                      >
-                        <option value="1">1 Solo Traveler</option>
-                        <option value="2">2 Couples / Friends</option>
-                        <option value="3">3 Travelers</option>
-                        <option value="4">4 Family Members</option>
-                        <option value="5+">5+ Group Travel</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── STEP 3: CONTACT & ETA DELIVERY ── */}
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px', marginBottom: '18px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', color: '#0f172a' }}>
-                    <Mail size={16} color="#FF6B35" />
-                    <strong style={{ fontSize: '13.5px' }}>3. Contact &amp; ETA Delivery (Crucial)</strong>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '12px', marginBottom: '14px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        Email Address (ETA delivered here) *
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        placeholder="john.smith@example.com"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '9px 12px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '12.5px',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        WhatsApp / Mobile Number *
-                      </label>
-                      <div style={{ display: 'grid', gridTemplateColumns: '105px 1fr', gap: '6px' }}>
-                        <select
-                          value={formData.phoneCode}
-                          onChange={(e) => setFormData({ ...formData, phoneCode: e.target.value })}
-                          style={{
-                            padding: '9px 6px',
-                            borderRadius: '8px',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '12px',
-                            background: '#fff',
-                            outline: 'none',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {COUNTRIES.map(c => (
-                            <option key={c.code} value={c.dialCode}>
-                              {c.flag} {c.dialCode}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="tel"
-                          required
-                          placeholder="e.g. 7911 123456"
-                          value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '9px 10px',
-                            borderRadius: '8px',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '12.5px',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Document Submission Options */}
-                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
-                        Document Files (Passport Bio-Page &amp; Photo)
-                      </label>
-                      
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11.5px', color: '#0369a1', fontWeight: 600 }}>
-                        <input
-                          type="checkbox"
-                          checked={formData.docsViaWhatsApp}
-                          onChange={(e) => setFormData({ ...formData, docsViaWhatsApp: e.target.checked })}
-                          style={{ accentColor: '#FF6B35' }}
-                        />
-                        <span>I will send documents via WhatsApp later</span>
-                      </label>
-                    </div>
-
-                    {!formData.docsViaWhatsApp ? (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        {/* Passport Upload */}
-                        <label style={{
-                          border: '1px dashed #cbd5e1',
-                          borderRadius: '8px',
-                          padding: '10px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          cursor: 'pointer',
-                          background: '#fff'
-                        }}>
-                          <FileText size={18} color="#FF6B35" />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                              {formData.passportScanName || 'Passport Bio-Page (PDF/IMG)'}
-                            </div>
-                            <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
-                              {formData.passportScanName ? '✓ File selected' : 'Tap to select file'}
-                            </div>
-                          </div>
-                          <input type="file" accept=".pdf,image/*" onChange={handlePassportFileChange} style={{ display: 'none' }} />
-                        </label>
-
-                        {/* Photo Upload */}
-                        <label style={{
-                          border: '1px dashed #cbd5e1',
-                          borderRadius: '8px',
-                          padding: '10px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          cursor: 'pointer',
-                          background: '#fff'
-                        }}>
-                          <Camera size={18} color="#38bdf8" />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                              {formData.photoScanName || 'Passport Photo (Square JPEG)'}
-                            </div>
-                            <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
-                              {formData.photoScanName ? '✓ File selected' : 'Tap to select photo'}
-                            </div>
-                          </div>
-                          <input type="file" accept="image/*" onChange={handlePhotoFileChange} style={{ display: 'none' }} />
-                        </label>
-                      </div>
-                    ) : (
-                      <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <MessageSquare size={16} color="#0284c7" />
-                        <span>Convenient! You can submit this form now and simply forward your passport scan and photo directly to our duty officer on WhatsApp.</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Special requests / Notes */}
-                  <div style={{ marginTop: '14px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                      Special Notes or Airport Pickup Requests <span style={{ fontWeight: 400, color: '#94a3b8' }}>(Optional)</span>
+                {/* Given Name & Surname (2 Columns) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Given / First &amp; Middle Name(s) *
                     </label>
-                    <textarea
-                      rows={2}
-                      placeholder="e.g. Please arrange airport taxi pickup at GOX terminal, previously issued Indian visa holder, etc."
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. John Edward"
+                      value={formData.givenName}
+                      onChange={(e) => setFormData({ ...formData, givenName: e.target.value })}
                       style={{
                         width: '100%',
-                        padding: '8px 10px',
+                        padding: '10px 12px',
                         borderRadius: '8px',
                         border: '1px solid #cbd5e1',
-                        fontSize: '12px',
+                        fontSize: '13px',
                         outline: 'none',
-                        boxSizing: 'border-box',
-                        resize: 'none'
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Surname / Family Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Smith"
+                      value={formData.surname}
+                      onChange={(e) => setFormData({ ...formData, surname: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '13px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
                       }}
                     />
                   </div>
                 </div>
 
-                {/* Submit Action */}
+                {/* DOB, Gender & Nationality (3 Columns) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 1.2fr', gap: '12px', marginBottom: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Date of Birth *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.dob}
+                      onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '9.5px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '12.5px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Gender *
+                    </label>
+                    <select
+                      value={formData.gender}
+                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '9.5px 8px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '12.5px',
+                        background: '#fff',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Passport Nationality *
+                    </label>
+                    <select
+                      value={selectedCountry}
+                      onChange={(e) => {
+                        setSelectedCountry(e.target.value);
+                        setFormData(prev => ({ ...prev, nationality: e.target.value }));
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '9.5px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '12.5px',
+                        background: '#fff',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      {POPULAR_NATIONALITIES.map(nat => (
+                        <option key={nat.code} value={nat.code}>
+                          {nat.flag} {nat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Passport Number & Expiry (2 Columns) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Passport Number *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 123456789"
+                      value={formData.passportNumber}
+                      onChange={(e) => setFormData({ ...formData, passportNumber: e.target.value.toUpperCase() })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '13px',
+                        outline: 'none',
+                        letterSpacing: '0.04em',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Passport Expiry Date *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.passportExpiry}
+                      onChange={(e) => setFormData({ ...formData, passportExpiry: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '9.5px 10px',
+                        borderRadius: '8px',
+                        border: passportValidityWarning ? '1px solid #f59e0b' : '1px solid #cbd5e1',
+                        fontSize: '12.5px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Smart Passport Expiry Alert */}
+                {passportValidityWarning && (
+                  <div style={{ 
+                    background: '#fffbeb', 
+                    border: '1px solid #fde68a', 
+                    borderRadius: '8px', 
+                    padding: '9px 12px', 
+                    fontSize: '12px', 
+                    color: '#b45309',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '16px'
+                  }}>
+                    <AlertTriangle size={16} color="#d97706" style={{ flexShrink: 0 }} />
+                    <span>{passportValidityWarning}</span>
+                  </div>
+                )}
+
+                {/* ── SECTION 2: TRAVEL & GOA STAY ── */}
+                <div style={{ margin: '28px 0 20px', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 4px', color: '#0f172a' }}>
+                    2. Travel Schedule &amp; Goa Arrival
+                  </h3>
+                  <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0 }}>
+                    Details required for Indian immigration entry port clearance.
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Expected Arrival Date in Goa *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.arrivalDate}
+                      onChange={(e) => setFormData({ ...formData, arrivalDate: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '9.5px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '12.5px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Goa Port of Entry *
+                    </label>
+                    <select
+                      value={formData.arrivalPort}
+                      onChange={(e) => setFormData({ ...formData, arrivalPort: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '9.5px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '12.5px',
+                        background: '#fff',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <option value="GOX">Manohar Intl Mopa (GOX) - North Goa</option>
+                      <option value="GOI">Dabolim Airport (GOI) - South Goa</option>
+                      <option value="SEAPORT">Mormugao Seaport - Cruise Terminal</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Hotel, Resort or Area in Goa *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Taj Fort Aguada, Candolim or Resort in Anjuna"
+                      value={formData.stayLocation}
+                      onChange={(e) => setFormData({ ...formData, stayLocation: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '9.5px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '12.5px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Total Applicants / Travelers
+                    </label>
+                    <select
+                      value={formData.travelers}
+                      onChange={(e) => setFormData({ ...formData, travelers: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '9.5px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '12.5px',
+                        background: '#fff',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <option value="1">1 Solo Traveler</option>
+                      <option value="2">2 Couples / Friends</option>
+                      <option value="3">3 Travelers</option>
+                      <option value="4">4 Family Members</option>
+                      <option value="5+">5+ Group Travel</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* ── SECTION 3: CONTACT & SUBMISSION ── */}
+                <div style={{ margin: '28px 0 20px', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 4px', color: '#0f172a' }}>
+                    3. Contact &amp; ETA Delivery
+                  </h3>
+                  <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0 }}>
+                    Your official approved Electronic Travel Authorization (ETA) PDF will be delivered directly here.
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      Email Address (Official ETA sent here) *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="john.smith@example.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '12.5px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                      WhatsApp / Mobile Number *
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '105px 1fr', gap: '6px' }}>
+                      <select
+                        value={formData.phoneCode}
+                        onChange={(e) => setFormData({ ...formData, phoneCode: e.target.value })}
+                        style={{
+                          padding: '9.5px 6px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '12px',
+                          background: '#fff',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {COUNTRIES.map(c => (
+                          <option key={c.code} value={c.dialCode}>
+                            {c.flag} {c.dialCode}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="e.g. 7911 123456"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: '10px 10px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '12.5px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Convenient Document Submission Choice */}
+                <div style={{ 
+                  background: '#f8fafc', 
+                  border: '1px solid #e2e8f0', 
+                  borderRadius: '10px', 
+                  padding: '14px 16px', 
+                  margin: '16px 0' 
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                    <strong style={{ fontSize: '13px', color: '#0f172a' }}>
+                      Document Submission (Passport &amp; Photo)
+                    </strong>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: '#ea580c', fontWeight: 700 }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.docsViaWhatsApp}
+                        onChange={(e) => setFormData({ ...formData, docsViaWhatsApp: e.target.checked })}
+                        style={{ accentColor: '#ea580c' }}
+                      />
+                      <span>I will send documents via WhatsApp</span>
+                    </label>
+                  </div>
+
+                  {formData.docsViaWhatsApp ? (
+                    <div style={{ fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
+                      ✓ <strong>Easy Mobile Flow:</strong> Submit your application details now, then simply forward your passport photo and scan directly to our Visa Officer on WhatsApp.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '8px' }}>
+                      <label style={{
+                        border: '1px dashed #cbd5e1',
+                        borderRadius: '8px',
+                        padding: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        background: '#ffffff'
+                      }}>
+                        <FileText size={18} color="#ea580c" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {formData.passportScanName || 'Passport Bio-Page'}
+                          </div>
+                          <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+                            {formData.passportScanName ? '✓ Attached' : 'Select PDF or Photo'}
+                          </div>
+                        </div>
+                        <input type="file" accept=".pdf,image/*" onChange={(e) => setFormData({ ...formData, passportScanName: e.target.files?.[0]?.name || '' })} style={{ display: 'none' }} />
+                      </label>
+
+                      <label style={{
+                        border: '1px dashed #cbd5e1',
+                        borderRadius: '8px',
+                        padding: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        background: '#ffffff'
+                      }}>
+                        <Camera size={18} color="#0284c7" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {formData.photoScanName || 'Passport Photo'}
+                          </div>
+                          <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+                            {formData.photoScanName ? '✓ Attached' : 'Select Photo (JPEG)'}
+                          </div>
+                        </div>
+                        <input type="file" accept="image/*" onChange={(e) => setFormData({ ...formData, photoScanName: e.target.files?.[0]?.name || '' })} style={{ display: 'none' }} />
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                {/* Special Requests / Notes */}
+                <div style={{ marginBottom: '22px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
+                    Special Requests or Airport Transfer Needs <span style={{ fontWeight: 400, color: '#94a3b8' }}>(Optional)</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Please arrange airport taxi transfer to Candolim villa, previously issued Indian visa holder, etc."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '12px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      resize: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Submit CTA */}
                 <button
                   type="submit"
                   disabled={submitting}
                   style={{
-                    background: submitting ? '#94a3b8' : '#FF6B35',
+                    background: submitting ? '#94a3b8' : '#ea580c',
                     color: '#ffffff',
                     border: 'none',
-                    padding: '13px',
+                    padding: '14px',
                     borderRadius: '8px',
-                    fontSize: '14px',
+                    fontSize: '14.5px',
                     fontWeight: 800,
                     cursor: submitting ? 'not-allowed' : 'pointer',
                     display: 'flex',
@@ -1499,22 +1403,22 @@ export default function VisaSection({
                     justifyContent: 'center',
                     gap: '8px',
                     width: '100%',
-                    boxShadow: '0 4px 14px rgba(255,107,53,0.3)',
+                    boxShadow: '0 4px 14px rgba(234, 88, 12, 0.25)',
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  <span>{submitting ? 'Submitting Application to Visa Desk...' : `Submit Visa Application for ${country.name}`}</span>
+                  <span>{submitting ? 'Submitting to Visa Desk...' : `Submit Visa Application for ${country.name}`}</span>
                   <ArrowRight size={16} />
                 </button>
 
-                <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                <div style={{ textAlign: 'center', marginTop: '12px' }}>
                   <a
                     href={whatsappUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
                       fontSize: '12.5px',
-                      color: '#16a34a',
+                      color: '#15803d',
                       fontWeight: 700,
                       textDecoration: 'none',
                       display: 'inline-flex',
@@ -1522,123 +1426,116 @@ export default function VisaSection({
                       gap: '6px'
                     }}
                   >
-                    <MessageSquare size={14} /> Have questions before applying? Chat directly on WhatsApp
+                    <MessageSquare size={14} /> Questions before applying? Chat directly with our Visa Officer
                   </a>
                 </div>
 
               </form>
             )}
-
           </div>
 
-          {/* ── RIGHT: SUMMARY SIDEBAR, ESSENTIAL CHECKLIST & SUPPORT ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* ── RIGHT COLUMN: CLEAN SIDEBAR SUMMARY & WHATSAPP DESK ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
-            {/* 1. Selected Visa Summary Card */}
+            {/* Overview Card */}
             <div style={{ 
-              background: '#132238', 
-              borderRadius: '14px', 
-              padding: '20px', 
-              border: '1px solid rgba(255,255,255,0.08)' 
+              background: '#f8fafc', 
+              border: '1px solid #e2e8f0', 
+              borderRadius: '16px', 
+              padding: '24px' 
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <Award size={16} color="#FF6B35" />
-                <h4 style={{ fontSize: '13px', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#FF6B35' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <Award size={18} color="#ea580c" />
+                <h4 style={{ fontSize: '13.5px', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#ea580c' }}>
                   Application Overview
                 </h4>
               </div>
 
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff', marginBottom: '4px' }}>
+              <div style={{ fontSize: '17px', fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>
                 {visa.title}
               </div>
-              <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '14px' }}>
-                {country.flag} Nationality: <strong style={{ color: '#fff' }}>{country.name}</strong>
+              <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
+                {country.flag} Nationality: <strong style={{ color: '#0f172a' }}>{country.name}</strong>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12.5px', borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>Entries Permitted:</span>
-                  <strong style={{ color: '#38bdf8' }}>{visa.entries}</strong>
+                  <span style={{ color: '#64748b' }}>Entries Permitted:</span>
+                  <strong style={{ color: '#0284c7' }}>{visa.entries}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>Validity Period:</span>
-                  <span style={{ color: '#fff' }}>{visa.validity}</span>
+                  <span style={{ color: '#64748b' }}>Validity Period:</span>
+                  <span style={{ color: '#0f172a', fontWeight: 600 }}>{visa.validity}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>Processing Time:</span>
-                  <strong style={{ color: '#4ade80' }}>24 to 72 Hours</strong>
+                  <span style={{ color: '#64748b' }}>Processing Turnaround:</span>
+                  <strong style={{ color: '#16a34a' }}>24 to 72 Hours</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>Official Gov Fee:</span>
-                  <span style={{ color: '#fed7aa' }}>{visa.govtFee}</span>
+                  <span style={{ color: '#64748b' }}>Official Gov Fee:</span>
+                  <span style={{ color: '#c2410c', fontWeight: 700 }}>{visa.govtFee}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>Arrival Port:</span>
-                  <span style={{ color: '#fff' }}>{formData.arrivalPort === 'GOI' ? 'Dabolim (GOI)' : 'Manohar Mopa (GOX)'}</span>
+                  <span style={{ color: '#64748b' }}>Arrival Port:</span>
+                  <span style={{ color: '#0f172a', fontWeight: 600 }}>{formData.arrivalPort === 'GOI' ? 'Dabolim (GOI)' : 'Manohar Mopa (GOX)'}</span>
                 </div>
               </div>
             </div>
 
-            {/* 2. What You Need - Simple 3-Point Checklist */}
+            {/* What You Need Checklist */}
             <div style={{ 
-              background: '#132238', 
-              borderRadius: '14px', 
-              padding: '20px', 
-              border: '1px solid rgba(255,255,255,0.08)' 
+              background: '#ffffff', 
+              border: '1px solid #e2e8f0', 
+              borderRadius: '16px', 
+              padding: '22px' 
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                <CheckCircle2 size={16} color="#4ade80" />
-                <h4 style={{ fontSize: '13px', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#4ade80' }}>
-                  What You Need to Provide
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <CheckCircle2 size={16} color="#16a34a" />
+                <h4 style={{ fontSize: '13.5px', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#16a34a' }}>
+                  What You Need
                 </h4>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px', color: '#cbd5e1' }}>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#4ade80', fontWeight: 800 }}>1.</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px', color: '#334155' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                  <span style={{ color: '#16a34a', fontWeight: 800 }}>1.</span>
                   <div>
-                    <strong style={{ color: '#ffffff' }}>Passport with 6+ Months Validity</strong>
-                    <div style={{ color: '#94a3b8', fontSize: '11px', marginTop: '1px' }}>
-                      Counted from your expected landing date at Goa airport with at least 2 blank pages.
-                    </div>
+                    <strong>Passport with 6+ Months Validity</strong>
+                    <div style={{ color: '#64748b', fontSize: '11px' }}>Minimum 2 blank pages for entry/exit stamps.</div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#4ade80', fontWeight: 800 }}>2.</span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                  <span style={{ color: '#16a34a', fontWeight: 800 }}>2.</span>
                   <div>
-                    <strong style={{ color: '#ffffff' }}>Recent Color Photograph</strong>
-                    <div style={{ color: '#94a3b8', fontSize: '11px', marginTop: '1px' }}>
-                      Passport photo on a plain white background without eyeglasses or shadows.
-                    </div>
+                    <strong>Color Photograph</strong>
+                    <div style={{ color: '#64748b', fontSize: '11px' }}>Plain white background, no eyeglasses.</div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#4ade80', fontWeight: 800 }}>3.</span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                  <span style={{ color: '#16a34a', fontWeight: 800 }}>3.</span>
                   <div>
-                    <strong style={{ color: '#ffffff' }}>Confirmed Goa Hotel / Address</strong>
-                    <div style={{ color: '#94a3b8', fontSize: '11px', marginTop: '1px' }}>
-                      Hotel, resort, or villa booking confirmation in Goa for immigration records.
-                    </div>
+                    <strong>Goa Stay / Hotel Name</strong>
+                    <div style={{ color: '#64748b', fontSize: '11px' }}>Address of resort or villa for immigration.</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 3. Dedicated WhatsApp Desk Card */}
+            {/* WhatsApp Desk Direct Support */}
             <div style={{ 
-              background: 'linear-gradient(135deg, rgba(37,211,102,0.12) 0%, rgba(19,34,56,1) 100%)', 
-              borderRadius: '14px', 
-              padding: '20px', 
-              border: '1px solid rgba(37,211,102,0.3)' 
+              background: '#f0fdf4', 
+              border: '1px solid #bbf7d0', 
+              borderRadius: '16px', 
+              padding: '22px' 
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <MessageSquare size={18} color="#25D366" />
-                <strong style={{ fontSize: '14px', color: '#ffffff' }}>Direct Visa Desk Support</strong>
+                <MessageSquare size={18} color="#16a34a" />
+                <strong style={{ fontSize: '14.5px', color: '#14532d' }}>Direct Visa Desk Support</strong>
               </div>
-              <p style={{ fontSize: '12px', color: '#cbd5e1', margin: '0 0 14px', lineHeight: 1.5 }}>
-                Have an urgent flight, multiple family members, or questions regarding passport validity? Message our Goa visa specialist directly:
+              <p style={{ fontSize: '12.5px', color: '#166534', margin: '0 0 14px', lineHeight: 1.5 }}>
+                Have questions regarding passport renewal, group families, or urgent charter flights?
               </p>
               <a
                 href={whatsappUrl}
@@ -1652,66 +1549,21 @@ export default function VisaSection({
                   background: '#25D366',
                   color: '#ffffff',
                   textDecoration: 'none',
-                  padding: '10px 14px',
+                  padding: '11px 16px',
                   borderRadius: '8px',
                   fontWeight: 800,
-                  fontSize: '13px'
+                  fontSize: '13px',
+                  boxShadow: '0 2px 8px rgba(37,211,102,0.2)'
                 }}
               >
                 <MessageSquare size={16} /> Chat on WhatsApp (+91 9822144510)
               </a>
             </div>
 
-            {/* 4. Complete Holiday Integration */}
-            <div style={{ 
-              background: '#132238', 
-              borderRadius: '14px', 
-              padding: '18px', 
-              border: '1px solid rgba(255,255,255,0.08)' 
-            }}>
-              <strong style={{ fontSize: '12.5px', color: '#ffffff', display: 'block', marginBottom: '8px' }}>
-                Need Airport Transfers or Villa in Goa?
-              </strong>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab && setActiveTab('cabs')}
-                  style={{
-                    background: '#FF6B35',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '7px 12px',
-                    borderRadius: '6px',
-                    fontSize: '11.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  🚕 Airport Cabs
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab && setActiveTab('packages')}
-                  style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '7px 12px',
-                    borderRadius: '6px',
-                    fontSize: '11.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  🌴 Holiday Packages
-                </button>
-              </div>
-            </div>
-
-            {/* 5. Official Regulatory Notice */}
+            {/* Official Legal Notice */}
             <div style={{ 
               fontSize: '11px', 
-              color: '#64748b', 
+              color: '#94a3b8', 
               lineHeight: 1.5,
               padding: '0 4px'
             }}>
@@ -1725,67 +1577,6 @@ export default function VisaSection({
 
           </div>
 
-        </div>
-
-        {/* ── 4. CONCISE, HELPFUL FAQS (CLEAN 4 QUESTIONS) ── */}
-        <div style={{ marginTop: '36px', background: '#132238', borderRadius: '14px', padding: '22px', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <HelpCircle size={18} color="#FF6B35" />
-              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: '#ffffff' }}>
-                Frequently Asked Visa Questions
-              </h3>
-            </div>
-            <span style={{ fontSize: '11.5px', color: '#38bdf8', fontWeight: 600 }}>
-              Updated for {new Date().getFullYear()} Immigration Standards
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {ESSENTIAL_FAQS.map((faq, idx) => {
-              const isOpen = openFaq === idx;
-              return (
-                <div
-                  key={idx}
-                  style={{
-                    background: '#0B192C',
-                    borderRadius: '8px',
-                    border: isOpen ? '1px solid #FF6B35' : '1px solid rgba(255,255,255,0.06)',
-                    overflow: 'hidden',
-                    transition: 'border 0.15s ease'
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setOpenFaq(isOpen ? null : idx)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: 'none',
-                      border: 'none',
-                      color: '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      textAlign: 'left',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      gap: '12px'
-                    }}
-                  >
-                    <span>{faq.q}</span>
-                    {isOpen ? <ChevronUp size={15} color="#FF6B35" /> : <ChevronDown size={15} color="#94a3b8" />}
-                  </button>
-                  {isOpen && (
-                    <div style={{ padding: '0 16px 12px', fontSize: '12px', color: '#94a3b8', lineHeight: 1.55, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                      {faq.a}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </div>
 
       </div>

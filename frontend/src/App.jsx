@@ -2443,8 +2443,8 @@ export default function App() {
       )}
 
       {/* Dynamic Results & Content Section */}
-      <main className={activeTab === 'cabs' || activeTab === 'taxi' ? 'p-0 m-0 border-0' : 'py-5'} id="results-section" style={{ scrollMarginTop: '80px', minHeight: '80vh' }}>
-        <div className={activeTab === 'cabs' || activeTab === 'taxi' ? 'w-100 p-0 m-0' : 'container'}>
+      <main className={activeTab === 'cabs' || activeTab === 'taxi' || activeTab === 'visa' ? 'p-0 m-0 border-0' : 'py-5'} id="results-section" style={{ scrollMarginTop: '80px', minHeight: '80vh' }}>
+        <div className={activeTab === 'cabs' || activeTab === 'taxi' || activeTab === 'visa' ? 'w-100 p-0 m-0' : 'container'}>
           <div className="tab-slide-enter">
           
           {activeTab === 'packages' && (
