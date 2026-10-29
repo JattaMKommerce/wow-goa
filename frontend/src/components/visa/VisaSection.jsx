@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  Globe, FileText, CheckCircle2, ArrowRight, 
-  Upload, X, Check, Plane, Trash2, Image as ImageIcon
+  CheckCircle2, ArrowRight, Upload, Trash2, FileText, Image as ImageIcon
 } from 'lucide-react';
 import { createLead } from '../../services/api';
 import { COUNTRIES } from '../../utils/countryCurrencyData';
@@ -45,7 +44,7 @@ export const VISA_TYPES = [
   { id: '5years', title: '5-Year Visa', subtitle: 'Multiple Entry · Long Term', entries: 'Multiple Entry' }
 ];
 
-// ─── SIMPLE, BASIC, CLEAN VISA APPLICATION COMPONENT ─────────────────────────
+// ─── BASIC, CLEAN, INTUITIVE VISA APPLICATION COMPONENT ──────────────────────
 
 export default function VisaSection({ 
   setActiveTab,
@@ -72,7 +71,7 @@ export default function VisaSection({
     notes: ''
   });
 
-  // Drag and Drop Uploaded Files (No file size limits, supports PDF and images)
+  // Drag and Drop Uploaded Files (No limitations, supports PDF and images)
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
@@ -121,7 +120,7 @@ export default function VisaSection({
     return VISA_TYPES.find(v => v.id === selectedType) || VISA_TYPES[1];
   }, [selectedType]);
 
-  // File handling for Drag and Drop (No limitation on file size)
+  // File handling for Drag and Drop
   const handleFiles = (fileList) => {
     if (!fileList || fileList.length === 0) return;
     const newItems = Array.from(fileList).map(file => {
@@ -176,7 +175,7 @@ export default function VisaSection({
           `Arrival Date: ${formData.arrivalDate || 'Not specified'}`,
           `Arrival Port: ${formData.arrivalPort === 'GOI' ? 'Dabolim Airport (GOI)' : 'Manohar Intl Mopa (GOX)'}`,
           `Hotel/Address: ${formData.stayLocation || 'Not specified'}`,
-          `Files Attached: ${uploadedFiles.length > 0 ? uploadedFiles.map(f => f.name).join(', ') : 'None'}`,
+          `Documents: ${uploadedFiles.length > 0 ? uploadedFiles.map(f => f.name).join(', ') : 'None attached'}`,
           formData.notes ? `Note: ${formData.notes}` : ''
         ].filter(Boolean).join(' | ')
       };
@@ -202,9 +201,9 @@ export default function VisaSection({
       fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' 
     }}>
       
-      {/* ── HEADER ── */}
+      {/* ── HEADER (CENTERED & CLEAN) ── */}
       <div style={{ 
-        padding: '36px 24px 20px', 
+        padding: '36px 24px 22px', 
         borderBottom: '1px solid #e2e8f0',
         textAlign: 'center'
       }}>
@@ -223,8 +222,8 @@ export default function VisaSection({
         </p>
       </div>
 
-      {/* ── MAIN CONTENT (SIMPLE & CLEAR) ── */}
-      <div style={{ padding: '32px 24px 64px', maxWidth: '860px', margin: '0 auto' }}>
+      {/* ── MAIN FORM CONTAINER ── */}
+      <div style={{ padding: '32px 24px 64px', maxWidth: '760px', margin: '0 auto' }}>
         
         {sent ? (
           /* ── SIMPLE SUCCESS SCREEN ── */
@@ -268,7 +267,7 @@ export default function VisaSection({
             </div>
 
             <p style={{ fontSize: '15px', color: '#334155', margin: '0 0 24px', lineHeight: 1.6 }}>
-              Thank you, <strong>{formData.fullName || 'Valued Guest'}</strong>! We have received your visa application and documents. Our visa team will verify your details and email your approved Electronic Travel Authorization (ETA) to <strong>{formData.email}</strong>.
+              Thank you, <strong>{formData.fullName || 'Valued Guest'}</strong>! We have received your visa application and documents. Our visa team will review your application and email the approved visa to <strong>{formData.email}</strong>.
             </p>
 
             <button
@@ -306,7 +305,7 @@ export default function VisaSection({
             </button>
           </div>
         ) : (
-          /* ── SIMPLE BASIC FORM ── */
+          /* ── CLEAN, BASIC FORM (NO CARDS, PURE DROPDOWN) ── */
           <form 
             onSubmit={handleSubmit}
             style={{ 
@@ -318,213 +317,121 @@ export default function VisaSection({
             }}
           >
             
-            {/* 1. SELECT VISA TYPE */}
-            <div style={{ marginBottom: '28px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                1. Select Visa Duration
+            {/* 1. VISA DURATION DROPDOWN (AS REQUESTED) */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', display: 'block', marginBottom: '6px' }}>
+                Visa Type / Duration *
               </label>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                {VISA_TYPES.map(vt => {
-                  const isSelected = selectedType === vt.id;
-                  return (
-                    <button
-                      key={vt.id}
-                      type="button"
-                      onClick={() => setSelectedType(vt.id)}
-                      style={{
-                        background: isSelected ? '#fff7ed' : '#ffffff',
-                        border: isSelected ? '2px solid #ea580c' : '1px solid #cbd5e1',
-                        borderRadius: '10px',
-                        padding: '14px',
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      <div style={{ fontSize: '15px', fontWeight: 800, color: isSelected ? '#ea580c' : '#0f172a' }}>
-                        {vt.title}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                        {vt.subtitle}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '11px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13.5px',
+                  background: '#ffffff',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="30days">30-Day Tourist Visa (Double Entry)</option>
+                <option value="1year">1-Year Tourist Visa (Multiple Entry) - Most Popular</option>
+                <option value="5years">5-Year Tourist Visa (Multiple Entry) - Long Term</option>
+              </select>
             </div>
 
-            {/* 2. APPLICANT DETAILS */}
-            <div style={{ marginBottom: '28px', borderTop: '1px solid #f1f5f9', paddingTop: '22px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', display: 'block', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                2. Your Passport Information
-              </label>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '14px' }}>
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Full Name (As written on passport) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. John Edward Smith"
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '10.5px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Your Country / Nationality *
-                  </label>
-                  <select
-                    value={selectedCountry}
-                    onChange={(e) => {
-                      setSelectedCountry(e.target.value);
-                      setFormData(prev => ({ ...prev, nationality: e.target.value }));
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '10.5px 10px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '13.5px',
-                      background: '#fff',
-                      outline: 'none',
-                      cursor: 'pointer',
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    {POPULAR_NATIONALITIES.map(nat => (
-                      <option key={nat.code} value={nat.code}>
-                        {nat.flag} {nat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Passport Number *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. A12345678"
-                    value={formData.passportNumber}
-                    onChange={(e) => setFormData({ ...formData, passportNumber: e.target.value.toUpperCase() })}
-                    style={{
-                      width: '100%',
-                      padding: '10.5px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                      letterSpacing: '0.04em',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Passport Expiry Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.passportExpiry}
-                    onChange={(e) => setFormData({ ...formData, passportExpiry: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '10px 10px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '13px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 3. TRAVEL DETAILS */}
-            <div style={{ marginBottom: '28px', borderTop: '1px solid #f1f5f9', paddingTop: '22px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', display: 'block', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                3. Your Trip to Goa
-              </label>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '14px' }}>
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Date of Arrival in Goa *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.arrivalDate}
-                    onChange={(e) => setFormData({ ...formData, arrivalDate: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '10px 10px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '13px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Arriving Airport in Goa *
-                  </label>
-                  <select
-                    value={formData.arrivalPort}
-                    onChange={(e) => setFormData({ ...formData, arrivalPort: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '10.5px 10px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '13px',
-                      background: '#fff',
-                      outline: 'none',
-                      cursor: 'pointer',
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    <option value="GOX">Manohar International Airport, Mopa (GOX)</option>
-                    <option value="GOI">Dabolim Airport (GOI)</option>
-                    <option value="SEAPORT">Mormugao Cruise Seaport</option>
-                  </select>
-                </div>
-              </div>
-
+            {/* 2. FULL NAME & COUNTRY */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '16px' }}>
               <div>
-                <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                  Hotel Name or Area in Goa *
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Full Name (As in Passport) *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Taj Fort Aguada, Candolim or Resort in Calangute"
-                  value={formData.stayLocation}
-                  onChange={(e) => setFormData({ ...formData, stayLocation: e.target.value })}
+                  placeholder="e.g. John Edward Smith"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10.5px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Country / Nationality *
+                </label>
+                <select
+                  value={selectedCountry}
+                  onChange={(e) => {
+                    setSelectedCountry(e.target.value);
+                    setFormData(prev => ({ ...prev, nationality: e.target.value }));
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10.5px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13.5px',
+                    background: '#ffffff',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  {POPULAR_NATIONALITIES.map(nat => (
+                    <option key={nat.code} value={nat.code}>
+                      {nat.flag} {nat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* 3. PASSPORT NUMBER & EXPIRY */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Passport Number *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. A12345678"
+                  value={formData.passportNumber}
+                  onChange={(e) => setFormData({ ...formData, passportNumber: e.target.value.toUpperCase() })}
+                  style={{
+                    width: '100%',
+                    padding: '10.5px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    letterSpacing: '0.04em',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Passport Expiry Date *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={formData.passportExpiry}
+                  onChange={(e) => setFormData({ ...formData, passportExpiry: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
@@ -538,90 +445,156 @@ export default function VisaSection({
               </div>
             </div>
 
-            {/* 4. CONTACT DETAILS */}
-            <div style={{ marginBottom: '28px', borderTop: '1px solid #f1f5f9', paddingTop: '22px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', display: 'block', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                4. Where to Send Your Visa
-              </label>
+            {/* 4. ARRIVAL DATE & AIRPORT */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Date of Arrival in Goa *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={formData.arrivalDate}
+                  onChange={(e) => setFormData({ ...formData, arrivalDate: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Email Address * (Approved visa will be emailed here)
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="name@example.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Arriving Airport in Goa *
+                </label>
+                <select
+                  value={formData.arrivalPort}
+                  onChange={(e) => setFormData({ ...formData, arrivalPort: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10.5px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13px',
+                    background: '#ffffff',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="GOX">Manohar International Airport, Mopa (GOX)</option>
+                  <option value="GOI">Dabolim Airport (GOI)</option>
+                  <option value="SEAPORT">Mormugao Cruise Seaport</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 5. HOTEL / STAY IN GOA */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                Hotel Name or Area in Goa *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Taj Fort Aguada, Candolim or Resort in Calangute"
+                value={formData.stayLocation}
+                onChange={(e) => setFormData({ ...formData, stayLocation: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10.5px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13.5px',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* 6. EMAIL & PHONE NUMBER */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '22px' }}>
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Email Address * (Approved visa will be emailed here)
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="name@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10.5px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Phone Number *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '6px' }}>
+                  <select
+                    value={formData.phoneCode}
+                    onChange={(e) => setFormData({ ...formData, phoneCode: e.target.value })}
                     style={{
-                      width: '100%',
-                      padding: '10px 12px',
+                      padding: '10px 6px',
                       borderRadius: '8px',
                       border: '1px solid #cbd5e1',
-                      fontSize: '13px',
+                      fontSize: '12.5px',
+                      background: '#ffffff',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {COUNTRIES.map(c => (
+                      <option key={c.code} value={c.dialCode}>
+                        {c.flag} {c.dialCode}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="e.g. 7911 123456"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10.5px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '13.5px',
                       outline: 'none',
                       boxSizing: 'border-box'
                     }}
                   />
                 </div>
-
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Phone Number *
-                  </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '105px 1fr', gap: '6px' }}>
-                    <select
-                      value={formData.phoneCode}
-                      onChange={(e) => setFormData({ ...formData, phoneCode: e.target.value })}
-                      style={{
-                        padding: '10px 6px',
-                        borderRadius: '8px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '12.5px',
-                        background: '#fff',
-                        outline: 'none',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {COUNTRIES.map(c => (
-                        <option key={c.code} value={c.dialCode}>
-                          {c.flag} {c.dialCode}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="e.g. 7911 123456"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      style={{
-                        width: '100%',
-                        padding: '10px 10px',
-                        borderRadius: '8px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '13px',
-                        outline: 'none',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-                </div>
               </div>
             </div>
 
-            {/* 5. DRAG AND DROP DOCUMENT UPLOAD (PDF / JPG / PNG - NO LIMITATION) */}
-            <div style={{ marginBottom: '28px', borderTop: '1px solid #f1f5f9', paddingTop: '22px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                5. Upload Documents (Passport &amp; Photo)
+            {/* 7. DRAG AND DROP DOCUMENT UPLOAD (PDF / JPG / PNG - NO LIMITATION) */}
+            <div style={{ marginBottom: '26px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', display: 'block', marginBottom: '4px' }}>
+                Upload Passport Copy &amp; Photo (PDF or Image)
               </label>
-              <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 12px' }}>
-                Drag and drop your Passport copy (PDF or Image) and Photo. No file size limits.
+              <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 10px' }}>
+                Drag and drop your files here or click to browse. No file size limitation.
               </p>
 
-              {/* Drag and Drop Box */}
+              {/* Drag and Drop Zone */}
               <div
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
@@ -641,14 +614,14 @@ export default function VisaSection({
                   transition: 'all 0.15s ease'
                 }}
               >
-                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: '#ffedd5', color: '#ea580c', marginBottom: '10px' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: '#ffedd5', color: '#ea580c', marginBottom: '8px' }}>
                   <Upload size={24} />
                 </div>
                 <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-                  Click to choose files, or drag and drop here
+                  Drag &amp; drop files here, or click to choose
                 </div>
                 <div style={{ fontSize: '12px', color: '#64748b' }}>
-                  Supports PDF, JPG, PNG · No size limits
+                  Supports PDF, JPG, JPEG, PNG (No size limit)
                 </div>
 
                 <input
