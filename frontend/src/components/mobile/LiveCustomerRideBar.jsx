@@ -15,19 +15,36 @@ export default function LiveCustomerRideBar() {
   // Poll backend telematics & local storage dispatches
   const checkActiveRide = async () => {
     try {
-      const dispatches = JSON.parse(localStorage.getItem('wowgoa_taxi_dispatches') || '[]');
+      const activeSaved = localStorage.getItem('wowgoa_active_ride');
+      if (!activeSaved) {
+        setActiveRide(null);
+        return;
+      }
       let current = null;
-      if (Array.isArray(dispatches) && dispatches.length > 0) {
-        current = dispatches.find(d => 
-          d.status === 'Requested' ||
-          d.status === 'Confirmed' || 
-          d.status === 'Dispatched' || 
-          d.status === 'Driver Arrived' || 
-          d.status === 'In Progress'
-        );
-        if (!current) {
-          current = dispatches.find(d => d.status === 'Completed' && !d.dismissed);
+      try {
+        const parsed = JSON.parse(activeSaved);
+        if (parsed && parsed.refId && !['Completed', 'Cancelled'].includes(parsed.status)) {
+          current = {
+            id: parsed.refId,
+            status: parsed.status,
+            customer: parsed.passengerName,
+            phone: parsed.passengerPhone,
+            chauffeur: parsed.chauffeur?.name,
+            chauffeurPhone: parsed.chauffeur?.phone,
+            car: parsed.vehicle?.model || parsed.vehicle?.name,
+            plate: parsed.chauffeur?.vehiclePlate,
+            otp: parsed.otp,
+            pickup: parsed.pickup,
+            dropoff: parsed.dropoff,
+            amount: parsed.fare,
+            ...parsed
+          };
         }
+      } catch (e) {}
+
+      if (!current) {
+        setActiveRide(null);
+        return;
       }
 
       // Also query backend ride live tracking for real-time status and driver assignment

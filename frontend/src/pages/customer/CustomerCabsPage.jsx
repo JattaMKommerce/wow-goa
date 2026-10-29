@@ -156,22 +156,15 @@ const TOURIST_VEHICLES = [
 ];
 
 export default function CustomerCabsPage({ onBookCab }) {
-  // Page View Modes: 'landing' (Uber storefront) | 'booking' (Dedicated Tourist Booking Page) | 'confirmed'
+  // Page View Modes: 'landing' (Uber storefront first page) | 'booking' (Dedicated Tourist Booking Page) | 'confirmed'
   const [currentView, setCurrentView] = useState(() => {
     try {
-      const saved = localStorage.getItem('wowgoa_active_ride');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.status && parsed.status !== 'Completed') return 'confirmed';
-      }
-      const dispatches = JSON.parse(localStorage.getItem('wowgoa_taxi_dispatches') || '[]');
-      if (dispatches.length > 0) {
-        const d = dispatches[0];
-        if (['Requested', 'Confirmed', 'Dispatched', 'Driver Arrived', 'In Progress', 'Declined'].includes(d.status)) {
-          return 'confirmed';
-        }
-      }
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      if (viewParam === 'booking') return 'booking';
+      if (viewParam === 'confirmed') return 'confirmed';
     } catch (e) {}
+    // Default to the Taxi first page
     return 'landing';
   });
   const [showAppBookingModal, setShowAppBookingModal] = useState(false);
@@ -212,36 +205,15 @@ export default function CustomerCabsPage({ onBookCab }) {
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth());
 
-  // Active Confirmed Trip State (Persisted across tab switches and refreshes)
+  // Active Confirmed Trip State (Persisted only if rider actively booked in current session)
   const [isBooking, setIsBooking] = useState(false);
   const [activeConfirmedRide, setActiveConfirmedRide] = useState(() => {
     try {
       const saved = localStorage.getItem('wowgoa_active_ride');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.refId) return parsed;
-      }
-      const dispatches = JSON.parse(localStorage.getItem('wowgoa_taxi_dispatches') || '[]');
-      if (dispatches.length > 0) {
-        const d = dispatches[0];
-        if (['Requested', 'Confirmed', 'Dispatched', 'Driver Arrived', 'In Progress', 'Declined'].includes(d.status)) {
-          return {
-            refId: d.id,
-            otp: d.otp || '4821',
-            status: d.status === 'Dispatched' ? 'Confirmed' : d.status,
-            pickup: d.service ? d.service.split('➔')[0].trim() : 'Benaulim Beach',
-            dropoff: d.service ? (d.service.split('➔')[1] || '').trim() : 'Ponda',
-            fare: d.amount || 790,
-            passengerName: d.customer || 'Valued Guest',
-            passengerPhone: d.phone || '+91 98221 44510',
-            chauffeur: {
-              name: d.chauffeur || 'Suresh Naik',
-              vehiclePlate: d.vehiclePlate || 'GA-03-Z-8899',
-              phone: '+91 98221 44510',
-              rating: 4.93,
-              trips: 1840
-            }
-          };
+        if (parsed && parsed.refId && parsed.status && !['Completed', 'Cancelled'].includes(parsed.status)) {
+          return parsed;
         }
       }
     } catch (e) {}
