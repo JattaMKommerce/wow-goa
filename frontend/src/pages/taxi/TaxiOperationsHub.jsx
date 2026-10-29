@@ -5,9 +5,10 @@ import {
   ExternalLink, LogOut, ArrowRight, Shield, RefreshCw, Key,
   Calendar, DollarSign, Filter, Search, Award, FileText, 
   Check, ChevronRight, Eye, UserCheck, ShieldCheck, Fuel,
-  Compass, Navigation, Download
+  Compass, Navigation, Download, UploadCloud, Camera, Image as ImageIcon,
+  FileCheck, Star
 } from 'lucide-react';
-import { fetchCustomerPastTrips } from '../../services/api';
+import { fetchCustomerPastTrips, uploadImage } from '../../services/api';
 
 // High-quality car photo presets matching Wow Goa fleet
 const CAR_PHOTO_PRESETS = [
@@ -49,6 +50,14 @@ const CAR_PHOTO_PRESETS = [
   }
 ];
 
+// Driver photo presets
+const DRIVER_PHOTO_PRESETS = [
+  { name: 'Suresh Naik', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80' },
+  { name: 'Ramesh Sawant', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80' },
+  { name: 'Vijay Gaonkar', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80' },
+  { name: 'Anil D\'Souza', url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=300&q=80' }
+];
+
 // Starter fleet if none added yet
 const INITIAL_STARTER_VEHICLES = [
   {
@@ -56,6 +65,9 @@ const INITIAL_STARTER_VEHICLES = [
     name: 'Prime Sedan',
     model: 'Maruti Suzuki Dzire',
     plate: 'GA-03-Z-8899',
+    rcBookNo: 'GA03-RC-2022-8899',
+    insuranceExpiry: '2027-05-20',
+    fitnessExpiry: '2028-11-14',
     classType: 'sedan',
     seats: 4,
     bags: 3,
@@ -80,6 +92,9 @@ const INITIAL_STARTER_VEHICLES = [
     name: 'Executive SUV',
     model: 'Toyota Innova Crysta',
     plate: 'GA-03-Z-4521',
+    rcBookNo: 'GA03-RC-2021-4521',
+    insuranceExpiry: '2026-12-10',
+    fitnessExpiry: '2029-02-18',
     classType: 'suv',
     seats: 6,
     bags: 4,
@@ -104,6 +119,9 @@ const INITIAL_STARTER_VEHICLES = [
     name: 'Normal Hatchback',
     model: 'Maruti WagonR / Swift',
     plate: 'GA-03-Z-1011',
+    rcBookNo: 'GA03-RC-2023-1011',
+    insuranceExpiry: '2028-03-15',
+    fitnessExpiry: '2029-09-22',
     classType: 'normal',
     seats: 4,
     bags: 2,
@@ -244,6 +262,9 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
     name: '',
     model: '',
     plate: '',
+    rcBookNo: '',
+    insuranceExpiry: '',
+    fitnessExpiry: '',
     classType: 'sedan',
     seats: 4,
     bags: 3,
@@ -275,6 +296,34 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
     policeVerified: true,
     photo: ''
   });
+
+  // Upload & Drag-and-Drop Handler
+  const handleFileUpload = async (file, target) => {
+    if (!file) return;
+    
+    // Instant local preview via FileReader
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (target === 'vehicle') {
+        setVehicleForm(prev => ({ ...prev, image: e.target.result }));
+      } else if (target === 'driver') {
+        setDriverForm(prev => ({ ...prev, photo: e.target.result }));
+      }
+    };
+    reader.readAsDataURL(file);
+
+    // Optional background upload
+    try {
+      const res = await uploadImage(file);
+      const remoteUrl = typeof res === 'string' ? res : (res?.url || res?.image_url);
+      if (remoteUrl) {
+        if (target === 'vehicle') setVehicleForm(prev => ({ ...prev, image: remoteUrl }));
+        else if (target === 'driver') setDriverForm(prev => ({ ...prev, photo: remoteUrl }));
+      }
+    } catch (err) {
+      console.warn('Image upload fallback to data URL:', err);
+    }
+  };
 
   // ── Load Bookings from localStorage and Backend ─────────────────────────────
   const loadBookings = async () => {
@@ -339,7 +388,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
         }
       } catch (err) {}
 
-      // Robust starter history with diverse dates so date-wise inspection works immediately!
+      // Robust starter history with diverse dates
       if (combined.length === 0) {
         const todayStr = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -523,6 +572,9 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
       name: '',
       model: '',
       plate: '',
+      rcBookNo: '',
+      insuranceExpiry: '',
+      fitnessExpiry: '',
       classType: 'sedan',
       seats: 4,
       bags: 3,
@@ -547,6 +599,9 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
       name: veh.name || '',
       model: veh.model || '',
       plate: veh.plate || '',
+      rcBookNo: veh.rcBookNo || '',
+      insuranceExpiry: veh.insuranceExpiry || '',
+      fitnessExpiry: veh.fitnessExpiry || '',
       classType: veh.classType || 'sedan',
       seats: veh.seats || 4,
       bags: veh.bags || 3,
@@ -571,6 +626,10 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
       alert('Please enter Car Category Name and Model');
       return;
     }
+    if (!vehicleForm.plate.trim()) {
+      alert('Please enter Registration Number Plate');
+      return;
+    }
 
     let defaultIcon = '🚗';
     if (vehicleForm.classType === 'suv' || vehicleForm.classType === 'muv') defaultIcon = '🚙';
@@ -586,6 +645,9 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
             name: vehicleForm.name.trim(),
             model: vehicleForm.model.trim(),
             plate: vehicleForm.plate.trim() || 'GA-03-Z-9999',
+            rcBookNo: vehicleForm.rcBookNo.trim() || v.rcBookNo || 'GA03-RC-2023-8899',
+            insuranceExpiry: vehicleForm.insuranceExpiry || v.insuranceExpiry,
+            fitnessExpiry: vehicleForm.fitnessExpiry || v.fitnessExpiry,
             classType: vehicleForm.classType,
             seats: Number(vehicleForm.seats) || 4,
             bags: Number(vehicleForm.bags) || 3,
@@ -612,6 +674,9 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
         name: vehicleForm.name.trim(),
         model: vehicleForm.model.trim(),
         plate: vehicleForm.plate.trim() || 'GA-03-Z-9999',
+        rcBookNo: vehicleForm.rcBookNo.trim() || 'GA03-RC-2024-0012',
+        insuranceExpiry: vehicleForm.insuranceExpiry || '2028-12-31',
+        fitnessExpiry: vehicleForm.fitnessExpiry || '2029-12-31',
         classType: vehicleForm.classType,
         seats: Number(vehicleForm.seats) || 4,
         bags: Number(vehicleForm.bags) || 3,
@@ -659,7 +724,11 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
   const handleSaveDriver = (e) => {
     e.preventDefault();
     if (!driverForm.name.trim() || !driverForm.phone.trim()) {
-      alert('Please enter Driver Name and Phone Number');
+      alert('Please enter Driver Full Name and Phone Number');
+      return;
+    }
+    if (!driverForm.licenseNo.trim()) {
+      alert('Please enter Commercial Driving License Number');
       return;
     }
 
@@ -680,7 +749,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
       rating: 5.0,
       tripsCount: 0,
       status: 'Available',
-      photo: driverForm.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80'
+      photo: driverForm.photo || DRIVER_PHOTO_PRESETS[0].url
     };
 
     saveDriversList([...drivers, newDriver]);
@@ -747,7 +816,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
     });
   }, [bookings, statusFilter, dateFilter, customDate, searchTerm, todayStr, yesterdayStr, sevenDaysAgo]);
 
-  // Group Bookings by Date for the date-wise timeline view
+  // Group Bookings by Date
   const groupedBookings = useMemo(() => {
     const groups = {};
     filteredBookings.forEach(b => {
@@ -755,7 +824,6 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
       if (!groups[d]) groups[d] = [];
       groups[d].push(b);
     });
-    // Sort descending by date
     return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(d => ({
       date: d,
       items: groups[d]
@@ -1028,8 +1096,8 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
             </h1>
             <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#64748b' }}>
               {activeTab === 'dashboard' && 'Every card is clickable. View trips by date, inspect driver details, passenger contact, and realized revenues.'}
-              {activeTab === 'vehicles' && 'Only active vehicles added here will be shown to customers when they book a cab on Wow Goa.'}
-              {activeTab === 'drivers' && 'Comprehensive driver license, commercial badge, and vehicle allocation records.'}
+              {activeTab === 'vehicles' && 'Drag-and-drop vehicle photos and manage RC book records. Only added cabs appear on the customer app.'}
+              {activeTab === 'drivers' && 'Upload chauffeur face photo, Commercial DL, and PSV badge records with clear required indicators.'}
             </p>
           </div>
 
@@ -1087,7 +1155,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  background: 'linear-gradient(135deg, #FF6333 0%, #FF8A00 100%)',
+                  background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
                   border: 'none',
                   color: '#ffffff',
                   padding: '9px 16px',
@@ -1095,7 +1163,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                   fontSize: '13px',
                   fontWeight: 700,
                   cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(255,99,51,0.25)'
+                  boxShadow: '0 4px 12px rgba(22,163,74,0.25)'
                 }}
               >
                 <Plus size={16} />
@@ -1731,7 +1799,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                                 </div>
                               )}
 
-                              {/* Bottom Action Bar: View Details & Status Update Buttons */}
+                              {/* Bottom Action Bar */}
                               <div style={{
                                 borderTop: '1px solid #f1f5f9',
                                 paddingTop: '10px',
@@ -1741,8 +1809,6 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                                 flexWrap: 'wrap',
                                 gap: '8px'
                               }}>
-                                
-                                {/* View Full Details Button */}
                                 <button
                                   type="button"
                                   onClick={() => setSelectedTripForDetails(b)}
@@ -1764,7 +1830,6 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                                   <span>View Trip Dossier</span>
                                 </button>
 
-                                {/* 1-Click Status Controls for Vehicle Handler */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   {isRequested && (
                                     <button
@@ -1851,7 +1916,6 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                                     </span>
                                   )}
                                 </div>
-
                               </div>
 
                             </div>
@@ -2028,7 +2092,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                         )}
                       </div>
 
-                      {/* Pricing & Driver */}
+                      {/* Pricing & RC Book */}
                       <div style={{
                         padding: '10px 12px',
                         background: '#f8fafc',
@@ -2044,6 +2108,14 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                             Base ₹{veh.baseFare || 350} · ₹{veh.perKm || 24}/km
                           </span>
                         </div>
+                        {veh.rcBookNo && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: '#64748b' }}>RC Permit No:</span>
+                            <span style={{ fontWeight: 700, color: '#16a34a' }}>
+                              ✓ {veh.rcBookNo}
+                            </span>
+                          </div>
+                        )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '4px' }}>
                           <span style={{ color: '#64748b' }}>Assigned Driver:</span>
                           <span style={{ fontWeight: 700, color: '#334155' }}>
@@ -2184,14 +2256,14 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <img
-                        src={d.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80'}
+                        src={d.photo || DRIVER_PHOTO_PRESETS[0].url}
                         alt={d.name}
                         style={{
                           width: '46px',
                           height: '46px',
                           borderRadius: '50%',
                           objectFit: 'cover',
-                          border: '2px solid #FF6333'
+                          border: '2px solid #16a34a'
                         }}
                       />
                       <div>
@@ -2310,7 +2382,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
 
       </main>
 
-      {/* ─── MODAL 1: ADD / EDIT VEHICLE (SELF-DRIVE SPECS + IMAGES) ──────── */}
+      {/* ─── MODAL 1: ADD / EDIT VEHICLE (DRAG & DROP + RC BOOK + IMPORTANT *) */}
       {isAddVehicleOpen && (
         <div style={{
           position: 'fixed',
@@ -2327,7 +2399,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
             background: '#ffffff',
             borderRadius: '20px',
             width: '100%',
-            maxWidth: '620px',
+            maxWidth: '640px',
             maxHeight: '92vh',
             overflowY: 'auto',
             padding: '24px',
@@ -2339,7 +2411,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                   {editingVehicle ? 'Edit Cab Vehicle' : 'Add Vehicle to Cab Fleet'}
                 </h3>
                 <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                  Use authentic car photo, seating, and features. Only added vehicles appear on customer cab app.
+                  Fields with <span style={{ color: '#dc2626', fontWeight: 900 }}>*</span> are mandatory. Only active added cabs appear on the customer app.
                 </div>
               </div>
               <button
@@ -2351,271 +2423,440 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
               </button>
             </div>
 
-            <form onSubmit={handleSaveVehicle} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
+            <form onSubmit={handleSaveVehicle} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
               
-              {/* Photo Presets & Image Selector */}
+              {/* ── SECTION 1: VEHICLE PHOTO (DRAG & DROP + PRESETS) ────────── */}
               <div>
-                <label style={{ fontSize: '12.5px', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  Vehicle Photo (Click a preset or enter custom image URL) *
-                </label>
-                
-                {/* 1-Click Photo Presets */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '10px' }}>
-                  {CAR_PHOTO_PRESETS.map((preset, pIdx) => (
-                    <div
-                      key={pIdx}
-                      onClick={() => setVehicleForm({
-                        ...vehicleForm,
-                        image: preset.url,
-                        classType: preset.type,
-                        seats: preset.seats,
-                        name: preset.name.split('(')[0].trim(),
-                        model: preset.name.split('(')[0].trim()
-                      })}
-                      style={{
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        border: vehicleForm.image === preset.url ? '2px solid #FF6333' : '1px solid #cbd5e1',
-                        cursor: 'pointer',
-                        background: '#f8fafc',
-                        padding: '4px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '4px'
-                      }}
-                    >
-                      <img src={preset.url} alt={preset.name} style={{ width: '100%', height: '48px', objectFit: 'cover', borderRadius: '4px' }} />
-                      <span style={{ fontSize: '10px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                        {preset.name}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Custom Image URL Input & Preview */}
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <input
-                    type="url"
-                    value={vehicleForm.image}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, image: e.target.value })}
-                    placeholder="Enter custom image URL (https://...)"
-                    style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
-                  />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12.5px', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>Vehicle Exterior Photo</span>
+                    <span style={{ color: '#dc2626', fontWeight: 900 }}>*</span>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>(Shown to customers when booking)</span>
+                  </label>
                   {vehicleForm.image && (
-                    <img
-                      src={vehicleForm.image}
-                      alt="Preview"
-                      style={{ width: '40px', height: '32px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #cbd5e1' }}
-                    />
+                    <span style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: 800 }}>
+                      ✓ Photo Loaded
+                    </span>
                   )}
                 </div>
-              </div>
 
-              {/* Vehicle Name & Model */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Cab Category Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={vehicleForm.name}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, name: e.target.value })}
-                    placeholder="e.g. Prime Sedan / Executive SUV"
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Car Model *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={vehicleForm.model}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
-                    placeholder="e.g. Toyota Innova Crysta / Dzire"
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                  />
-                </div>
-              </div>
-
-              {/* Number Plate & Category */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Registration Plate *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={vehicleForm.plate}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, plate: e.target.value })}
-                    placeholder="e.g. GA-03-Z-8899"
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Category Type
-                  </label>
-                  <select
-                    value={vehicleForm.classType}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, classType: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#ffffff' }}
-                  >
-                    <option value="sedan">Sedan (Dzire, Etios)</option>
-                    <option value="suv">SUV (Innova, Thar, Fortuner)</option>
-                    <option value="muv">MUV 7-Seater (Ertiga, Carens)</option>
-                    <option value="normal">Hatchback (WagonR, Swift)</option>
-                    <option value="luxury">Luxury VIP (Mercedes, BMW, Audi)</option>
-                    <option value="coach">Maxi Coach (Tempo Traveller)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Capacity, Fuel, Transmission */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Seats
-                  </label>
-                  <input
-                    type="number"
-                    min="2"
-                    max="20"
-                    value={vehicleForm.seats}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, seats: e.target.value })}
-                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Bags
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="15"
-                    value={vehicleForm.bags}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, bags: e.target.value })}
-                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Fuel
-                  </label>
-                  <select
-                    value={vehicleForm.fuel}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, fuel: e.target.value })}
-                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
-                  >
-                    <option value="Petrol">Petrol</option>
-                    <option value="Diesel">Diesel</option>
-                    <option value="Electric">EV</option>
-                    <option value="CNG">CNG</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Gear
-                  </label>
-                  <select
-                    value={vehicleForm.transmission}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, transmission: e.target.value })}
-                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
-                  >
-                    <option value="Manual">Manual</option>
-                    <option value="Automatic">Automatic</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Pricing */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Base Starting Fare (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={vehicleForm.baseFare}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, baseFare: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Price Per KM (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={vehicleForm.perKm}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, perKm: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                  />
-                </div>
-              </div>
-
-              {/* Assigned Driver Dropdown */}
-              <div>
-                <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                  Assign Driver from Roster
-                </label>
-                <select
-                  value={vehicleForm.driverName}
-                  onChange={(e) => {
-                    const sel = drivers.find(d => d.name === e.target.value);
-                    setVehicleForm({
-                      ...vehicleForm,
-                      driverName: e.target.value,
-                      driverPhone: sel?.phone || ''
-                    });
+                {/* Drag & Drop Box */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#FF6333'; e.currentTarget.style.background = '#fff7ed'; }}
+                  onDragLeave={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.style.borderColor = '#cbd5e1';
+                    e.currentTarget.style.background = '#f8fafc';
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) handleFileUpload(file, 'vehicle');
                   }}
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
+                  style={{
+                    border: '2px dashed #cbd5e1',
+                    borderRadius: '12px',
+                    padding: '14px',
+                    background: '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    transition: 'all 0.15s ease'
+                  }}
                 >
-                  <option value="">-- Select Driver --</option>
-                  {drivers.map(d => (
-                    <option key={d.id} value={d.name}>{d.name} ({d.phone})</option>
-                  ))}
-                </select>
+                  {/* Photo Preview Thumbnail */}
+                  <div style={{
+                    width: '90px',
+                    height: '65px',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    background: '#0f172a',
+                    flexShrink: 0,
+                    border: vehicleForm.image ? '1.5px solid #FF6333' : '1px solid #cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {vehicleForm.image ? (
+                      <img src={vehicleForm.image} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ fontSize: '26px' }}>🚗</span>
+                    )}
+                  </div>
+
+                  {/* Drag drop instructions */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0f172a' }}>
+                      Drag & drop car photo here, or browse
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                      Supports JPG, PNG, WEBP high-resolution car images
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
+                      <label style={{
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        background: 'linear-gradient(135deg, #FF6333 0%, #FF8A00 100%)',
+                        color: '#ffffff',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}>
+                        <UploadCloud size={13} />
+                        <span>Upload File</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileUpload(file, 'vehicle');
+                          }}
+                        />
+                      </label>
+
+                      {vehicleForm.image && (
+                        <button
+                          type="button"
+                          onClick={() => setVehicleForm(f => ({ ...f, image: '' }))}
+                          style={{ background: 'transparent', border: 'none', color: '#dc2626', fontSize: '11.5px', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 1-Click Popular Presets */}
+                <div style={{ marginTop: '10px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '5px' }}>
+                    Or 1-Click Choose Authentic Goa Fleet Preset:
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                    {CAR_PHOTO_PRESETS.map((preset, pIdx) => (
+                      <div
+                        key={pIdx}
+                        onClick={() => setVehicleForm({
+                          ...vehicleForm,
+                          image: preset.url,
+                          classType: preset.type,
+                          seats: preset.seats,
+                          name: preset.name.split('(')[0].trim(),
+                          model: preset.name.split('(')[0].trim()
+                        })}
+                        style={{
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          border: vehicleForm.image === preset.url ? '2px solid #FF6333' : '1px solid #cbd5e1',
+                          cursor: 'pointer',
+                          background: '#ffffff',
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <img src={preset.url} alt={preset.name} style={{ width: '32px', height: '24px', objectFit: 'cover', borderRadius: '4px' }} />
+                        <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                          {preset.name.split('(')[0]}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* Features & Amenities Checkboxes */}
-              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', padding: '10px 12px', background: '#f8fafc', borderRadius: '8px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={vehicleForm.has_ac}
-                    onChange={e => setVehicleForm({ ...vehicleForm, has_ac: e.target.checked })}
-                  />
-                  <span>❄️ Chilled AC</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={vehicleForm.has_fastag}
-                    onChange={e => setVehicleForm({ ...vehicleForm, has_fastag: e.target.checked })}
-                  />
-                  <span>⚡ Fastag Enabled</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={vehicleForm.has_carrier}
-                    onChange={e => setVehicleForm({ ...vehicleForm, has_carrier: e.target.checked })}
-                  />
-                  <span>🧳 Luggage Roof Carrier</span>
-                </label>
+              {/* ── SECTION 2: MANDATORY VEHICLE DETAILS (MARKED WITH *) ─────── */}
+              <div style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>Mandatory Registration & Commercial Specs</span>
+                  <span style={{ color: '#dc2626' }}>*</span>
+                </div>
+
+                {/* Name & Model */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      Cab Category Name <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={vehicleForm.name}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, name: e.target.value })}
+                      placeholder="e.g. Prime Sedan / Executive SUV"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      Car Model <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={vehicleForm.model}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
+                      placeholder="e.g. Toyota Innova Crysta / Dzire"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Plate & RC Book Number */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      Registration Number Plate <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={vehicleForm.plate}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, plate: e.target.value })}
+                      placeholder="e.g. GA-03-Z-8899"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      RC Book / Commercial Permit No. <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={vehicleForm.rcBookNo}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, rcBookNo: e.target.value })}
+                      placeholder="e.g. GA03-RC-2023-8899"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Category & Seats */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      Category Type <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <select
+                      value={vehicleForm.classType}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, classType: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff' }}
+                    >
+                      <option value="sedan">Sedan (Dzire, Etios)</option>
+                      <option value="suv">SUV (Innova, Thar, Fortuner)</option>
+                      <option value="muv">MUV 7-Seater (Ertiga, Carens)</option>
+                      <option value="normal">Hatchback (WagonR, Swift)</option>
+                      <option value="luxury">Luxury VIP (Mercedes, BMW)</option>
+                      <option value="coach">Maxi Coach (Tempo Traveller)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      Passenger Seats <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="2"
+                      max="20"
+                      value={vehicleForm.seats}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, seats: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Base Fare & Per KM */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      Base Starting Fare (₹) <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={vehicleForm.baseFare}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, baseFare: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      Price Per KM (₹) <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={vehicleForm.perKm}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, perKm: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px' }}
+                    />
+                  </div>
+                </div>
+
               </div>
 
-              {/* Buttons */}
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              {/* ── SECTION 3: OPTIONAL FLEET & COMPLIANCE FIELDS ───────────── */}
+              <div style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                  Optional Compliance & Specs (Optional)
+                </div>
+
+                {/* Expiries */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Commercial Fitness Expiry (Optional)
+                    </label>
+                    <input
+                      type="date"
+                      value={vehicleForm.fitnessExpiry}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, fitnessExpiry: e.target.value })}
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Insurance Expiry Date (Optional)
+                    </label>
+                    <input
+                      type="date"
+                      value={vehicleForm.insuranceExpiry}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, insuranceExpiry: e.target.value })}
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Fuel, Transmission, Bags */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Fuel Type (Optional)
+                    </label>
+                    <select
+                      value={vehicleForm.fuel}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, fuel: e.target.value })}
+                      style={{ width: '100%', padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px', background: '#fff' }}
+                    >
+                      <option value="Petrol">Petrol</option>
+                      <option value="Diesel">Diesel</option>
+                      <option value="Electric">EV</option>
+                      <option value="CNG">CNG</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Transmission (Optional)
+                    </label>
+                    <select
+                      value={vehicleForm.transmission}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, transmission: e.target.value })}
+                      style={{ width: '100%', padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px', background: '#fff' }}
+                    >
+                      <option value="Manual">Manual</option>
+                      <option value="Automatic">Automatic</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Luggage Bags (Optional)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="15"
+                      value={vehicleForm.bags}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, bags: e.target.value })}
+                      style={{ width: '100%', padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Assign Driver */}
+                <div>
+                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                    Assign Driver from Roster (Optional - can assign later)
+                  </label>
+                  <select
+                    value={vehicleForm.driverName}
+                    onChange={(e) => {
+                      const sel = drivers.find(d => d.name === e.target.value);
+                      setVehicleForm({
+                        ...vehicleForm,
+                        driverName: e.target.value,
+                        driverPhone: sel?.phone || ''
+                      });
+                    }}
+                    style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px', background: '#fff' }}
+                  >
+                    <option value="">-- No Driver Assigned (Will assign upon booking) --</option>
+                    {drivers.map(d => (
+                      <option key={d.id} value={d.name}>{d.name} ({d.phone})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Amenities */}
+                <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', paddingTop: '4px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={vehicleForm.has_ac}
+                      onChange={e => setVehicleForm({ ...vehicleForm, has_ac: e.target.checked })}
+                    />
+                    <span>❄️ Chilled AC</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={vehicleForm.has_fastag}
+                      onChange={e => setVehicleForm({ ...vehicleForm, has_fastag: e.target.checked })}
+                    />
+                    <span>⚡ Fastag</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={vehicleForm.has_carrier}
+                      onChange={e => setVehicleForm({ ...vehicleForm, has_carrier: e.target.checked })}
+                    />
+                    <span>🧳 Luggage Carrier</span>
+                  </label>
+                </div>
+
+              </div>
+
+              {/* Submit Buttons */}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
                 <button
                   type="button"
                   onClick={() => setIsAddVehicleOpen(false)}
@@ -2657,7 +2898,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
         </div>
       )}
 
-      {/* ─── MODAL 2: ONBOARD NEW DRIVER (COMMERCIAL RECORDS) ──────────────── */}
+      {/* ─── MODAL 2: ONBOARD NEW DRIVER (PHOTO SECTION + DRIVER RECORD + *) ─ */}
       {isAddDriverOpen && (
         <div style={{
           position: 'fixed',
@@ -2674,7 +2915,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
             background: '#ffffff',
             borderRadius: '20px',
             width: '100%',
-            maxWidth: '560px',
+            maxWidth: '580px',
             maxHeight: '92vh',
             overflowY: 'auto',
             padding: '24px',
@@ -2686,7 +2927,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                   Onboard Commercial Chauffeur
                 </h3>
                 <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                  Keep official records for police verification, commercial PSV badge, and emergency contact.
+                  Fields with <span style={{ color: '#dc2626', fontWeight: 900 }}>*</span> are required for official transport compliance.
                 </div>
               </div>
               <button
@@ -2698,153 +2939,323 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
               </button>
             </div>
 
-            <form onSubmit={handleSaveDriver} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
+            <form onSubmit={handleSaveDriver} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
               
+              {/* ── SECTION 1: DRIVER PHOTO (DRAG & DROP + PRESETS) ─────────── */}
               <div>
-                <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                  Driver Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={driverForm.name}
-                  onChange={(e) => setDriverForm({ ...driverForm, name: e.target.value })}
-                  placeholder="e.g. Suresh V. Naik"
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12.5px', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>Chauffeur Face Photo</span>
+                    <span style={{ color: '#dc2626', fontWeight: 900 }}>*</span>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>(Official Photo ID)</span>
+                  </label>
+                  {driverForm.photo && (
+                    <span style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: 800 }}>
+                      ✓ Photo Loaded
+                    </span>
+                  )}
+                </div>
+
+                {/* Drag and Drop Zone */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#16a34a'; e.currentTarget.style.background = '#f0fdf4'; }}
+                  onDragLeave={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.style.borderColor = '#cbd5e1';
+                    e.currentTarget.style.background = '#f8fafc';
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) handleFileUpload(file, 'driver');
+                  }}
+                  style={{
+                    border: '2px dashed #cbd5e1',
+                    borderRadius: '12px',
+                    padding: '14px',
+                    background: '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {/* Photo Avatar Preview */}
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    overflow: 'hidden',
+                    background: '#e2e8f0',
+                    flexShrink: 0,
+                    border: '2px solid #16a34a',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {driverForm.photo ? (
+                      <img src={driverForm.photo} alt="Chauffeur" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ fontSize: '28px' }}>👨‍✈️</span>
+                    )}
+                  </div>
+
+                  {/* Drag drop info + upload button */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0f172a' }}>
+                      Drag & drop driver portrait here, or browse
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                      Passport photo or clear face portrait (JPG, PNG, WEBP)
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
+                      <label style={{
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        background: '#0f172a',
+                        color: '#ffffff',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}>
+                        <UploadCloud size={13} />
+                        <span>Upload Portrait</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileUpload(file, 'driver');
+                          }}
+                        />
+                      </label>
+
+                      {driverForm.photo && (
+                        <button
+                          type="button"
+                          onClick={() => setDriverForm(f => ({ ...f, photo: '' }))}
+                          style={{ background: 'transparent', border: 'none', color: '#dc2626', fontSize: '11.5px', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 1-Click Pick Presets */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>Or 1-Click Pick:</span>
+                  {DRIVER_PHOTO_PRESETS.map((p, idx) => (
+                    <img
+                      key={idx}
+                      src={p.url}
+                      alt={p.name}
+                      title={p.name}
+                      onClick={() => setDriverForm(f => ({ ...f, photo: p.url }))}
+                      style={{
+                        width: '30px',
+                        height: '30px',
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        cursor: 'pointer',
+                        border: driverForm.photo === p.url ? '2px solid #16a34a' : '1px solid #cbd5e1'
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {/* ── SECTION 2: MANDATORY DRIVER RECORDS (RED STAR *) ───────── */}
+              <div style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>Mandatory Verification & License Details</span>
+                  <span style={{ color: '#dc2626' }}>*</span>
+                </div>
+
+                {/* Full Name & Phone */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      Driver Full Name <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={driverForm.name}
+                      onChange={(e) => setDriverForm({ ...driverForm, name: e.target.value })}
+                      placeholder="e.g. Suresh V. Naik"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      Primary Mobile (+91) <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={driverForm.phone}
+                      onChange={(e) => setDriverForm({ ...driverForm, phone: e.target.value })}
+                      placeholder="e.g. +91 98221 44510"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Commercial DL & Expiry */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      Commercial DL Number <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={driverForm.licenseNo}
+                      onChange={(e) => setDriverForm({ ...driverForm, licenseNo: e.target.value })}
+                      placeholder="e.g. GA-03-2016-0034120"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      License Expiry Date <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={driverForm.licenseExpiry}
+                      onChange={(e) => setDriverForm({ ...driverForm, licenseExpiry: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                {/* PSV Badge */}
                 <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Primary Mobile (with +91) *
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                    PSV Commercial Badge ID <span style={{ color: '#dc2626' }}>*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    value={driverForm.phone}
-                    onChange={(e) => setDriverForm({ ...driverForm, phone: e.target.value })}
-                    placeholder="e.g. +91 98221 44510"
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Emergency / Family Contact
-                  </label>
-                  <input
-                    type="text"
-                    value={driverForm.emergencyPhone}
-                    onChange={(e) => setDriverForm({ ...driverForm, emergencyPhone: e.target.value })}
-                    placeholder="e.g. +91 98221 99990"
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Commercial DL Number *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={driverForm.licenseNo}
-                    onChange={(e) => setDriverForm({ ...driverForm, licenseNo: e.target.value })}
-                    placeholder="e.g. GA-03-2016-0034120"
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    License Expiry Date
-                  </label>
-                  <input
-                    type="date"
-                    value={driverForm.licenseExpiry}
-                    onChange={(e) => setDriverForm({ ...driverForm, licenseExpiry: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    PSV Commercial Badge ID
-                  </label>
-                  <input
-                    type="text"
                     value={driverForm.badgeNo}
                     onChange={(e) => setDriverForm({ ...driverForm, badgeNo: e.target.value })}
                     placeholder="e.g. GOA-PSV-4412"
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
                   />
                 </div>
 
+              </div>
+
+              {/* ── SECTION 3: OPTIONAL BACKGROUND RECORDS ───────────────────── */}
+              <div style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                  Additional Background Info (Optional)
+                </div>
+
+                {/* Emergency Contact & Aadhar */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Emergency / Family Contact (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={driverForm.emergencyPhone}
+                      onChange={(e) => setDriverForm({ ...driverForm, emergencyPhone: e.target.value })}
+                      placeholder="e.g. +91 98221 99990"
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Aadhar / Govt ID Number (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={driverForm.aadharNo}
+                      onChange={(e) => setDriverForm({ ...driverForm, aadharNo: e.target.value })}
+                      placeholder="e.g. 1234-5678-9012"
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Assigned Cab & Experience */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Assigned Cab (Optional - can assign later)
+                    </label>
+                    <select
+                      value={driverForm.carPlate}
+                      onChange={(e) => setDriverForm({ ...driverForm, carPlate: e.target.value })}
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px', background: '#fff' }}
+                    >
+                      <option value="">-- Unassigned (Assign Later) --</option>
+                      {vehicles.map(v => (
+                        <option key={v.id} value={`${v.plate} (${v.name})`}>{v.plate} ({v.name})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Driving Experience (Years) (Optional)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="40"
+                      value={driverForm.experienceYears}
+                      onChange={(e) => setDriverForm({ ...driverForm, experienceYears: e.target.value })}
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Languages */}
                 <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Aadhar / Govt ID Number
+                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                    Languages Spoken (Optional)
                   </label>
                   <input
                     type="text"
-                    value={driverForm.aadharNo}
-                    onChange={(e) => setDriverForm({ ...driverForm, aadharNo: e.target.value })}
-                    placeholder="e.g. 1234-5678-9012"
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                    value={driverForm.languages}
+                    onChange={(e) => setDriverForm({ ...driverForm, languages: e.target.value })}
+                    placeholder="e.g. Konkani, English, Hindi, Marathi"
+                    style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }}
                   />
                 </div>
+
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Assigned Cab Plate Number
-                  </label>
-                  <select
-                    value={driverForm.carPlate}
-                    onChange={(e) => setDriverForm({ ...driverForm, carPlate: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
-                  >
-                    <option value="">-- Unassigned --</option>
-                    {vehicles.map(v => (
-                      <option key={v.id} value={`${v.plate} (${v.name})`}>{v.plate} ({v.name})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Driving Experience (Years)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="40"
-                    value={driverForm.experienceYears}
-                    onChange={(e) => setDriverForm({ ...driverForm, experienceYears: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                  Languages Known (Comma separated)
-                </label>
-                <input
-                  type="text"
-                  value={driverForm.languages}
-                  onChange={(e) => setDriverForm({ ...driverForm, languages: e.target.value })}
-                  placeholder="e.g. Konkani, English, Hindi, Marathi"
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              {/* Submit Buttons */}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
                 <button
                   type="button"
                   onClick={() => setIsAddDriverOpen(false)}
@@ -2873,7 +3284,8 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                     color: '#ffffff',
                     fontSize: '13px',
                     fontWeight: 800,
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(22,163,74,0.3)'
                   }}
                 >
                   Save & Complete Onboarding
@@ -3078,6 +3490,9 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', fontSize: '12.5px' }}>
                 <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
+                  <strong>RC Book No:</strong> {selectedVehicleForDetails.rcBookNo || 'GA03-RC-2023-8899'}
+                </div>
+                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
                   <strong>Seating:</strong> {selectedVehicleForDetails.seats || 4} Passenger Seats
                 </div>
                 <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
@@ -3088,6 +3503,9 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                 </div>
                 <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
                   <strong>Customer Tariff:</strong> ₹{selectedVehicleForDetails.baseFare || 350} Base · ₹{selectedVehicleForDetails.perKm || 24}/km
+                </div>
+                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
+                  <strong>Fitness Expiry:</strong> {selectedVehicleForDetails.fitnessExpiry || '2028-11-14'}
                 </div>
               </div>
 
@@ -3138,7 +3556,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <img
-                  src={selectedDriverForDetails.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80'}
+                  src={selectedDriverForDetails.photo || DRIVER_PHOTO_PRESETS[0].url}
                   alt={selectedDriverForDetails.name}
                   style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #16a34a' }}
                 />
@@ -3167,6 +3585,10 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b' }}>Driving License (DL):</span>
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>{selectedDriverForDetails.licenseNo || 'GA-03-2016-0034120'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>License Expiry:</span>
+                  <span style={{ fontWeight: 700, color: '#15803d' }}>{selectedDriverForDetails.licenseExpiry || '2031-08-15'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b' }}>PSV Commercial Badge:</span>
