@@ -127,6 +127,19 @@ export default function VisaSection({
         source: 'Tourist Visa',
         service: `${visa.title} (${country.name})`,
         status: 'New',
+        visa_details: {
+          reference: generatedId,
+          fullName: formData.fullName.trim(),
+          nationality: country.name,
+          flag: country.flag,
+          visaType: visa.title,
+          passportNumber: formData.passportNumber.toUpperCase().trim(),
+          passportExpiry: formData.passportExpiry,
+          arrivalDate: formData.arrivalDate,
+          email: formData.email.trim(),
+          phone: cleanPhone,
+          documents: uploadedFiles.map(f => f.name)
+        },
         notes: [
           `Country: ${country.name} (${country.flag})`,
           `Visa: ${visa.title}`,

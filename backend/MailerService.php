@@ -306,3 +306,140 @@ HTML;
 
     return sendSmtpEmail($toEmail, $subject, $html);
 }
+
+/**
+ * Send Tourist Visa Application Confirmation Email.
+ * Contains all the information submitted by the applicant with a polite thank-you message.
+ */
+function sendVisaApplicationConfirmationEmail($toEmail, $data = []) {
+    $ref = htmlspecialchars($data['reference'] ?? $data['id'] ?? 'VISA-' . strtoupper(substr(md5(time()), 0, 8)));
+    $fullName = htmlspecialchars($data['fullName'] ?? $data['name'] ?? 'Valued Traveler');
+    $nationality = htmlspecialchars($data['nationality'] ?? 'Not specified');
+    $flag = $data['flag'] ?? '🌐';
+    $visaType = htmlspecialchars($data['visaType'] ?? $data['service'] ?? 'Tourist Visa');
+    $passportNo = htmlspecialchars($data['passportNumber'] ?? 'Pending');
+    $passportExpiry = htmlspecialchars($data['passportExpiry'] ?? 'Not specified');
+    $arrivalDate = htmlspecialchars($data['arrivalDate'] ?? 'Not specified');
+    $phone = htmlspecialchars($data['phone'] ?? 'Not specified');
+    $email = htmlspecialchars($toEmail);
+    $docs = !empty($data['documents']) 
+        ? (is_array($data['documents']) ? implode(', ', array_map('htmlspecialchars', $data['documents'])) : htmlspecialchars($data['documents']))
+        : 'Uploaded via portal';
+    $submittedAt = date('d M Y, h:i A');
+
+    $subject = "Application Received: Tourist Visa Request #$ref";
+
+    $html = <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px 12px; color: #1e293b; }
+  .wrapper { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+  .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 28px; text-align: center; }
+  .header-badge { display: inline-block; background: rgba(234, 88, 12, 0.18); color: #ea580c; border: 1px solid rgba(234, 88, 12, 0.35); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 4px 12px; border-radius: 20px; margin-bottom: 10px; }
+  .header h1 { font-size: 24px; font-weight: 800; color: #ffffff; margin: 0 0 6px 0; }
+  .header p { color: #94a3b8; font-size: 13.5px; margin: 0; }
+  .body { padding: 32px 28px; }
+  .greeting { font-size: 17px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+  .intro { font-size: 14.5px; color: #475569; line-height: 1.6; margin-bottom: 24px; }
+  .ref-card { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #ea580c; border-radius: 10px; padding: 14px 18px; margin-bottom: 26px; }
+  .ref-label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .ref-val { font-size: 18px; font-weight: 800; color: #0f172a; font-family: monospace; }
+  .ref-date { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+  .details-title { font-size: 14px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; }
+  .details-table { width: 100%; border-collapse: collapse; margin-bottom: 26px; }
+  .details-table tr { border-bottom: 1px solid #f1f5f9; }
+  .details-table td { padding: 10px 6px; font-size: 13.5px; vertical-align: top; }
+  .details-table td.label { color: #64748b; width: 42%; font-weight: 600; }
+  .details-table td.value { color: #0f172a; font-weight: 700; width: 58%; text-align: right; }
+  .next-steps { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px; }
+  .next-steps h4 { margin: 0 0 6px 0; font-size: 14px; font-weight: 800; color: #c2410c; }
+  .next-steps p { margin: 0; font-size: 13px; color: #9a3412; line-height: 1.55; }
+  .contact-box { background: #f1f5f9; border-radius: 10px; padding: 14px 18px; text-align: center; font-size: 12.5px; color: #475569; margin-bottom: 20px; line-height: 1.5; }
+  .footer { background: #0f172a; padding: 22px; text-align: center; font-size: 11.5px; color: #94a3b8; }
+  .footer a { color: #ea580c; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <div class="header-badge">Application Confirmation</div>
+    <h1>Tourist Visa Application</h1>
+    <p>Thank you for submitting your travel details</p>
+  </div>
+  
+  <div class="body">
+    <div class="greeting">Dear $fullName,</div>
+    <div class="intro">
+      Thank you for applying for tourist visa assistance with us! We have received your application and documents. Below is a full copy of the information you submitted for your records:
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-label">Application Reference ID</div>
+      <div class="ref-val">#$ref</div>
+      <div class="ref-date">Submitted on: $submittedAt</div>
+    </div>
+
+    <div class="details-title">Application Summary</div>
+    <table class="details-table">
+      <tr>
+        <td class="label">Full Name</td>
+        <td class="value">$fullName</td>
+      </tr>
+      <tr>
+        <td class="label">Country / Nationality</td>
+        <td class="value">$flag $nationality</td>
+      </tr>
+      <tr>
+        <td class="label">Visa Duration / Type</td>
+        <td class="value">$visaType</td>
+      </tr>
+      <tr>
+        <td class="label">Passport Number</td>
+        <td class="value">$passportNo</td>
+      </tr>
+      <tr>
+        <td class="label">Passport Expiry Date</td>
+        <td class="value">$passportExpiry</td>
+      </tr>
+      <tr>
+        <td class="label">Date of Arrival</td>
+        <td class="value">$arrivalDate</td>
+      </tr>
+      <tr>
+        <td class="label">Contact Phone</td>
+        <td class="value">$phone</td>
+      </tr>
+      <tr>
+        <td class="label">Registered Email</td>
+        <td class="value">$email</td>
+      </tr>
+      <tr>
+        <td class="label">Uploaded Documents</td>
+        <td class="value">$docs</td>
+      </tr>
+    </table>
+
+    <div class="next-steps">
+      <h4>📋 What Happens Next?</h4>
+      <p>Our visa processing team will review your application and uploaded documents. If any further information or clarification is needed, we will contact you directly at <strong>$email</strong> or <strong>$phone</strong>.</p>
+    </div>
+
+    <div class="contact-box">
+      Need to make changes or have questions? Simply reply to this email or reach out with your Reference Number <strong>#$ref</strong>.
+    </div>
+  </div>
+
+  <div class="footer">
+    © 2026 WOW GOA • Concierge, Tourist Visa &amp; Mobility Solutions<br>
+    Questions? Contact support at <a href="mailto:raj.jattamkommerce@gmail.com">raj.jattamkommerce@gmail.com</a>
+  </div>
+</div>
+</body>
+</html>
+HTML;
+
+    return sendSmtpEmail($toEmail, $subject, $html);
+}

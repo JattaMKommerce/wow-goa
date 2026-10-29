@@ -11,7 +11,7 @@ import AIChatbotToggle from '../common/AIChatbotToggle';
 
 const SOURCE_TABS = [
   'All',
-  'Goa Tourist Visa',
+  'Tourist Visa',
   'Hotel Enquiries',
   'Vehicle Rental',
   'Vendor Onboarding',
@@ -48,6 +48,7 @@ const NEXT_ACTION_PRESETS = [
 
 function SourceBadge({ source }) {
   const configs = {
+    'Tourist Visa': { bg: '#fff1f2', color: '#e11d48', border: '#fecdd3', icon: Globe },
     'Goa Tourist Visa': { bg: '#fff1f2', color: '#e11d48', border: '#fecdd3', icon: Globe },
     'Hotel Enquiries': { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe', icon: Building },
     'Vehicle Rental': { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa', icon: Car },
@@ -600,7 +601,10 @@ export default function LeadManagement({ usersList = [], currentUser }) {
 
   // Filtered Leads
   const filteredLeads = leads.filter(item => {
-    const matchSource = (activeSource === 'All') || (item.source === activeSource);
+    const matchSource = (activeSource === 'All') || 
+      (activeSource.toLowerCase().includes('visa') 
+        ? Boolean(item.source && item.source.toLowerCase().includes('visa')) 
+        : item.source === activeSource);
     const matchStatus = (selectedStatus === 'All Statuses') || (item.status === selectedStatus);
     const q = search.toLowerCase().trim();
     const matchSearch = !q || 

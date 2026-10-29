@@ -15916,6 +15916,40 @@ HTML;
             $stmt = $pdo->prepare("INSERT INTO leads (id, name, phone, email, source, service, assigned_to, status, budget, notes, admin_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$id, $name, $phone, $email, $source, $service, $assigned_to, $status, $budget, $notes, $tenant_id, $created_at, date('Y-m-d H:i:s')]);
             
+            // Automatically dispatch confirmation email for Tourist Visa applications
+            if (!empty($email) && (stripos($source, 'Visa') !== false || !empty($payload['visa_details']))) {
+                try {
+                    require_once __DIR__ . '/MailerService.php';
+                    $visaDetails = $payload['visa_details'] ?? [];
+                    if (empty($visaDetails) || !is_array($visaDetails)) {
+                        $visaDetails = [];
+                    }
+                    if (empty($visaDetails['reference'])) $visaDetails['reference'] = $id;
+                    if (empty($visaDetails['fullName'])) $visaDetails['fullName'] = $name;
+                    if (empty($visaDetails['phone'])) $visaDetails['phone'] = $phone;
+                    if (empty($visaDetails['email'])) $visaDetails['email'] = $email;
+                    if (empty($visaDetails['visaType'])) $visaDetails['visaType'] = $service;
+                    if (empty($visaDetails['nationality']) && preg_match('/Country:\s*([^\(\|]+)/i', $notes, $m)) {
+                        $visaDetails['nationality'] = trim($m[1]);
+                    }
+                    if (empty($visaDetails['passportNumber']) && preg_match('/Passport No:\s*([^\|]+)/i', $notes, $m)) {
+                        $visaDetails['passportNumber'] = trim($m[1]);
+                    }
+                    if (empty($visaDetails['passportExpiry']) && preg_match('/Passport Expiry:\s*([^\|]+)/i', $notes, $m)) {
+                        $visaDetails['passportExpiry'] = trim($m[1]);
+                    }
+                    if (empty($visaDetails['arrivalDate']) && preg_match('/Arrival Date:\s*([^\|]+)/i', $notes, $m)) {
+                        $visaDetails['arrivalDate'] = trim($m[1]);
+                    }
+                    if (empty($visaDetails['documents']) && preg_match('/Documents:\s*([^\|]+)/i', $notes, $m)) {
+                        $visaDetails['documents'] = trim($m[1]);
+                    }
+                    sendVisaApplicationConfirmationEmail($email, $visaDetails);
+                } catch (\Throwable $mErr) {
+                    error_log('[Visa Mailer] Error sending confirmation: ' . $mErr->getMessage());
+                }
+            }
+            
             echo json_encode(["success" => true, "id" => $id, "lead_id" => $id, "message" => "Lead created successfully."]);
             exit;
         } elseif ($action === 'update_lead') {

@@ -19,6 +19,7 @@ import LeadManagement from '../../components/shared/LeadManagement';
 import HotelBookingDriverSetting from '../../components/common/HotelBookingDriverSetting';
 import TripPackagesManagementView from '../../components/admin/TripPackagesManagementView';
 import BookingVoucher from '../../components/common/BookingVoucher';
+import VisaApplicationsManager from '../../components/superadmin/VisaApplicationsManager';
 
 // ─── STAT CARD ───────────────────────────────────────────────────────────────
 function StatCard({ label, value, icon, color, trend, sub, onClick }) {
@@ -3463,6 +3464,9 @@ export default function SuperAdminDashboard({
   flights = []
 }) {
   switch (activeTab) {
+    case 'visa_applications':
+    case 'visas':
+      return <VisaApplicationsManager currentUser={currentUser} />;
     case 'packages':
     case 'trip_packages':
       return (

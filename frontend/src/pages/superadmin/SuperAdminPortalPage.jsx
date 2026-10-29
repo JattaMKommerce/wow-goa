@@ -67,6 +67,7 @@ const SIDEBAR_GROUPS = [
   {
     label: 'Operations',
     items: [
+      { id: 'visa_applications', label: 'Tourist Visa', icon: <FileText size={15} /> },
       { id: 'packages', label: 'Trip Packages', icon: <Compass size={15} /> },
       { id: 'vehicle_bookings', label: 'Vehicle Booking', icon: <Car size={15} /> },
       { id: 'hotel_bookings', label: 'Hotel Booking', icon: <Hotel size={15} /> },
@@ -103,6 +104,7 @@ const SIDEBAR_GROUPS = [
 
 const PAGE_TITLES = {
   dashboard: 'ERP Dashboard',
+  visa_applications: 'Tourist Visa Applications',
   packages: 'Trip Packages Management',
   admin_management: 'Admin Management',
   user_management: 'Global User Management',
