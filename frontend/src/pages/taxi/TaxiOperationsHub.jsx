@@ -977,7 +977,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                 padding: '2px 7px',
                 borderRadius: '10px'
               }}>
-                {allFilteredTrips.length} Total
+                {bookings.length} Total
               </span>
             )}
           </button>
@@ -1546,7 +1546,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {allFilteredTrips.slice(0, 4).map((t) => (
+                {bookings.slice(0, 4).map((t) => (
                   <div
                     key={t.id}
                     onClick={() => setActiveTab('trips')}
@@ -1565,15 +1565,15 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                       <div style={{ fontSize: '20px' }}>🚕</div>
                       <div>
                         <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
-                          {t.customerName} <span style={{ color: '#64748b', fontWeight: 600 }}>({t.customerPhone})</span>
+                          {t.customer || t.customerName || 'Customer'} <span style={{ color: '#64748b', fontWeight: 600 }}>({t.phone || t.customerPhone || 'N/A'})</span>
                         </div>
                         <div style={{ fontSize: '11.5px', color: '#475569', marginTop: '2px' }}>
-                          {t.pickup} ➔ {t.drop}
+                          {t.pickup || 'Pickup'} ➔ {t.drop || 'Drop'}
                         </div>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>₹{t.fare}</div>
+                      <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>₹{t.price || t.fare || 0}</div>
                       <span style={{
                         display: 'inline-block',
                         padding: '2px 8px',
@@ -1584,7 +1584,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                         background: t.status === 'completed' ? '#dcfce7' : (t.status === 'cancelled' || t.status === 'rejected' ? '#fee2e2' : '#e0f2fe'),
                         color: t.status === 'completed' ? '#15803d' : (t.status === 'cancelled' || t.status === 'rejected' ? '#b91c1c' : '#0369a1')
                       }}>
-                        {t.status.toUpperCase()}
+                        {(t.status || 'NEW').toUpperCase()}
                       </span>
                     </div>
                   </div>
