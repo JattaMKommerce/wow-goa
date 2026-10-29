@@ -187,6 +187,45 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
                   </a>
                 </li>
 
+                <li><hr className="dropdown-divider my-1 border-secondary opacity-25" /></li>
+
+                {/* B2B Partner Portal */}
+                <li>
+                  <a 
+                    className={`dropdown-item d-flex align-items-center justify-content-between py-2 px-3 text-white ${activeTab === 'b2b' ? 'bg-primary' : ''}`}
+                    href="/b2b" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveTab('b2b');
+                      window.history.pushState(null, '', '/b2b');
+                    }}
+                  >
+                    <span className="d-flex align-items-center gap-2">
+                      <span>💼</span>
+                      <span style={{ color: '#38bdf8', fontWeight: 600, fontSize: '13px' }}>B2B Partner Portal</span>
+                    </span>
+                    <span className="badge rounded-pill bg-info text-dark px-2 py-0.5" style={{ fontSize: '9px', fontWeight: 800 }}>Agent Hub</span>
+                  </a>
+                </li>
+
+                {/* Taxi Dispatch & Fleet CRM */}
+                <li>
+                  <a 
+                    className="dropdown-item d-flex align-items-center justify-content-between py-2 px-3 text-white"
+                    href="/taxi-portal" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.location.href = '/taxi-portal';
+                    }}
+                  >
+                    <span className="d-flex align-items-center gap-2">
+                      <span>🚕</span>
+                      <span style={{ color: '#ff9f1c', fontWeight: 600, fontSize: '13px' }}>Taxi Dispatch & Fleet CRM</span>
+                    </span>
+                    <span className="badge rounded-pill bg-warning text-dark px-2 py-0.5" style={{ fontSize: '9px', fontWeight: 900 }}>Fleet</span>
+                  </a>
+                </li>
+
                 {/* Taxi APK Download */}
                 <li>
                   <a 
@@ -237,6 +276,22 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
                 }}
               >
                 <span>🎫 My Bookings</span>
+              </a>
+            </li>
+
+            {/* 6. B2B Partner Portal Link */}
+            <li className="nav-item">
+              <a 
+                className={`nav-link ${activeTab === 'b2b' ? 'active' : ''}`} 
+                style={{ color: activeTab === 'b2b' ? '#38bdf8' : 'rgba(255,255,255,0.92)', fontWeight: 600 }}
+                href="/b2b" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveTab('b2b');
+                  window.history.pushState(null, '', '/b2b');
+                }}
+              >
+                <span>💼 B2B Portal</span>
               </a>
             </li>
 

@@ -1874,6 +1874,11 @@ export default function App() {
     return (
       <B2BPortalPage
         activities={activities}
+        cars={cars}
+        bikes={bikes}
+        hotels={hotels}
+        flights={flights}
+        bookings={bookings}
         onNavigateHome={() => {
           handleTabChange('selfdrive');
         }}
@@ -2017,7 +2022,8 @@ export default function App() {
 
     // ── Dedicated Taxi Operations CRM Hub (Bookings, Drivers, Cabs) ───────────
     if (path === '/taxi-portal' || path === '/taxi-crm' || path === '/taxi-dispatch' || 
-        path === '/taxi-drivers' || path === '/taxi-fleet' || path === '/taxi-chauffeur') {
+        path === '/taxi-drivers' || path === '/taxi-fleet' || path === '/taxi-chauffeur' ||
+        path === '/taxi-hub' || path === '/taxi-operations') {
       const initialTab = path === '/taxi-chauffeur' 
         ? 'chauffeur' 
         : (path === '/taxi-fleet' ? 'fleet' : (path === '/taxi-drivers' ? 'drivers' : 'dispatch'));
