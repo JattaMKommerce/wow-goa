@@ -209,7 +209,8 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
     const path = window.location.pathname;
     if (path === '/taxi-fleet' || path === '/taxi-vehicles') return 'vehicles';
     if (path === '/taxi-drivers') return 'drivers';
-    return initialTab === 'fleet' ? 'vehicles' : (initialTab === 'drivers' ? 'drivers' : 'dashboard');
+    if (path === '/taxi-trips' || path === '/taxi-bookings') return 'trips';
+    return initialTab === 'fleet' ? 'vehicles' : (initialTab === 'drivers' ? 'drivers' : (initialTab === 'trips' ? 'trips' : 'dashboard'));
   });
 
   // ── 1. Vehicles State ────────────────────────────────────────────────────────
@@ -905,7 +906,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
         {/* Sidebar Nav Items */}
         <div style={{ padding: '16px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
           
-          {/* 1. Dashboard & Live Bookings */}
+          {/* 1. Dashboard Overview */}
           <button
             type="button"
             onClick={() => setActiveTab('dashboard')}
@@ -928,18 +929,55 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <LayoutDashboard size={18} color={activeTab === 'dashboard' ? '#ffffff' : '#00B8D9'} />
-              <span>Dashboard & Trips</span>
+              <span>Dashboard</span>
             </div>
-            {countNeedsDriver > 0 && (
+          </button>
+
+          {/* 2. Trips & Bookings */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('trips')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              padding: '12px 14px',
+              borderRadius: '10px',
+              border: 'none',
+              background: activeTab === 'trips' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
+              color: activeTab === 'trips' ? '#ffffff' : 'rgba(255,255,255,0.7)',
+              fontWeight: activeTab === 'trips' ? 700 : 500,
+              fontSize: '13.5px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Navigation size={18} color={activeTab === 'trips' ? '#ffffff' : '#00B8D9'} />
+              <span>Trip Records & Bookings</span>
+            </div>
+            {countNeedsDriver > 0 ? (
               <span style={{
-                background: activeTab === 'dashboard' ? '#ffffff' : '#ef4444',
-                color: activeTab === 'dashboard' ? '#FF6333' : '#ffffff',
+                background: activeTab === 'trips' ? '#ffffff' : '#ef4444',
+                color: activeTab === 'trips' ? '#FF6333' : '#ffffff',
                 fontSize: '11px',
                 fontWeight: 800,
                 padding: '2px 7px',
                 borderRadius: '12px'
               }}>
                 {countNeedsDriver} New
+              </span>
+            ) : (
+              <span style={{
+                background: 'rgba(255,255,255,0.15)',
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '2px 7px',
+                borderRadius: '10px'
+              }}>
+                {allFilteredTrips.length} Total
               </span>
             )}
           </button>
@@ -1088,12 +1126,14 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
         }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>
-              {activeTab === 'dashboard' && 'Fleet Dashboard & Date-Wise Activity'}
+              {activeTab === 'dashboard' && 'Operations Dashboard'}
+              {activeTab === 'trips' && 'Trip History & Date-Wise Bookings'}
               {activeTab === 'vehicles' && 'My Vehicles (Add Cab for Customers)'}
               {activeTab === 'drivers' && 'Commercial Drivers Onboarding & Records'}
             </h1>
             <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#64748b' }}>
-              {activeTab === 'dashboard' && 'Every card is clickable. View trips by date, inspect driver details, passenger contact, and realized revenues.'}
+              {activeTab === 'dashboard' && 'Executive overview of active fleet, driver availability, and earnings.'}
+              {activeTab === 'trips' && 'Date-wise customer rides, pickup/drop routes, assigned cab plates, chauffeurs, and fares.'}
               {activeTab === 'vehicles' && 'Drag-and-drop vehicle photos and manage RC book records. Only added cabs appear on the customer app.'}
               {activeTab === 'drivers' && 'Upload chauffeur face photo, Commercial DL, and PSV badge records with clear required indicators.'}
             </p>
@@ -1246,19 +1286,21 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                 </div>
               </div>
 
-              {/* 3. Completed Trips (Clickable -> filters to Completed) */}
+              {/* 3. Completed Trips (Clickable -> switches to Trips tab) */}
               <div 
-                onClick={() => setStatusFilter(statusFilter === 'completed' ? 'all' : 'completed')}
-                title="Click to filter completed rides"
+                onClick={() => { setActiveTab('trips'); setStatusFilter('completed'); }}
+                title="Click to view all completed rides in Trips tab"
                 style={{
                   background: '#ffffff',
                   borderRadius: '16px',
                   padding: '18px 20px',
-                  border: statusFilter === 'completed' ? '2px solid #16a34a' : '1.5px solid #e2e8f0',
+                  border: '1.5px solid #e2e8f0',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease'
                 }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#16a34a'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
@@ -1272,23 +1314,25 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                   {countCompletedTrips}
                 </div>
                 <div style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: 700, marginTop: '6px' }}>
-                  {statusFilter === 'completed' ? 'Filtered: Showing Completed' : 'Click to filter completed trips'}
+                  Click to open Trips log →
                 </div>
               </div>
 
-              {/* 4. Rejected / Cancelled Trips (Clickable -> filters to Rejected) */}
+              {/* 4. Rejected / Cancelled Trips (Clickable -> switches to Trips tab) */}
               <div 
-                onClick={() => setStatusFilter(statusFilter === 'rejected' ? 'all' : 'rejected')}
-                title="Click to inspect cancelled or rejected rides"
+                onClick={() => { setActiveTab('trips'); setStatusFilter('rejected'); }}
+                title="Click to view cancelled rides in Trips tab"
                 style={{
                   background: '#ffffff',
                   borderRadius: '16px',
                   padding: '18px 20px',
-                  border: statusFilter === 'rejected' ? '2px solid #dc2626' : '1.5px solid #e2e8f0',
+                  border: '1.5px solid #e2e8f0',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease'
                 }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#dc2626'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
@@ -1302,7 +1346,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                   {countRejectedTrips}
                 </div>
                 <div style={{ fontSize: '11.5px', color: '#dc2626', fontWeight: 700, marginTop: '6px' }}>
-                  {statusFilter === 'rejected' ? 'Filtered: Showing Rejected' : 'Click to inspect cancelled trips'}
+                  Click to inspect cancelled trips →
                 </div>
               </div>
 
@@ -1339,6 +1383,221 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
               </div>
 
             </div>
+
+            {/* ── QUICK ACTIONS & OPERATIONS SUMMARY ────────────────────────── */}
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              padding: '18px 22px',
+              border: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '14px'
+            }}>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>Quick Operations Actions</div>
+                <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '2px' }}>Fast shortcuts to manage your vehicles, onboard drivers, or review customer trips.</div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleOpenAddVehicle}
+                  style={{
+                    background: 'linear-gradient(135deg, #FF6333 0%, #FF8A00 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '9px 16px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(255,99,51,0.25)'
+                  }}
+                >
+                  <Plus size={15} /> Add Vehicle
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddDriverOpen(true)}
+                  style={{
+                    background: '#16a34a',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '9px 16px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(22,163,74,0.25)'
+                  }}
+                >
+                  <Plus size={15} /> Onboard Driver
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('trips')}
+                  style={{
+                    background: '#0f172a',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '9px 16px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Navigation size={14} /> Open All Trips & Bookings →
+                </button>
+              </div>
+            </div>
+
+            {/* ── FLEET & DRIVER AVAILABILITY GLANCE ────────────────────────── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+              {/* Fleet status card */}
+              <div style={{ background: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Car size={16} color="#FF6333" />
+                    <span>Fleet Active Status</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setActiveTab('vehicles')}
+                    style={{ background: 'transparent', border: 'none', color: '#FF6333', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Manage Vehicles →
+                  </button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ flex: 1, background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>ACTIVE ON APP</div>
+                    <div style={{ fontSize: '20px', fontWeight: 900, color: '#16a34a', marginTop: '2px' }}>{countActiveVehicles} Cabs</div>
+                  </div>
+                  <div style={{ flex: 1, background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>TOTAL VEHICLES</div>
+                    <div style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>{countTotalVehicles} Cabs</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Driver duty status card */}
+              <div style={{ background: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Users size={16} color="#16a34a" />
+                    <span>Chauffeur Duty Status</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setActiveTab('drivers')}
+                    style={{ background: 'transparent', border: 'none', color: '#16a34a', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    View Drivers →
+                  </button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ flex: 1, background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>FREE FOR DUTY</div>
+                    <div style={{ fontSize: '20px', fontWeight: 900, color: '#16a34a', marginTop: '2px' }}>{countAvailableDrivers} Drivers</div>
+                  </div>
+                  <div style={{ flex: 1, background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>ONBOARDED ROSTER</div>
+                    <div style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>{countTotalDrivers} Drivers</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── RECENT BOOKINGS SNAPSHOT (LATEST 3-4 TRIPS) ──────────────── */}
+            <div style={{ background: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>Latest Trip Requests</div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>Recent bookings from Wow Goa customers. Open Trips tab for full date filters.</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('trips')}
+                  style={{
+                    background: '#FF6333',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '7px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  View All Trips & Date Filters →
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {allFilteredTrips.slice(0, 4).map((t) => (
+                  <div
+                    key={t.id}
+                    onClick={() => setActiveTab('trips')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      background: '#f8fafc',
+                      borderRadius: '10px',
+                      border: '1px solid #e2e8f0',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ fontSize: '20px' }}>🚕</div>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                          {t.customerName} <span style={{ color: '#64748b', fontWeight: 600 }}>({t.customerPhone})</span>
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#475569', marginTop: '2px' }}>
+                          {t.pickup} ➔ {t.drop}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>₹{t.fare}</div>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        fontSize: '10.5px',
+                        fontWeight: 800,
+                        marginTop: '2px',
+                        background: t.status === 'completed' ? '#dcfce7' : (t.status === 'cancelled' || t.status === 'rejected' ? '#fee2e2' : '#e0f2fe'),
+                        color: t.status === 'completed' ? '#15803d' : (t.status === 'cancelled' || t.status === 'rejected' ? '#b91c1c' : '#0369a1')
+                      }}>
+                        {t.status.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ─── TAB: TRIPS & DATE-WISE BOOKINGS (DEDICATED) ─────────────────── */}
+        {activeTab === 'trips' && (
+          <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '22px' }}>
 
             {/* ── FILTER BAR: DATE SELECTOR & SEARCH ──────────────────────── */}
             <div style={{
@@ -1931,30 +2190,9 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
           </div>
         )}
 
-        {/* ─── TAB 2: MY VEHICLES (ADD CAB & FLEET) ────────────────────────── */}
+        {/* ─── TAB: MY VEHICLES (ADD CAB & FLEET) ─────────────────────────── */}
         {activeTab === 'vehicles' && (
           <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* Informational Banner */}
-            <div style={{
-              background: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              borderRadius: '14px',
-              padding: '16px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px'
-            }}>
-              <div style={{ fontSize: '24px' }}>🚗</div>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 800, color: '#1e3a8a' }}>
-                  Customer Cab Display Notice
-                </div>
-                <div style={{ fontSize: '13px', color: '#1e40af', marginTop: '2px' }}>
-                  Only the active vehicles listed below with real photos and number plates will be shown to customers when they book a cab on Wow Goa.
-                </div>
-              </div>
-            </div>
 
             {/* Vehicles Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
@@ -2170,30 +2408,9 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
           </div>
         )}
 
-        {/* ─── TAB 3: COMMERCIAL DRIVERS ROSTER ───────────────────────────── */}
+        {/* ─── TAB: COMMERCIAL DRIVERS ROSTER ────────────────────────────── */}
         {activeTab === 'drivers' && (
           <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* Driver Banner */}
-            <div style={{
-              background: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              borderRadius: '14px',
-              padding: '16px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px'
-            }}>
-              <div style={{ fontSize: '24px' }}>👨‍✈️</div>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 800, color: '#166534' }}>
-                  Commercial Chauffeur Compliance & Verification
-                </div>
-                <div style={{ fontSize: '13px', color: '#15803d', marginTop: '2px' }}>
-                  Maintain official transport records: Driving License, Commercial PSV Badge, Police verification, and emergency contacts.
-                </div>
-              </div>
-            </div>
 
             {/* Drivers Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '18px' }}>
