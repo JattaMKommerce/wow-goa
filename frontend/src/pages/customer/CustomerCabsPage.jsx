@@ -76,8 +76,8 @@ const GOA_LOCATIONS = [
   { name: 'Dudhsagar Waterfalls Entry (Kulem)', category: 'South Goa Inland', region: 'Adventure Hub', popular: true }
 ];
 
-// Complete Tourist Fleet Categories (Normal, Sedan, Executive SUV, Luxury VIP, Maxi Coach)
-const TOURIST_VEHICLES = [
+// Complete Tourist Fleet Categories (Default starter fleet)
+const DEFAULT_TOURIST_VEHICLES = [
   {
     id: 'normal-hatchback',
     name: 'Normal Hatchback',
@@ -155,6 +155,20 @@ const TOURIST_VEHICLES = [
   }
 ];
 
+export const getActiveTaxiVehicles = () => {
+  try {
+    const raw = localStorage.getItem('wowgoa_taxi_vehicles');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const active = parsed.filter(v => v.active !== false);
+        if (active.length > 0) return active;
+      }
+    }
+  } catch (e) {}
+  return DEFAULT_TOURIST_VEHICLES;
+};
+
 export default function CustomerCabsPage({ onBookCab }) {
   // Page View Modes: 'landing' (Uber storefront first page) | 'booking' (Dedicated Tourist Booking Page) | 'confirmed'
   const [currentView, setCurrentView] = useState(() => {
@@ -189,9 +203,31 @@ export default function CustomerCabsPage({ onBookCab }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Filters on Dedicated Booking Page: Seats & Vehicle Class
+  const [availableVehicles, setAvailableVehicles] = useState(() => getActiveTaxiVehicles());
   const [seatFilter, setSeatFilter] = useState('all'); // 'all', '4', '6', '13'
   const [classFilter, setClassFilter] = useState('all'); // 'all', 'normal', 'sedan', 'suv', 'luxury', 'coach'
-  const [selectedVehicleId, setSelectedVehicleId] = useState('sedan-prime');
+  const [selectedVehicleId, setSelectedVehicleId] = useState(() => {
+    const list = getActiveTaxiVehicles();
+    return list[0]?.id || 'sedan-prime';
+  });
+
+  // Real-time synchronization when vehicle handler adds/modifies vehicles in portal
+  useEffect(() => {
+    const syncVehicles = () => {
+      const active = getActiveTaxiVehicles();
+      setAvailableVehicles(active);
+      setSelectedVehicleId(prev => {
+        if (active.some(v => v.id === prev)) return prev;
+        return active[0]?.id || 'sedan-prime';
+      });
+    };
+    window.addEventListener('storage', syncVehicles);
+    window.addEventListener('wowgoa_vehicles_updated', syncVehicles);
+    return () => {
+      window.removeEventListener('storage', syncVehicles);
+      window.removeEventListener('wowgoa_vehicles_updated', syncVehicles);
+    };
+  }, []);
 
   // Tourist Passenger Details
   const [touristName, setTouristName] = useState('');
@@ -637,9 +673,9 @@ export default function CustomerCabsPage({ onBookCab }) {
     return Math.round(base + extra);
   };
 
-  // Filtered Vehicles by Seats & Class
+  // Filtered Vehicles by Seats & Class (Only showing active vehicles added by fleet operator)
   const filteredVehicles = useMemo(() => {
-    return TOURIST_VEHICLES.filter(v => {
+    return availableVehicles.filter(v => {
       // Seat filter
       if (seatFilter === '4' && v.seats !== 4) return false;
       if (seatFilter === '6' && v.seats < 6) return false;
@@ -650,9 +686,9 @@ export default function CustomerCabsPage({ onBookCab }) {
 
       return true;
     });
-  }, [seatFilter, classFilter]);
+  }, [availableVehicles, seatFilter, classFilter]);
 
-  const selectedVehicle = TOURIST_VEHICLES.find(v => v.id === selectedVehicleId) || TOURIST_VEHICLES[1];
+  const selectedVehicle = availableVehicles.find(v => v.id === selectedVehicleId) || availableVehicles[0] || DEFAULT_TOURIST_VEHICLES[0];
 
   // Handler: Swap Pickup & Dropoff
   const handleSwapLocations = () => {
