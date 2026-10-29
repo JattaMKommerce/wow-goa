@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { getTodayDateStr, getNextDayDateStr, validateBookingDates } from '../utils/dateUtils';
 import UnifiedFilterPopover, { countActiveTabFilters } from './common/UnifiedFilterPopover';
-import { POPULAR_NATIONALITIES, VISA_TYPES } from './visa/VisaSection';
+import { POPULAR_NATIONALITIES, VISA_TYPES } from './visa/visaCountries';
 
 // ─── STATIC DATASETS ──────────────────────────────────────────────────────────
 
