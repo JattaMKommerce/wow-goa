@@ -3,13 +3,14 @@ import {
   Compass, LogOut, Box, Building, MessageSquare, CreditCard, Calendar,
   Plane, Hotel, Shield, LayoutDashboard, Globe, Users, Tag, BarChart2,
   ChevronDown, ChevronRight, Menu, Bell, Layers, FileText, Star, PlusCircle, Settings, X, UserPlus,
-  Briefcase, Gift, Clock, AlertCircle, Wallet, CheckCircle2, Map as MapIcon, DollarSign
+  Briefcase, Gift, Clock, AlertCircle, Wallet, CheckCircle2, Map as MapIcon, DollarSign, Car
 } from 'lucide-react';
 import * as api from '../../services/api';
 import AdminDashboard from './AdminDashboard';
 import AdminDashboardOverview from './AdminDashboardOverview';
 import AdminB2BPortal from './b2b/AdminB2BPortal';
 import VisaApplicationsManager from '../../components/superadmin/VisaApplicationsManager';
+import TaxiOperationsHub from '../taxi/TaxiOperationsHub';
 
 import AdminCMS from './AdminCMS';
 import AdminCustomerManagement from './AdminCustomerManagement';
@@ -76,8 +77,9 @@ const SIDEBAR_GROUPS = [
     ]
   },
   {
-    label: 'Partners',
+    label: 'Partners & Fleet',
     items: [
+      { id: 'taxi_crm', label: 'Taxi Dispatch & Fleet CRM', icon: <Car size={15} /> },
       { id: 'drivers', label: 'Driver Management', icon: <Users size={15} /> },
       { id: 'vendors', label: 'Vendor Management', icon: <Building size={15} /> },
       { id: 'wallets', label: 'Vendor Wallets', icon: <Wallet size={15} /> },
@@ -773,6 +775,11 @@ export default function AdminPortalPage({
       case 'b2b_non_commission_bookings':
       case 'b2b_settings':
         return <AdminB2BPortal activeSubTab={adminActiveTab} onNavigateSubTab={(sub) => setAdminActiveTab(sub)} />;
+
+      case 'taxi_crm':
+      case 'taxi_operations':
+      case 'taxi_dispatch':
+        return <TaxiOperationsHub initialTab="dispatch" onNavigateHome={() => setAdminActiveTab('overview')} />;
 
       case 'drivers':
         return <AdminDriverManagement currentUser={currentUser} bookings={liveBookings} onRefresh={loadAllAdminData} />;

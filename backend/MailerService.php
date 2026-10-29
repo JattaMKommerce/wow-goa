@@ -90,7 +90,7 @@ function sendSmtpEmail($toEmail, $subject, $htmlContent, $textFallback = '') {
 }
 
 function smtpSendInternal($host, $port, $isTls, $isSsl, $user, $pass, $from, $fromName, $to, $subject, $html, $textFallback) {
-    $timeout = 15;
+    $timeout = 4;
     $errno = 0;
     $errstr = '';
 

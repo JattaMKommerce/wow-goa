@@ -2015,6 +2015,21 @@ export default function App() {
       }
     }
 
+    // ── Dedicated Taxi Operations CRM Hub (Bookings, Drivers, Cabs) ───────────
+    if (path === '/taxi-portal' || path === '/taxi-crm' || path === '/taxi-dispatch' || 
+        path === '/taxi-drivers' || path === '/taxi-fleet' || path === '/taxi-chauffeur') {
+      const initialTab = path === '/taxi-chauffeur' 
+        ? 'chauffeur' 
+        : (path === '/taxi-fleet' ? 'fleet' : (path === '/taxi-drivers' ? 'drivers' : 'dispatch'));
+      return (
+        <TaxiOperationsHub
+          initialTab={initialTab}
+          onLogout={handleLogout}
+          onNavigateHome={() => handleTabChange('taxi')}
+        />
+      );
+    }
+
     // Taxi & Cab Vendor & Chauffeur route guard
     if (path === '/taxi-vendor' || path === '/chauffeur' || path === '/chauffer' || 
         ((currentUser?.role === 'taxi_vendor' || currentUser?.role === 'chauffeur' || currentUser?.role === 'chauffer' || currentUser?.role === 'dispatcher') && 

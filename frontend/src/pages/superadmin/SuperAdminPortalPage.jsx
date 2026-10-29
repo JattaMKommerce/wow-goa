@@ -9,6 +9,7 @@ import {
 import SuperAdminDashboard from './SuperAdminDashboard';
 import AdminReviewsManagement from '../admin/AdminReviewsManagement';
 import AdminStorefrontLeadsTab from '../admin/AdminStorefrontLeadsTab';
+import TaxiOperationsHub from '../taxi/TaxiOperationsHub';
 import * as api from '../../services/api';
 import { 
   aiLeadsData as defaultAiLeads, 
@@ -53,6 +54,7 @@ const SIDEBAR_GROUPS = [
   {
     label: 'Fleet & Drivers',
     items: [
+      { id: 'taxi_crm', label: 'Taxi Dispatch & Fleet CRM', icon: <Car size={15} /> },
       { id: 'drivers', label: 'Driver Management', icon: <Users size={15} /> },
     ]
   },
@@ -1179,6 +1181,8 @@ export default function SuperAdminPortalPage({
             <AdminReviewsManagement portalTitle="Super Admin Portal" onSelectTab={handleTabChange} />
           ) : activeTab === 'storefront_leads' ? (
             <AdminStorefrontLeadsTab />
+          ) : activeTab === 'taxi_crm' || activeTab === 'taxi_operations' || activeTab === 'taxi_dispatch' ? (
+            <TaxiOperationsHub initialTab="dispatch" onNavigateHome={() => handleTabChange('dashboard')} />
           ) : (
             <SuperAdminDashboard
               activeTab={activeTab}

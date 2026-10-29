@@ -20,6 +20,7 @@ import HotelBookingDriverSetting from '../../components/common/HotelBookingDrive
 import TripPackagesManagementView from '../../components/admin/TripPackagesManagementView';
 import BookingVoucher from '../../components/common/BookingVoucher';
 import VisaApplicationsManager from '../../components/superadmin/VisaApplicationsManager';
+import TaxiOperationsHub from '../taxi/TaxiOperationsHub';
 
 // ─── STAT CARD ───────────────────────────────────────────────────────────────
 function StatCard({ label, value, icon, color, trend, sub, onClick }) {
@@ -3510,6 +3511,10 @@ export default function SuperAdminDashboard({
     case 'b2b_non_commission_bookings':
     case 'b2b_settings':
       return <AdminB2BPortal activeSubTab={activeTab} onNavigateSubTab={(sub) => onNavigate(sub)} />;
+    case 'taxi_crm':
+    case 'taxi_dispatch':
+    case 'taxi_operations':
+      return <TaxiOperationsHub initialTab="dispatch" onNavigateHome={() => onNavigate('dashboard')} />;
     case 'drivers':
       return <AdminDriverManagement currentUser={currentUser} bookings={bookings} />;
     case 'admin_management':

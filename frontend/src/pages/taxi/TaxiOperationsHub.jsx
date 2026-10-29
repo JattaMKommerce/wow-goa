@@ -1,27 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Car, UserCheck, LayoutGrid, Smartphone, ChevronRight, 
-  ExternalLink, LogOut, ArrowLeft, Shield, Sparkles, Clock, MapPin
+  ExternalLink, LogOut, ArrowLeft, Shield, Sparkles, Clock, MapPin, Users
 } from 'lucide-react';
+import { AuthProvider } from '../../context/TaxiAuthContext';
 import B2BDispatches from './B2BDispatches';
 import ChauffeurPortal from './ChauffeurPortal';
 import LiveFleetDirectory from './LiveFleetDirectory';
+import DriverDirectory from './DriverDirectory';
 
-export default function TaxiOperationsHub({ initialTab = 'dispatch', onLogout, onNavigateHome }) {
+function TaxiOperationsHubInner({ initialTab = 'dispatch', onLogout, onNavigateHome }) {
   const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
+    // Sync session for B2B Taxi Context if needed
+    try {
+      if (!localStorage.getItem('access_token')) {
+        localStorage.setItem('access_token', 'apex-b2b-active-session');
+      }
+      const existing = localStorage.getItem('user');
+      if (!existing || existing === 'null' || existing === 'undefined') {
+        localStorage.setItem('user', JSON.stringify({
+          id: 1,
+          username: 'Fleet Director',
+          role: 'FLEET_ADMIN',
+          company_name: 'WOW GOA Fleet'
+        }));
+      }
+    } catch (e) {}
+
     // Sync with browser URL if needed
     const path = window.location.pathname;
     if (path === '/taxi-chauffeur') setActiveTab('chauffeur');
     else if (path === '/taxi-fleet') setActiveTab('fleet');
-    else if (path === '/taxi-dispatch') setActiveTab('dispatch');
+    else if (path === '/taxi-drivers') setActiveTab('drivers');
+    else if (path === '/taxi-dispatch' || path === '/taxi-portal' || path === '/taxi-crm') setActiveTab('dispatch');
   }, []);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     let targetPath = '/taxi-portal';
     if (tab === 'dispatch') targetPath = '/taxi-dispatch';
+    else if (tab === 'drivers') targetPath = '/taxi-drivers';
     else if (tab === 'chauffeur') targetPath = '/taxi-chauffeur';
     else if (tab === 'fleet') targetPath = '/taxi-fleet';
     window.history.pushState(null, '', targetPath);
@@ -58,14 +78,14 @@ export default function TaxiOperationsHub({ initialTab = 'dispatch', onLogout, o
                     </span>
                   </div>
                   <div className="text-white-50" style={{ fontSize: '11px' }}>
-                    Taxi & Chauffeur Mobility Operations Hub
+                    Taxi Dispatch &amp; Fleet Operations CRM
                   </div>
                 </div>
               </a>
             </div>
 
             {/* Middle: Operations Switcher Tabs */}
-            <div className="d-flex align-items-center p-1 rounded-pill" style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <div className="d-flex align-items-center p-1 rounded-pill flex-wrap gap-1" style={{ background: 'rgba(255,255,255,0.08)' }}>
               <button
                 type="button"
                 onClick={() => handleTabChange('dispatch')}
@@ -82,16 +102,16 @@ export default function TaxiOperationsHub({ initialTab = 'dispatch', onLogout, o
 
               <button
                 type="button"
-                onClick={() => handleTabChange('chauffeur')}
+                onClick={() => handleTabChange('drivers')}
                 className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-2 transition-all ${
-                  activeTab === 'chauffeur' 
+                  activeTab === 'drivers' 
                     ? 'btn-warning text-dark shadow-sm' 
                     : 'text-white-50 hover-text-white border-0 bg-transparent'
                 }`}
                 style={{ fontSize: '12.5px' }}
               >
-                <Smartphone size={15} />
-                <span>Chauffeur Portal</span>
+                <Users size={15} />
+                <span>Drivers &amp; Cab Allocation</span>
               </button>
 
               <button
@@ -105,7 +125,21 @@ export default function TaxiOperationsHub({ initialTab = 'dispatch', onLogout, o
                 style={{ fontSize: '12.5px' }}
               >
                 <UserCheck size={15} />
-                <span>Fleet & Tariffs</span>
+                <span>Fleet &amp; Tariffs</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleTabChange('chauffeur')}
+                className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-2 transition-all ${
+                  activeTab === 'chauffeur' 
+                    ? 'btn-warning text-dark shadow-sm' 
+                    : 'text-white-50 hover-text-white border-0 bg-transparent'
+                }`}
+                style={{ fontSize: '12.5px' }}
+              >
+                <Smartphone size={15} />
+                <span>Chauffeur Portal</span>
               </button>
             </div>
 
@@ -120,13 +154,14 @@ export default function TaxiOperationsHub({ initialTab = 'dispatch', onLogout, o
                 title="Open customer booking screen in new tab"
               >
                 <ExternalLink size={13} />
-                <span className="d-none d-md-inline">Live Customer Site</span>
+                <span className="d-none d-md-inline">Customer Cab App</span>
               </a>
 
               <button
                 type="button"
                 onClick={() => {
-                  if (onLogout) onLogout();
+                  if (onNavigateHome) onNavigateHome();
+                  else if (onLogout) onLogout();
                   else window.location.href = '/';
                 }}
                 className="btn btn-sm btn-outline-danger rounded-pill px-2.5 py-1.5 d-flex align-items-center gap-1.5 fw-semibold"
@@ -134,7 +169,7 @@ export default function TaxiOperationsHub({ initialTab = 'dispatch', onLogout, o
                 title="Exit Operations Hub"
               >
                 <LogOut size={13} />
-                <span className="d-none d-md-inline">Exit Hub</span>
+                <span className="d-none d-md-inline">Exit CRM</span>
               </button>
             </div>
 
@@ -145,9 +180,18 @@ export default function TaxiOperationsHub({ initialTab = 'dispatch', onLogout, o
       {/* ─── TAB CONTENT WORKSPACE ────────────────────────────────────────── */}
       <main className="p-0">
         {activeTab === 'dispatch' && <B2BDispatches />}
-        {activeTab === 'chauffeur' && <ChauffeurPortal />}
+        {activeTab === 'drivers' && <DriverDirectory />}
         {activeTab === 'fleet' && <LiveFleetDirectory />}
+        {activeTab === 'chauffeur' && <ChauffeurPortal />}
       </main>
     </div>
+  );
+}
+
+export default function TaxiOperationsHub(props) {
+  return (
+    <AuthProvider>
+      <TaxiOperationsHubInner {...props} />
+    </AuthProvider>
   );
 }

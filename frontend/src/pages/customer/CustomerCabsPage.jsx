@@ -661,10 +661,11 @@ export default function CustomerCabsPage({ onBookCab }) {
     setDropoffLocation(temp);
   };
 
-  // Handler: Navigate to Dedicated Booking Page
+  // Handler: Navigate to Dedicated Booking Page (Smooth booking flow with no QR modal)
   const handleOpenBookingPage = (serviceTitle = 'Point-to-Point') => {
     setServiceType(serviceTitle);
-    setShowAppBookingModal(true);
+    setShowAppBookingModal(false);
+    setCurrentView('booking');
   };
 
   const proceedToDedicatedBooking = () => {

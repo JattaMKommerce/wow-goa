@@ -8,7 +8,7 @@ dist-ssr/
 !frontend/dist/
 !frontend/dist/**
 frontend/dist/download/
-frontend/dist/download/*
+frontend/dist/download/**
 
 # Large Archives, APKs & zips
 *.zip
