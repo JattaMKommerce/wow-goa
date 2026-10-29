@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Car, Users, LayoutDashboard, Plus, Phone, MapPin, 
   CheckCircle2, Clock, AlertCircle, X, Trash2, Edit3, 
@@ -6,9 +6,10 @@ import {
   Calendar, DollarSign, Filter, Search, Award, FileText, 
   Check, ChevronRight, Eye, UserCheck, ShieldCheck, Fuel,
   Compass, Navigation, Download, UploadCloud, Camera, Image as ImageIcon,
-  FileCheck, Star
+  FileCheck, Star, Bell, BellRing
 } from 'lucide-react';
 import { fetchCustomerPastTrips, uploadImage } from '../../services/api';
+import { playNotificationSound } from '../../utils/notificationSound';
 
 // High-quality car photo presets matching Wow Goa fleet
 const CAR_PHOTO_PRESETS = [
@@ -246,6 +247,153 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
   const [customDate, setCustomDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingBookings, setLoadingBookings] = useState(false);
+
+  // ── 4. Unified Real-Time Notifications State ────────────────────────────────
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wowgoa_taxi_notifications');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [activeToast, setActiveToast] = useState(null);
+  const activeToastTimerRef = useRef(null);
+  const knownBookingStatusesRef = useRef(new Map());
+  const seenNotifKeysRef = useRef(new Set());
+  const isFirstLoadRef = useRef(true);
+  const notifDropdownRef = useRef(null);
+
+  const unreadCount = useMemo(() => {
+    return notifications.filter(n => !n.read).length;
+  }, [notifications]);
+
+  // Click outside to close notification dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(e.target)) {
+        setIsNotifOpen(false);
+      }
+    };
+    if (isNotifOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isNotifOpen]);
+
+  // Trigger Notification (Single source of truth with strict deduplication)
+  const triggerNotification = (notifData) => {
+    const { type, booking, title, message } = notifData;
+    if (!booking || !booking.id) return;
+
+    // Strict deduplication key: bookingId + type + status
+    const dedupKey = `${booking.id}_${type}_${booking.status || ''}`;
+    if (seenNotifKeysRef.current.has(dedupKey)) {
+      return; // Already notified, do NOT repeat!
+    }
+    seenNotifKeysRef.current.add(dedupKey);
+
+    const newNotif = {
+      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      type, // 'BOOKED' | 'ACCEPTED' | 'REJECTED'
+      title: title || (type === 'BOOKED' ? `New Cab Booking: #${booking.id}` : (type === 'ACCEPTED' ? `Ride Accepted: #${booking.id}` : `Ride Cancelled: #${booking.id}`)),
+      message: message || `${booking.customer || 'Goa Guest'} · ${booking.service || 'Trip'}`,
+      bookingId: booking.id,
+      customer: booking.customer || 'Goa Guest',
+      phone: booking.phone || '',
+      service: booking.service || `${booking.pickup || 'Goa'} ➔ ${booking.dropoff || 'Goa'}`,
+      amount: booking.amount || 0,
+      status: booking.status || type,
+      timestamp: Date.now(),
+      read: false
+    };
+
+    setNotifications(prev => {
+      const updated = [newNotif, ...prev.filter(n => n.id !== newNotif.id)].slice(0, 50);
+      try {
+        localStorage.setItem('wowgoa_taxi_notifications', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    // Play pleasant audio chime
+    try {
+      playNotificationSound(`${type.toLowerCase()}_${booking.id}`);
+    } catch (e) {}
+
+    // Show single desktop toast alert (smoothly replaces any previous toast)
+    if (activeToastTimerRef.current) {
+      clearTimeout(activeToastTimerRef.current);
+    }
+    setActiveToast(newNotif);
+    activeToastTimerRef.current = setTimeout(() => {
+      setActiveToast(null);
+    }, 6000);
+
+    // Trigger native OS desktop notification if permitted
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(newNotif.title, {
+          body: newNotif.message,
+          icon: '/favicon.ico'
+        });
+      } catch (e) {}
+    }
+  };
+
+  const markAllNotifsAsRead = () => {
+    setNotifications(prev => {
+      const updated = prev.map(n => ({ ...n, read: true }));
+      try {
+        localStorage.setItem('wowgoa_taxi_notifications', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const clearAllNotifs = () => {
+    setNotifications([]);
+    try {
+      localStorage.setItem('wowgoa_taxi_notifications', JSON.stringify([]));
+    } catch (e) {}
+  };
+
+  const handleSelectNotification = (notif) => {
+    // Mark as read
+    setNotifications(prev => {
+      const updated = prev.map(n => n.id === notif.id ? { ...n, read: true } : n);
+      try {
+        localStorage.setItem('wowgoa_taxi_notifications', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    // Navigate straight to trips tab with this booking filtered
+    setActiveTab('trips');
+    setSearchTerm(notif.bookingId);
+    setDateFilter('all');
+    setStatusFilter('all');
+    setIsNotifOpen(false);
+    setActiveToast(null);
+  };
+
+  const requestDesktopNotificationPermission = async () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') {
+          new Notification('Wow Goa Fleet Alerts Enabled', {
+            body: 'You will receive real-time alerts when cabs are booked, accepted, or cancelled.',
+            icon: '/favicon.ico'
+          });
+        }
+      } catch (e) {}
+    }
+  };
 
   // ── Modals State ────────────────────────────────────────────────────────────
   const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
@@ -501,6 +649,53 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
         localStorage.setItem('wowgoa_taxi_dispatches', JSON.stringify(combined));
       }
 
+      // Detect changes and trigger notifications (Zero repetition)
+      if (isFirstLoadRef.current) {
+        // Silently memorize initial bookings so existing trips don't spam notifications
+        combined.forEach(b => {
+          if (b && b.id) {
+            knownBookingStatusesRef.current.set(b.id, b.status || 'Requested');
+          }
+        });
+        isFirstLoadRef.current = false;
+      } else {
+        // Subsequent polling / updates: detect brand new bookings and status transitions
+        combined.forEach(b => {
+          if (!b || !b.id) return;
+          const prevStatus = knownBookingStatusesRef.current.get(b.id);
+
+          if (!knownBookingStatusesRef.current.has(b.id)) {
+            // BRAND NEW CAB BOOKING
+            knownBookingStatusesRef.current.set(b.id, b.status || 'Requested');
+            triggerNotification({
+              type: 'BOOKED',
+              booking: b,
+              title: `New Cab Booking: #${b.id}`,
+              message: `${b.customer || 'Goa Guest'} booked ${b.service || `${b.pickup || 'Goa'} ➔ ${b.dropoff || 'Goa'}`} (₹${b.amount || 0})`
+            });
+          } else if (prevStatus !== b.status) {
+            // STATUS TRANSITION (ACCEPTED OR REJECTED)
+            knownBookingStatusesRef.current.set(b.id, b.status);
+            const norm = (b.status || '').toLowerCase();
+            if (norm.includes('arrived') || norm.includes('progress') || norm.includes('allocated') || norm.includes('accept') || norm.includes('completed')) {
+              triggerNotification({
+                type: 'ACCEPTED',
+                booking: b,
+                title: `Ride Accepted: #${b.id}`,
+                message: `Chauffeur ${b.chauffeur || 'Driver'} assigned for ${b.customer || 'Guest'} (${b.service || 'Trip'})`
+              });
+            } else if (norm.includes('reject') || norm.includes('cancel')) {
+              triggerNotification({
+                type: 'REJECTED',
+                booking: b,
+                title: `Ride Cancelled: #${b.id}`,
+                message: `Booking #${b.id} was cancelled / rejected${b.rejectionReason ? ` (${b.rejectionReason})` : ''}`
+              });
+            }
+          }
+        });
+      }
+
       setBookings(combined);
     } catch (e) {
       console.warn('Error loading bookings:', e);
@@ -518,9 +713,16 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
 
     window.addEventListener('storage', handleBookingUpdate);
     window.addEventListener('wowgoa_dispatch_updated', handleBookingUpdate);
+
+    // Periodic live sync every 5 seconds for real-time customer bookings
+    const pollTimer = setInterval(() => {
+      loadBookings();
+    }, 5000);
+
     return () => {
       window.removeEventListener('storage', handleBookingUpdate);
       window.removeEventListener('wowgoa_dispatch_updated', handleBookingUpdate);
+      clearInterval(pollTimer);
     };
   }, []);
 
@@ -553,6 +755,28 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
     });
     setBookings(updated);
     localStorage.setItem('wowgoa_taxi_dispatches', JSON.stringify(updated));
+
+    // Update known status map and trigger immediate feedback notification
+    knownBookingStatusesRef.current.set(id, newStatus);
+    const targetBooking = bookings.find(b => b.id === id);
+    if (targetBooking) {
+      const norm = newStatus.toLowerCase();
+      if (norm.includes('reject') || norm.includes('cancel')) {
+        triggerNotification({
+          type: 'REJECTED',
+          booking: { ...targetBooking, status: newStatus, rejectionReason: reason },
+          title: `Ride Cancelled: #${id}`,
+          message: `Booking #${id} was cancelled / rejected${reason ? ` (${reason})` : ''}`
+        });
+      } else {
+        triggerNotification({
+          type: 'ACCEPTED',
+          booking: { ...targetBooking, status: newStatus },
+          title: `Ride Updated: #${id}`,
+          message: `Booking #${id} status updated to ${newStatus}`
+        });
+      }
+    }
 
     // Also sync active ride
     try {
@@ -856,7 +1080,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
       
       {/* ─── LEFT SIDEBAR (WOW GOA STYLE) ─────────────────────────────────── */}
       <aside style={{
-        width: '260px',
+        width: '265px',
         background: '#081225',
         color: '#ffffff',
         display: 'flex',
@@ -942,47 +1166,58 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
               alignItems: 'center',
               justifyContent: 'space-between',
               width: '100%',
-              padding: '12px 14px',
+              padding: '11px 12px',
               borderRadius: '10px',
               border: 'none',
               background: activeTab === 'trips' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
               color: activeTab === 'trips' ? '#ffffff' : 'rgba(255,255,255,0.7)',
               fontWeight: activeTab === 'trips' ? 700 : 500,
-              fontSize: '13.5px',
+              fontSize: '13px',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
-              textAlign: 'left'
+              textAlign: 'left',
+              gap: '6px'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Navigation size={18} color={activeTab === 'trips' ? '#ffffff' : '#00B8D9'} />
-              <span>Trip Records & Bookings</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0, overflow: 'hidden' }}>
+              <Navigation size={17} color={activeTab === 'trips' ? '#ffffff' : '#00B8D9'} style={{ flexShrink: 0 }} />
+              <span style={{ whiteSpace: 'nowrap' }}>Trips & Bookings</span>
             </div>
             {countNeedsDriver > 0 ? (
               <span style={{
                 background: activeTab === 'trips' ? '#ffffff' : '#ef4444',
                 color: activeTab === 'trips' ? '#FF6333' : '#ffffff',
-                fontSize: '11px',
+                fontSize: '10.5px',
                 fontWeight: 800,
-                padding: '2px 7px',
-                borderRadius: '12px'
+                padding: '2.5px 8px',
+                borderRadius: '9999px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                lineHeight: 1
               }}>
                 {countNeedsDriver} New
               </span>
             ) : (
               <span style={{
                 background: 'rgba(255,255,255,0.15)',
-                fontSize: '11px',
+                fontSize: '10.5px',
                 fontWeight: 700,
-                padding: '2px 7px',
-                borderRadius: '10px'
+                padding: '2.5px 8px',
+                borderRadius: '9999px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                lineHeight: 1
               }}>
                 {bookings.length} Total
               </span>
             )}
           </button>
 
-          {/* 2. Vehicles (Add Cab & Fleet) */}
+          {/* 3. Vehicles (Add Cab & Fleet) */}
           <button
             type="button"
             onClick={() => setActiveTab('vehicles')}
@@ -991,34 +1226,40 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
               alignItems: 'center',
               justifyContent: 'space-between',
               width: '100%',
-              padding: '12px 14px',
+              padding: '11px 12px',
               borderRadius: '10px',
               border: 'none',
               background: activeTab === 'vehicles' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
               color: activeTab === 'vehicles' ? '#ffffff' : 'rgba(255,255,255,0.7)',
               fontWeight: activeTab === 'vehicles' ? 700 : 500,
-              fontSize: '13.5px',
+              fontSize: '13px',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
-              textAlign: 'left'
+              textAlign: 'left',
+              gap: '6px'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Car size={18} color={activeTab === 'vehicles' ? '#ffffff' : '#00B8D9'} />
-              <span>My Vehicles ({countTotalVehicles})</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0, overflow: 'hidden' }}>
+              <Car size={17} color={activeTab === 'vehicles' ? '#ffffff' : '#00B8D9'} style={{ flexShrink: 0 }} />
+              <span style={{ whiteSpace: 'nowrap' }}>My Vehicles ({countTotalVehicles})</span>
             </div>
             <span style={{
               background: 'rgba(255,255,255,0.15)',
-              fontSize: '11px',
+              fontSize: '10.5px',
               fontWeight: 700,
-              padding: '2px 7px',
-              borderRadius: '10px'
+              padding: '2.5px 8px',
+              borderRadius: '9999px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              lineHeight: 1
             }}>
               {countActiveVehicles} Active
             </span>
           </button>
 
-          {/* 3. Drivers */}
+          {/* 4. Drivers */}
           <button
             type="button"
             onClick={() => setActiveTab('drivers')}
@@ -1027,28 +1268,34 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
               alignItems: 'center',
               justifyContent: 'space-between',
               width: '100%',
-              padding: '12px 14px',
+              padding: '11px 12px',
               borderRadius: '10px',
               border: 'none',
               background: activeTab === 'drivers' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
               color: activeTab === 'drivers' ? '#ffffff' : 'rgba(255,255,255,0.7)',
               fontWeight: activeTab === 'drivers' ? 700 : 500,
-              fontSize: '13.5px',
+              fontSize: '13px',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
-              textAlign: 'left'
+              textAlign: 'left',
+              gap: '6px'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Users size={18} color={activeTab === 'drivers' ? '#ffffff' : '#00B8D9'} />
-              <span>Drivers ({countTotalDrivers})</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0, overflow: 'hidden' }}>
+              <Users size={17} color={activeTab === 'drivers' ? '#ffffff' : '#00B8D9'} style={{ flexShrink: 0 }} />
+              <span style={{ whiteSpace: 'nowrap' }}>Drivers ({countTotalDrivers})</span>
             </div>
             <span style={{
               background: 'rgba(255,255,255,0.15)',
-              fontSize: '11px',
+              fontSize: '10.5px',
               fontWeight: 700,
-              padding: '2px 7px',
-              borderRadius: '10px'
+              padding: '2.5px 8px',
+              borderRadius: '9999px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              lineHeight: 1
             }}>
               {countAvailableDrivers} Free
             </span>
@@ -1140,6 +1387,255 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* ── NOTIFICATION BELL WITH LIVE FEED DROPDOWN ──────────────── */}
+            <div ref={notifDropdownRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setIsNotifOpen(prev => !prev)}
+                title="Cab Bookings, Acceptances & Cancellations"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  background: unreadCount > 0 ? '#fff7ed' : '#f8fafc',
+                  border: unreadCount > 0 ? '1.5px solid #fdba74' : '1px solid #cbd5e1',
+                  color: unreadCount > 0 ? '#c2410c' : '#334155',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {unreadCount > 0 ? (
+                  <BellRing size={15} color="#FF6333" className="animate-bounce" />
+                ) : (
+                  <Bell size={15} color="#64748b" />
+                )}
+                <span>Notifications</span>
+                {unreadCount > 0 && (
+                  <span style={{
+                    background: '#FF6333',
+                    color: '#ffffff',
+                    fontSize: '10.5px',
+                    fontWeight: 800,
+                    padding: '2px 7px',
+                    borderRadius: '9999px',
+                    lineHeight: '1',
+                    display: 'inline-flex',
+                    alignItems: 'center'
+                  }}>
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Dropdown Menu */}
+              {isNotifOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: '390px',
+                  maxWidth: '90vw',
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  boxShadow: '0 12px 36px rgba(0,0,0,0.14)',
+                  border: '1px solid #e2e8f0',
+                  zIndex: 2000,
+                  overflow: 'hidden'
+                }}>
+                  {/* Dropdown Header */}
+                  <div style={{
+                    padding: '14px 18px',
+                    background: '#081225',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Bell size={16} color="#FF8A00" />
+                      <span style={{ fontWeight: 800, fontSize: '14px' }}>Ride Alerts & Feed</span>
+                      {unreadCount > 0 && (
+                        <span style={{
+                          background: '#FF6333',
+                          color: '#ffffff',
+                          fontSize: '10.5px',
+                          fontWeight: 800,
+                          padding: '1px 6px',
+                          borderRadius: '10px'
+                        }}>
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {unreadCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={markAllNotifsAsRead}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#93c5fd',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                      {notifications.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={clearAllNotifs}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#f87171',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Desktop Notification Banner */}
+                  {typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'granted' && (
+                    <div style={{
+                      padding: '10px 16px',
+                      background: '#f0fdf4',
+                      borderBottom: '1px solid #bbf7d0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '12px'
+                    }}>
+                      <span style={{ color: '#166534', fontWeight: 600 }}>Enable OS desktop alerts:</span>
+                      <button
+                        type="button"
+                        onClick={requestDesktopNotificationPermission}
+                        style={{
+                          background: '#16a34a',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                          fontSize: '11px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Enable Now
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Notification List */}
+                  <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: '36px 20px', textAlign: 'center', color: '#64748b' }}>
+                        <div style={{ fontSize: '28px', marginBottom: '8px' }}>🔔</div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                          No notifications yet
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                          Whenever a cab is booked, accepted, or cancelled, it will appear here in real time.
+                        </div>
+                      </div>
+                    ) : (
+                      notifications.map(n => (
+                        <div
+                          key={n.id}
+                          onClick={() => handleSelectNotification(n)}
+                          style={{
+                            padding: '12px 16px',
+                            borderBottom: '1px solid #f1f5f9',
+                            background: n.read ? '#ffffff' : '#f8fafc',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            gap: '12px',
+                            alignItems: 'flex-start',
+                            transition: 'background 0.1s ease'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+                          onMouseLeave={e => e.currentTarget.style.background = n.read ? '#ffffff' : '#f8fafc'}
+                        >
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '10px',
+                            background: n.type === 'BOOKED' ? '#fff7ed' : (n.type === 'ACCEPTED' ? '#dcfce7' : '#fee2e2'),
+                            color: n.type === 'BOOKED' ? '#ea580c' : (n.type === 'ACCEPTED' ? '#16a34a' : '#dc2626'),
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            marginTop: '2px'
+                          }}>
+                            {n.type === 'BOOKED' && <Car size={16} />}
+                            {n.type === 'ACCEPTED' && <CheckCircle2 size={16} />}
+                            {n.type === 'REJECTED' && <AlertCircle size={16} />}
+                          </div>
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                              <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0f172a' }}>
+                                {n.title}
+                              </span>
+                              <span style={{ fontSize: '10.5px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                                {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+
+                            <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', lineHeight: '1.3' }}>
+                              {n.message}
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '5px' }}>
+                              <span style={{
+                                fontSize: '10.5px',
+                                fontWeight: 700,
+                                color: '#0284c7',
+                                background: '#e0f2fe',
+                                padding: '1px 6px',
+                                borderRadius: '4px'
+                              }}>
+                                #{n.bookingId}
+                              </span>
+                              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                                Click to open trip →
+                              </span>
+                            </div>
+                          </div>
+
+                          {!n.read && (
+                            <div style={{
+                              width: '7px',
+                              height: '7px',
+                              borderRadius: '50%',
+                              background: '#FF6333',
+                              marginTop: '6px',
+                              flexShrink: 0
+                            }} />
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={loadBookings}
@@ -3610,6 +4106,118 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                 Close Audit
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── SINGLE DESKTOP SLIDE-IN TOAST ALERT (NON-REPEATING) ────────── */}
+      {activeToast && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '24px',
+            right: '24px',
+            zIndex: 99999,
+            width: '380px',
+            maxWidth: 'calc(100vw - 32px)',
+            background: '#081225',
+            color: '#ffffff',
+            borderRadius: '16px',
+            borderLeft: `5px solid ${
+              activeToast.type === 'BOOKED' ? '#FF6333' : 
+              activeToast.type === 'ACCEPTED' ? '#16a34a' : '#dc2626'
+            }`,
+            boxShadow: '0 20px 45px rgba(0,0,0,0.35)',
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            borderRight: '1px solid rgba(255,255,255,0.08)',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            padding: '16px 18px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{
+                background: activeToast.type === 'BOOKED' ? 'rgba(255,99,51,0.22)' : 
+                            activeToast.type === 'ACCEPTED' ? 'rgba(22,163,74,0.22)' : 'rgba(220,38,38,0.22)',
+                color: activeToast.type === 'BOOKED' ? '#FF8A00' : 
+                       activeToast.type === 'ACCEPTED' ? '#4ade80' : '#f87171',
+                padding: '3px 9px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: 800,
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}>
+                {activeToast.type === 'BOOKED' && <Car size={13} />}
+                {activeToast.type === 'ACCEPTED' && <CheckCircle2 size={13} />}
+                {activeToast.type === 'REJECTED' && <AlertCircle size={13} />}
+                <span>
+                  {activeToast.type === 'BOOKED' ? 'Cab Booked' : 
+                   activeToast.type === 'ACCEPTED' ? 'Ride Accepted' : 'Ride Cancelled'}
+                </span>
+              </span>
+              <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Just now</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveToast(null)}
+              style={{
+                background: 'rgba(255,255,255,0.08)',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                borderRadius: '6px',
+                width: '24px',
+                height: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>
+              {activeToast.title}
+            </div>
+            <div style={{ fontSize: '12.5px', color: '#cbd5e1', marginTop: '3px', lineHeight: '1.4' }}>
+              {activeToast.message}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px' }}>
+            <button
+              type="button"
+              onClick={() => handleSelectNotification(activeToast)}
+              style={{
+                background: 'linear-gradient(135deg, #FF6333 0%, #FF8A00 100%)',
+                border: 'none',
+                color: '#ffffff',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                boxShadow: '0 2px 8px rgba(255,99,51,0.3)'
+              }}
+            >
+              <span>View Ride Dossier</span>
+              <ArrowRight size={13} />
+            </button>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>
+              Auto-dismisses in 6s
+            </span>
           </div>
         </div>
       )}

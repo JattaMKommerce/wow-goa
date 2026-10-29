@@ -42,3 +42,6 @@ scratch/
 *.sqlite-wal
 backend/*.sqlite-shm
 backend/*.sqlite-wal
+
+# Zip packages
+*.zip
