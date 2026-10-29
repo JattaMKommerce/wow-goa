@@ -580,9 +580,7 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
       bags: 3,
       fuel: 'Petrol',
       transmission: 'Manual',
-      baseFare: 350,
-      perKm: 24,
-      image: CAR_PHOTO_PRESETS[1].url,
+      image: '',
       has_ac: true,
       has_fastag: true,
       has_carrier: false,
@@ -1945,37 +1943,17 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
               padding: '16px 20px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '14px'
+              gap: '12px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ fontSize: '24px' }}>🚗</div>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#1e3a8a' }}>
-                    Customer Cab Display Notice
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#1e40af', marginTop: '2px' }}>
-                    Only the active vehicles listed below with real photos and number plates will be shown to customers when they book a cab on Wow Goa.
-                  </div>
+              <div style={{ fontSize: '24px' }}>🚗</div>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#1e3a8a' }}>
+                  Customer Cab Display Notice
+                </div>
+                <div style={{ fontSize: '13px', color: '#1e40af', marginTop: '2px' }}>
+                  Only the active vehicles listed below with real photos and number plates will be shown to customers when they book a cab on Wow Goa.
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleOpenAddVehicle}
-                style={{
-                  background: 'linear-gradient(135deg, #FF6333 0%, #FF8A00 100%)',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '9px 16px',
-                  borderRadius: '8px',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  flexShrink: 0
-                }}
-              >
-                + Add New Cab
-              </button>
             </div>
 
             {/* Vehicles Grid */}
@@ -2204,37 +2182,17 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
               padding: '16px 20px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '14px'
+              gap: '12px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ fontSize: '24px' }}>👨‍✈️</div>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#166534' }}>
-                    Commercial Chauffeur Compliance & Verification
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#15803d', marginTop: '2px' }}>
-                    Maintain official transport records: Driving License, Commercial PSV Badge, Police verification, and emergency contacts.
-                  </div>
+              <div style={{ fontSize: '24px' }}>👨‍✈️</div>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#166534' }}>
+                  Commercial Chauffeur Compliance & Verification
+                </div>
+                <div style={{ fontSize: '13px', color: '#15803d', marginTop: '2px' }}>
+                  Maintain official transport records: Driving License, Commercial PSV Badge, Police verification, and emergency contacts.
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsAddDriverOpen(true)}
-                style={{
-                  background: '#16a34a',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '9px 16px',
-                  borderRadius: '8px',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  flexShrink: 0
-                }}
-              >
-                + Onboard New Driver
-              </button>
             </div>
 
             {/* Drivers Grid */}
@@ -2527,44 +2485,6 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                         </button>
                       )}
                     </div>
-                  </div>
-                </div>
-
-                {/* 1-Click Popular Presets */}
-                <div style={{ marginTop: '10px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '5px' }}>
-                    Or 1-Click Choose Authentic Goa Fleet Preset:
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                    {CAR_PHOTO_PRESETS.map((preset, pIdx) => (
-                      <div
-                        key={pIdx}
-                        onClick={() => setVehicleForm({
-                          ...vehicleForm,
-                          image: preset.url,
-                          classType: preset.type,
-                          seats: preset.seats,
-                          name: preset.name.split('(')[0].trim(),
-                          model: preset.name.split('(')[0].trim()
-                        })}
-                        style={{
-                          borderRadius: '8px',
-                          overflow: 'hidden',
-                          border: vehicleForm.image === preset.url ? '2px solid #FF6333' : '1px solid #cbd5e1',
-                          cursor: 'pointer',
-                          background: '#ffffff',
-                          padding: '4px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <img src={preset.url} alt={preset.name} style={{ width: '32px', height: '24px', objectFit: 'cover', borderRadius: '4px' }} />
-                        <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                          {preset.name.split('(')[0]}
-                        </span>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>
@@ -3044,28 +2964,6 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                       )}
                     </div>
                   </div>
-                </div>
-
-                {/* 1-Click Pick Presets */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>Or 1-Click Pick:</span>
-                  {DRIVER_PHOTO_PRESETS.map((p, idx) => (
-                    <img
-                      key={idx}
-                      src={p.url}
-                      alt={p.name}
-                      title={p.name}
-                      onClick={() => setDriverForm(f => ({ ...f, photo: p.url }))}
-                      style={{
-                        width: '30px',
-                        height: '30px',
-                        borderRadius: '50%',
-                        objectFit: 'cover',
-                        cursor: 'pointer',
-                        border: driverForm.photo === p.url ? '2px solid #16a34a' : '1px solid #cbd5e1'
-                      }}
-                    />
-                  ))}
                 </div>
               </div>
 
