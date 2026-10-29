@@ -1072,9 +1072,13 @@ export default function CustomerCabsPage({ onBookCab }) {
                       background: isSelected ? '#f7f7f7' : '#fff',
                       transition: 'all 0.15s ease'
                     }}>
-                    {/* Vehicle icon */}
-                    <div style={{ width: '52px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: '30px', lineHeight: 1 }}>{v.icon}</span>
+                    {/* Vehicle image / icon */}
+                    <div style={{ width: '54px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', borderRadius: '6px' }}>
+                      {v.image ? (
+                        <img src={v.image} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ fontSize: '28px', lineHeight: 1 }}>{v.icon || '🚗'}</span>
+                      )}
                     </div>
 
                     {/* Info */}
@@ -1088,7 +1092,7 @@ export default function CustomerCabsPage({ onBookCab }) {
                         {v.badge === 'Family Favorite' && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: '4px', padding: '1px 5px', fontSize: '10px', fontWeight: 600 }}>Good deal</span>}
                       </div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                        {v.eta} min · {v.features[0]}
+                        {v.eta || 4} min · {v.desc || (v.features && v.features[0]) || `${v.fuel || 'Petrol'} · AC`}
                       </div>
                     </div>
 
