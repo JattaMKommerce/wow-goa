@@ -2381,26 +2381,26 @@ export default function SearchWidget({
                 onClick={() => setActiveDropdown(activeDropdown === 'visa-airport' ? null : 'visa-airport')}
               >
                 <span className="input-block-label d-flex align-items-center justify-content-between">
-                  <span className="d-flex align-items-center gap-1"><Plane size={13} className="text-warning" /> Goa Port of Entry</span>
+                  <span className="d-flex align-items-center gap-1"><Plane size={13} className="text-warning" /> Port of Entry</span>
                   <ChevronDown size={14} />
                 </span>
                 <div className="input-block-val text-truncate">
                   {visaAirport === 'GOI' ? 'Dabolim Airport (GOI)' : visaAirport === 'SEAPORT' ? 'Mormugao Seaport' : 'Manohar Intl Mopa (GOX)'}
                 </div>
-                <span className="input-block-sub">e-Visa Biometric Counters Verified</span>
+                <span className="input-block-sub">Designated Entry Port</span>
 
                 {activeDropdown === 'visa-airport' && (
                   <div className="tg-popover-card shadow-xl p-3" style={{ width: '320px' }} onClick={e => e.stopPropagation()}>
                     <div className="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
-                      <span className="fw-bold text-dark small"><Plane size={14} className="text-warning me-1" /> Authorized Goa Ports</span>
+                      <span className="fw-bold text-dark small"><Plane size={14} className="text-warning me-1" /> Designated Entry Ports</span>
                       <button type="button" className="btn btn-sm btn-link p-0 text-muted" onClick={() => setActiveDropdown(null)}><X size={16} /></button>
                     </div>
 
                     <div className="d-flex flex-column gap-2">
                       {[
-                        { code: 'GOX', name: 'Manohar Intl Airport (Mopa - GOX)', desc: 'North Goa International Gateway · Fast e-Visa biometric queues', tag: 'Recommended' },
-                        { code: 'GOI', name: 'Dabolim International Airport (GOI)', desc: 'Central/South Goa Airport · Dedicated e-Visa immigration counter', tag: 'South Goa' },
-                        { code: 'SEAPORT', name: 'Mormugao Seaport (Cruise Terminal)', desc: 'Designated international seaport for authorized cruise arrivals', tag: 'Cruise Ships' }
+                        { code: 'GOX', name: 'Manohar Intl Airport (Mopa - GOX)', desc: 'North Goa International Gateway', tag: 'Recommended' },
+                        { code: 'GOI', name: 'Dabolim International Airport (GOI)', desc: 'Central/South Goa Airport', tag: 'South Goa' },
+                        { code: 'SEAPORT', name: 'Mormugao Seaport (Cruise Terminal)', desc: 'Designated international cruise seaport', tag: 'Cruise Ships' }
                       ].map(port => (
                         <div
                           key={port.code}
@@ -2441,7 +2441,7 @@ export default function SearchWidget({
                 {activeDropdown === 'visa-date' && (
                   <div className="tg-popover-card shadow-xl p-3" onClick={e => e.stopPropagation()}>
                     <CalendarPickerView
-                      title="Expected Landing Date in Goa"
+                      title="Expected Arrival Date"
                       selectedDate={pickupDate}
                       minDate={todayStr}
                       onSelect={(d) => {

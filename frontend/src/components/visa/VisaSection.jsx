@@ -19,7 +19,6 @@ export default function VisaSection({
   setActiveTab,
   initialCountry,
   initialType,
-  initialAirport,
   initialTravelDate
 }) {
   const [selectedCountry, setSelectedCountry] = useState(initialCountry || 'GB');
@@ -32,8 +31,6 @@ export default function VisaSection({
     passportNumber: '',
     passportExpiry: '',
     arrivalDate: initialTravelDate || '',
-    arrivalPort: initialAirport || 'GOX',
-    stayLocation: '',
     email: '',
     phoneCode: '+44',
     phone: '',
@@ -60,12 +57,6 @@ export default function VisaSection({
   useEffect(() => {
     if (initialType) setSelectedType(initialType);
   }, [initialType]);
-
-  useEffect(() => {
-    if (initialAirport) {
-      setFormData(prev => ({ ...prev, arrivalPort: initialAirport }));
-    }
-  }, [initialAirport]);
 
   useEffect(() => {
     if (initialTravelDate) {
@@ -133,7 +124,7 @@ export default function VisaSection({
         name: formData.fullName.trim(),
         phone: cleanPhone,
         email: formData.email.trim(),
-        source: 'Goa Tourist Visa',
+        source: 'Tourist Visa',
         service: `${visa.title} (${country.name})`,
         status: 'New',
         notes: [
@@ -142,8 +133,6 @@ export default function VisaSection({
           `Passport No: ${formData.passportNumber.toUpperCase().trim() || 'Pending'}`,
           `Passport Expiry: ${formData.passportExpiry || 'Not specified'}`,
           `Arrival Date: ${formData.arrivalDate || 'Not specified'}`,
-          `Arrival Port: ${formData.arrivalPort === 'GOI' ? 'Dabolim Airport (GOI)' : 'Manohar Intl Mopa (GOX)'}`,
-          `Hotel/Address: ${formData.stayLocation || 'Not specified'}`,
           `Documents: ${uploadedFiles.length > 0 ? uploadedFiles.map(f => f.name).join(', ') : 'None attached'}`,
           formData.notes ? `Note: ${formData.notes}` : ''
         ].filter(Boolean).join(' | ')
@@ -183,11 +172,11 @@ export default function VisaSection({
           margin: '0 0 10px', 
           letterSpacing: '-0.02em' 
         }}>
-          Goa Tourist e-Visa <span style={{ color: '#ea580c' }}>Application</span>
+          Tourist Visa <span style={{ color: '#ea580c' }}>Application</span>
         </h1>
         
         <p style={{ fontSize: '15px', color: '#475569', margin: '0 auto', maxWidth: '780px', lineHeight: 1.5 }}>
-          Direct electronic travel authorization for international visitors traveling to Goa. Verified by visa specialists before government filing to guarantee fast biometric entry at Manohar Intl (GOX) or Dabolim (GOI) airports.
+          Fill in your travel and passport details below to apply for your tourist visa assistance.
         </p>
       </div>
 
@@ -236,7 +225,7 @@ export default function VisaSection({
             </div>
 
             <p style={{ fontSize: '15px', color: '#334155', margin: '0 0 24px', lineHeight: 1.6 }}>
-              Thank you, <strong>{formData.fullName || 'Valued Guest'}</strong>! We have received your visa application and documents. Our visa team will review your application and email the approved visa to <strong>{formData.email}</strong>.
+              Thank you, <strong>{formData.fullName || 'Valued Guest'}</strong>! We have received your visa request. Our team will review your application and contact you at <strong>{formData.email}</strong>.
             </p>
 
             <button
@@ -251,8 +240,6 @@ export default function VisaSection({
                   passportNumber: '',
                   passportExpiry: '',
                   arrivalDate: '',
-                  arrivalPort: 'GOX',
-                  stayLocation: '',
                   email: '',
                   phoneCode: '+44',
                   phone: '',
@@ -414,11 +401,11 @@ export default function VisaSection({
               </div>
             </div>
 
-            {/* 4. ARRIVAL DATE & AIRPORT */}
+            {/* 4. ARRIVAL DATE & EMAIL ADDRESS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '16px' }}>
               <div>
                 <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  Date of Arrival in Goa *
+                  Date of Arrival *
                 </label>
                 <input
                   type="date"
@@ -439,58 +426,7 @@ export default function VisaSection({
 
               <div>
                 <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  Arriving Airport in Goa *
-                </label>
-                <select
-                  value={formData.arrivalPort}
-                  onChange={(e) => setFormData({ ...formData, arrivalPort: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '10.5px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    background: '#ffffff',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="GOX">Manohar International Airport, Mopa (GOX)</option>
-                  <option value="GOI">Dabolim Airport (GOI)</option>
-                  <option value="SEAPORT">Mormugao Cruise Seaport</option>
-                </select>
-              </div>
-            </div>
-
-            {/* 5. HOTEL / STAY IN GOA */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                Hotel Name or Area in Goa *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Taj Fort Aguada, Candolim or Resort in Calangute"
-                value={formData.stayLocation}
-                onChange={(e) => setFormData({ ...formData, stayLocation: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10.5px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
-            {/* 6. EMAIL & PHONE NUMBER */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '22px' }}>
-              <div>
-                <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  Email Address * (Approved visa will be emailed here)
+                  Email Address *
                 </label>
                 <input
                   type="email"
@@ -509,48 +445,49 @@ export default function VisaSection({
                   }}
                 />
               </div>
+            </div>
 
-              <div>
-                <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  Phone Number *
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '6px' }}>
-                  <select
-                    value={formData.phoneCode}
-                    onChange={(e) => setFormData({ ...formData, phoneCode: e.target.value })}
-                    style={{
-                      padding: '10px 6px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '12.5px',
-                      background: '#ffffff',
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {DIAL_CODES.map(c => (
-                      <option key={`${c.dialCode}-${c.name}`} value={c.dialCode}>
-                        {c.flag} {c.dialCode} ({c.name})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="e.g. 7911 123456"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '10.5px 10px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
+            {/* 5. PHONE NUMBER */}
+            <div style={{ marginBottom: '22px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                Phone Number *
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px' }}>
+                <select
+                  value={formData.phoneCode}
+                  onChange={(e) => setFormData({ ...formData, phoneCode: e.target.value })}
+                  style={{
+                    padding: '10px 6px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    background: '#ffffff',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {DIAL_CODES.map(c => (
+                    <option key={`${c.dialCode}-${c.name}`} value={c.dialCode}>
+                      {c.flag} {c.dialCode} ({c.name})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  required
+                  placeholder="e.g. 7911 123456"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10.5px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
               </div>
             </div>
 
