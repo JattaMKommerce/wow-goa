@@ -4,6 +4,7 @@ import * as api from '../../services/api';
 import AdminWalletSettlements from '../../components/admin/AdminWalletSettlements';
 import AdminActivitiesManagement from './AdminActivitiesManagement';
 import TripPackagesManagementView from '../../components/admin/TripPackagesManagementView';
+import VisaApplicationsManager from '../../components/superadmin/VisaApplicationsManager';
 import { getTodayDateStr, getNextDayDateStr, validateBookingDates } from '../../utils/dateUtils';
 import AIChatbotToggle from '../../components/common/AIChatbotToggle';
 
@@ -1958,6 +1959,9 @@ export default function AdminDashboard({
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'visa_applications':
+      case 'visas':
+        return <VisaApplicationsManager currentUser={currentUser} />;
       case 'packages': return renderPackagesTab();
       case 'vendors': return renderVendorsTab();
       case 'bookings': return renderBookingsTab();

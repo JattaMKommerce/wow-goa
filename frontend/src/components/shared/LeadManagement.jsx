@@ -449,28 +449,10 @@ export default function LeadManagement({ usersList = [], currentUser }) {
             const n = (currentUser?.name || '').toLowerCase().trim();
             return (u && (a === u || a.includes(u))) || (n && (a === n || a.includes(n)));
           });
-        } else if (isAdmin) {
-          // Admin sees leads assigned to Admin, unassigned leads, and leads assigned to Sub-Admins to monitor their work
-          visibleLeads = data.filter(l => {
-            const a = (l.assigned_to || l.assignedTo || '').toLowerCase().trim();
-            const u = (currentUser?.username || '').toLowerCase().trim();
-            const n = (currentUser?.name || '').toLowerCase().trim();
-            const isUnassigned = !a || a === 'unassigned' || a === 'none' || a === 'null';
-            const isAssignedToThisAdmin = a === 'admin' || (u && (a === u || a.includes(u))) || (n && (a === n || a.includes(n)));
-            
-            // Check if assigned to any Sub-Admin / Agent
-            const isAssignedToSubAdmin = assignableUsers.some(sub => {
-              const subR = (sub.role || '').toLowerCase();
-              if (!['subadmin', 'sub_admin', 'agent'].includes(subR)) return false;
-              const subU = (sub.username || '').toLowerCase().trim();
-              const subN = (sub.name || '').toLowerCase().trim();
-              return (subU && a.includes(subU)) || (subN && a.includes(subN));
-            });
-
-            return isUnassigned || isAssignedToThisAdmin || isAssignedToSubAdmin;
-          });
+        } else if (isAdmin || isSuperAdmin) {
+          // Admin and Superadmin have full operational visibility across all leads and actions
+          visibleLeads = data;
         }
-        // If isSuperAdmin: sees all leads without filtering
 
         setLeads(visibleLeads);
         setLastSyncedAt(Date.now());

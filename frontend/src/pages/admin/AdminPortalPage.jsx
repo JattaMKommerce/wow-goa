@@ -9,6 +9,7 @@ import * as api from '../../services/api';
 import AdminDashboard from './AdminDashboard';
 import AdminDashboardOverview from './AdminDashboardOverview';
 import AdminB2BPortal from './b2b/AdminB2BPortal';
+import VisaApplicationsManager from '../../components/superadmin/VisaApplicationsManager';
 
 import AdminCMS from './AdminCMS';
 import AdminCustomerManagement from './AdminCustomerManagement';
@@ -42,6 +43,7 @@ const SIDEBAR_GROUPS = [
     label: 'Overview',
     items: [
       { id: 'overview', label: 'Dashboard', icon: <LayoutDashboard size={15} /> },
+      { id: 'visa_applications', label: 'Tourist Visa', icon: <FileText size={15} /> },
       { id: 'leads', label: 'Lead Management', icon: <Users size={15} /> },
       { id: 'customers', label: 'Customer Management', icon: <Users size={15} /> },
     ]
@@ -332,8 +334,14 @@ export default function AdminPortalPage({
   vehicleUnits = []
 }) {
   const [adminActiveTab, setAdminActiveTab] = useState(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryTab = urlParams.get('tab');
+      if (queryTab) return queryTab;
+    } catch (e) {}
     if (initialTab) return initialTab === 'payment' ? 'wallets' : initialTab;
     const currentPath = window.location.pathname;
+    if (currentPath === '/admin/visa-applications' || currentPath === '/admin/visa' || currentPath === '/admin/visas') return 'visa_applications';
     if (currentPath === '/admin/leads' || currentPath === '/admin/lead-management') return 'lead_management';
     if (currentPath === '/admin/custom-enquiries') return 'enquiries';
     if (currentPath === '/admin/customers') return 'customers';
@@ -358,7 +366,9 @@ export default function AdminPortalPage({
     setAdminActiveTab(targetTab);
     try {
       localStorage.setItem('adminActiveTab', targetTab);
-      if (targetTab === 'leads' || targetTab === 'lead_management') {
+      if (targetTab === 'visa_applications' || targetTab === 'visas') {
+        window.history.replaceState(null, '', '/admin/visa-applications');
+      } else if (targetTab === 'leads' || targetTab === 'lead_management') {
         window.history.replaceState(null, '', '/admin/leads');
       } else if (targetTab === 'enquiries') {
         window.history.replaceState(null, '', '/admin/custom-enquiries');
@@ -727,6 +737,10 @@ export default function AdminPortalPage({
 
   const renderContent = () => {
     switch (adminActiveTab) {
+      case 'visa_applications':
+      case 'visas':
+        return <VisaApplicationsManager currentUser={currentUser} />;
+
       case 'overview':
       case 'dashboard':
         return (

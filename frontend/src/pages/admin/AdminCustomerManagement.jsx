@@ -245,6 +245,11 @@ export default function AdminCustomerManagement({ usersList = [], bookings = [],
   const [showUsersModal, setShowUsersModal] = useState(initialOpenAddUser);
   const [usersSubTab, setUsersSubTab] = useState('list');
   const [allUsers, setAllUsers] = useState(usersList);
+  useEffect(() => {
+    if (Array.isArray(usersList)) {
+      setAllUsers(usersList);
+    }
+  }, [usersList]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userModalMessage, setUserModalMessage] = useState(null);
 

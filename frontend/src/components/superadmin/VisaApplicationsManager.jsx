@@ -3,7 +3,7 @@ import {
   FileText, Search, RefreshCw, CheckCircle, Clock, XCircle, 
   Eye, Mail, Phone, Calendar, Globe, User, Shield, AlertCircle, X, Download
 } from 'lucide-react';
-import { fetchLeads, updateLeadStatus } from '../../services/api';
+import { fetchLeads, updateLeadStatus, broadcastNotificationUpdate, broadcastBookingSync } from '../../services/api';
 
 export function parseVisaLead(lead) {
   const notes = String(lead.notes || '');
@@ -42,8 +42,8 @@ export default function VisaApplicationsManager({ currentUser }) {
   const [updatingId, setUpdatingId] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState(null);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
       const allLeads = await fetchLeads();
       // Filter for visa applications
@@ -57,12 +57,46 @@ export default function VisaApplicationsManager({ currentUser }) {
     } catch (err) {
       console.warn('[VisaManager] Failed to load visa applications:', err);
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+
+    const interval = setInterval(() => {
+      loadData(false);
+    }, 3500);
+
+    const handleSync = () => {
+      loadData(false);
+    };
+
+    window.addEventListener('tripgalileo-notification-sync', handleSync);
+    window.addEventListener('tripgalileo-booking-sync', handleSync);
+    window.addEventListener('realtime-lead-created', handleSync);
+    window.addEventListener('lead_created', handleSync);
+
+    let bc = null;
+    let bcNotifs = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('tripgalileo_bookings_sync');
+        bc.onmessage = handleSync;
+        bcNotifs = new BroadcastChannel('tripgalileo_notifications_sync');
+        bcNotifs.onmessage = handleSync;
+      }
+    } catch (e) {}
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('tripgalileo-notification-sync', handleSync);
+      window.removeEventListener('tripgalileo-booking-sync', handleSync);
+      window.removeEventListener('realtime-lead-created', handleSync);
+      window.removeEventListener('lead_created', handleSync);
+      if (bc) bc.close();
+      if (bcNotifs) bcNotifs.close();
+    };
   }, []);
 
   const parsedLeads = useMemo(() => {
@@ -109,6 +143,8 @@ export default function VisaApplicationsManager({ currentUser }) {
       if (selectedLead && selectedLead.id === leadId) {
         setSelectedLead(prev => ({ ...prev, status: newStatus }));
       }
+      broadcastNotificationUpdate({ type: 'lead', title: `Visa Application #${leadId} Status: ${newStatus}` });
+      broadcastBookingSync({ type: 'lead_status', leadId, status: newStatus });
       setFeedbackMsg({ type: 'success', text: `Status updated to ${newStatus}` });
       setTimeout(() => setFeedbackMsg(null), 3500);
     } catch (err) {
