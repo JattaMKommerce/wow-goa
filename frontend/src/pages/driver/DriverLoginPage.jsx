@@ -191,6 +191,28 @@ export default function DriverLoginPage({ onLoginSuccess, onNavigateHome }) {
                   ? 'Welcome back! Please login to your account' 
                   : 'Join Goa\'s premier chauffeur network with verified documents'}
               </p>
+
+              {/* Chauffeur Companion Switcher */}
+              <div className="mt-3 p-2 rounded-3 border d-flex align-items-center justify-content-between" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+                <div className="d-flex align-items-center gap-2">
+                  <span style={{ fontSize: '1.1rem' }}>🚕</span>
+                  <div className="text-start">
+                    <div className="fw-bold text-dark" style={{ fontSize: '0.78rem' }}>Commercial Cab Chauffeur?</div>
+                    <div className="text-muted" style={{ fontSize: '0.7rem' }}>On-duty dispatches & active cab rides</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.history.pushState(null, '', '/chauffeur');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }}
+                  className="btn btn-sm btn-success fw-bold px-2.5 py-1 text-xs"
+                  style={{ background: '#16a34a', border: 'none', borderRadius: '8px' }}
+                >
+                  Open App ➔
+                </button>
+              </div>
             </div>
 
             {/* Feedback Alerts */}

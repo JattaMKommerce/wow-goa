@@ -776,6 +776,8 @@ export default function CustomerCabsPage({ onBookCab }) {
         customer: pName,
         phone: pPhone,
         service: `${pickupLocation} ➔ ${dropoffLocation}`,
+        pickup: pickupLocation,
+        dropoff: dropoffLocation,
         car: selectedVehicle.model || 'Sedan Prime',
         chauffeur: 'Suresh Naik',
         vehiclePlate: 'GA-03-Z-8899',

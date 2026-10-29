@@ -510,7 +510,21 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
                 </ul>
               </li>
             ) : (
-              <li className="nav-item ms-lg-1">
+              <li className="nav-item ms-lg-1 d-flex align-items-center gap-2">
+                <a
+                  href="/chauffeur"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setActiveTab('chauffeur');
+                    window.history.pushState(null, '', '/chauffeur');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }}
+                  className="btn btn-outline-light btn-sm rounded-pill px-2.5 py-1 text-xs fw-bold"
+                  style={{ fontSize: '11px', borderColor: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap' }}
+                  title="Chauffeur & Driver Portal"
+                >
+                  👨‍✈️ Driver App
+                </a>
                 <button
                   type="button"
                   className="btn btn-premium-nav"
