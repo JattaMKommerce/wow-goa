@@ -337,6 +337,18 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
                   <span className="fw-bold small text-dark" style={{ fontSize: '11px' }}>🚗 Driver Portal (WOW GOA Fleet)</span>
                   <span className="text-xxs text-warning fw-bold">driver@gmail.com</span>
                 </button>
+                <button
+                  type="button"
+                  className="btn btn-xs text-start d-flex justify-content-between align-items-center py-1.5 px-2.5 rounded-2 small text-dark"
+                  style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}
+                  onClick={() => {
+                    onClose?.();
+                    window.location.href = '/taxi-portal';
+                  }}
+                >
+                  <span className="fw-bold small text-dark" style={{ fontSize: '11px' }}>🚕 Taxi Dispatch &amp; Fleet CRM Hub</span>
+                  <span className="text-xxs fw-bold" style={{ color: '#ea580c' }}>Open /taxi-portal →</span>
+                </button>
               </div>
             )}
           </div>
