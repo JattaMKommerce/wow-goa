@@ -37,7 +37,7 @@ const DEMO_DRIVERS = [
 
 /**
  * CabAuthScreen
- * Sleek Ola/Uber Style Dark & Gold Luxury Mobile Onboarding for WOW GOA Cabs.
+ * Crisp, Modern White Theme (Ola / Uber Style) for WOW GOA Cabs Mobile App.
  */
 export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = false }) {
   // Role: 'customer' (Passenger/Rider) | 'driver' (Chauffeur Partner)
@@ -336,8 +336,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       maxHeight: '100vh',
       overflowX: 'hidden',
       overflowY: 'auto',
-      background: 'radial-gradient(circle at 50% 0%, #16253D 0%, #08121E 60%, #030811 100%)',
-      color: '#ffffff',
+      background: '#ffffff',
+      color: '#0F172A',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'space-between',
@@ -345,37 +345,38 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       padding: '24px 20px 20px'
     }}>
 
-      {/* ── TOP BAR: LOGO & ROLE DROPDOWN ── */}
+      {/* ── TOP BAR: LOGO & ROLE DROPDOWN (CRISP WHITE THEME) ── */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         width: '100%',
         maxWidth: '440px',
-        margin: '0 auto 20px',
+        margin: '0 auto 16px',
         position: 'relative',
         zIndex: 50
       }}>
-        {/* Brand */}
+        {/* Brand Logo & Name */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
             width: '42px',
             height: '42px',
             borderRadius: '12px',
             background: '#ffffff',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            border: '1px solid #E2E8F0',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '4px'
+            padding: '5px'
           }}>
             <img src="/wowgoa-logo.png" alt="WOW GOA" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 900, letterSpacing: '-0.02em', color: '#ffffff' }}>
+            <div style={{ fontSize: '15px', fontWeight: 900, letterSpacing: '-0.02em', color: '#0F172A' }}>
               WOW GOA
             </div>
-            <div style={{ fontSize: '10px', fontWeight: 800, color: '#FFB703', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '10.5px', fontWeight: 800, color: role === 'driver' ? '#059669' : '#D97706', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
               {role === 'driver' ? 'Chauffeur Partner' : 'Cabs & Self Drive'}
             </div>
           </div>
@@ -390,16 +391,16 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              background: role === 'driver' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 183, 3, 0.14)',
-              border: role === 'driver' ? '1.5px solid #10B981' : '1.5px solid #FFB703',
+              background: role === 'driver' ? '#ECFDF5' : '#FFFBEB',
+              border: role === 'driver' ? '1.5px solid #10B981' : '1.5px solid #F59E0B',
               borderRadius: '20px',
               padding: '7px 14px',
-              color: role === 'driver' ? '#10B981' : '#FFB703',
+              color: role === 'driver' ? '#047857' : '#B45309',
               fontSize: '12.5px',
               fontWeight: 800,
               cursor: 'pointer',
               transition: 'all 0.2s ease',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
             }}
           >
             <span>{role === 'driver' ? '🚖 Driver Partner' : '🚗 Passenger'}</span>
@@ -412,17 +413,16 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               position: 'absolute',
               top: 'calc(100% + 8px)',
               right: 0,
-              background: '#0F1D30',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
+              background: '#ffffff',
+              border: '1px solid #E2E8F0',
               borderRadius: '16px',
-              boxShadow: '0 16px 36px rgba(0,0,0,0.6)',
+              boxShadow: '0 16px 36px rgba(15, 23, 42, 0.15)',
               overflow: 'hidden',
               zIndex: 100,
-              minWidth: '200px',
-              backdropFilter: 'blur(12px)'
+              minWidth: '200px'
             }}>
-              <div style={{ padding: '8px 12px 6px', fontSize: '10px', textTransform: 'uppercase', color: '#64748B', fontWeight: 800, letterSpacing: '0.6px' }}>
-                Login As:
+              <div style={{ padding: '10px 14px 6px', fontSize: '10.5px', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 800, letterSpacing: '0.6px' }}>
+                Select Role:
               </div>
 
               {/* Passenger Option */}
@@ -441,8 +441,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '11px 14px',
-                  background: role === 'customer' ? 'rgba(255, 183, 3, 0.15)' : 'transparent',
-                  color: role === 'customer' ? '#FFB703' : '#F1F5F9',
+                  background: role === 'customer' ? '#FFFBEB' : '#ffffff',
+                  color: role === 'customer' ? '#B45309' : '#1E293B',
                   border: 'none',
                   fontSize: '13px',
                   fontWeight: 700,
@@ -454,7 +454,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   <span>🚗</span>
                   <span>Passenger / Rider</span>
                 </div>
-                {role === 'customer' && <Check size={14} color="#FFB703" />}
+                {role === 'customer' && <Check size={14} color="#B45309" />}
               </button>
 
               {/* Driver Option */}
@@ -473,10 +473,10 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '11px 14px',
-                  background: role === 'driver' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-                  color: role === 'driver' ? '#10B981' : '#F1F5F9',
+                  background: role === 'driver' ? '#ECFDF5' : '#ffffff',
+                  color: role === 'driver' ? '#047857' : '#1E293B',
                   border: 'none',
-                  borderTop: '1px solid rgba(255,255,255,0.08)',
+                  borderTop: '1px solid #F1F5F9',
                   fontSize: '13px',
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -487,14 +487,14 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   <span>🚖</span>
                   <span>Driver Partner</span>
                 </div>
-                {role === 'driver' && <Check size={14} color="#10B981" />}
+                {role === 'driver' && <Check size={14} color="#047857" />}
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── MAIN SLEEK OLA/UBER AUTHENTICATION CONTAINER ── */}
+      {/* ── MAIN CONTENT CONTAINER (WHITE THEME) ── */}
       <div style={{
         width: '100%',
         maxWidth: '440px',
@@ -507,7 +507,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       }}>
 
         {/* ════════════════════════════════════════════════════════════════════
-            STEP 1: PHONE / EMAIL INPUT (SLEEK OLA/UBER MINIMALIST STYLE)
+            STEP 1: PHONE / EMAIL INPUT (CRISP OLA/UBER WHITE STYLE)
            ════════════════════════════════════════════════════════════════════ */}
         {step === 'input' && (
           <div>
@@ -520,32 +520,32 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    background: 'rgba(255, 183, 3, 0.1)',
-                    border: '1px solid rgba(255, 183, 3, 0.25)',
+                    background: '#FEF3C7',
+                    border: '1px solid #FDE68A',
                     padding: '3px 10px',
                     borderRadius: '20px',
                     fontSize: '11px',
                     fontWeight: 800,
-                    color: '#FFB703',
+                    color: '#B45309',
                     marginBottom: '10px'
                   }}>
-                    <Sparkles size={12} color="#FFB703" />
+                    <Sparkles size={12} color="#B45309" />
                     <span>Goa Mobility Companion</span>
                   </div>
 
-                  <h1 style={{ fontSize: '28px', fontWeight: 900, margin: '0 0 6px', letterSpacing: '-0.02em', color: '#ffffff', lineHeight: 1.15 }}>
+                  <h1 style={{ fontSize: '28px', fontWeight: 900, margin: '0 0 6px', letterSpacing: '-0.02em', color: '#0F172A', lineHeight: 1.15 }}>
                     Enter your mobile number
                   </h1>
-                  <p style={{ fontSize: '13px', color: '#94A3B8', margin: 0, lineHeight: 1.4 }}>
+                  <p style={{ fontSize: '13px', color: '#64748B', margin: 0, lineHeight: 1.4 }}>
                     We’ll send a 4-digit code to verify and get you moving in Goa.
                   </p>
                 </div>
 
                 {errorMsg && (
                   <div style={{
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    border: '1px solid #EF4444',
-                    color: '#FCA5A5',
+                    background: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    color: '#B91C1C',
                     borderRadius: '12px',
                     padding: '10px 14px',
                     fontSize: '12.5px',
@@ -557,18 +557,18 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 )}
 
                 <form onSubmit={handleSubmit}>
-                  {/* Option A: Phone Input (Primary Ola/Uber Style) */}
+                  {/* Phone Input (Ola/Uber Style Crisp White) */}
                   {authMethod === 'phone' ? (
                     <div style={{ marginBottom: '16px' }}>
                       <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        background: 'rgba(255, 255, 255, 0.07)',
-                        border: '1.5px solid rgba(255, 183, 3, 0.35)',
+                        background: '#F8FAFC',
+                        border: '1.5px solid #CBD5E1',
                         borderRadius: '16px',
                         overflow: 'hidden',
-                        backdropFilter: 'blur(10px)',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                        transition: 'border-color 0.2s',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}>
                         {/* Country Flag Badge */}
                         <div style={{
@@ -576,11 +576,11 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
-                          borderRight: '1px solid rgba(255, 255, 255, 0.12)',
+                          borderRight: '1px solid #E2E8F0',
                           fontSize: '15px',
                           fontWeight: 800,
-                          color: '#ffffff',
-                          background: 'rgba(0, 0, 0, 0.2)'
+                          color: '#0F172A',
+                          background: '#F1F5F9'
                         }}>
                           <span>🇮🇳</span>
                           <span>+91</span>
@@ -605,25 +605,25 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                             padding: '14px 14px',
                             fontSize: '18px',
                             fontWeight: 800,
-                            color: '#ffffff',
+                            color: '#0F172A',
                             letterSpacing: '0.04em'
                           }}
                         />
                       </div>
                     </div>
                   ) : (
-                    /* Option B: Gmail / Email Input */
+                    /* Gmail / Email Input */
                     <div style={{ marginBottom: '16px' }}>
                       <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        background: 'rgba(255, 255, 255, 0.07)',
-                        border: '1.5px solid rgba(255, 183, 3, 0.35)',
+                        background: '#F8FAFC',
+                        border: '1.5px solid #CBD5E1',
                         borderRadius: '16px',
                         padding: '0 14px',
-                        backdropFilter: 'blur(10px)'
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}>
-                        <Mail size={18} color="#FFB703" style={{ flexShrink: 0 }} />
+                        <Mail size={18} color="#D97706" style={{ flexShrink: 0 }} />
                         <input
                           type="email"
                           placeholder="yourname@gmail.com"
@@ -640,7 +640,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                             padding: '14px 12px',
                             fontSize: '15.5px',
                             fontWeight: 700,
-                            color: '#ffffff'
+                            color: '#0F172A'
                           }}
                         />
                       </div>
@@ -652,8 +652,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      background: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
                       borderRadius: '14px',
                       padding: '0 14px'
                     }}>
@@ -671,33 +671,33 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                           padding: '12px 10px',
                           fontSize: '14px',
                           fontWeight: 600,
-                          color: '#ffffff'
+                          color: '#0F172A'
                         }}
                       />
                     </div>
                   </div>
 
-                  {/* Sleek Gold Action Button */}
+                  {/* High-Contrast Bold Black CTA Button */}
                   <button
                     type="submit"
                     disabled={isLoading || (authMethod === 'email' ? !email.trim() : phone.length < 10)}
                     style={{
                       width: '100%',
                       background: (authMethod === 'email' ? email.trim() : phone.length >= 10) 
-                        ? 'linear-gradient(135deg, #FFB703 0%, #F59E0B 100%)' 
-                        : 'rgba(255, 255, 255, 0.15)',
-                      color: (authMethod === 'email' ? email.trim() : phone.length >= 10) ? '#0B192C' : '#64748B',
+                        ? '#0B192C' 
+                        : '#E2E8F0',
+                      color: (authMethod === 'email' ? email.trim() : phone.length >= 10) ? '#ffffff' : '#94A3B8',
                       border: 'none',
                       borderRadius: '16px',
                       padding: '15px',
                       fontSize: '15.5px',
-                      fontWeight: 900,
+                      fontWeight: 800,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '8px',
                       cursor: (authMethod === 'email' ? email.trim() : phone.length >= 10) ? 'pointer' : 'not-allowed',
-                      boxShadow: (authMethod === 'email' ? email.trim() : phone.length >= 10) ? '0 4px 20px rgba(255, 183, 3, 0.4)' : 'none',
+                      boxShadow: (authMethod === 'email' ? email.trim() : phone.length >= 10) ? '0 4px 16px rgba(11, 25, 44, 0.25)' : 'none',
                       transition: 'all 0.2s ease',
                       letterSpacing: '0.2px'
                     }}
@@ -707,7 +707,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                     ) : (
                       <>
                         <span>Continue</span>
-                        <ArrowRight size={18} />
+                        <ArrowRight size={18} color="#FFB703" />
                       </>
                     )}
                   </button>
@@ -724,7 +724,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#FFB703',
+                      color: '#0F172A',
                       fontSize: '12.5px',
                       fontWeight: 700,
                       cursor: 'pointer',
@@ -736,39 +736,39 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 </div>
               </div>
             ) : (
-              /* ─── DRIVER PARTNER MODE ─── */
+              /* ─── DRIVER PARTNER MODE (WHITE THEME) ─── */
               <div>
                 <div style={{ marginBottom: '20px' }}>
                   <div style={{
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    background: 'rgba(16, 185, 129, 0.12)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    background: '#ECFDF5',
+                    border: '1px solid #A7F3D0',
                     padding: '3px 10px',
                     borderRadius: '20px',
                     fontSize: '11px',
                     fontWeight: 800,
-                    color: '#10B981',
+                    color: '#059669',
                     marginBottom: '10px'
                   }}>
                     <span>🚖</span>
                     <span>Goa Chauffeur Network</span>
                   </div>
 
-                  <h1 style={{ fontSize: '26px', fontWeight: 900, margin: '0 0 6px', letterSpacing: '-0.02em', color: '#ffffff' }}>
+                  <h1 style={{ fontSize: '26px', fontWeight: 900, margin: '0 0 6px', letterSpacing: '-0.02em', color: '#0F172A' }}>
                     Chauffeur Duty Login
                   </h1>
-                  <p style={{ fontSize: '13px', color: '#94A3B8', margin: 0, lineHeight: 1.4 }}>
+                  <p style={{ fontSize: '13px', color: '#64748B', margin: 0, lineHeight: 1.4 }}>
                     Enter your registered driver phone number to start receiving trips.
                   </p>
                 </div>
 
                 {errorMsg && (
                   <div style={{
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    border: '1px solid #EF4444',
-                    color: '#FCA5A5',
+                    background: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    color: '#B91C1C',
                     borderRadius: '12px',
                     padding: '10px 14px',
                     fontSize: '12.5px',
@@ -781,7 +781,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
 
                 {/* Quick Driver Profile Select */}
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>
                     Select Driver Account:
                   </label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -801,20 +801,20 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                             justifyContent: 'space-between',
                             padding: '11px 14px',
                             borderRadius: '14px',
-                            border: isSelected ? '1.5px solid #10B981' : '1px solid rgba(255,255,255,0.1)',
-                            background: isSelected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                            border: isSelected ? '1.5px solid #10B981' : '1px solid #E2E8F0',
+                            background: isSelected ? '#ECFDF5' : '#F8FAFC',
                             cursor: 'pointer',
                             transition: 'all 0.15s ease'
                           }}
                         >
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#ffffff' }}>{drv.name}</span>
-                              <span style={{ fontSize: '10.5px', background: 'rgba(255,255,255,0.1)', padding: '1px 6px', borderRadius: '4px', color: '#10B981', fontWeight: 800 }}>
+                              <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0F172A' }}>{drv.name}</span>
+                              <span style={{ fontSize: '10.5px', background: '#E2E8F0', padding: '1px 6px', borderRadius: '4px', color: '#047857', fontWeight: 800 }}>
                                 {drv.cabNumber}
                               </span>
                             </div>
-                            <div style={{ fontSize: '11.5px', color: '#94A3B8', marginTop: '2px' }}>
+                            <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
                               {drv.carModel} · {drv.location}
                             </div>
                           </div>
@@ -831,8 +831,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
-                      background: 'rgba(255, 255, 255, 0.07)',
-                      border: '1.5px solid rgba(16, 185, 129, 0.4)',
+                      background: '#F8FAFC',
+                      border: '1.5px solid #10B981',
                       borderRadius: '16px',
                       overflow: 'hidden'
                     }}>
@@ -841,11 +841,11 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        borderRight: '1px solid rgba(255, 255, 255, 0.12)',
+                        borderRight: '1px solid #E2E8F0',
                         fontSize: '15px',
                         fontWeight: 800,
-                        color: '#ffffff',
-                        background: 'rgba(0, 0, 0, 0.2)'
+                        color: '#0F172A',
+                        background: '#ECFDF5'
                       }}>
                         <span>🇮🇳</span>
                         <span>+91</span>
@@ -868,7 +868,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                           padding: '14px',
                           fontSize: '17px',
                           fontWeight: 800,
-                          color: '#ffffff'
+                          color: '#0F172A'
                         }}
                       />
                     </div>
@@ -879,19 +879,19 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                     disabled={isLoading || driverPhone.length < 10}
                     style={{
                       width: '100%',
-                      background: driverPhone.length >= 10 ? 'linear-gradient(135deg, #059669 0%, #10B981 100%)' : 'rgba(255,255,255,0.15)',
-                      color: '#ffffff',
+                      background: driverPhone.length >= 10 ? 'linear-gradient(135deg, #059669 0%, #10B981 100%)' : '#E2E8F0',
+                      color: driverPhone.length >= 10 ? '#ffffff' : '#94A3B8',
                       border: 'none',
                       borderRadius: '16px',
                       padding: '15px',
                       fontSize: '15px',
-                      fontWeight: 900,
+                      fontWeight: 800,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '8px',
                       cursor: driverPhone.length >= 10 ? 'pointer' : 'not-allowed',
-                      boxShadow: driverPhone.length >= 10 ? '0 4px 20px rgba(16, 185, 129, 0.4)' : 'none',
+                      boxShadow: driverPhone.length >= 10 ? '0 4px 16px rgba(16, 185, 129, 0.35)' : 'none',
                       transition: 'all 0.2s ease'
                     }}
                   >
@@ -911,7 +911,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
         )}
 
         {/* ════════════════════════════════════════════════════════════════════
-            STEP 2: OTP VERIFICATION (SLEEK GLOWING DIGIT BOXES)
+            STEP 2: OTP VERIFICATION (CRISP WHITE DIGIT BOXES)
            ════════════════════════════════════════════════════════════════════ */}
         {step === 'otp' && (
           <div>
@@ -920,7 +920,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 type="button"
                 onClick={() => setStep('input')}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
+                  background: '#F1F5F9',
                   border: 'none',
                   borderRadius: '50%',
                   width: '36px',
@@ -929,16 +929,16 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  color: '#ffffff'
+                  color: '#0F172A'
                 }}
               >
                 <ArrowLeft size={18} />
               </button>
               <div>
-                <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#ffffff', margin: 0 }}>
+                <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#0F172A', margin: 0 }}>
                   Enter 4-Digit Code
                 </h2>
-                <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <span style={{ fontSize: '12px', color: '#64748B' }}>
                   {role === 'driver' 
                     ? `Dispatched to +91 ${driverPhone}` 
                     : (authMethod === 'email' ? `Sent to ${email}` : `Sent to +91 ${phone}`)}
@@ -948,9 +948,9 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
 
             {infoMsg && (
               <div style={{
-                background: 'rgba(16, 185, 129, 0.15)',
-                border: '1px solid #10B981',
-                color: '#6EE7B7',
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                color: '#047857',
                 borderRadius: '12px',
                 padding: '9px 12px',
                 fontSize: '12.5px',
@@ -960,16 +960,16 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 alignItems: 'center',
                 gap: '6px'
               }}>
-                <CheckCircle2 size={15} color="#10B981" />
+                <CheckCircle2 size={15} color="#059669" />
                 <span>{infoMsg}</span>
               </div>
             )}
 
             {errorMsg && (
               <div style={{
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid #EF4444',
-                color: '#FCA5A5',
+                background: '#FEF2F2',
+                border: '1px solid #FECACA',
+                color: '#B91C1C',
                 borderRadius: '12px',
                 padding: '9px 12px',
                 fontSize: '12.5px',
@@ -980,7 +980,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               </div>
             )}
 
-            {/* 4 Glowing Boxes */}
+            {/* 4 Crisp White Boxes */}
             <div style={{
               display: 'flex',
               justifyContent: 'center',
@@ -1002,15 +1002,15 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                     height: '66px',
                     borderRadius: '16px',
                     border: digit 
-                      ? (role === 'driver' ? '2px solid #10B981' : '2px solid #FFB703') 
-                      : '1.5px solid rgba(255, 255, 255, 0.2)',
-                    background: digit ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+                      ? (role === 'driver' ? '2px solid #10B981' : '2px solid #0B192C') 
+                      : '1.5px solid #CBD5E1',
+                    background: digit ? '#F8FAFC' : '#ffffff',
                     textAlign: 'center',
                     fontSize: '24px',
                     fontWeight: 900,
-                    color: '#ffffff',
+                    color: '#0F172A',
                     outline: 'none',
-                    boxShadow: digit ? '0 0 16px rgba(255, 183, 3, 0.3)' : 'none'
+                    boxShadow: digit ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
                   }}
                 />
               ))}
@@ -1018,8 +1018,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
 
             {/* 1-Tap Auto Fill Helper */}
             <div style={{
-              background: 'rgba(255, 183, 3, 0.1)',
-              border: '1px solid rgba(255, 183, 3, 0.3)',
+              background: '#FFFBEB',
+              border: '1px solid #FDE68A',
               borderRadius: '14px',
               padding: '10px 14px',
               display: 'flex',
@@ -1030,10 +1030,10 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '18px' }}>🔑</span>
                 <div>
-                  <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block' }}>
+                  <span style={{ fontSize: '11px', color: '#78350F', display: 'block' }}>
                     Instant Demo OTP:
                   </span>
-                  <span style={{ fontSize: '16px', fontWeight: 900, color: '#FFB703', letterSpacing: '0.08em' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 900, color: '#B45309', letterSpacing: '0.08em' }}>
                     {generatedOtp}
                   </span>
                 </div>
@@ -1042,8 +1042,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 type="button"
                 onClick={handleAutoFillOtp}
                 style={{
-                  background: '#FFB703',
-                  color: '#0B192C',
+                  background: '#F59E0B',
+                  color: '#ffffff',
                   border: 'none',
                   borderRadius: '10px',
                   padding: '7px 14px',
@@ -1064,9 +1064,9 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               style={{
                 width: '100%',
                 background: otpDigits.join('').length === 4 
-                  ? (role === 'driver' ? 'linear-gradient(135deg, #059669 0%, #10B981 100%)' : 'linear-gradient(135deg, #FFB703 0%, #F59E0B 100%)') 
-                  : 'rgba(255,255,255,0.15)',
-                color: otpDigits.join('').length === 4 ? '#0B192C' : '#64748B',
+                  ? (role === 'driver' ? 'linear-gradient(135deg, #059669 0%, #10B981 100%)' : '#0B192C') 
+                  : '#E2E8F0',
+                color: otpDigits.join('').length === 4 ? '#ffffff' : '#94A3B8',
                 border: 'none',
                 borderRadius: '16px',
                 padding: '15px',
@@ -1077,7 +1077,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 justifyContent: 'center',
                 gap: '8px',
                 cursor: otpDigits.join('').length === 4 ? 'pointer' : 'not-allowed',
-                boxShadow: otpDigits.join('').length === 4 ? '0 4px 20px rgba(255, 183, 3, 0.4)' : 'none'
+                boxShadow: otpDigits.join('').length === 4 ? '0 4px 16px rgba(11, 25, 44, 0.25)' : 'none'
               }}
             >
               {isLoading ? (
@@ -1099,7 +1099,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#FFB703',
+                    color: '#0B192C',
                     fontSize: '12.5px',
                     fontWeight: 700,
                     textDecoration: 'underline',
@@ -1109,8 +1109,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   Resend Verification Code
                 </button>
               ) : (
-                <span style={{ fontSize: '12px', color: '#64748B' }}>
-                  Resend code in <strong style={{ color: '#ffffff' }}>{resendTimer}s</strong>
+                <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Resend code in <strong style={{ color: '#0F172A' }}>{resendTimer}s</strong>
                 </span>
               )}
             </div>
@@ -1125,7 +1125,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
         alignItems: 'center',
         justifyContent: 'center',
         gap: '6px',
-        color: '#64748B',
+        color: '#94A3B8',
         fontSize: '11px',
         fontWeight: 600,
         textAlign: 'center',

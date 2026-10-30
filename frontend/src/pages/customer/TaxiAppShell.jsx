@@ -389,14 +389,14 @@ export default function TaxiAppShell({
 
           {/* ════════════════════════════════════════════════════════════════════
               SERVICE CHOICE MODAL (Self Drive vs Book Taxi for Jenny)
-              Sleek Ola/Uber Dark & Gold Luxury Style
+              Crisp White Theme
              ════════════════════════════════════════════════════════════════════ */}
           {showServiceChoiceModal && (
             <div style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(3, 8, 17, 0.88)',
-              backdropFilter: 'blur(12px)',
+              background: 'rgba(15, 23, 42, 0.72)',
+              backdropFilter: 'blur(10px)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -404,14 +404,15 @@ export default function TaxiAppShell({
               padding: '16px'
             }}>
               <div style={{
-                background: 'linear-gradient(180deg, #0F1D30 0%, #08121E 100%)',
+                background: '#ffffff',
                 borderRadius: '24px',
                 width: '100%',
                 maxWidth: '420px',
                 padding: '24px 20px',
-                boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,183,3,0.25)',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.25)',
                 position: 'relative',
-                color: '#ffffff'
+                color: '#0F172A',
+                border: '1px solid #E2E8F0'
               }}>
                 {/* Close Button */}
                 <button
@@ -421,7 +422,7 @@ export default function TaxiAppShell({
                     position: 'absolute',
                     top: '16px',
                     right: '16px',
-                    background: 'rgba(255, 255, 255, 0.1)',
+                    background: '#F1F5F9',
                     border: 'none',
                     borderRadius: '50%',
                     width: '32px',
@@ -430,7 +431,7 @@ export default function TaxiAppShell({
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    color: '#ffffff'
+                    color: '#64748B'
                   }}
                 >
                   <X size={16} />
@@ -442,8 +443,8 @@ export default function TaxiAppShell({
                     width: '54px',
                     height: '54px',
                     borderRadius: '16px',
-                    background: 'rgba(255, 183, 3, 0.12)',
-                    border: '1.5px solid rgba(255, 183, 3, 0.35)',
+                    background: '#FEF3C7',
+                    border: '1px solid #FDE68A',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -452,10 +453,10 @@ export default function TaxiAppShell({
                   }}>
                     🌴
                   </div>
-                  <h3 style={{ fontSize: '21px', fontWeight: 900, color: '#ffffff', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
-                    Welcome, <span style={{ color: '#FFB703' }}>{cabUser?.name || 'Jenny'}!</span>
+                  <h3 style={{ fontSize: '21px', fontWeight: 900, color: '#0F172A', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
+                    Welcome, <span style={{ color: '#D97706' }}>{cabUser?.name || 'Jenny'}!</span>
                   </h3>
-                  <p style={{ fontSize: '13px', color: '#94A3B8', margin: 0 }}>
+                  <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
                     How would you like to travel in Goa today?
                   </p>
                 </div>
@@ -467,19 +468,19 @@ export default function TaxiAppShell({
                     setShowServiceChoiceModal(false);
                   }}
                   style={{
-                    border: apkMode === 'cabs' ? '2px solid #FFB703' : '1px solid rgba(255, 255, 255, 0.15)',
+                    border: apkMode === 'cabs' ? '2px solid #0F172A' : '1px solid #E2E8F0',
                     borderRadius: '18px',
                     padding: '16px',
                     marginBottom: '14px',
                     cursor: 'pointer',
-                    background: apkMode === 'cabs' ? 'rgba(255, 183, 3, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+                    background: apkMode === 'cabs' ? '#F8FAFC' : '#ffffff',
                     transition: 'all 0.18s ease'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '22px' }}>🚖</span>
-                      <span style={{ fontSize: '16px', fontWeight: 900, color: '#ffffff' }}>
+                      <span style={{ fontSize: '16px', fontWeight: 900, color: '#0F172A' }}>
                         Book Taxi / Cab
                       </span>
                     </div>
@@ -495,20 +496,20 @@ export default function TaxiAppShell({
                       CHAUFFEUR
                     </span>
                   </div>
-                  <p style={{ fontSize: '12px', color: '#CBD5E1', margin: '0 0 12px', lineHeight: 1.4 }}>
+                  <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 12px', lineHeight: 1.4 }}>
                     Airport transfers &amp; point-to-point Goa cabs with professional verified chauffeurs. Zero surge pricing.
                   </p>
                   <button
                     type="button"
                     style={{
                       width: '100%',
-                      background: 'linear-gradient(135deg, #FFB703 0%, #F59E0B 100%)',
-                      color: '#0B192C',
+                      background: '#0B192C',
+                      color: '#ffffff',
                       border: 'none',
                       borderRadius: '12px',
                       padding: '11px',
                       fontSize: '13px',
-                      fontWeight: 900,
+                      fontWeight: 800,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -517,7 +518,7 @@ export default function TaxiAppShell({
                     }}
                   >
                     <span>Book Taxi Now</span>
-                    <ArrowRight size={15} />
+                    <ArrowRight size={15} color="#FFB703" />
                   </button>
                 </div>
 
@@ -528,18 +529,18 @@ export default function TaxiAppShell({
                     setShowServiceChoiceModal(false);
                   }}
                   style={{
-                    border: apkMode === 'selfdrive' ? '2px solid #F59E0B' : '1px solid rgba(255, 255, 255, 0.15)',
+                    border: apkMode === 'selfdrive' ? '2px solid #F59E0B' : '1px solid #E2E8F0',
                     borderRadius: '18px',
                     padding: '16px',
                     cursor: 'pointer',
-                    background: apkMode === 'selfdrive' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+                    background: apkMode === 'selfdrive' ? '#FFFBEB' : '#ffffff',
                     transition: 'all 0.18s ease'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '22px' }}>🚗</span>
-                      <span style={{ fontSize: '16px', fontWeight: 900, color: '#ffffff' }}>
+                      <span style={{ fontSize: '16px', fontWeight: 900, color: '#0F172A' }}>
                         Self Drive Holidays
                       </span>
                     </div>
@@ -555,20 +556,20 @@ export default function TaxiAppShell({
                       CARS &amp; BIKES
                     </span>
                   </div>
-                  <p style={{ fontSize: '12px', color: '#CBD5E1', margin: '0 0 12px', lineHeight: 1.4 }}>
+                  <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 12px', lineHeight: 1.4 }}>
                     Rent Thar 4x4, Creta, Swift, or Activa Scooters to explore Goa on your own schedule.
                   </p>
                   <button
                     type="button"
                     style={{
                       width: '100%',
-                      background: 'rgba(255, 255, 255, 0.12)',
-                      border: '1px solid rgba(245, 158, 11, 0.5)',
-                      color: '#F59E0B',
+                      background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                      color: '#ffffff',
                       borderRadius: '12px',
+                      border: 'none',
                       padding: '11px',
                       fontSize: '13px',
-                      fontWeight: 900,
+                      fontWeight: 800,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
