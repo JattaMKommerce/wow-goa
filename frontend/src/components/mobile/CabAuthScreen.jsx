@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Phone, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2, 
   Sparkles, Lock, RefreshCw, X, User, Mail, Car, Compass, ChevronDown, Check,
-  Sun, Moon, Globe, MapPin, Award
+  Sun, Moon, Globe, MapPin, Award, Search
 } from 'lucide-react';
 import { sendCustomerOtp, verifyCustomerOtp } from '../../services/api';
 
@@ -42,11 +42,22 @@ const DEMO_DRIVERS = [
 const LANGUAGES = [
   { id: 'en', label: 'English', native: 'English' },
   { id: 'hi', label: 'Hindi', native: 'हिन्दी' },
-  { id: 'kok', label: 'Konkani', native: 'कोंकणी (Goa)' },
+  { id: 'kok', label: 'Konkani', native: 'कोंकणी' },
+  { id: 'ru', label: 'Russian', native: 'Русский' },
   { id: 'mr', label: 'Marathi', native: 'मराठी' },
   { id: 'gu', label: 'Gujarati', native: 'ગુજરાતી' },
+  { id: 'pt', label: 'Portuguese', native: 'Português' },
+  { id: 'he', label: 'Hebrew', native: 'עברית' },
+  { id: 'de', label: 'German', native: 'Deutsch' },
+  { id: 'fr', label: 'French', native: 'Français' },
+  { id: 'es', label: 'Spanish', native: 'Español' },
+  { id: 'ar', label: 'Arabic', native: 'العربية' },
   { id: 'bn', label: 'Bengali', native: 'বাংলা' },
-  { id: 'ta', label: 'Tamil', native: 'தமிழ்' }
+  { id: 'kn', label: 'Kannada', native: 'ಕನ್ನಡ' },
+  { id: 'ml', label: 'Malayalam', native: 'മലയാളം' },
+  { id: 'ta', label: 'Tamil', native: 'தமிழ்' },
+  { id: 'te', label: 'Telugu', native: 'తెలుగు' },
+  { id: 'pa', label: 'Punjabi', native: 'ਪੰਜਾਬੀ' }
 ];
 
 /**
@@ -113,7 +124,7 @@ const ONBOARDING_SLIDES = [
     title: 'CLARITY & HONEST FARES',
     description: "Fair pricing, crystal clear, Your trust, our promise sincere. With WOW GOA, you'll find no hidden fee, Transparency is our guarantee across Goa.",
     themeColor: '#FFB703',
-    iconType: 'shield'
+    image: '/assets/mobile/slide_sunset.jpg'
   },
   {
     id: 'chauffeurs',
@@ -121,7 +132,7 @@ const ONBOARDING_SLIDES = [
     title: 'VERIFIED LOCAL DRIVERS',
     description: 'Travel safely with polite, background-verified tourist chauffeurs who know every beach, airport terminal, and scenic highway detour.',
     themeColor: '#10B981',
-    iconType: 'driver'
+    image: '/assets/mobile/slide_airport.jpg'
   },
   {
     id: 'choice',
@@ -129,7 +140,7 @@ const ONBOARDING_SLIDES = [
     title: 'CABS & SELF DRIVE IN ONE APP',
     description: 'Book point-to-point chauffeur cabs or rent Thar 4x4, Creta, Swift & Activa scooters with door-step delivery & unlimited kilometers.',
     themeColor: '#3B82F6',
-    iconType: 'car'
+    image: '/assets/mobile/slide_thar.jpg'
   }
 ];
 
@@ -164,6 +175,18 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
 
   const t = I18N[selectedLang] || I18N.en;
 
+  // Language live search query
+  const [langSearch, setLangSearch] = useState('');
+  const filteredLanguages = useMemo(() => {
+    const q = langSearch.trim().toLowerCase();
+    if (!q) return LANGUAGES;
+    return LANGUAGES.filter(l => 
+      l.label.toLowerCase().includes(q) || 
+      l.native.toLowerCase().includes(q) ||
+      l.id.toLowerCase().includes(q)
+    );
+  }, [langSearch]);
+
   // Flow Step: 'splash' -> 'language' -> 'onboarding' -> 'getmoving' -> 'otp'
   const [flowStep, setFlowStep] = useState('splash');
 
@@ -190,7 +213,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
   // Passenger fields
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [fullName, setFullName] = useState('Jenny'); // Default Jenny
+  const [fullName, setFullName] = useState('');
   
   // Driver fields
   const [selectedDriver, setSelectedDriver] = useState(DEMO_DRIVERS[0]);
@@ -701,9 +724,63 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               </button>
             </div>
 
-            {/* Language Selection List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {LANGUAGES.map((lang) => {
+            {/* Search Language Bar */}
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: isDark ? '#161B22' : '#FFFFFF',
+                border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
+                borderRadius: '14px',
+                padding: '0 14px',
+                boxShadow: isDark ? 'none' : '0 2px 6px rgba(15, 23, 42, 0.05)'
+              }}>
+                <Search size={16} color={isDark ? "#FFB703" : "#0F172A"} />
+                <input
+                  type="text"
+                  placeholder="Search language (e.g. English, Русский, हिन्दी)..."
+                  value={langSearch}
+                  onChange={(e) => setLangSearch(e.target.value)}
+                  style={{
+                    flex: 1,
+                    border: 'none',
+                    outline: 'none',
+                    background: 'transparent',
+                    padding: '12px 0',
+                    fontSize: '13.5px',
+                    fontWeight: 700,
+                    color: isDark ? '#FFFFFF' : '#0F172A'
+                  }}
+                />
+                {langSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setLangSearch('')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: isDark ? '#94A3B8' : '#64748B',
+                      cursor: 'pointer',
+                      padding: '4px'
+                    }}
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Language Selection List (Scrollable) */}
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '9px',
+              maxHeight: 'calc(100vh - 250px)',
+              overflowY: 'auto',
+              paddingRight: '2px'
+            }}>
+              {filteredLanguages.map((lang) => {
                 const isSelected = selectedLang === lang.id;
                 return (
                   <div
@@ -858,56 +935,47 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
             </button>
           </div>
 
-          {/* Illustration Card (Modern Goa Cab Vector) */}
+          {/* Classy Photographic Card (Mature, Ultra-Realistic Goa Photography) */}
           <div style={{
-            background: isDark ? '#161B22' : '#F8FAFC',
-            border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
-            borderRadius: '24px',
-            padding: '24px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '260px',
-            boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.3)' : '0 4px 12px rgba(15, 23, 42, 0.08)',
+            borderRadius: '22px',
+            overflow: 'hidden',
+            height: '240px',
+            width: '100%',
             position: 'relative',
-            overflow: 'hidden'
+            border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
+            boxShadow: isDark ? '0 12px 30px rgba(0,0,0,0.5)' : '0 8px 24px rgba(15, 23, 42, 0.1)',
+            background: '#000000'
           }}>
-            {/* Scenic Vector Graphic */}
-            <svg width="220" height="150" viewBox="0 0 220 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Road / Curve */}
-              <path d="M10 135 C 70 135, 110 110, 210 110" stroke={isDark ? "#30363D" : "#CBD5E1"} strokeWidth="4" strokeDasharray="6 6" />
-              {/* Palm Tree Outline (Goa Vibe) */}
-              <path d="M185 105 Q188 70 180 40 Q175 42 165 48 M180 40 Q192 35 205 45 M180 40 Q185 25 180 15" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" />
-              {/* Modern Goa Cab Body */}
-              <rect x="35" y="70" width="130" height="42" rx="12" fill="#FFB703" />
-              {/* Cab Roof */}
-              <path d="M60 70 L75 44 L125 44 L145 70 Z" fill="#000000" opacity={isDark ? "0.9" : "0.85"} />
-              {/* Windows */}
-              <path d="M78 48 L100 48 L100 66 L68 66 Z" fill="#FFFFFF" opacity="0.8" />
-              <path d="M104 48 L122 48 L138 66 L104 66 Z" fill="#FFFFFF" opacity="0.8" />
-              {/* Wheels */}
-              <circle cx="65" cy="112" r="13" fill="#1E293B" stroke="#FFB703" strokeWidth="3" />
-              <circle cx="135" cy="112" r="13" fill="#1E293B" stroke="#FFB703" strokeWidth="3" />
-              {/* Taxi Roof Light */}
-              <rect x="92" y="38" width="22" height="7" rx="3" fill="#000000" stroke="#FFB703" strokeWidth="1.5" />
-              {/* GPS Pin */}
-              <g transform="translate(100, 5)">
-                <circle cx="10" cy="10" r="9" fill="#EF4444" />
-                <circle cx="10" cy="10" r="3.5" fill="#FFFFFF" />
-              </g>
-            </svg>
+            <img 
+              src={ONBOARDING_SLIDES[currentSlide].image} 
+              alt={ONBOARDING_SLIDES[currentSlide].title}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transition: 'opacity 0.3s ease'
+              }}
+            />
 
-            {/* Slide Badge */}
+            {/* Bottom Gradient Overlay */}
             <div style={{
-              marginTop: '12px',
-              background: isDark ? 'rgba(255, 183, 3, 0.15)' : '#FEF3C7',
-              border: isDark ? '1px solid rgba(255, 183, 3, 0.4)' : '1.5px solid #D97706',
-              padding: '4px 10px',
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)'
+            }} />
+
+            {/* Slide Badge Capsule */}
+            <div style={{
+              position: 'absolute',
+              bottom: '14px',
+              left: '16px',
+              background: 'rgba(0, 0, 0, 0.7)',
+              border: `1.5px solid ${ONBOARDING_SLIDES[currentSlide].themeColor}`,
+              padding: '5px 12px',
               borderRadius: '20px',
-              fontSize: '10.5px',
-              fontWeight: 800,
-              color: isDark ? '#FFB703' : '#B45309',
+              fontSize: '11px',
+              fontWeight: 900,
+              color: ONBOARDING_SLIDES[currentSlide].themeColor,
               letterSpacing: '0.6px',
               textTransform: 'uppercase'
             }}>
@@ -1074,37 +1142,38 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
             </div>
           </div>
 
-          {/* Hero Artwork Area (Blue Car with Driver & Rider from Reference) */}
+          {/* WOW GOA Branded Emblem Area (Classy Logo instead of cartoon car) */}
           <div style={{
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '10px 0',
+            padding: '16px 0 10px',
             position: 'relative'
           }}>
-            {/* Sleek Vector Car & Map Pin Scene */}
-            <svg width="240" height="130" viewBox="0 0 240 130" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Map Device Background */}
-              <rect x="80" y="8" width="80" height="110" rx="10" fill={isDark ? "#1E293B" : "#E2E8F0"} opacity="0.6" />
-              <path d="M85 35 L120 50 L155 30" stroke="#FFB703" strokeWidth="2.5" strokeDasharray="3 3" />
-              {/* Map Pin Bubble */}
-              <circle cx="120" cy="50" r="12" fill="#3B82F6" />
-              <circle cx="120" cy="50" r="5" fill="#FFFFFF" />
-              
-              {/* Blue Sedan (like reference image) */}
-              <rect x="30" y="65" width="180" height="42" rx="12" fill="#1D4ED8" />
-              <path d="M60 65 L80 40 L160 40 L185 65 Z" fill="#1E40AF" />
-              {/* Windows */}
-              <path d="M84 44 L118 44 L118 62 L70 62 Z" fill="#93C5FD" opacity="0.8" />
-              <path d="M122 44 L154 44 L172 62 L122 62 Z" fill="#93C5FD" opacity="0.8" />
-              {/* Wheels */}
-              <circle cx="65" cy="107" r="14" fill="#0F172A" stroke="#94A3B8" strokeWidth="3" />
-              <circle cx="175" cy="107" r="14" fill="#0F172A" stroke="#94A3B8" strokeWidth="3" />
-              {/* Headlights */}
-              <rect x="200" y="75" width="8" height="6" rx="2" fill="#FEF08A" />
-            </svg>
+            <div style={{
+              width: '84px',
+              height: '84px',
+              borderRadius: '22px',
+              background: '#ffffff',
+              border: isDark ? '2px solid #FFB703' : '2px solid #0F172A',
+              boxShadow: isDark ? '0 10px 28px rgba(255, 183, 3, 0.3)' : '0 8px 24px rgba(15, 23, 42, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '10px'
+            }}>
+              <img src="/wowgoa-logo.png" alt="WOW GOA" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
+            <div style={{ textAlign: 'center', marginTop: '12px' }}>
+              <div style={{ fontSize: '20px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A', letterSpacing: '-0.02em' }}>
+                WOW GOA <span style={{ color: '#FFB703' }}>Cabs</span>
+              </div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: isDark ? '#94A3B8' : '#64748B', letterSpacing: '0.8px', textTransform: 'uppercase', marginTop: '3px' }}>
+                Goa Tourism Certified Mobility
+              </div>
+            </div>
           </div>
 
           {/* Bottom Sheet Drawer Card */}
@@ -1261,35 +1330,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                     </div>
                   </div>
 
-                  {/* Passenger Name Input */}
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      background: isDark ? '#0D1117' : '#FFFFFF',
-                      border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
-                      borderRadius: '12px',
-                      padding: '0 12px'
-                    }}>
-                      <User size={15} color={isDark ? "#94A3B8" : "#475569"} />
-                      <input
-                        type="text"
-                        placeholder="Passenger Name (e.g. Jenny)"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        style={{
-                          flex: 1,
-                          border: 'none',
-                          outline: 'none',
-                          background: 'transparent',
-                          padding: '10px 8px',
-                          fontSize: '13.5px',
-                          fontWeight: 700,
-                          color: isDark ? '#FFFFFF' : '#0F172A'
-                        }}
-                      />
-                    </div>
-                  </div>
+
                 </div>
               ) : (
                 /* Driver Account Quick Select */

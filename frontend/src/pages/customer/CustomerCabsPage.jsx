@@ -178,6 +178,8 @@ export default function CustomerCabsPage({ onBookCab }) {
       if (viewParam === 'booking') return 'booking';
       if (viewParam === 'confirmed') return 'confirmed';
     } catch (e) {}
+    // In mobile APK app, directly open the ride booking console
+    if (isNativeApp) return 'booking';
     // Default to the Taxi first page
     return 'landing';
   });
@@ -229,9 +231,9 @@ export default function CustomerCabsPage({ onBookCab }) {
     };
   }, []);
 
-  // Tourist Passenger Details
-  const [touristName, setTouristName] = useState('');
-  const [touristPhone, setTouristPhone] = useState('');
+  // Tourist Passenger Details (Pre-filled from login)
+  const [touristName, setTouristName] = useState(() => cabUser?.name || localStorage.getItem('wowgoa_rider_name') || 'Traveler');
+  const [touristPhone, setTouristPhone] = useState(() => cabUser?.phone || localStorage.getItem('wowgoa_rider_phone') || '');
   const [touristFlight, setTouristFlight] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash', 'upi', 'card'
   const [extraLuggage, setExtraLuggage] = useState(false);
@@ -843,40 +845,70 @@ export default function CustomerCabsPage({ onBookCab }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'auto', background: '#fff', fontFamily: '"Uber Move Text", system-ui, -apple-system, sans-serif' }}>
 
-        {/* Top Nav Bar */}
-        <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0 24px', height: '52px', minHeight: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button type="button" onClick={() => setCurrentView('landing')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, color: '#111' }}>
-              <ArrowLeft size={18} /> Back
-            </button>
-            <span style={{ fontWeight: 700, fontSize: '18px', color: '#111' }}>🚕 Goa Cabs</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Top Nav Bar: Minimal on mobile app to prevent duplicate stacked headers */}
+        {isNativeApp ? (
+          <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '7px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
+            <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🚕</span>
+              <span>Goa Instant Cabs &amp; Airport Transfers</span>
+            </span>
             <button
               type="button"
               onClick={() => setShowTripsHistoryModal(true)}
               style={{
-                background: '#f8fafc',
+                background: '#ffffff',
                 border: '1px solid #cbd5e1',
-                borderRadius: '20px',
-                padding: '5px 12px',
-                fontSize: '12px',
+                borderRadius: '14px',
+                padding: '4px 10px',
+                fontSize: '11.5px',
                 fontWeight: 700,
                 color: '#0f172a',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '4px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
               }}
             >
-              <Clock size={13} />
-              <span>Activity / Trips</span>
+              <Clock size={11.5} />
+              <span>Activity</span>
             </button>
-            <span style={{ fontSize: '13px', color: '#6b7280' }}>📞 +91 98221 44510</span>
-            <span style={{ background: '#000', color: '#fff', borderRadius: '20px', padding: '4px 14px', fontSize: '12px', fontWeight: 600 }}>Zero Surge</span>
           </div>
-        </div>
+        ) : (
+          <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0 24px', height: '52px', minHeight: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <button type="button" onClick={() => setCurrentView('landing')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, color: '#111' }}>
+                <ArrowLeft size={18} /> Back
+              </button>
+              <span style={{ fontWeight: 700, fontSize: '18px', color: '#111' }}>🚕 Goa Cabs</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setShowTripsHistoryModal(true)}
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '20px',
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Clock size={13} />
+                <span>Activity / Trips</span>
+              </button>
+              <span style={{ fontSize: '13px', color: '#6b7280' }}>📞 +91 98221 44510</span>
+              <span style={{ background: '#000', color: '#fff', borderRadius: '20px', padding: '4px 14px', fontSize: '12px', fontWeight: 600 }}>Zero Surge</span>
+            </div>
+          </div>
+        )}
 
         {/* Main 3-column layout */}
         <div className="cabs-3col-layout" style={{ display: 'flex', width: '100%', minHeight: 'auto', alignItems: 'stretch' }}>
@@ -1015,15 +1047,25 @@ export default function CustomerCabsPage({ onBookCab }) {
               </select>
             </div>
 
-            {/* Contact (compact) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <input type="text" placeholder="Your name"
-                style={{ padding: '10px 14px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', background: '#fff', color: '#111' }}
-                value={touristName} onChange={(e) => setTouristName(e.target.value)} />
-              <input type="tel" placeholder="Mobile / WhatsApp"
-                style={{ padding: '10px 14px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', background: '#fff', color: '#111' }}
-                value={touristPhone} onChange={(e) => setTouristPhone(e.target.value)} />
-            </div>
+            {/* Contact Details (Streamlined & Clean) */}
+            {(touristPhone || cabUser?.phone) ? (
+              <div style={{ padding: '8px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '12px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span>👤</span>
+                  <span>Rider: <strong style={{ color: '#0F172A' }}>{touristName || 'Traveler'}</strong></span>
+                </span>
+                <span style={{ fontWeight: 700, color: '#0F172A' }}>{touristPhone || cabUser?.phone}</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <input type="text" placeholder="Your name"
+                  style={{ padding: '10px 14px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', background: '#fff', color: '#111' }}
+                  value={touristName} onChange={(e) => setTouristName(e.target.value)} />
+                <input type="tel" placeholder="Mobile / WhatsApp"
+                  style={{ padding: '10px 14px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', background: '#fff', color: '#111' }}
+                  value={touristPhone} onChange={(e) => setTouristPhone(e.target.value)} />
+              </div>
+            )}
 
             {/* Add-ons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 14px', background: '#f7f7f7', borderRadius: '10px' }}>

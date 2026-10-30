@@ -93,11 +93,7 @@ export default function TaxiAppShell({
       localStorage.setItem('wowgoa_rider_phone', userObj.phone || '');
     } catch (e) {}
     setShowAuthScreen(false);
-
-    // If customer just logged in (e.g., Jenny), open service choice modal
-    if (userObj.role === 'customer') {
-      setShowServiceChoiceModal(true);
-    }
+    setShowServiceChoiceModal(false);
   };
 
   const handleSkipAuth = () => {
