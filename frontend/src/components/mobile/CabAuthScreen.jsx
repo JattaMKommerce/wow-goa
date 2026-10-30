@@ -370,6 +370,34 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       transition: 'background-color 0.2s ease, color 0.2s ease'
     }}>
 
+      {/* ── BACKGROUND WATERMARK: WOW GOA LOGO AT AN ACUTE ANGLE (FAINT / LIGHT / LOGGH) ── */}
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%) rotate(-25deg)',
+        width: '320px',
+        maxWidth: '82vw',
+        height: '320px',
+        opacity: isDark ? 0.05 : 0.075,
+        pointerEvents: 'none',
+        zIndex: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        userSelect: 'none'
+      }}>
+        <img 
+          src="/wowgoa-logo.png" 
+          alt="" 
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            objectFit: 'contain'
+          }} 
+        />
+      </div>
+
       {/* ── TOP BAR: LOGO, THEME TOGGLE (DARK/LIGHT), & ROLE SELECTOR ── */}
       <div style={{
         display: 'flex',
@@ -416,36 +444,35 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
         {/* ── TOP RIGHT CONTROLS: THEME TOGGLE + ROLE DROPDOWN ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           
-          {/* ☀️ / 🌙 THEME TOGGLE BUTTON */}
+          {/* Normal Button for Dark & White Mode */}
           <button
             type="button"
             onClick={toggleTheme}
-            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '5px',
-              background: isDark ? '#112238' : '#F8FAFC',
-              border: isDark ? '1.5px solid rgba(255, 183, 3, 0.4)' : '2px solid #0F172A',
-              borderRadius: '20px',
-              padding: '6px 11px',
-              color: isDark ? '#FFB703' : '#0F172A',
+              gap: '6px',
+              background: isDark ? '#1E293B' : '#FFFFFF',
+              border: isDark ? '1.5px solid #475569' : '2px solid #0F172A',
+              borderRadius: '8px',
+              padding: '7px 12px',
+              color: isDark ? '#FFFFFF' : '#0F172A',
               fontSize: '12px',
-              fontWeight: 800,
+              fontWeight: 700,
               cursor: 'pointer',
-              boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 6px rgba(15, 23, 42, 0.1)',
+              boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.08)',
               transition: 'all 0.15s ease'
             }}
           >
             {isDark ? (
               <>
                 <Sun size={14} color="#FFB703" />
-                <span>Light</span>
+                <span>White Mode</span>
               </>
             ) : (
               <>
                 <Moon size={14} color="#0F172A" />
-                <span>Dark</span>
+                <span>Dark Mode</span>
               </>
             )}
           </button>
@@ -456,25 +483,24 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               type="button"
               onClick={() => setShowRoleDropdown(prev => !prev)}
               style={{
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 gap: '5px',
                 background: isDark 
-                  ? (role === 'driver' ? 'rgba(16, 185, 129, 0.18)' : 'rgba(255, 183, 3, 0.18)') 
+                  ? (role === 'driver' ? 'rgba(16, 185, 129, 0.18)' : '#1E293B') 
                   : (role === 'driver' ? '#ECFDF5' : '#FFFBEB'),
                 border: isDark
-                  ? (role === 'driver' ? '1.5px solid #10B981' : '1.5px solid #FFB703')
+                  ? (role === 'driver' ? '1.5px solid #10B981' : '1.5px solid #475569')
                   : (role === 'driver' ? '2px solid #059669' : '2px solid #D97706'),
-                borderRadius: '20px',
-                padding: '6px 12px',
+                borderRadius: '8px',
+                padding: '7px 12px',
                 color: isDark
-                  ? (role === 'driver' ? '#34D399' : '#FFB703')
+                  ? (role === 'driver' ? '#34D399' : '#FFFFFF')
                   : (role === 'driver' ? '#047857' : '#B45309'),
                 fontSize: '12px',
-                fontWeight: 800,
+                fontWeight: 700,
                 cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                boxShadow: isDark ? 'none' : '0 2px 6px rgba(15, 23, 42, 0.08)'
+                transition: 'all 0.15s ease'
               }}
             >
               <span>{role === 'driver' ? '🚖 Driver' : '🚗 Rider'}</span>
@@ -608,23 +634,6 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               <div>
                 {/* Hero Titles */}
                 <div style={{ marginBottom: '22px' }}>
-                  <div style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: isDark ? 'rgba(255, 183, 3, 0.15)' : '#FEF3C7',
-                    border: isDark ? '1px solid rgba(255, 183, 3, 0.4)' : '1.5px solid #0F172A',
-                    padding: '4px 10px',
-                    borderRadius: '20px',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    color: isDark ? '#FFB703' : '#B45309',
-                    marginBottom: '10px'
-                  }}>
-                    <Sparkles size={12} color={isDark ? "#FFB703" : "#B45309"} />
-                    <span>Goa Mobility Companion</span>
-                  </div>
-
                   <h1 style={{ 
                     fontSize: '28px', 
                     fontWeight: 900, 
