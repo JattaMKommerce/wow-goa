@@ -454,10 +454,11 @@ export default function TaxiAppShell({
                     🌴
                   </div>
                   <h3 style={{ fontSize: '21px', fontWeight: 900, color: '#0F172A', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
-                    Welcome, <span style={{ color: '#D97706' }}>{cabUser?.name || 'Jenny'}!</span>
+                    {(localStorage.getItem('wowgoa_lang') === 'ru' ? 'Добро пожаловать, ' : (localStorage.getItem('wowgoa_lang') === 'hi' ? 'स्वागत है, ' : (localStorage.getItem('wowgoa_lang') === 'kok' ? 'येवकार, ' : 'Welcome, ')))}
+                    <span style={{ color: '#D97706' }}>{cabUser?.name || 'Jenny'}!</span>
                   </h3>
                   <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
-                    How would you like to travel in Goa today?
+                    {localStorage.getItem('wowgoa_lang') === 'ru' ? 'Как вы хотите путешествовать по Гоа сегодня?' : (localStorage.getItem('wowgoa_lang') === 'hi' ? 'आज आप गोवा में कैसे यात्रा करना चाहेंगे?' : (localStorage.getItem('wowgoa_lang') === 'kok' ? 'आयज तुमी गोंयांत कशें भोंवपाक सोदतात?' : 'How would you like to travel in Goa today?'))}
                   </p>
                 </div>
 
