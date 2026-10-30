@@ -8,7 +8,7 @@ import SelfDriveCategoryShowcase from '../../components/widgets/SelfDriveCategor
 import { fetchCars, fetchBikes } from '../../services/api';
 import { 
   Car, Compass, LogOut, User, Sparkles, ShieldCheck, 
-  ArrowRight, X, Phone, CheckCircle2 
+  ArrowRight, X, Phone, CheckCircle2, Globe 
 } from 'lucide-react';
 
 /**
@@ -39,6 +39,12 @@ export default function TaxiAppShell({
   // Authenticated Cab User State (Persisted in localStorage)
   const [cabUser, setCabUser] = useState(() => {
     try {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('lang') || urlParams.get('step') === 'language' || urlParams.get('reset') || urlParams.get('auth')) {
+          return null;
+        }
+      }
       const saved = localStorage.getItem('wowgoa_cab_user');
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -51,8 +57,18 @@ export default function TaxiAppShell({
     return null;
   });
 
-  // ONLY show auth screen if strictly inside the downloaded mobile app AND user is not authenticated.
-  const [showAuthScreen, setShowAuthScreen] = useState(() => Boolean(isNativeApp && !cabUser));
+  // Show auth / direct language screen if user is not authenticated OR explicitly requested
+  const [showAuthScreen, setShowAuthScreen] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('lang') || urlParams.get('step') === 'language' || urlParams.get('auth') || urlParams.get('reset') || urlParams.get('flow')) {
+          return true;
+        }
+      }
+    } catch (e) {}
+    return !cabUser;
+  });
 
   // Service Choice Modal (Shown to customer right after login per user flow)
   const [showServiceChoiceModal, setShowServiceChoiceModal] = useState(false);
@@ -129,8 +145,8 @@ export default function TaxiAppShell({
       position: 'relative'
     }}>
 
-      {/* ── STEP 1: AUTHENTICATION SCREEN FOR DOWNLOADED MOBILE APK ── */}
-      {isNativeApp && showAuthScreen ? (
+      {/* ── STEP 1: AUTHENTICATION & DIRECT LANGUAGE SCREEN ── */}
+      {showAuthScreen ? (
         <CabAuthScreen
           onAuthSuccess={handleAuthSuccess}
           onSkip={handleSkipAuth}
@@ -283,8 +299,30 @@ export default function TaxiAppShell({
               </button>
             </div>
 
-            {/* User Profile / Logout */}
+            {/* User Profile / Language / Logout */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setShowAuthScreen(true)}
+                title="Change Language"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: 'rgba(255,255,255,0.12)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '8px',
+                  padding: '4px 8px',
+                  color: '#FFB703',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                <Globe size={13} />
+                <span>{(typeof localStorage !== 'undefined' && localStorage.getItem('wowgoa_lang')?.toUpperCase()) || 'EN'}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setShowServiceChoiceModal(true)}

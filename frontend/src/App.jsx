@@ -1841,6 +1841,11 @@ export default function App() {
 
   // ─── DEDICATED TAXI APP SHELL (STRICTLY CABS ONLY, NO WEBSITE PAGES) ───────
   // Isolated ride-hailing interface for APK installations and direct cab bookers
+  const isMobileDevice = typeof window !== 'undefined' && (
+    window.innerWidth <= 768 ||
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '')
+  );
+
   const isNativeApp = typeof window !== 'undefined' && (
     Boolean(window.Capacitor?.isNativePlatform?.()) ||
     Boolean(window.Capacitor) ||
@@ -1848,6 +1853,13 @@ export default function App() {
     window.location.search.includes('mode=app') ||
     window.location.search.includes('source=apk') ||
     window.location.search.includes('app=taxi') ||
+    window.location.search.includes('step=language') ||
+    window.location.search.includes('step=lang') ||
+    window.location.search.includes('flow=') ||
+    window.location.search.includes('lang=') ||
+    window.location.pathname === '/app' ||
+    window.location.pathname === '/cabs/app' ||
+    ((path.startsWith('/cabs') || path.startsWith('/taxi')) && isMobileDevice) ||
     (window.location.hostname === 'localhost' && window.location.protocol === 'https:') ||
     (window.navigator && window.navigator.userAgent && (
       window.navigator.userAgent.includes('Capacitor') ||

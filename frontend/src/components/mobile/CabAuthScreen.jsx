@@ -111,6 +111,174 @@ const I18N = {
     change: 'बदला',
     skip: 'वगळा',
     terms: 'पुढे चालू ठेवून, आपण सेवा अटी आणि गोपनीयता धोरणास सहमती दर्शवता'
+  },
+  ru: {
+    chooseLang: 'Выберите язык',
+    selectLangSub: 'Выберите предпочитаемый язык',
+    confirm: 'Подтвердить',
+    continue: 'Продолжить',
+    getMoving: 'Путешествуйте с WOW GOA',
+    enterOtp: 'Введите OTP',
+    resendIn: 'Отправить снова через',
+    change: 'Изменить',
+    skip: 'Пропустить',
+    terms: 'Продолжая, вы соглашаетесь с условиями обслуживания и политикой конфиденциальности'
+  },
+  de: {
+    chooseLang: 'Sprache wählen',
+    selectLangSub: 'Wählen Sie Ihre bevorzugte Sprache',
+    confirm: 'Bestätigen',
+    continue: 'Weiter',
+    getMoving: 'Starten Sie mit WOW GOA',
+    enterOtp: 'OTP eingeben',
+    resendIn: 'Erneut senden in',
+    change: 'Ändern',
+    skip: 'Überspringen',
+    terms: 'Mit dem Fortfahren akzeptieren Sie die Nutzungsbedingungen und Datenschutzrichtlinien'
+  },
+  fr: {
+    chooseLang: 'Choisir la langue',
+    selectLangSub: 'Sélectionnez votre langue préférée',
+    confirm: 'Confirmer',
+    continue: 'Continuer',
+    getMoving: 'Déplacez-vous avec WOW GOA',
+    enterOtp: 'Entrez le code OTP',
+    resendIn: 'Renvoyer dans',
+    change: 'Modifier',
+    skip: 'Passer',
+    terms: 'En continuant, vous acceptez les conditions de service et la politique de confidentialité'
+  },
+  es: {
+    chooseLang: 'Elige tu idioma',
+    selectLangSub: 'Selecciona tu idioma preferido',
+    confirm: 'Confirmar',
+    continue: 'Continuar',
+    getMoving: 'Muévete con WOW GOA',
+    enterOtp: 'Introduce OTP',
+    resendIn: 'Reenviar en',
+    change: 'Cambiar',
+    skip: 'Omitir',
+    terms: 'Al continuar, aceptas los términos de servicio y la política de privacidad'
+  },
+  pt: {
+    chooseLang: 'Escolha o idioma',
+    selectLangSub: 'Selecione o seu idioma de preferência',
+    confirm: 'Confirmar',
+    continue: 'Continuar',
+    getMoving: 'Mova-se com a WOW GOA',
+    enterOtp: 'Inserir OTP',
+    resendIn: 'Reenviar em',
+    change: 'Alterar',
+    skip: 'Pular',
+    terms: 'Ao continuar, você concorda com os termos de serviço e política de privacidade'
+  },
+  he: {
+    chooseLang: 'בחר שפה',
+    selectLangSub: 'בחר את השפה המועדפת עליך',
+    confirm: 'אישור',
+    continue: 'המשך',
+    getMoving: 'יוצאים לדרך עם WOW GOA',
+    enterOtp: 'הזן קוד OTP',
+    resendIn: 'שלח שוב בעוד',
+    change: 'שנה',
+    skip: 'דלג',
+    terms: 'בהמשך השימוש, הינך מסכים לתנאי השירות ומדיניות הפרטיות'
+  },
+  ar: {
+    chooseLang: 'اختر اللغة',
+    selectLangSub: 'حدد لغتك المفضلة',
+    confirm: 'تأكيد',
+    continue: 'متابعة',
+    getMoving: 'انطلق في رحلتك مع WOW GOA',
+    enterOtp: 'أدخل رمز OTP',
+    resendIn: 'إعادة الإرسال خلال',
+    change: 'تغيير',
+    skip: 'تخطي',
+    terms: 'بالمتابعة، فإنك توافق على شروط الخدمة وسياسة الخصوصية'
+  },
+  gu: {
+    chooseLang: 'ભાષા પસંદ કરો',
+    selectLangSub: 'તમારી પસંદગીની ભાષા પસંદ કરો',
+    confirm: 'પુષ્ટિ કરો',
+    continue: 'આગળ વધો',
+    getMoving: 'WOW GOA સાથે મુસાફરી શરૂ કરો',
+    enterOtp: 'OTP દાખલ કરો',
+    resendIn: 'ફરીથી મોકલો',
+    change: 'બદલો',
+    skip: 'છોડો',
+    terms: 'આગળ વધીને, તમે સેવાની શરતો અને ગોપનીયતા નીતિ સાથે સંમત થાઓ છો'
+  },
+  bn: {
+    chooseLang: 'ভাষা নির্বাচন করুন',
+    selectLangSub: 'আপনার পছন্দের ভাষা নির্বাচন করুন',
+    confirm: 'নিশ্চিত করুন',
+    continue: 'এগিয়ে যান',
+    getMoving: 'WOW GOA এর সাথে যাত্রা শুরু করুন',
+    enterOtp: 'OTP লিখুন',
+    resendIn: 'পুনরায় পাঠান',
+    change: 'পরিবর্তন',
+    skip: 'এড়িয়ে যান',
+    terms: 'চালিয়ে গিয়ে, আপনি পরিষেবার শর্তাবলী এবং গোপনীয়তা নীতিতে সম্মত হচ্ছেন'
+  },
+  kn: {
+    chooseLang: 'ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ',
+    selectLangSub: 'ನಿಮ್ಮ ಆದ್ಯತೆಯ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ',
+    confirm: 'ದೃಢೀಕರಿಸಿ',
+    continue: 'ಮುಂದುವರಿಯಿರಿ',
+    getMoving: 'WOW GOA ಜೊತೆಗೆ ಪ್ರಯಾಣ ಪ್ರಾರಂಭಿಸಿ',
+    enterOtp: 'OTP ನಮೂದಿಸಿ',
+    resendIn: 'ಮತ್ತೆ ಕಳುಹಿಸಿ',
+    change: 'ಬದಲಾಯಿಸಿ',
+    skip: 'ಬಿಟ್ಟುಬಿಡಿ',
+    terms: 'ಮುಂದುವರಿಯುವ ಮೂಲಕ, ನೀವು ಸೇವಾ ನಿಯಮಗಳು ಮತ್ತು ಗೌಪ್ಯತಾ ನೀತಿಯನ್ನು ಒಪ್ಪುತ್ತೀರಿ'
+  },
+  ml: {
+    chooseLang: 'ഭാഷ തിരഞ്ഞെടുക്കുക',
+    selectLangSub: 'നിങ്ങൾക്ക് ഇഷ്ടമുള്ള ഭാഷ തിരഞ്ഞെടുക്കുക',
+    confirm: 'സ്ഥിരീകരിക്കുക',
+    continue: 'തുടരുക',
+    getMoving: 'WOW GOA-ൽ യാത്ര ആരംഭിക്കുക',
+    enterOtp: 'OTP നൽകുക',
+    resendIn: 'വീണ്ടും അയക്കുക',
+    change: 'മാറ്റുക',
+    skip: 'ഒഴിവാക്കുക',
+    terms: 'തുടരുന്നതിലൂടെ, നിങ്ങൾ സേവന നിబంధനകളും സ്വകാര್ಯതാ നയവും അംഗീകരിക്കുന്നു'
+  },
+  ta: {
+    chooseLang: 'மொழியைத் தேர்ந்தெடுக்கவும்',
+    selectLangSub: 'உங்கள் விருப்ப மொழியைத் தேர்ந்தெடுக்கவும்',
+    confirm: 'உறுதிப்படுத்தவும்',
+    continue: 'தொடரவும்',
+    getMoving: 'WOW GOA உடன் பயணத்தைத் தொடங்குங்கள்',
+    enterOtp: 'OTP உள்ளிடவும்',
+    resendIn: 'மீண்டும் அனுப்பவும்',
+    change: 'மாற்று',
+    skip: 'தவிர்',
+    terms: 'தொடர்வதன் மூலம், நீங்கள் சேவை விதிமுறைகள் மற்றும் தனியுரிமைக் கொள்கையை ஒப்புக்கொள்கிறீர்கள்'
+  },
+  te: {
+    chooseLang: 'భాషను ఎంచుకోండి',
+    selectLangSub: 'మీకు ఇష్టమైన భాషను ఎంచుకోండి',
+    confirm: 'ధృవీకరించండి',
+    continue: 'కొనసాగించండి',
+    getMoving: 'WOW GOA తో ప్రయాణం ప్రారంభించండి',
+    enterOtp: 'OTP నమోదు చేయండి',
+    resendIn: 'మళ్లీ పంపండి',
+    change: 'మార్చండి',
+    skip: 'దాటవేయి',
+    terms: 'కొనసాగించడం ద్వారా, మీరు సేవా నిబంధనలు మరియు గోప్యతా విధానాన్ని అంగీకరిస్తున్నారు'
+  },
+  pa: {
+    chooseLang: 'ਭਾਸ਼ਾ ਚੁਣੋ',
+    selectLangSub: 'ਆਪਣੀ ਪਸੰਦੀਦਾ ਭਾਸ਼ਾ ਚੁਣੋ',
+    confirm: 'ਪੁਸ਼ਟੀ ਕਰੋ',
+    continue: 'ਅੱਗੇ ਵਧੋ',
+    getMoving: 'WOW GOA ਨਾਲ ਯਾਤਰਾ ਸ਼ੁਰੂ ਕਰੋ',
+    enterOtp: 'OTP ਦਰਜ ਕਰੋ',
+    resendIn: 'ਮੁੜ ਭੇਜੋ',
+    change: 'ਬਦਲੋ',
+    skip: 'ਛੱਡੋ',
+    terms: 'ਜਾਰੀ ਰੱਖ ਕੇ, ਤੁਸੀਂ ਸੇਵਾ ਦੀਆਂ ਸ਼ਰਤਾਂ ਅਤੇ ਗੋਪਨੀਯਤਾ ਨੀਤੀ ਨਾਲ ਸਹਿਮਤ ਹੁੰਦੇ ਹੋ'
   }
 };
 
@@ -187,21 +355,11 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
     );
   }, [langSearch]);
 
-  // Flow Step: 'splash' -> 'language' -> 'onboarding' -> 'getmoving' -> 'otp'
-  const [flowStep, setFlowStep] = useState('splash');
+  // Flow Step: starts directly on 'language' per user request -> 'onboarding' -> 'getmoving' -> 'otp'
+  const [flowStep, setFlowStep] = useState('language');
 
   // Onboarding slide index
   const [currentSlide, setCurrentSlide] = useState(0);
-
-  // Auto transition from splash after 1.4s
-  useEffect(() => {
-    if (flowStep === 'splash') {
-      const timer = setTimeout(() => {
-        setFlowStep('language');
-      }, 1400);
-      return () => clearTimeout(timer);
-    }
-  }, [flowStep]);
 
   // Role: 'customer' (Passenger/Rider) | 'driver' (Chauffeur Partner)
   const [role, setRole] = useState('customer');
