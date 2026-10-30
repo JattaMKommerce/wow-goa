@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Phone, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2, 
   Sparkles, Lock, RefreshCw, X, User, Mail, Car, Compass, ChevronDown, Check,
-  Sun, Moon
+  Sun, Moon, Globe, MapPin, Award
 } from 'lucide-react';
 import { sendCustomerOtp, verifyCustomerOtp } from '../../services/api';
 
@@ -37,20 +37,109 @@ const DEMO_DRIVERS = [
 ];
 
 /**
- * CabAuthScreen
- * Dedicated Mobile APK Authentication Screen with:
- * 1. Dark & Light Mode Toggle Button (persisted in localStorage)
- * 2. High-contrast, clearly visible borders in Light Mode
- * 3. Role Switcher (Passenger vs Chauffeur Driver Partner)
- * 4. Mobile & Email OTP Login
+ * Languages Supported
  */
+const LANGUAGES = [
+  { id: 'en', label: 'English', native: 'English' },
+  { id: 'hi', label: 'Hindi', native: 'हिन्दी' },
+  { id: 'kok', label: 'Konkani', native: 'कोंकणी (Goa)' },
+  { id: 'mr', label: 'Marathi', native: 'मराठी' },
+  { id: 'gu', label: 'Gujarati', native: 'ગુજરાતી' },
+  { id: 'bn', label: 'Bengali', native: 'বাংলা' },
+  { id: 'ta', label: 'Tamil', native: 'தமிழ்' }
+];
+
+/**
+ * Multi-Language UI Strings
+ */
+const I18N = {
+  en: {
+    chooseLang: 'Choose Language',
+    selectLangSub: 'Select your preferred language',
+    confirm: 'Confirm',
+    continue: 'Continue',
+    getMoving: 'Get moving with WOW GOA',
+    enterOtp: 'Enter OTP',
+    resendIn: 'Resend OTP in',
+    change: 'Change',
+    skip: 'Skip',
+    terms: 'By continuing, you agree to the terms of service and privacy policy'
+  },
+  hi: {
+    chooseLang: 'भाषा चुनें',
+    selectLangSub: 'अपनी पसंदीदा भाषा चुनें',
+    confirm: 'पुष्टि करें',
+    continue: 'आगे बढ़ें',
+    getMoving: 'WOW GOA के साथ यात्रा शुरू करें',
+    enterOtp: 'OTP दर्ज करें',
+    resendIn: 'पुनः भेजें',
+    change: 'बदलें',
+    skip: 'छोड़ें',
+    terms: 'जारी रखकर, आप सेवा की शर्तों और गोपनीयता नीति से सहमत होते हैं'
+  },
+  kok: {
+    chooseLang: 'भास वेंचून काडात',
+    selectLangSub: 'तुमी पसंत केल्ली भास वेंचून काडात',
+    confirm: 'निश्चीत करात',
+    continue: 'फुडें वचात',
+    getMoving: 'WOW GOA सयत प्रवास सुरू करात',
+    enterOtp: 'OTP घालात',
+    resendIn: 'परत धाडात',
+    change: 'बदलात',
+    skip: 'सोडात',
+    terms: 'फुडें वचून, तुमी सेवा अटी आनी गोपनीयता धोरणाक मान्यताय दितात'
+  },
+  mr: {
+    chooseLang: 'भाषा निवडा',
+    selectLangSub: 'आपली पसंतीची भाषा निवडा',
+    confirm: 'पुष्टी करा',
+    continue: 'पुढे चालू ठेवा',
+    getMoving: 'WOW GOA सह प्रवास सुरू करा',
+    enterOtp: 'OTP प्रविष्ट करा',
+    resendIn: 'पुन्हा पाठवा',
+    change: 'बदला',
+    skip: 'वगळा',
+    terms: 'पुढे चालू ठेवून, आपण सेवा अटी आणि गोपनीयता धोरणास सहमती दर्शवता'
+  }
+};
+
+/**
+ * Onboarding Slides (Clarity, Trust, Freedom)
+ */
+const ONBOARDING_SLIDES = [
+  {
+    id: 'clarity',
+    badge: 'ZERO SURGE PROMISE',
+    title: 'CLARITY & HONEST FARES',
+    description: "Fair pricing, crystal clear, Your trust, our promise sincere. With WOW GOA, you'll find no hidden fee, Transparency is our guarantee across Goa.",
+    themeColor: '#FFB703',
+    iconType: 'shield'
+  },
+  {
+    id: 'chauffeurs',
+    badge: 'GOA TOURISM CERTIFIED',
+    title: 'VERIFIED LOCAL DRIVERS',
+    description: 'Travel safely with polite, background-verified tourist chauffeurs who know every beach, airport terminal, and scenic highway detour.',
+    themeColor: '#10B981',
+    iconType: 'driver'
+  },
+  {
+    id: 'choice',
+    badge: 'ALL-IN-ONE MOBILITY',
+    title: 'CABS & SELF DRIVE IN ONE APP',
+    description: 'Book point-to-point chauffeur cabs or rent Thar 4x4, Creta, Swift & Activa scooters with door-step delivery & unlimited kilometers.',
+    themeColor: '#3B82F6',
+    iconType: 'car'
+  }
+];
+
 export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = false }) {
   // Theme state: 'light' | 'dark'
   const [theme, setTheme] = useState(() => {
     try {
-      return localStorage.getItem('wowgoa_cab_theme') || 'light';
+      return localStorage.getItem('wowgoa_cab_theme') || 'dark';
     } catch (e) {
-      return 'light';
+      return 'dark';
     }
   });
 
@@ -64,18 +153,44 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
 
   const isDark = theme === 'dark';
 
+  // Language state
+  const [selectedLang, setSelectedLang] = useState(() => {
+    try {
+      return localStorage.getItem('wowgoa_lang') || 'en';
+    } catch (e) {
+      return 'en';
+    }
+  });
+
+  const t = I18N[selectedLang] || I18N.en;
+
+  // Flow Step: 'splash' -> 'language' -> 'onboarding' -> 'getmoving' -> 'otp'
+  const [flowStep, setFlowStep] = useState('splash');
+
+  // Onboarding slide index
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Auto transition from splash after 1.4s
+  useEffect(() => {
+    if (flowStep === 'splash') {
+      const timer = setTimeout(() => {
+        setFlowStep('language');
+      }, 1400);
+      return () => clearTimeout(timer);
+    }
+  }, [flowStep]);
+
   // Role: 'customer' (Passenger/Rider) | 'driver' (Chauffeur Partner)
   const [role, setRole] = useState('customer');
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
 
   // Auth method: 'phone' | 'email'
   const [authMethod, setAuthMethod] = useState('phone');
-  const [step, setStep] = useState('input'); // 'input' | 'otp'
   
   // Passenger fields
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [fullName, setFullName] = useState('Jenny'); // Default Jenny per user request
+  const [fullName, setFullName] = useState('Jenny'); // Default Jenny
   
   // Driver fields
   const [selectedDriver, setSelectedDriver] = useState(DEMO_DRIVERS[0]);
@@ -95,7 +210,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
   // Resend countdown timer
   useEffect(() => {
     let timer;
-    if (step === 'otp' && resendTimer > 0) {
+    if (flowStep === 'otp' && resendTimer > 0) {
       timer = setInterval(() => {
         setResendTimer(prev => prev - 1);
       }, 1000);
@@ -103,19 +218,46 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       setCanResend(true);
     }
     return () => clearInterval(timer);
-  }, [step, resendTimer]);
+  }, [flowStep, resendTimer]);
 
   // Focus first OTP box
   useEffect(() => {
-    if (step === 'otp') {
+    if (flowStep === 'otp') {
       setTimeout(() => {
         otpInputRefs[0]?.current?.focus();
       }, 200);
     }
-  }, [step]);
+  }, [flowStep]);
+
+  // Handle Confirm Language
+  const handleConfirmLanguage = () => {
+    try {
+      localStorage.setItem('wowgoa_lang', selectedLang);
+    } catch (e) {}
+    setFlowStep('onboarding');
+  };
+
+  // Handle Onboarding Next
+  const handleNextOnboarding = () => {
+    if (currentSlide < ONBOARDING_SLIDES.length - 1) {
+      setCurrentSlide(prev => prev + 1);
+    } else {
+      try {
+        localStorage.setItem('wowgoa_onboarded_completed', 'true');
+      } catch (e) {}
+      setFlowStep('getmoving');
+    }
+  };
+
+  const handleSkipOnboarding = () => {
+    try {
+      localStorage.setItem('wowgoa_onboarded_completed', 'true');
+    } catch (e) {}
+    setFlowStep('getmoving');
+  };
 
   // Handle Request OTP
-  const handleSubmit = async (e) => {
+  const handleSubmitInput = async (e) => {
     e?.preventDefault();
     setErrorMsg('');
     setInfoMsg('');
@@ -133,8 +275,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
 
       setTimeout(() => {
         setIsLoading(false);
-        setInfoMsg(`Driver OTP sent to +91 ${cleanDriverPhone}. Use code ${localOtp} to start duty.`);
-        setStep('otp');
+        setInfoMsg(`Driver code sent to +91 ${cleanDriverPhone}. Use code ${localOtp} to start duty.`);
+        setFlowStep('otp');
         setResendTimer(30);
         setCanResend(false);
         setOtpDigits(['', '', '', '']);
@@ -176,12 +318,12 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
         ? `4-digit code sent to ${cleanEmail}` 
         : `4-digit code sent to +91 ${cleanPhone}`);
 
-      setStep('otp');
+      setFlowStep('otp');
       setResendTimer(30);
       setCanResend(false);
       setOtpDigits(['', '', '', '']);
     } catch (err) {
-      setStep('otp');
+      setFlowStep('otp');
       setResendTimer(30);
       setCanResend(false);
       setOtpDigits(['', '', '', '']);
@@ -351,6 +493,10 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
     } catch (e) {}
   };
 
+  // Base background style
+  const rootBg = isDark ? '#0F1216' : '#FFFFFF';
+  const rootColor = isDark ? '#F8FAFC' : '#0F172A';
+
   return (
     <div style={{
       position: 'relative',
@@ -360,20 +506,21 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       maxHeight: '100vh',
       overflowX: 'hidden',
       overflowY: 'auto',
-      background: isDark ? '#08121E' : '#FFFFFF',
-      color: isDark ? '#F8FAFC' : '#0F172A',
+      background: rootBg,
+      color: rootColor,
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'space-between',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      padding: '20px 20px 20px',
+      padding: flowStep === 'splash' ? '0' : '16px 20px',
+      boxSizing: 'border-box',
       transition: 'background-color 0.2s ease, color 0.2s ease'
     }}>
 
-      {/* ── BACKGROUND WATERMARK: WOW GOA LOGO AT AN ACUTE ANGLE (FAINT / LIGHT / LOGGH) ── */}
+      {/* ── BACKGROUND WATERMARK: WOW GOA LOGO AT AN ACUTE ANGLE (LOGGH / FAINT) ── */}
       <div style={{
         position: 'absolute',
-        top: '50%',
+        top: '48%',
         left: '50%',
         transform: 'translate(-50%, -50%) rotate(-25deg)',
         width: '320px',
@@ -398,493 +545,756 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
         />
       </div>
 
-      {/* ── TOP BAR: LOGO, THEME TOGGLE (DARK/LIGHT), & ROLE SELECTOR ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        width: '100%',
-        maxWidth: '440px',
-        margin: '0 auto 16px',
-        position: 'relative',
-        zIndex: 50
-      }}>
-        {/* Brand Logo & Name */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '12px',
-            background: '#ffffff',
-            boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.08)',
-            border: isDark ? '1.5px solid rgba(255, 183, 3, 0.4)' : '2px solid #0F172A',
+      {/* ══════════════════════════════════════════════════════════════════════
+          SCREEN 1: SPLASH SCREEN (WOW GOA LOGO + CAR ACCENT + SPINNER)
+         ══════════════════════════════════════════════════════════════════════ */}
+      {flowStep === 'splash' && (
+        <div 
+          onClick={() => setFlowStep('language')}
+          style={{
+            height: '100vh',
+            width: '100%',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '5px'
+            cursor: 'pointer',
+            position: 'relative',
+            zIndex: 10
+          }}
+        >
+          {/* Centered Brand Emblem */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+            animation: 'fadeIn 0.5s ease'
           }}>
-            <img src="/wowgoa-logo.png" alt="WOW GOA" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-          </div>
-          <div>
-            <div style={{ fontSize: '15px', fontWeight: 900, letterSpacing: '-0.02em', color: isDark ? '#ffffff' : '#0F172A' }}>
-              WOW GOA
-            </div>
-            <div style={{ 
-              fontSize: '10.5px', 
-              fontWeight: 800, 
-              color: role === 'driver' ? '#10B981' : (isDark ? '#FFB703' : '#D97706'), 
-              letterSpacing: '0.6px', 
-              textTransform: 'uppercase' 
-            }}>
-              {role === 'driver' ? 'Chauffeur Partner' : 'Cabs & Self Drive'}
-            </div>
-          </div>
-        </div>
-
-        {/* ── TOP RIGHT CONTROLS: THEME TOGGLE + ROLE DROPDOWN ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          
-          {/* Normal Button for Dark & White Mode */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            style={{
-              display: 'inline-flex',
+            <div style={{
+              width: '90px',
+              height: '90px',
+              borderRadius: '24px',
+              background: '#ffffff',
+              boxShadow: '0 12px 36px rgba(0,0,0,0.4)',
+              border: '2px solid #FFB703',
+              display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              background: isDark ? '#1E293B' : '#FFFFFF',
-              border: isDark ? '1.5px solid #475569' : '2px solid #0F172A',
-              borderRadius: '8px',
-              padding: '7px 12px',
-              color: isDark ? '#FFFFFF' : '#0F172A',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.08)',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            {isDark ? (
-              <>
-                <Sun size={14} color="#FFB703" />
-                <span>White Mode</span>
-              </>
-            ) : (
-              <>
-                <Moon size={14} color="#0F172A" />
-                <span>Dark Mode</span>
-              </>
-            )}
-          </button>
+              justifyContent: 'center',
+              padding: '12px'
+            }}>
+              <img src="/wowgoa-logo.png" alt="WOW GOA" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
 
-          {/* 🚗 / 🚖 ROLE DROPDOWN SELECTOR */}
-          <div style={{ position: 'relative' }}>
-            <button
-              type="button"
-              onClick={() => setShowRoleDropdown(prev => !prev)}
-              style={{
-                display: 'inline-flex',
+            {/* Glowing Brand Title with Car Accent */}
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                fontSize: '28px', 
+                fontWeight: 900, 
+                letterSpacing: '1px',
+                color: isDark ? '#FFFFFF' : '#0F172A',
+                display: 'flex',
                 alignItems: 'center',
-                gap: '5px',
-                background: isDark 
-                  ? (role === 'driver' ? 'rgba(16, 185, 129, 0.18)' : '#1E293B') 
-                  : (role === 'driver' ? '#ECFDF5' : '#FFFBEB'),
-                border: isDark
-                  ? (role === 'driver' ? '1.5px solid #10B981' : '1.5px solid #475569')
-                  : (role === 'driver' ? '2px solid #059669' : '2px solid #D97706'),
-                borderRadius: '8px',
-                padding: '7px 12px',
-                color: isDark
-                  ? (role === 'driver' ? '#34D399' : '#FFFFFF')
-                  : (role === 'driver' ? '#047857' : '#B45309'),
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <span>{role === 'driver' ? '🚖 Driver' : '🚗 Rider'}</span>
-              <ChevronDown size={13} style={{ transform: showRoleDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-            </button>
-
-            {/* Dropdown Menu */}
-            {showRoleDropdown && (
-              <div style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                right: 0,
-                background: isDark ? '#0D1E32' : '#FFFFFF',
-                border: isDark ? '1.5px solid rgba(255, 183, 3, 0.4)' : '2px solid #0F172A',
-                borderRadius: '16px',
-                boxShadow: isDark ? '0 16px 36px rgba(0, 0, 0, 0.6)' : '0 16px 36px rgba(15, 23, 42, 0.2)',
-                overflow: 'hidden',
-                zIndex: 100,
-                minWidth: '200px'
+                justifyContent: 'center',
+                gap: '8px'
               }}>
-                <div style={{ 
-                  padding: '10px 14px 6px', 
-                  fontSize: '10.5px', 
-                  textTransform: 'uppercase', 
-                  color: isDark ? '#94A3B8' : '#64748B', 
-                  fontWeight: 800, 
-                  letterSpacing: '0.6px',
-                  borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #E2E8F0'
-                }}>
-                  Select Role:
-                </div>
-
-                {/* Passenger Option */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRole('customer');
-                    setShowRoleDropdown(false);
-                    setStep('input');
-                    setErrorMsg('');
-                    setInfoMsg('');
-                  }}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '11px 14px',
-                    background: role === 'customer' 
-                      ? (isDark ? 'rgba(255, 183, 3, 0.15)' : '#FFFBEB') 
-                      : 'transparent',
-                    color: role === 'customer' 
-                      ? (isDark ? '#FFB703' : '#B45309') 
-                      : (isDark ? '#F8FAFC' : '#0F172A'),
-                    border: 'none',
-                    borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #E2E8F0',
-                    fontSize: '13px',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    textAlign: 'left'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>🚗</span>
-                    <span>Passenger / Rider</span>
-                  </div>
-                  {role === 'customer' && <Check size={14} color={isDark ? "#FFB703" : "#B45309"} />}
-                </button>
-
-                {/* Driver Option */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRole('driver');
-                    setShowRoleDropdown(false);
-                    setStep('input');
-                    setErrorMsg('');
-                    setInfoMsg('');
-                  }}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '11px 14px',
-                    background: role === 'driver' 
-                      ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5') 
-                      : 'transparent',
-                    color: role === 'driver' 
-                      ? (isDark ? '#34D399' : '#047857') 
-                      : (isDark ? '#F8FAFC' : '#0F172A'),
-                    border: 'none',
-                    fontSize: '13px',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    textAlign: 'left'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>🚖</span>
-                    <span>Driver Partner</span>
-                  </div>
-                  {role === 'driver' && <Check size={14} color={isDark ? "#34D399" : "#047857"} />}
-                </button>
+                <span>WOW GOA</span>
+                <span style={{ color: '#FFB703', fontWeight: 900 }}>Cabs</span>
               </div>
-            )}
+              <p style={{ 
+                fontSize: '12px', 
+                color: isDark ? '#94A3B8' : '#64748B', 
+                letterSpacing: '1.2px', 
+                textTransform: 'uppercase',
+                fontWeight: 700,
+                margin: '4px 0 0'
+              }}>
+                Goa Tourism Certified Mobility
+              </p>
+            </div>
           </div>
 
+          {/* Bottom Spinner / Loading Arc */}
+          <div style={{
+            position: 'absolute',
+            bottom: '48px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <div style={{
+              width: '26px',
+              height: '26px',
+              borderRadius: '50%',
+              border: '3px solid rgba(255, 183, 3, 0.2)',
+              borderTopColor: '#FFB703',
+              animation: 'spin 0.8s linear infinite'
+            }} />
+            <span style={{ fontSize: '11px', color: isDark ? '#64748B' : '#94A3B8', fontWeight: 600 }}>
+              Tap anywhere to continue
+            </span>
+          </div>
+
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            @keyframes fadeIn {
+              from { opacity: 0; transform: scale(0.96); }
+              to { opacity: 1; transform: scale(1); }
+            }
+          `}</style>
         </div>
-      </div>
+      )}
 
-      {/* ── MAIN CONTENT CONTAINER ── */}
-      <div style={{
-        width: '100%',
-        maxWidth: '440px',
-        margin: '0 auto',
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        padding: '10px 0'
-      }}>
-
-        {/* ════════════════════════════════════════════════════════════════════
-            STEP 1: PHONE / EMAIL INPUT FORM
-           ════════════════════════════════════════════════════════════════════ */}
-        {step === 'input' && (
+      {/* ══════════════════════════════════════════════════════════════════════
+          SCREEN 2: CHOOSE LANGUAGE (Exact Flow from Reference)
+         ══════════════════════════════════════════════════════════════════════ */}
+      {flowStep === 'language' && (
+        <div style={{
+          width: '100%',
+          maxWidth: '440px',
+          margin: '0 auto',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          position: 'relative',
+          zIndex: 10,
+          padding: '12px 0 8px'
+        }}>
+          {/* Top Header & Normal Theme Button */}
           <div>
-            {role === 'customer' ? (
-              /* ─── PASSENGER MODE (JENNY) ─── */
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div>
-                {/* Hero Titles */}
-                <div style={{ marginBottom: '22px' }}>
-                  <h1 style={{ 
-                    fontSize: '28px', 
-                    fontWeight: 900, 
-                    margin: '0 0 6px', 
-                    letterSpacing: '-0.02em', 
-                    color: isDark ? '#FFFFFF' : '#0F172A', 
-                    lineHeight: 1.15 
-                  }}>
-                    Enter your mobile number
-                  </h1>
-                  <p style={{ fontSize: '13px', color: isDark ? '#94A3B8' : '#475569', margin: 0, lineHeight: 1.4 }}>
-                    We’ll send a 4-digit code to verify and get you moving in Goa.
-                  </p>
-                </div>
+                <h1 style={{ fontSize: '26px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
+                  {t.chooseLang}
+                </h1>
+                <p style={{ fontSize: '13px', color: isDark ? '#94A3B8' : '#475569', margin: 0 }}>
+                  {t.selectLangSub}
+                </p>
+              </div>
 
-                {errorMsg && (
-                  <div style={{
-                    background: '#FEF2F2',
-                    border: '2px solid #EF4444',
-                    color: '#B91C1C',
-                    borderRadius: '14px',
-                    padding: '10px 14px',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    marginBottom: '16px'
-                  }}>
-                    {errorMsg}
-                  </div>
-                )}
+              {/* Normal Dark / White Mode Button */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: isDark ? '#1E293B' : '#FFFFFF',
+                  border: isDark ? '1.5px solid #475569' : '2px solid #0F172A',
+                  borderRadius: '8px',
+                  padding: '7px 11px',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.08)'
+                }}
+              >
+                {isDark ? <Sun size={13} color="#FFB703" /> : <Moon size={13} color="#0F172A" />}
+                <span>{isDark ? 'White' : 'Dark'}</span>
+              </button>
+            </div>
 
-                <form onSubmit={handleSubmit}>
-                  {/* Phone Input with HIGHLY VISIBLE BORDERS in Light Mode */}
-                  {authMethod === 'phone' ? (
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        background: isDark ? '#0D1E32' : '#FFFFFF',
-                        border: isDark ? '1.5px solid rgba(255, 183, 3, 0.35)' : '2px solid #0F172A',
-                        borderRadius: '16px',
-                        overflow: 'hidden',
-                        boxShadow: isDark ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.08)',
-                        transition: 'border 0.2s ease'
-                      }}>
-                        {/* Country Flag Badge with Visible Border Divider */}
-                        <div style={{
-                          padding: '14px 14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          borderRight: isDark ? '1.5px solid rgba(255, 183, 3, 0.35)' : '2px solid #0F172A',
-                          fontSize: '15px',
-                          fontWeight: 900,
-                          color: isDark ? '#FFB703' : '#0F172A',
-                          background: isDark ? '#112238' : '#F1F5F9'
-                        }}>
-                          <span>🇮🇳</span>
-                          <span>+91</span>
-                        </div>
-
-                        {/* Phone Number Field */}
-                        <input
-                          type="tel"
-                          inputMode="numeric"
-                          placeholder="98765 43210"
-                          maxLength={10}
-                          value={phone}
-                          onChange={(e) => {
-                            setPhone(e.target.value.replace(/\D/g, ''));
-                            setErrorMsg('');
-                          }}
-                          style={{
-                            flex: 1,
-                            border: 'none',
-                            outline: 'none',
-                            background: 'transparent',
-                            padding: '14px 14px',
-                            fontSize: '18px',
-                            fontWeight: 900,
-                            color: isDark ? '#FFFFFF' : '#0F172A',
-                            letterSpacing: '0.04em'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    /* Gmail / Email Input with HIGHLY VISIBLE BORDERS */
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        background: isDark ? '#0D1E32' : '#FFFFFF',
-                        border: isDark ? '1.5px solid rgba(255, 183, 3, 0.35)' : '2px solid #0F172A',
-                        borderRadius: '16px',
-                        padding: '0 14px',
-                        boxShadow: isDark ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.08)'
-                      }}>
-                        <Mail size={18} color={isDark ? "#FFB703" : "#D97706"} style={{ flexShrink: 0 }} />
-                        <input
-                          type="email"
-                          placeholder="yourname@gmail.com"
-                          value={email}
-                          onChange={(e) => {
-                            setEmail(e.target.value);
-                            setErrorMsg('');
-                          }}
-                          style={{
-                            flex: 1,
-                            border: 'none',
-                            outline: 'none',
-                            background: 'transparent',
-                            padding: '14px 12px',
-                            fontSize: '15.5px',
-                            fontWeight: 700,
-                            color: isDark ? '#FFFFFF' : '#0F172A'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-
-
-                  {/* CTA Submit Button with Sharp Defined Outline */}
-                  <button
-                    type="submit"
-                    disabled={isLoading || (authMethod === 'email' ? !email.trim() : phone.length < 10)}
+            {/* Language Selection List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {LANGUAGES.map((lang) => {
+                const isSelected = selectedLang === lang.id;
+                return (
+                  <div
+                    key={lang.id}
+                    onClick={() => setSelectedLang(lang.id)}
                     style={{
-                      width: '100%',
-                      background: (authMethod === 'email' ? email.trim() : phone.length >= 10) 
-                        ? (isDark ? '#FFB703' : '#0F172A') 
-                        : (isDark ? '#1E293B' : '#E2E8F0'),
-                      color: (authMethod === 'email' ? email.trim() : phone.length >= 10) 
-                        ? (isDark ? '#08121E' : '#FFFFFF') 
-                        : (isDark ? '#64748B' : '#94A3B8'),
-                      border: (authMethod === 'email' ? email.trim() : phone.length >= 10)
-                        ? (isDark ? '1.5px solid #FFB703' : '2px solid #0F172A')
-                        : '2px solid transparent',
-                      borderRadius: '16px',
-                      padding: '15px',
-                      fontSize: '15.5px',
-                      fontWeight: 900,
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      cursor: (authMethod === 'email' ? email.trim() : phone.length >= 10) ? 'pointer' : 'not-allowed',
-                      boxShadow: (authMethod === 'email' ? email.trim() : phone.length >= 10) 
-                        ? (isDark ? '0 4px 16px rgba(255, 183, 3, 0.3)' : '0 4px 16px rgba(15, 23, 42, 0.25)') 
-                        : 'none',
-                      transition: 'all 0.2s ease',
-                      letterSpacing: '0.2px'
-                    }}
-                  >
-                    {isLoading ? (
-                      <span>Sending OTP...</span>
-                    ) : (
-                      <>
-                        <span>Continue</span>
-                        <ArrowRight size={18} color={isDark ? "#08121E" : "#FFB703"} />
-                      </>
-                    )}
-                  </button>
-                </form>
-
-                {/* Switch between Phone and Email */}
-                <div style={{ textAlign: 'center', marginTop: '18px' }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMethod(authMethod === 'phone' ? 'email' : 'phone');
-                      setErrorMsg('');
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: isDark ? '#FFB703' : '#0F172A',
-                      fontSize: '12.5px',
-                      fontWeight: 800,
+                      justifyContent: 'space-between',
+                      padding: '15px 16px',
+                      borderRadius: '14px',
+                      background: isSelected 
+                        ? (isDark ? '#FFFFFF' : '#0F172A') 
+                        : (isDark ? '#161B22' : '#FFFFFF'),
+                      border: isSelected 
+                        ? (isDark ? '2px solid #FFFFFF' : '2px solid #0F172A') 
+                        : (isDark ? '1.5px solid #30363D' : '2px solid #0F172A'), // Visible borders in light mode
+                      color: isSelected 
+                        ? (isDark ? '#0F172A' : '#FFFFFF') 
+                        : (isDark ? '#E6EDF3' : '#0F172A'),
                       cursor: 'pointer',
-                      textDecoration: 'underline'
+                      transition: 'all 0.15s ease',
+                      boxShadow: isDark ? 'none' : '0 2px 6px rgba(0,0,0,0.04)'
                     }}
                   >
-                    {authMethod === 'phone' ? 'Or continue with Email / Gmail' : 'Or continue with Phone Number'}
-                  </button>
-                </div>
+                    <div>
+                      <span style={{ fontSize: '15.5px', fontWeight: 800 }}>
+                        {lang.label}
+                      </span>
+                      <span style={{ 
+                        fontSize: '12px', 
+                        marginLeft: '8px', 
+                        opacity: isSelected ? 0.8 : 0.6,
+                        fontWeight: 600
+                      }}>
+                        ({lang.native})
+                      </span>
+                    </div>
+
+                    {/* Check Circle Icon */}
+                    {isSelected ? (
+                      <div style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        background: isDark ? '#0F172A' : '#FFB703',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: isDark ? '#FFFFFF' : '#0F172A'
+                      }}>
+                        <Check size={14} strokeWidth={3} />
+                      </div>
+                    ) : (
+                      <div style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        border: isDark ? '1.5px solid #484F58' : '2px solid #CBD5E1'
+                      }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Bottom Solid Yellow "Confirm" CTA Button */}
+          <div style={{ marginTop: '24px' }}>
+            <button
+              type="button"
+              onClick={handleConfirmLanguage}
+              style={{
+                width: '100%',
+                background: '#FFB703',
+                color: '#000000',
+                border: isDark ? 'none' : '2px solid #0F172A',
+                borderRadius: '16px',
+                padding: '16px',
+                fontSize: '16px',
+                fontWeight: 900,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 16px rgba(255, 183, 3, 0.35)',
+                letterSpacing: '0.3px'
+              }}
+            >
+              <span>{t.confirm}</span>
+              <ArrowRight size={18} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          SCREEN 3: ONBOARDING INTRO (Clarity / Trust / Carousel with Illustration)
+         ══════════════════════════════════════════════════════════════════════ */}
+      {flowStep === 'onboarding' && (
+        <div style={{
+          width: '100%',
+          maxWidth: '440px',
+          margin: '0 auto',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          position: 'relative',
+          zIndex: 10,
+          padding: '10px 0 8px'
+        }}>
+          {/* Top Nav: Back & Skip */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (currentSlide > 0) setCurrentSlide(prev => prev - 1);
+                else setFlowStep('language');
+              }}
+              style={{
+                background: isDark ? '#1E293B' : '#FFFFFF',
+                border: isDark ? '1px solid #475569' : '2px solid #0F172A',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: isDark ? '#FFFFFF' : '#0F172A'
+              }}
+            >
+              <ArrowLeft size={16} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSkipOnboarding}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: isDark ? '#FFB703' : '#0F172A',
+                fontSize: '13px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                padding: '6px 10px'
+              }}
+            >
+              {t.skip}
+            </button>
+          </div>
+
+          {/* Illustration Card (Modern Goa Cab Vector) */}
+          <div style={{
+            background: isDark ? '#161B22' : '#F8FAFC',
+            border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
+            borderRadius: '24px',
+            padding: '24px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '260px',
+            boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.3)' : '0 4px 12px rgba(15, 23, 42, 0.08)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {/* Scenic Vector Graphic */}
+            <svg width="220" height="150" viewBox="0 0 220 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Road / Curve */}
+              <path d="M10 135 C 70 135, 110 110, 210 110" stroke={isDark ? "#30363D" : "#CBD5E1"} strokeWidth="4" strokeDasharray="6 6" />
+              {/* Palm Tree Outline (Goa Vibe) */}
+              <path d="M185 105 Q188 70 180 40 Q175 42 165 48 M180 40 Q192 35 205 45 M180 40 Q185 25 180 15" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" />
+              {/* Modern Goa Cab Body */}
+              <rect x="35" y="70" width="130" height="42" rx="12" fill="#FFB703" />
+              {/* Cab Roof */}
+              <path d="M60 70 L75 44 L125 44 L145 70 Z" fill="#000000" opacity={isDark ? "0.9" : "0.85"} />
+              {/* Windows */}
+              <path d="M78 48 L100 48 L100 66 L68 66 Z" fill="#FFFFFF" opacity="0.8" />
+              <path d="M104 48 L122 48 L138 66 L104 66 Z" fill="#FFFFFF" opacity="0.8" />
+              {/* Wheels */}
+              <circle cx="65" cy="112" r="13" fill="#1E293B" stroke="#FFB703" strokeWidth="3" />
+              <circle cx="135" cy="112" r="13" fill="#1E293B" stroke="#FFB703" strokeWidth="3" />
+              {/* Taxi Roof Light */}
+              <rect x="92" y="38" width="22" height="7" rx="3" fill="#000000" stroke="#FFB703" strokeWidth="1.5" />
+              {/* GPS Pin */}
+              <g transform="translate(100, 5)">
+                <circle cx="10" cy="10" r="9" fill="#EF4444" />
+                <circle cx="10" cy="10" r="3.5" fill="#FFFFFF" />
+              </g>
+            </svg>
+
+            {/* Slide Badge */}
+            <div style={{
+              marginTop: '12px',
+              background: isDark ? 'rgba(255, 183, 3, 0.15)' : '#FEF3C7',
+              border: isDark ? '1px solid rgba(255, 183, 3, 0.4)' : '1.5px solid #D97706',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              fontSize: '10.5px',
+              fontWeight: 800,
+              color: isDark ? '#FFB703' : '#B45309',
+              letterSpacing: '0.6px',
+              textTransform: 'uppercase'
+            }}>
+              {ONBOARDING_SLIDES[currentSlide].badge}
+            </div>
+          </div>
+
+          {/* Slide Text Content */}
+          <div style={{ textAlign: 'center', padding: '16px 8px 8px' }}>
+            <h2 style={{ 
+              fontSize: '22px', 
+              fontWeight: 900, 
+              color: isDark ? '#FFFFFF' : '#0F172A', 
+              margin: '0 0 8px', 
+              letterSpacing: '-0.01em' 
+            }}>
+              {ONBOARDING_SLIDES[currentSlide].title}
+            </h2>
+            <p style={{ 
+              fontSize: '13px', 
+              color: isDark ? '#94A3B8' : '#475569', 
+              margin: 0, 
+              lineHeight: 1.5 
+            }}>
+              {ONBOARDING_SLIDES[currentSlide].description}
+            </p>
+          </div>
+
+          {/* Dots Indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', margin: '12px 0 16px' }}>
+            {ONBOARDING_SLIDES.map((_, idx) => (
+              <div
+                key={idx}
+                style={{
+                  width: currentSlide === idx ? '26px' : '8px',
+                  height: '8px',
+                  borderRadius: '4px',
+                  background: currentSlide === idx ? '#FFB703' : (isDark ? '#30363D' : '#CBD5E1'),
+                  transition: 'all 0.25s ease'
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Bottom Solid Yellow "Continue" CTA */}
+          <div>
+            <button
+              type="button"
+              onClick={handleNextOnboarding}
+              style={{
+                width: '100%',
+                background: '#FFB703',
+                color: '#000000',
+                border: isDark ? 'none' : '2px solid #0F172A',
+                borderRadius: '16px',
+                padding: '16px',
+                fontSize: '16px',
+                fontWeight: 900,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 16px rgba(255, 183, 3, 0.35)',
+                letterSpacing: '0.3px'
+              }}
+            >
+              <span>{currentSlide === ONBOARDING_SLIDES.length - 1 ? 'Get Started' : t.continue}</span>
+              <ArrowRight size={18} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          SCREEN 4: GET MOVING / AUTH INPUT (Bottom Sheet Style from Reference)
+         ═════════════════════════════════════════════════════════════════════ */}
+      {flowStep === 'getmoving' && (
+        <div style={{
+          width: '100%',
+          maxWidth: '440px',
+          margin: '0 auto',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          position: 'relative',
+          zIndex: 10
+        }}>
+          {/* Top Bar with Language Pill & Normal Theme Button */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '4px 0 10px',
+            zIndex: 50
+          }}>
+            {/* Brand Logo & Name */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: '#ffffff',
+                border: isDark ? '1.5px solid rgba(255, 183, 3, 0.4)' : '2px solid #0F172A',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px'
+              }}>
+                <img src="/wowgoa-logo.png" alt="WOW GOA" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </div>
-            ) : (
-              /* ─── DRIVER PARTNER MODE ─── */
-              <div>
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
-                    border: isDark ? '1px solid #10B981' : '1.5px solid #059669',
-                    padding: '4px 10px',
-                    borderRadius: '20px',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    color: isDark ? '#34D399' : '#059669',
-                    marginBottom: '10px'
-                  }}>
-                    <span>🚖</span>
-                    <span>Goa Chauffeur Network</span>
+              <span style={{ fontSize: '15px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                WOW GOA
+              </span>
+            </div>
+
+            {/* Top Right Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Language Selector Pill EN 🌐 */}
+              <button
+                type="button"
+                onClick={() => setFlowStep('language')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: isDark ? '#1E293B' : '#FFFFFF',
+                  border: isDark ? '1px solid #475569' : '2px solid #0F172A',
+                  borderRadius: '20px',
+                  padding: '6px 10px',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  fontSize: '11.5px',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                <span>{selectedLang.toUpperCase()}</span>
+                <Globe size={13} />
+                <ChevronDown size={11} />
+              </button>
+
+              {/* Normal Dark / White Mode Button */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: isDark ? '#1E293B' : '#FFFFFF',
+                  border: isDark ? '1.5px solid #475569' : '2px solid #0F172A',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                {isDark ? <Sun size={13} color="#FFB703" /> : <Moon size={13} color="#0F172A" />}
+                <span>{isDark ? 'White' : 'Dark'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Hero Artwork Area (Blue Car with Driver & Rider from Reference) */}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '10px 0',
+            position: 'relative'
+          }}>
+            {/* Sleek Vector Car & Map Pin Scene */}
+            <svg width="240" height="130" viewBox="0 0 240 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Map Device Background */}
+              <rect x="80" y="8" width="80" height="110" rx="10" fill={isDark ? "#1E293B" : "#E2E8F0"} opacity="0.6" />
+              <path d="M85 35 L120 50 L155 30" stroke="#FFB703" strokeWidth="2.5" strokeDasharray="3 3" />
+              {/* Map Pin Bubble */}
+              <circle cx="120" cy="50" r="12" fill="#3B82F6" />
+              <circle cx="120" cy="50" r="5" fill="#FFFFFF" />
+              
+              {/* Blue Sedan (like reference image) */}
+              <rect x="30" y="65" width="180" height="42" rx="12" fill="#1D4ED8" />
+              <path d="M60 65 L80 40 L160 40 L185 65 Z" fill="#1E40AF" />
+              {/* Windows */}
+              <path d="M84 44 L118 44 L118 62 L70 62 Z" fill="#93C5FD" opacity="0.8" />
+              <path d="M122 44 L154 44 L172 62 L122 62 Z" fill="#93C5FD" opacity="0.8" />
+              {/* Wheels */}
+              <circle cx="65" cy="107" r="14" fill="#0F172A" stroke="#94A3B8" strokeWidth="3" />
+              <circle cx="175" cy="107" r="14" fill="#0F172A" stroke="#94A3B8" strokeWidth="3" />
+              {/* Headlights */}
+              <rect x="200" y="75" width="8" height="6" rx="2" fill="#FEF08A" />
+            </svg>
+          </div>
+
+          {/* Bottom Sheet Drawer Card */}
+          <div style={{
+            background: isDark ? '#161B22' : '#FFFFFF',
+            border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
+            borderTopLeftRadius: '28px',
+            borderTopRightRadius: '28px',
+            padding: '16px 20px 20px',
+            boxShadow: isDark ? '0 -10px 30px rgba(0,0,0,0.5)' : '0 -10px 30px rgba(15, 23, 42, 0.12)',
+            zIndex: 60
+          }}>
+            {/* Sheet Handle Bar */}
+            <div style={{
+              width: '40px',
+              height: '4px',
+              borderRadius: '2px',
+              background: isDark ? '#484F58' : '#CBD5E1',
+              margin: '0 auto 14px'
+            }} />
+
+            {/* Role Switcher Pill */}
+            <div style={{
+              display: 'flex',
+              background: isDark ? '#0F1216' : '#F1F5F9',
+              border: isDark ? '1px solid #30363D' : '1.5px solid #0F172A',
+              borderRadius: '12px',
+              padding: '3px',
+              marginBottom: '16px',
+              gap: '4px'
+            }}>
+              <button
+                type="button"
+                onClick={() => { setRole('customer'); setErrorMsg(''); }}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '7px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: role === 'customer' ? '#FFB703' : 'transparent',
+                  color: role === 'customer' ? '#000000' : (isDark ? '#94A3B8' : '#64748B'),
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                <span>🚗</span>
+                <span>Passenger / Rider</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setRole('driver'); setErrorMsg(''); }}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '7px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: role === 'driver' ? '#10B981' : 'transparent',
+                  color: role === 'driver' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                <span>🚖</span>
+                <span>Driver Partner</span>
+              </button>
+            </div>
+
+            {/* Heading: Get moving with WOW GOA */}
+            <h2 style={{
+              fontSize: '22px',
+              fontWeight: 900,
+              color: isDark ? '#FFFFFF' : '#0F172A',
+              margin: '0 0 14px',
+              letterSpacing: '-0.02em'
+            }}>
+              {role === 'driver' ? 'Chauffeur Duty Login' : t.getMoving}
+            </h2>
+
+            {errorMsg && (
+              <div style={{
+                background: '#FEF2F2',
+                border: '2px solid #EF4444',
+                color: '#B91C1C',
+                borderRadius: '12px',
+                padding: '9px 12px',
+                fontSize: '12px',
+                fontWeight: 700,
+                marginBottom: '12px'
+              }}>
+                {errorMsg}
+              </div>
+            )}
+
+            {/* Input Form */}
+            <form onSubmit={handleSubmitInput}>
+              {role === 'customer' ? (
+                <div>
+                  {/* Phone / Email Input with Gold Focus Border */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      background: isDark ? '#0D1117' : '#FFFFFF',
+                      border: isDark ? '2px solid #FFB703' : '2px solid #0F172A',
+                      borderRadius: '14px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        padding: '13px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        borderRight: isDark ? '1.5px solid rgba(255, 183, 3, 0.4)' : '2px solid #0F172A',
+                        background: isDark ? '#161B22' : '#F1F5F9',
+                        fontSize: '14px',
+                        fontWeight: 900,
+                        color: isDark ? '#FFB703' : '#0F172A'
+                      }}>
+                        <span>🇮🇳</span>
+                        <span>+91</span>
+                      </div>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        placeholder="Mobile number or Email"
+                        maxLength={10}
+                        value={phone}
+                        onChange={(e) => {
+                          setPhone(e.target.value.replace(/\D/g, ''));
+                          setErrorMsg('');
+                        }}
+                        style={{
+                          flex: 1,
+                          border: 'none',
+                          outline: 'none',
+                          background: 'transparent',
+                          padding: '13px 12px',
+                          fontSize: '16px',
+                          fontWeight: 800,
+                          color: isDark ? '#FFFFFF' : '#0F172A'
+                        }}
+                      />
+                    </div>
                   </div>
 
-                  <h1 style={{ 
-                    fontSize: '26px', 
-                    fontWeight: 900, 
-                    margin: '0 0 6px', 
-                    letterSpacing: '-0.02em', 
-                    color: isDark ? '#FFFFFF' : '#0F172A' 
-                  }}>
-                    Chauffeur Duty Login
-                  </h1>
-                  <p style={{ fontSize: '13px', color: isDark ? '#94A3B8' : '#475569', margin: 0, lineHeight: 1.4 }}>
-                    Enter your registered driver phone number to start receiving trips.
-                  </p>
+                  {/* Passenger Name Input */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      background: isDark ? '#0D1117' : '#FFFFFF',
+                      border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
+                      borderRadius: '12px',
+                      padding: '0 12px'
+                    }}>
+                      <User size={15} color={isDark ? "#94A3B8" : "#475569"} />
+                      <input
+                        type="text"
+                        placeholder="Passenger Name (e.g. Jenny)"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        style={{
+                          flex: 1,
+                          border: 'none',
+                          outline: 'none',
+                          background: 'transparent',
+                          padding: '10px 8px',
+                          fontSize: '13.5px',
+                          fontWeight: 700,
+                          color: isDark ? '#FFFFFF' : '#0F172A'
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
-
-                {errorMsg && (
-                  <div style={{
-                    background: '#FEF2F2',
-                    border: '2px solid #EF4444',
-                    color: '#B91C1C',
-                    borderRadius: '14px',
-                    padding: '10px 14px',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    marginBottom: '16px'
-                  }}>
-                    {errorMsg}
-                  </div>
-                )}
-
-                {/* Quick Driver Profile Select with CLEAR VISIBLE BORDERS */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ 
-                    fontSize: '11px', 
-                    fontWeight: 800, 
-                    color: isDark ? '#94A3B8' : '#475569', 
-                    textTransform: 'uppercase', 
-                    letterSpacing: '0.5px', 
-                    display: 'block', 
-                    marginBottom: '8px' 
-                  }}>
-                    Select Driver Account:
-                  </label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              ) : (
+                /* Driver Account Quick Select */
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
                     {DEMO_DRIVERS.map((drv) => {
                       const isSelected = selectedDriver?.id === drv.id;
                       return (
@@ -899,147 +1309,124 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            padding: '11px 14px',
-                            borderRadius: '14px',
+                            padding: '8px 12px',
+                            borderRadius: '10px',
                             border: isSelected 
-                              ? (isDark ? '2px solid #10B981' : '2px solid #059669') 
-                              : (isDark ? '1.5px solid rgba(255, 255, 255, 0.15)' : '2px solid #0F172A'),
+                              ? '2px solid #10B981' 
+                              : (isDark ? '1px solid #30363D' : '2px solid #0F172A'),
                             background: isSelected 
                               ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5') 
-                              : (isDark ? '#0D1E32' : '#FFFFFF'),
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                            boxShadow: isDark ? 'none' : '0 2px 6px rgba(15, 23, 42, 0.06)'
+                              : (isDark ? '#0D1117' : '#FFFFFF'),
+                            cursor: 'pointer'
                           }}
                         >
                           <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '13.5px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A' }}>
-                                {drv.name}
-                              </span>
-                              <span style={{ 
-                                fontSize: '10.5px', 
-                                background: isDark ? 'rgba(16, 185, 129, 0.2)' : '#E2E8F0', 
-                                border: isDark ? '1px solid #10B981' : '1px solid #0F172A',
-                                padding: '1px 6px', 
-                                borderRadius: '4px', 
-                                color: isDark ? '#34D399' : '#047857', 
-                                fontWeight: 800 
-                              }}>
-                                {drv.cabNumber}
-                              </span>
-                            </div>
-                            <div style={{ fontSize: '11.5px', color: isDark ? '#94A3B8' : '#64748B', marginTop: '2px' }}>
-                              {drv.carModel} · {drv.location}
-                            </div>
+                            <span style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#FFFFFF' : '#0F172A' }}>{drv.name}</span>
+                            <span style={{ fontSize: '10px', marginLeft: '6px', color: '#10B981', fontWeight: 700 }}>{drv.cabNumber}</span>
                           </div>
-                          {isSelected && <Check size={16} color={isDark ? "#34D399" : "#059669"} />}
+                          {isSelected && <Check size={14} color="#10B981" />}
                         </div>
                       );
                     })}
                   </div>
-                </div>
 
-                <form onSubmit={handleSubmit}>
-                  {/* Driver Phone input with HIGH CONTRAST BORDER */}
-                  <div style={{ marginBottom: '20px' }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      background: isDark ? '#0D1E32' : '#FFFFFF',
-                      border: isDark ? '2px solid #10B981' : '2px solid #059669',
-                      borderRadius: '16px',
-                      overflow: 'hidden',
-                      boxShadow: isDark ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.08)'
-                    }}>
-                      <div style={{
-                        padding: '14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        borderRight: isDark ? '2px solid #10B981' : '2px solid #059669',
-                        fontSize: '15px',
-                        fontWeight: 900,
-                        color: isDark ? '#34D399' : '#047857',
-                        background: isDark ? '#112238' : '#ECFDF5'
-                      }}>
-                        <span>🇮🇳</span>
-                        <span>+91</span>
-                      </div>
-                      <input
-                        type="tel"
-                        inputMode="numeric"
-                        placeholder="Driver Mobile"
-                        maxLength={10}
-                        value={driverPhone}
-                        onChange={(e) => {
-                          setDriverPhone(e.target.value.replace(/\D/g, ''));
-                          setErrorMsg('');
-                        }}
-                        style={{
-                          flex: 1,
-                          border: 'none',
-                          outline: 'none',
-                          background: 'transparent',
-                          padding: '14px',
-                          fontSize: '17px',
-                          fontWeight: 900,
-                          color: isDark ? '#FFFFFF' : '#0F172A'
-                        }}
-                      />
-                    </div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: isDark ? '#0D1117' : '#FFFFFF',
+                    border: '2px solid #10B981',
+                    borderRadius: '12px',
+                    overflow: 'hidden'
+                  }}>
+                    <span style={{ padding: '11px', background: isDark ? '#161B22' : '#ECFDF5', fontSize: '13px', fontWeight: 800, color: '#10B981' }}>+91</span>
+                    <input
+                      type="tel"
+                      value={driverPhone}
+                      onChange={(e) => setDriverPhone(e.target.value.replace(/\D/g, ''))}
+                      style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', padding: '11px', fontSize: '15px', fontWeight: 800, color: isDark ? '#fff' : '#000' }}
+                    />
                   </div>
+                </div>
+              )}
 
-                  <button
-                    type="submit"
-                    disabled={isLoading || driverPhone.length < 10}
-                    style={{
-                      width: '100%',
-                      background: driverPhone.length >= 10 
-                        ? 'linear-gradient(135deg, #059669 0%, #10B981 100%)' 
-                        : (isDark ? '#1E293B' : '#E2E8F0'),
-                      color: driverPhone.length >= 10 ? '#ffffff' : (isDark ? '#64748B' : '#94A3B8'),
-                      border: driverPhone.length >= 10 ? '2px solid #047857' : '2px solid transparent',
-                      borderRadius: '16px',
-                      padding: '15px',
-                      fontSize: '15px',
-                      fontWeight: 900,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      cursor: driverPhone.length >= 10 ? 'pointer' : 'not-allowed',
-                      boxShadow: driverPhone.length >= 10 ? '0 4px 16px rgba(16, 185, 129, 0.35)' : 'none',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    {isLoading ? (
-                      <span>Verifying...</span>
-                    ) : (
-                      <>
-                        <span>Get Driver OTP to Start Duty</span>
-                        <ArrowRight size={18} />
-                      </>
-                    )}
-                  </button>
-                </form>
-              </div>
-            )}
+              {/* Solid Yellow "Continue" Button */}
+              <button
+                type="submit"
+                disabled={isLoading || (role === 'driver' ? driverPhone.length < 10 : phone.length < 10)}
+                style={{
+                  width: '100%',
+                  background: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) 
+                    ? '#FFB703' 
+                    : (isDark ? '#21262D' : '#E2E8F0'),
+                  color: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) 
+                    ? '#000000' 
+                    : (isDark ? '#64748B' : '#94A3B8'),
+                  border: isDark ? 'none' : '2px solid #0F172A',
+                  borderRadius: '14px',
+                  padding: '15px',
+                  fontSize: '15.5px',
+                  fontWeight: 900,
+                  cursor: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) 
+                    ? '0 4px 16px rgba(255, 183, 3, 0.35)' 
+                    : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {isLoading ? (
+                  <span>Sending code...</span>
+                ) : (
+                  <>
+                    <span>{t.continue}</span>
+                    <ArrowRight size={17} strokeWidth={2.5} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Legal Terms Footer */}
+            <div style={{
+              textAlign: 'center',
+              marginTop: '12px',
+              fontSize: '10.5px',
+              color: isDark ? '#8B949E' : '#64748B',
+              lineHeight: 1.4
+            }}>
+              By continuing, you agree to the <span style={{ textDecoration: 'underline', color: isDark ? '#FFB703' : '#0F172A', fontWeight: 700 }}>terms of service</span> and <span style={{ textDecoration: 'underline', color: isDark ? '#FFB703' : '#0F172A', fontWeight: 700 }}>privacy policy</span>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ════════════════════════════════════════════════════════════════════
-            STEP 2: OTP VERIFICATION (HIGH-CONTRAST BORDERED DIGIT BOXES)
-           ════════════════════════════════════════════════════════════════════ */}
-        {step === 'otp' && (
+      {/* ══════════════════════════════════════════════════════════════════════
+          SCREEN 5: ENTER OTP SCREEN (Exact Flow & Structure from Reference)
+         ══════════════════════════════════════════════════════════════════════ */}
+      {flowStep === 'otp' && (
+        <div style={{
+          width: '100%',
+          maxWidth: '440px',
+          margin: '0 auto',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          position: 'relative',
+          zIndex: 10,
+          padding: '10px 0 8px'
+        }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+            {/* Back Button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <button
                 type="button"
-                onClick={() => setStep('input')}
+                onClick={() => setFlowStep('getmoving')}
                 style={{
-                  background: isDark ? '#112238' : '#FFFFFF',
-                  border: isDark ? '1.5px solid rgba(255,255,255,0.2)' : '2px solid #0F172A',
+                  background: isDark ? '#1E293B' : '#FFFFFF',
+                  border: isDark ? '1px solid #475569' : '2px solid #0F172A',
                   borderRadius: '50%',
                   width: '38px',
                   height: '38px',
@@ -1047,22 +1434,61 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  color: isDark ? '#FFFFFF' : '#0F172A',
-                  boxShadow: isDark ? 'none' : '0 2px 6px rgba(15, 23, 42, 0.08)'
+                  color: isDark ? '#FFFFFF' : '#0F172A'
                 }}
               >
                 <ArrowLeft size={18} />
               </button>
-              <div>
-                <h2 style={{ fontSize: '20px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A', margin: 0 }}>
-                  Enter 4-Digit Code
-                </h2>
-                <span style={{ fontSize: '12px', color: isDark ? '#94A3B8' : '#475569' }}>
-                  {role === 'driver' 
-                    ? `Dispatched to +91 ${driverPhone}` 
-                    : (authMethod === 'email' ? `Sent to ${email}` : `Sent to +91 ${phone}`)}
-                </span>
-              </div>
+
+              {/* Normal Dark / White Mode Button */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: isDark ? '#1E293B' : '#FFFFFF',
+                  border: isDark ? '1.5px solid #475569' : '2px solid #0F172A',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                {isDark ? <Sun size={13} color="#FFB703" /> : <Moon size={13} color="#0F172A" />}
+                <span>{isDark ? 'White' : 'Dark'}</span>
+              </button>
+            </div>
+
+            {/* Title & Phone with "Change" Link (from reference screenshot) */}
+            <h1 style={{ fontSize: '26px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+              {t.enterOtp}
+            </h1>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
+              <span style={{ fontSize: '16px' }}>🇮🇳</span>
+              <span style={{ fontSize: '14.5px', fontWeight: 800, color: isDark ? '#E6EDF3' : '#0F172A' }}>
+                {role === 'driver' ? `+91 ${driverPhone}` : `+91 ${phone || '9876543210'}`}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFlowStep('getmoving')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#FFB703',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  marginLeft: '4px'
+                }}
+              >
+                {t.change}
+              </button>
             </div>
 
             {infoMsg && (
@@ -1070,8 +1496,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 background: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
                 border: isDark ? '1.5px solid #10B981' : '2px solid #059669',
                 color: isDark ? '#34D399' : '#047857',
-                borderRadius: '14px',
-                padding: '10px 14px',
+                borderRadius: '12px',
+                padding: '9px 12px',
                 fontSize: '12.5px',
                 fontWeight: 700,
                 marginBottom: '16px',
@@ -1079,7 +1505,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 alignItems: 'center',
                 gap: '6px'
               }}>
-                <CheckCircle2 size={16} color={isDark ? "#34D399" : "#059669"} />
+                <CheckCircle2 size={15} color="#10B981" />
                 <span>{infoMsg}</span>
               </div>
             )}
@@ -1089,8 +1515,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 background: '#FEF2F2',
                 border: '2px solid #EF4444',
                 color: '#B91C1C',
-                borderRadius: '14px',
-                padding: '10px 14px',
+                borderRadius: '12px',
+                padding: '9px 12px',
                 fontSize: '12.5px',
                 fontWeight: 700,
                 marginBottom: '16px'
@@ -1099,12 +1525,16 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               </div>
             )}
 
-            {/* 4 HIGH-CONTRAST BORDERED OTP BOXES */}
+            {/* Label: Enter OTP */}
+            <div style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#8B949E' : '#475569', marginBottom: '12px' }}>
+              Enter OTP
+            </div>
+
+            {/* 4 Digit Boxes (With Rounded Corners & High Visibility Borders) */}
             <div style={{
               display: 'flex',
-              justifyContent: 'center',
               gap: '12px',
-              margin: '24px 0 20px'
+              marginBottom: '20px'
             }}>
               {otpDigits.map((digit, idx) => (
                 <input
@@ -1117,59 +1547,78 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   onChange={(e) => handleOtpChange(idx, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(idx, e)}
                   style={{
-                    width: '62px',
-                    height: '68px',
-                    borderRadius: '16px',
-                    border: isDark
-                      ? (digit ? '2px solid #FFB703' : '1.5px solid rgba(255, 255, 255, 0.25)')
-                      : (digit 
-                          ? (role === 'driver' ? '2.5px solid #059669' : '2.5px solid #0F172A') 
-                          : '2px solid #0F172A'), // CLEARLY VISIBLE BORDER IN LIGHT MODE
-                    background: isDark 
-                      ? (digit ? '#112238' : '#0D1E32') 
-                      : (digit ? '#F8FAFC' : '#FFFFFF'),
+                    flex: 1,
+                    height: '62px',
+                    borderRadius: '14px',
+                    border: digit
+                      ? (isDark ? '2px solid #FFB703' : '2.5px solid #0F172A')
+                      : (isDark ? '1.5px solid #30363D' : '2px solid #0F172A'), // Visible border in white mode
+                    background: digit 
+                      ? (isDark ? '#21262D' : '#F8FAFC') 
+                      : (isDark ? '#161B22' : '#FFFFFF'),
                     textAlign: 'center',
                     fontSize: '24px',
                     fontWeight: 900,
                     color: isDark ? '#FFFFFF' : '#0F172A',
                     outline: 'none',
-                    boxShadow: isDark ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.08)'
+                    boxShadow: isDark ? 'none' : '0 2px 6px rgba(0,0,0,0.06)'
                   }}
                 />
               ))}
             </div>
 
-            {/* 1-Tap Auto Fill Helper with Sharp Borders */}
+            {/* Resend Timer Text */}
+            <div style={{ marginBottom: '20px' }}>
+              {canResend ? (
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#FFB703',
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    textDecoration: 'underline',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Resend OTP Code
+                </button>
+              ) : (
+                <span style={{ fontSize: '13px', color: isDark ? '#8B949E' : '#64748B', fontWeight: 600 }}>
+                  Resend OTP in <strong style={{ color: isDark ? '#FFB703' : '#0F172A' }}>00:{resendTimer < 10 ? `0${resendTimer}` : resendTimer}</strong>
+                </span>
+              )}
+            </div>
+
+            {/* 1-Tap Demo OTP Helper */}
             <div style={{
-              background: isDark ? '#112238' : '#FFFBEB',
+              background: isDark ? '#161B22' : '#FFFBEB',
               border: isDark ? '1.5px solid rgba(255, 183, 3, 0.4)' : '2px solid #D97706',
               borderRadius: '14px',
               padding: '10px 14px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginBottom: '20px',
-              boxShadow: isDark ? 'none' : '0 2px 6px rgba(15, 23, 42, 0.06)'
+              marginBottom: '20px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>🔑</span>
-                <div>
-                  <span style={{ fontSize: '11px', color: isDark ? '#94A3B8' : '#78350F', display: 'block', fontWeight: 600 }}>
-                    Instant Demo OTP:
-                  </span>
-                  <span style={{ fontSize: '16px', fontWeight: 900, color: isDark ? '#FFB703' : '#B45309', letterSpacing: '0.08em' }}>
-                    {generatedOtp}
-                  </span>
-                </div>
+              <div>
+                <span style={{ fontSize: '11px', color: isDark ? '#8B949E' : '#78350F', display: 'block', fontWeight: 600 }}>
+                  Instant Demo Code:
+                </span>
+                <span style={{ fontSize: '16px', fontWeight: 900, color: isDark ? '#FFB703' : '#B45309', letterSpacing: '0.08em' }}>
+                  {generatedOtp}
+                </span>
               </div>
               <button
                 type="button"
                 onClick={handleAutoFillOtp}
                 style={{
-                  background: isDark ? '#FFB703' : '#F59E0B',
-                  color: isDark ? '#08121E' : '#FFFFFF',
-                  border: isDark ? 'none' : '1.5px solid #B45309',
-                  borderRadius: '10px',
+                  background: '#FFB703',
+                  color: '#000000',
+                  border: isDark ? 'none' : '1.5px solid #0F172A',
+                  borderRadius: '8px',
                   padding: '7px 14px',
                   fontSize: '12px',
                   fontWeight: 900,
@@ -1179,8 +1628,10 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 Auto-Fill
               </button>
             </div>
+          </div>
 
-            {/* Verify CTA Button */}
+          {/* Bottom Solid Yellow "Confirm" Button */}
+          <div>
             <button
               type="button"
               onClick={() => verifyOtpCode(otpDigits.join(''))}
@@ -1188,85 +1639,50 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               style={{
                 width: '100%',
                 background: otpDigits.join('').length === 4 
-                  ? (role === 'driver' 
-                      ? 'linear-gradient(135deg, #059669 0%, #10B981 100%)' 
-                      : (isDark ? '#FFB703' : '#0F172A')) 
-                  : (isDark ? '#1E293B' : '#E2E8F0'),
+                  ? '#FFB703' 
+                  : (isDark ? '#21262D' : '#E2E8F0'),
                 color: otpDigits.join('').length === 4 
-                  ? (role === 'driver' ? '#ffffff' : (isDark ? '#08121E' : '#FFFFFF')) 
+                  ? '#000000' 
                   : (isDark ? '#64748B' : '#94A3B8'),
-                border: otpDigits.join('').length === 4 
-                  ? (isDark ? '1.5px solid #FFB703' : '2px solid #0F172A')
-                  : '2px solid transparent',
+                border: isDark ? 'none' : '2px solid #0F172A',
                 borderRadius: '16px',
-                padding: '15px',
-                fontSize: '15.5px',
+                padding: '16px',
+                fontSize: '16px',
                 fontWeight: 900,
+                cursor: otpDigits.join('').length === 4 ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                cursor: otpDigits.join('').length === 4 ? 'pointer' : 'not-allowed',
                 boxShadow: otpDigits.join('').length === 4 
-                  ? (isDark ? '0 4px 16px rgba(255, 183, 3, 0.3)' : '0 4px 16px rgba(15, 23, 42, 0.25)') 
-                  : 'none'
+                  ? '0 4px 16px rgba(255, 183, 3, 0.35)' 
+                  : 'none',
+                letterSpacing: '0.3px',
+                transition: 'all 0.15s ease'
               }}
             >
               {isLoading ? (
                 <span>Verifying...</span>
               ) : (
                 <>
-                  <span>{role === 'driver' ? 'Verify & Enter Driver Portal' : 'Verify & Enter App'}</span>
-                  <ArrowRight size={18} color={isDark ? "#08121E" : "#FFB703"} />
+                  <span>{t.confirm}</span>
+                  <ArrowRight size={18} strokeWidth={2.5} />
                 </>
               )}
             </button>
-
-            {/* Resend Option */}
-            <div style={{ textAlign: 'center', marginTop: '16px' }}>
-              {canResend ? (
-                <button
-                  type="button"
-                  onClick={handleResendOtp}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: isDark ? '#FFB703' : '#0F172A',
-                    fontSize: '12.5px',
-                    fontWeight: 800,
-                    textDecoration: 'underline',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Resend Verification Code
-                </button>
-              ) : (
-                <span style={{ fontSize: '12px', color: isDark ? '#94A3B8' : '#64748B' }}>
-                  Resend code in <strong style={{ color: isDark ? '#FFB703' : '#0F172A' }}>{resendTimer}s</strong>
-                </span>
-              )}
-            </div>
           </div>
-        )}
+        </div>
+      )}
 
-      </div>
-
-      {/* ── FOOTER: GOA ASSURANCE ── */}
+      {/* Clean Bottom Home Indicator Bar (Mobile App Feel) */}
       <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '6px',
-        color: isDark ? '#94A3B8' : '#64748B',
-        fontSize: '11px',
-        fontWeight: 700,
-        textAlign: 'center',
-        maxWidth: '440px',
-        margin: '0 auto'
-      }}>
-        <ShieldCheck size={14} color="#10B981" />
-        <span>Goa Tourism Certified · Zero Surge Guaranteed 24/7</span>
-      </div>
+        width: '130px',
+        height: '4px',
+        borderRadius: '2px',
+        background: isDark ? '#484F58' : '#CBD5E1',
+        margin: '8px auto 0',
+        zIndex: 10
+      }} />
 
     </div>
   );
