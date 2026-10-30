@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Phone, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2, 
-  Sparkles, Lock, RefreshCw, X, User, Mail, Car, Compass, ChevronDown, Check,
-  Sun, Moon, Globe, MapPin, Award, Search
+  Lock, RefreshCw, X, Mail, Car, Compass, ChevronDown, Check,
+  Sun, Moon, Globe, Search
 } from 'lucide-react';
 import { sendCustomerOtp, verifyCustomerOtp } from '../../services/api';
 
@@ -37,49 +37,45 @@ const DEMO_DRIVERS = [
 ];
 
 /**
- * Comprehensive Language List for Domestic & International Goa Tourists
+ * Clean, Basic Language List (No flags, spacious, domestic & international)
  */
 const ALL_LANGUAGES = [
-  // ── Goa Local & Domestic Tourists ──
-  { id: 'en', label: 'English', native: 'English', flag: '🇬🇧', region: 'Global / Tourist Default' },
-  { id: 'hi', label: 'Hindi', native: 'हिन्दी', flag: '🇮🇳', region: 'India National' },
-  { id: 'kok', label: 'Konkani', native: 'कोंकणी', flag: '🌴', region: 'Goa Official Language' },
-  { id: 'mr', label: 'Marathi', native: 'मराठी', flag: '🇮🇳', region: 'Maharashtra / Goa' },
-  { id: 'gu', label: 'Gujarati', native: 'ગુજરાતી', flag: '🇮🇳', region: 'Gujarat (High Goa Visitors)' },
-  { id: 'bn', label: 'Bengali', native: 'বাংলা', flag: '🇮🇳', region: 'West Bengal' },
-  { id: 'ta', label: 'Tamil', native: 'தமிழ்', flag: '🇮🇳', region: 'Tamil Nadu' },
-  { id: 'te', label: 'Telugu', native: 'తెలుగు', flag: '🇮🇳', region: 'Andhra Pradesh & Telangana' },
-  { id: 'kn', label: 'Kannada', native: 'ಕನ್ನಡ', flag: '🇮🇳', region: 'Karnataka (Neighboring Goa)' },
-  { id: 'ml', label: 'Malayalam', native: 'മലയാളം', flag: '🇮🇳', region: 'Kerala' },
-  { id: 'pa', label: 'Punjabi', native: 'ਪੰਜਾਬੀ', flag: '🇮🇳', region: 'Punjab / North India' },
-  { id: 'ur', label: 'Urdu', native: 'اردو', flag: '🇮🇳', region: 'India' },
-  { id: 'or', label: 'Odia', native: 'ଓଡ଼ିଆ', flag: '🇮🇳', region: 'Odisha' },
-  { id: 'as', label: 'Assamese', native: 'অসমীয়া', flag: '🇮🇳', region: 'Assam / Northeast' },
-
-  // ── International Tourists in Goa ──
-  { id: 'ru', label: 'Russian', native: 'Русский', flag: '🇷🇺', region: 'Morjim, Arambol & Ashwem' },
-  { id: 'he', label: 'Hebrew', native: 'עִבְרִית', flag: '🇮🇱', region: 'Anjuna, Vagator & Chapora' },
-  { id: 'pt', label: 'Portuguese', native: 'Português', flag: '🇵🇹', region: 'Goa Heritage & Europe' },
-  { id: 'de', label: 'German', native: 'Deutsch', flag: '🇩🇪', region: 'Germany, Austria & Switzerland' },
-  { id: 'fr', label: 'French', native: 'Français', flag: '🇫🇷', region: 'France & Europe' },
-  { id: 'es', label: 'Spanish', native: 'Español', flag: '🇪🇸', region: 'Spain & Latin America' },
-  { id: 'it', label: 'Italian', native: 'Italiano', flag: '🇮🇹', region: 'Italy & Europe' },
-  { id: 'ar', label: 'Arabic', native: 'العربية', flag: '🇦🇪', region: 'Middle East & Gulf Tourists' },
-  { id: 'ja', label: 'Japanese', native: '日本語', flag: '🇯🇵', region: 'Japan' },
-  { id: 'ko', label: 'Korean', native: '한국어', flag: '🇰🇷', region: 'South Korea' },
-  { id: 'zh', label: 'Chinese', native: '中文', flag: '🇨🇳', region: 'China & East Asia' }
+  { id: 'en', label: 'English', native: 'English' },
+  { id: 'hi', label: 'Hindi', native: 'हिन्दी' },
+  { id: 'kok', label: 'Konkani', native: 'कोंकणी' },
+  { id: 'ru', label: 'Russian', native: 'Русский' },
+  { id: 'mr', label: 'Marathi', native: 'मराठी' },
+  { id: 'gu', label: 'Gujarati', native: 'ગુજરાતી' },
+  { id: 'pt', label: 'Portuguese', native: 'Português' },
+  { id: 'de', label: 'German', native: 'Deutsch' },
+  { id: 'fr', label: 'French', native: 'Français' },
+  { id: 'es', label: 'Spanish', native: 'Español' },
+  { id: 'he', label: 'Hebrew', native: 'עִבְרִית' },
+  { id: 'ar', label: 'Arabic', native: 'العربية' },
+  { id: 'bn', label: 'Bengali', native: 'বাংলা' },
+  { id: 'ta', label: 'Tamil', native: 'தமிழ்' },
+  { id: 'te', label: 'Telugu', native: 'తెలుగు' },
+  { id: 'kn', label: 'Kannada', native: 'ಕನ್ನಡ' },
+  { id: 'ml', label: 'Malayalam', native: 'മലയാളം' },
+  { id: 'pa', label: 'Punjabi', native: 'ਪੰਜਾਬੀ' },
+  { id: 'ur', label: 'Urdu', native: 'اردو' },
+  { id: 'it', label: 'Italian', native: 'Italiano' },
+  { id: 'ja', label: 'Japanese', native: '日本語' },
+  { id: 'ko', label: 'Korean', native: '한국어' },
+  { id: 'zh', label: 'Chinese', native: '中文' }
 ];
 
 /**
- * Multi-Language UI Strings for All Supported Languages
+ * Multi-Language UI Strings
  */
 const I18N = {
   en: {
     chooseLang: 'Choose Language',
     selectLangSub: 'Select your preferred language',
-    searchPlaceholder: 'Search language (e.g. Russian, Hindi, Konkani)...',
+    searchPlaceholder: 'Search language (e.g. Russian, Hindi, French)...',
     confirm: 'Confirm',
     continue: 'Continue',
+    getStarted: 'Get Started',
     getMoving: 'Get moving with WOW GOA',
     enterOtp: 'Enter OTP',
     resendIn: 'Resend OTP in',
@@ -87,17 +83,16 @@ const I18N = {
     skip: 'Skip',
     passenger: 'Passenger / Rider',
     driver: 'Driver Partner',
-    phonePlaceholder: 'Mobile number or Email',
-    namePlaceholder: 'Passenger Name (e.g. Jenny)',
+    phonePlaceholder: 'Enter mobile number or email',
     terms: 'By continuing, you agree to the terms of service and privacy policy',
-    instantDemo: 'Instant Demo Code:',
+    instantDemo: 'Verification Code:',
     autoFill: 'Auto-Fill',
     clarityTitle: 'CLARITY & HONEST FARES',
-    clarityDesc: "Fair pricing, crystal clear. Zero hidden surge fees across Goa airport transfers and beach shuttles. Transparency is our guarantee.",
-    chauffeursTitle: 'VERIFIED LOCAL DRIVERS',
-    chauffeursDesc: 'Travel safely with polite, background-verified tourist chauffeurs who know every beach, airport terminal, and scenic highway detour.',
+    clarityDesc: 'Zero hidden surge fees across Goa airport transfers and beach shuttles. Transparent, fixed rates.',
+    chauffeursTitle: 'VERIFIED LOCAL CHAUFFEURS',
+    chauffeursDesc: 'Travel safely with polite, verified Goan drivers who know every scenic coastal road and beach.',
     choiceTitle: 'CABS & SELF DRIVE IN ONE APP',
-    choiceDesc: 'Book point-to-point chauffeur cabs or rent Thar 4x4, Creta, Swift & Activa scooters with door-step delivery & unlimited kilometers.',
+    choiceDesc: 'Book point-to-point chauffeur cabs or rent Thar 4x4, Creta, Swift & Activa scooters with doorstep delivery.',
     dutyLogin: 'Chauffeur Duty Login',
     dutyDesc: 'Enter your registered driver phone number to start duty.'
   },
@@ -107,6 +102,7 @@ const I18N = {
     searchPlaceholder: 'भाषा खोजें (उदा. हिन्दी, English)...',
     confirm: 'पुष्टि करें',
     continue: 'आगे बढ़ें',
+    getStarted: 'शुरू करें',
     getMoving: 'WOW GOA के साथ यात्रा शुरू करें',
     enterOtp: 'OTP दर्ज करें',
     resendIn: 'पुनः OTP भेजें',
@@ -114,10 +110,9 @@ const I18N = {
     skip: 'छोड़ें',
     passenger: 'यात्री (Passenger)',
     driver: 'ड्राइवर पार्टनर',
-    phonePlaceholder: 'मोबाइल नंबर या ईमेल',
-    namePlaceholder: 'यात्री का नाम (उदा. Jenny)',
+    phonePlaceholder: 'मोबाइल नंबर या ईमेल दर्ज करें',
     terms: 'जारी रखकर, आप सेवा की शर्तों और गोपनीयता नीति से सहमत होते हैं',
-    instantDemo: 'डेमो कोड:',
+    instantDemo: 'सत्यापन कोड:',
     autoFill: 'स्वतः भरें',
     clarityTitle: 'स्पष्ट और ईमानदार किराया',
     clarityDesc: 'बिना किसी छुपे हुए शुल्क के गोवा एयरपोर्ट और समुद्र तटों के लिए पारदर्शी और उचित किराया।',
@@ -134,6 +129,7 @@ const I18N = {
     searchPlaceholder: 'भास सोदात (उदा. कोंकणी, English)...',
     confirm: 'निश्चीत करात',
     continue: 'फुडें वचात',
+    getStarted: 'सुरू करात',
     getMoving: 'WOW GOA सयत प्रवास सुरू करात',
     enterOtp: 'OTP घालात',
     resendIn: 'परत धाडात',
@@ -141,10 +137,9 @@ const I18N = {
     skip: 'सोडात',
     passenger: 'प्रवासी (Rider)',
     driver: 'ड्रायव्हर पार्टनर',
-    phonePlaceholder: 'मोबाईल नंबर वा ईमेल',
-    namePlaceholder: 'प्रवाशाचें नांव (उदा. Jenny)',
+    phonePlaceholder: 'मोबाईल नंबर वा ईमेल घालात',
     terms: 'फुडें वचून, तुमी सेवा अटी आनी गोपनीयता धोरणाक मान्यताय दितात',
-    instantDemo: 'डेमो कोड:',
+    instantDemo: 'तपासणी कोड:',
     autoFill: 'भरून घेयात',
     clarityTitle: 'स्पश्ट आनी प्रामाणीक भाडें',
     clarityDesc: 'गोंयच्या विमानतळा खातीर आनी दर्यादेगेर वचपाक कसलेंच गुपीत चार्ज नासताना प्रामाणीक भाडें.',
@@ -157,21 +152,21 @@ const I18N = {
   },
   ru: {
     chooseLang: 'Выберите язык',
-    selectLangSub: 'Выберите предпочтительный язык',
+    selectLangSub: 'Выберите язык интерфейса',
     searchPlaceholder: 'Поиск языка (напр. Русский, English)...',
     confirm: 'Подтвердить',
     continue: 'Продолжить',
+    getStarted: 'Начать',
     getMoving: 'Поехали с WOW GOA',
-    enterOtp: 'Введите код из SMS',
+    enterOtp: 'Введите код подтверждения',
     resendIn: 'Повторный код через',
     change: 'Изменить',
     skip: 'Пропустить',
     passenger: 'Пассажир',
     driver: 'Водитель-партнер',
     phonePlaceholder: 'Номер телефона или Email',
-    namePlaceholder: 'Имя пассажира (напр. Jenny)',
     terms: 'Продолжая, вы соглашаетесь с условиями обслуживания и политикой конфиденциальности',
-    instantDemo: 'Демо-код:',
+    instantDemo: 'Код подтверждения:',
     autoFill: 'Авто-ввод',
     clarityTitle: 'ЧЕСТНЫЕ И ПРОЗРАЧНЫЕ ЦЕНЫ',
     clarityDesc: 'Фиксированные тарифы без скрытых наценок из аэропортов Даболим и МОПА по всем пляжам Гоа.',
@@ -188,6 +183,7 @@ const I18N = {
     searchPlaceholder: 'भाषा शोधा (उदा. मराठी, English)...',
     confirm: 'पुष्टी करा',
     continue: 'पुढे चालू ठेवा',
+    getStarted: 'सुरू करा',
     getMoving: 'WOW GOA सह प्रवास सुरू करा',
     enterOtp: 'OTP प्रविष्ट करा',
     resendIn: 'पुन्हा पाठवा',
@@ -195,10 +191,9 @@ const I18N = {
     skip: 'वगळा',
     passenger: 'प्रवासी (Rider)',
     driver: 'चालक भागीदार',
-    phonePlaceholder: 'मोबाइल क्रमांक किंवा ईमेल',
-    namePlaceholder: 'प्रवाशाचे नाव (उदा. Jenny)',
+    phonePlaceholder: 'मोबाइल क्रमांक किंवा ईमेल टाका',
     terms: 'पुढे चालू ठेवून, आपण सेवा अटी आणि गोपनीयता धोरणास सहमती दर्शवता',
-    instantDemo: 'डेमो कोड:',
+    instantDemo: 'सत्यापन कोड:',
     autoFill: 'आपोआप भरा',
     clarityTitle: 'पारदर्शक आणि प्रामाणिक दर',
     clarityDesc: 'गोवा विमानतळ आणि सर्व समुद्रकिनाऱ्यांसाठी कोणतेही छुपे शुल्क नसलेले प्रामाणिक दर.',
@@ -215,6 +210,7 @@ const I18N = {
     searchPlaceholder: 'ભાષા શોધો (દા.ત. ગુજરાતી, English)...',
     confirm: 'પુષ્ટિ કરો',
     continue: 'આગળ વધો',
+    getStarted: 'શરૂ કરો',
     getMoving: 'WOW GOA સાથે મુસાફરી શરૂ કરો',
     enterOtp: 'OTP દાખલ કરો',
     resendIn: 'ફરી મોકલો',
@@ -222,10 +218,9 @@ const I18N = {
     skip: 'છોડો',
     passenger: 'મુસાફર (Passenger)',
     driver: 'ડ્રાઈવર પાર્ટનર',
-    phonePlaceholder: 'મોબાઇલ નંબર અથવા ઇમેઇલ',
-    namePlaceholder: 'મુસાફરનું નામ (દા.ત. Jenny)',
+    phonePlaceholder: 'મોબાઇલ નંબર અથવા ઇમેઇલ દાખલ કરો',
     terms: 'ચાલુ રાખીને, તમે સેવાની શરતો અને ગોપનીયતા નીતિ સાથે સંમત થાઓ છો',
-    instantDemo: 'ડેમો કોડ:',
+    instantDemo: 'ચકાસણી કોડ:',
     autoFill: 'ઓટો-ભરો',
     clarityTitle: 'પારદર્શક અને પ્રામાણિક ભાડું',
     clarityDesc: 'ગોવા એરપોર્ટ અને તમામ બીચ માટે કોઈ છુપા ચાર્જ વગરનું પ્રામાણિક ભાડું.',
@@ -242,6 +237,7 @@ const I18N = {
     searchPlaceholder: 'Pesquisar idioma (ex. Português, English)...',
     confirm: 'Confirmar',
     continue: 'Continuar',
+    getStarted: 'Começar',
     getMoving: 'Viaje com WOW GOA',
     enterOtp: 'Introduzir código OTP',
     resendIn: 'Reenviar em',
@@ -250,9 +246,8 @@ const I18N = {
     passenger: 'Passageiro',
     driver: 'Motorista Parceiro',
     phonePlaceholder: 'Número de telefone ou Email',
-    namePlaceholder: 'Nome do passageiro (ex. Jenny)',
     terms: 'Ao continuar, você concorda com os termos de serviço e política de privacidade',
-    instantDemo: 'Código Demo:',
+    instantDemo: 'Código de Verificação:',
     autoFill: 'Preenchimento Automático',
     clarityTitle: 'TARIFAS CLARAS E JUSTAS',
     clarityDesc: 'Sem taxas ocultas nos transfers dos aeroportos de Dabolim e MOPA e praias de Goa.',
@@ -265,10 +260,11 @@ const I18N = {
   },
   de: {
     chooseLang: 'Sprache wählen',
-    selectLangSub: 'Wählen Sie Ihre bevorzugte Sprache',
+    selectLangSub: 'Wählen Sie Ihre Sprache',
     searchPlaceholder: 'Sprache suchen (z. B. Deutsch, English)...',
     confirm: 'Bestätigen',
     continue: 'Weiter',
+    getStarted: 'Starten',
     getMoving: 'Unterwegs mit WOW GOA',
     enterOtp: 'OTP-Code eingeben',
     resendIn: 'Erneut senden in',
@@ -276,10 +272,9 @@ const I18N = {
     skip: 'Überspringen',
     passenger: 'Fahrgast',
     driver: 'Fahrer-Partner',
-    phonePlaceholder: 'Handynummer oder E-Mail',
-    namePlaceholder: 'Name des Fahrgasts (z. B. Jenny)',
+    phonePlaceholder: 'Handynummer oder E-Mail eingeben',
     terms: 'Wenn Sie fortfahren, stimmen Sie den Nutzungsbedingungen und der Datenschutzerklärung zu',
-    instantDemo: 'Demo-Code:',
+    instantDemo: 'Bestätigungscode:',
     autoFill: 'Auto-Ausfüllen',
     clarityTitle: 'TRANSPARENTE PREISE',
     clarityDesc: 'Faire Preise ohne versteckte Gebühren für Goa-Flughafentransfers und Strände.',
@@ -296,6 +291,7 @@ const I18N = {
     searchPlaceholder: 'Rechercher une langue (ex. Français, English)...',
     confirm: 'Confirmer',
     continue: 'Continuer',
+    getStarted: 'Commencer',
     getMoving: 'En route avec WOW GOA',
     enterOtp: 'Entrer le code OTP',
     resendIn: 'Renvoyer dans',
@@ -304,9 +300,8 @@ const I18N = {
     passenger: 'Passager',
     driver: 'Chauffeur Partenaire',
     phonePlaceholder: 'Numéro de téléphone ou Email',
-    namePlaceholder: 'Nom du passager (ex. Jenny)',
     terms: 'En continuant, vous acceptez les conditions de service et la politique de confidentialité',
-    instantDemo: 'Code Démo:',
+    instantDemo: 'Code de vérification :',
     autoFill: 'Remplir auto',
     clarityTitle: 'TARIFS CLAIRS ET HONNÊTES',
     clarityDesc: 'Prix transparents sans frais cachés pour tous les transferts aéroport et plages de Goa.',
@@ -323,6 +318,7 @@ const I18N = {
     searchPlaceholder: 'Buscar idioma (ej. Español, English)...',
     confirm: 'Confirmar',
     continue: 'Continuar',
+    getStarted: 'Comenzar',
     getMoving: 'Muévete con WOW GOA',
     enterOtp: 'Introducir código OTP',
     resendIn: 'Reenviar en',
@@ -331,9 +327,8 @@ const I18N = {
     passenger: 'Pasajero',
     driver: 'Conductor Asociado',
     phonePlaceholder: 'Número de móvil o Correo',
-    namePlaceholder: 'Nombre del pasajero (ej. Jenny)',
     terms: 'Al continuar, aceptas los términos de servicio y la política de privacidad',
-    instantDemo: 'Código Demo:',
+    instantDemo: 'Código de verificación:',
     autoFill: 'Autollenar',
     clarityTitle: 'TARIFAS CLARAS Y HONESTAS',
     clarityDesc: 'Precios justos sin cargos ocultos para traslados desde el aeropuerto y playas de Goa.',
@@ -343,187 +338,17 @@ const I18N = {
     choiceDesc: 'Reserva taxis con chofer o alquila Thar 4x4 y scooters sin límites.',
     dutyLogin: 'Acceso Conductor',
     dutyDesc: 'Introduce tu teléfono registrado.'
-  },
-  he: {
-    chooseLang: 'בחר שפה',
-    selectLangSub: 'בחר את השפה המועדפת עליך',
-    searchPlaceholder: 'חיפוש שפה (לדוגמה עברית, English)...',
-    confirm: 'אישור',
-    continue: 'המשך',
-    getMoving: 'מתחילים לנסוע עם WOW GOA',
-    enterOtp: 'הזן קוד OTP',
-    resendIn: 'שליחה חוזרת בעוד',
-    change: 'שנה',
-    skip: 'דלג',
-    passenger: 'נוסע (Rider)',
-    driver: 'נהג שותף',
-    phonePlaceholder: 'מספר טלפון או אימייל',
-    namePlaceholder: 'שם הנוסע (לדוגמה Jenny)',
-    terms: 'בהמשך השימוש הינך מסכים לתנאי השירות ומדיניות הפרטיות',
-    instantDemo: 'קוד הדגמה:',
-    autoFill: 'מילוי אוטומטי',
-    clarityTitle: 'מחירים ברורים והוגנים',
-    clarityDesc: 'מחירים קבועים ללא תוספות נסתרות עבור נסיעות משדה התעופה וחופי גואה.',
-    chauffeursTitle: 'נהגים מקומיים מאומתים',
-    chauffeursDesc: 'נסיעה בטוחה עם נהגי גואה מוסמכים המכירים כל חוף ודרך נופית.',
-    choiceTitle: 'מוניות והשכרת רכב באפליקציה אחת',
-    choiceDesc: 'הזמן מונית עם נהג או השכר ג׳יפ תאר 4x4 וקטנועים בקלות.',
-    dutyLogin: 'כניסת נהג',
-    dutyDesc: 'הזן מספר טלפון כדי להתחיל משמרת.'
-  },
-  ar: {
-    chooseLang: 'اختر اللغة',
-    selectLangSub: 'حدد لغتك المفضلة',
-    searchPlaceholder: 'ابحث عن لغة (مثال: العربية, English)...',
-    confirm: 'تأكيد',
-    continue: 'متابعة',
-    getMoving: 'انطلق مع WOW GOA',
-    enterOtp: 'أدخل رمز التحقق',
-    resendIn: 'إعادة الإرسال خلال',
-    change: 'تغيير',
-    skip: 'تخطي',
-    passenger: 'الراكب',
-    driver: 'سائق شريك',
-    phonePlaceholder: 'رقم الهاتف أو البريد',
-    namePlaceholder: 'اسم الراكب (مثال Jenny)',
-    terms: 'بالمتابعة فإنك توافق على شروط الخدمة وسياسة الخصوصية',
-    instantDemo: 'رمز تجريبي:',
-    autoFill: 'تعبئة تلقائية',
-    clarityTitle: 'أسعار واضحة وموثوقة',
-    clarityDesc: 'أسعار عادلة دون رسوم خفية لتنقلات مطار غوا والشواطئ.',
-    chauffeursTitle: 'سائقون محليون معتمدون',
-    chauffeursDesc: 'سافر بأمان مع سائقين موثوقين من أهل غوا.',
-    choiceTitle: 'سيارات أجرة وتأجير في تطبيق واحد',
-    choiceDesc: 'احجز تاكسي بسائق أو استأجر سيارات ثار 4x4 ودراجات.',
-    dutyLogin: 'تسجيل دخول السائق',
-    dutyDesc: 'أدخل رقم هاتفك لبدء الخدمة.'
-  },
-  bn: {
-    chooseLang: 'ভাষা নির্বাচন করুন',
-    selectLangSub: 'আপনার পছন্দের ভাষা নির্বাচন করুন',
-    searchPlaceholder: 'ভাষা খুঁজুন (যেমন বাংলা, English)...',
-    confirm: 'নিশ্চিত করুন',
-    continue: 'এগিয়ে যান',
-    getMoving: 'WOW GOA-এর সাথে যাত্রা শুরু করুন',
-    enterOtp: 'OTP কোড লিখুন',
-    resendIn: 'পুনরায় পাঠান',
-    change: 'পরিবর্তন',
-    skip: 'এড়িয়ে যান',
-    passenger: 'যাত্রী',
-    driver: 'চালক সঙ্গী',
-    phonePlaceholder: 'মোবাইল নম্বর বা ইমেল',
-    namePlaceholder: 'যাত্রীর নাম (যেমন Jenny)',
-    terms: 'চালিয়ে গিয়ে, আপনি পরিষেবার শর্তাবলী এবং গোপনীয়তা নীতিতে সম্মত হচ্ছেন',
-    instantDemo: 'ডেমো কোড:',
-    autoFill: 'স্বয়ংক্রিয়ভাবে পূরণ',
-    clarityTitle: 'স্বচ্ছ ও ন্যায্য ভাড়া',
-    clarityDesc: 'গোয়ার বিমানবন্দর ও সমস্ত সৈকতের জন্য কোনও লুকানো চার্জ ছাড়া ন্যায্য ভাড়া।',
-    chauffeursTitle: 'যাচাইকৃত স্থানীয় চালক',
-    chauffeursDesc: 'বিশ্বস্ত গোয়ার স্থানীয় চালকদের সাথে নিরাপদ ভ্রমণ।',
-    choiceTitle: 'ট্যাক্সি এবং সেলফ ড্রাইভ এক অ্যাপে',
-    choiceDesc: 'ট্যাক্সি বুক করুন বা থার 4x4, সুইফ্ট এবং স্কুটার ভাড়া নিন।'
-  },
-  ta: {
-    chooseLang: 'மொழியைத் தேர்ந்தெடுக்கவும்',
-    selectLangSub: 'உங்கள் விருப்ப மொழியைத் தேர்ந்தெடுக்கவும்',
-    searchPlaceholder: 'மொழியைத் தேடுங்கள் (எ.கா. தமிழ், English)...',
-    confirm: 'உறுதிப்படுத்து',
-    continue: 'தொடரவும்',
-    getMoving: 'WOW GOA உடன் பயணிக்கவும்',
-    enterOtp: 'OTP ஐ உள்ளிடவும்',
-    resendIn: 'மீண்டும் அனுப்ப',
-    change: 'மாற்று',
-    skip: 'தவிர்',
-    passenger: 'பயணி (Passenger)',
-    driver: 'ஓட்டுநர் கூட்டாளர்',
-    phonePlaceholder: 'மொபைல் எண் அல்லது மின்னஞ்சல்',
-    namePlaceholder: 'பயணியின் பெயர் (எ.கா. Jenny)',
-    terms: 'தொடர்வதன் மூலம், விதிமுறைகள் மற்றும் தனியுரிமைக் கொள்கையை ஏற்கிறீர்கள்',
-    instantDemo: 'டெமோ குறியீடு:',
-    autoFill: 'தானாக நிரப்பு',
-    clarityTitle: 'வெளிப்படையான கட்டணம்',
-    clarityDesc: 'கோவா விமான நிலையம் மற்றும் கடற்கரைகளுக்கு மறைமுக கட்டணங்கள் இல்லாத நியாயமான விலை.',
-    chauffeursTitle: 'சரிபார்க்கப்பட்ட ஓட்டுநர்கள்',
-    chauffeursDesc: 'கோவாவின் அனைத்து வழிகளையும் அறிந்த நம்பகமான ஓட்டுநர்களுடன் பாதுகாப்பான பயணம்.',
-    choiceTitle: 'டாக்ஸி மற்றும் சுய ஓட்டுதல்',
-    choiceDesc: 'டாக்ஸி முன்பதிவு செய்யுங்கள் அல்லது தார் 4x4 மற்றும் ஸ்கூட்டர்களை வாடகைக்கு எடுங்கள்.'
-  },
-  te: {
-    chooseLang: 'భాషను ఎంచుకోండి',
-    selectLangSub: 'మీకు కావలసిన భాషను ఎంచుకోండి',
-    searchPlaceholder: 'భాషను శోధించండి (ఉదా. తెలుగు, English)...',
-    confirm: 'నిర్ధారించండి',
-    continue: 'కొనసాగించండి',
-    getMoving: 'WOW GOAతో ప్రయాణం ప్రారంభించండి',
-    enterOtp: 'OTP నమోదు చేయండి',
-    resendIn: 'మళ్లీ పంపండి',
-    change: 'మార్చండి',
-    skip: 'వదిలేయండి',
-    passenger: 'ప్రయాణీకుడు (Rider)',
-    driver: 'డ్రైవర్ భాగస్వామి',
-    phonePlaceholder: 'మొబైల్ నంబర్ లేదా ఇమెయిల్',
-    namePlaceholder: 'ప్రయాణీకుడి పేరు (ఉదా. Jenny)',
-    terms: 'కొనసాగడం ద్వారా, మీరు సేవా నిబంధనలు మరియు గోప్యతా విధానానికి అంగీకరిస్తున్నారు',
-    instantDemo: 'డెమో కోড:',
-    autoFill: 'ఆటో ఫిల్',
-    clarityTitle: 'స్పష్టమైన మరియు న్యాయమైన ఛార్జీలు',
-    clarityDesc: 'గోవా విమానాశ్రయం మరియు బీచ్‌లకు ఎలాంటి దాచిన ఛార్జీలు లేని సరసమైన ఛార్జీలు.',
-    chauffeursTitle: 'ధృవీకరించబడిన స్థానిక డ్రైవర్లు',
-    chauffeursDesc: 'గోవాలోని అన్ని మార్గాలు తెలిసిన విశ్వసనీయ డ్రైవర్లతో సురక్షిత ప్రయాణం.',
-    choiceTitle: 'టాక్సీ మరియు సెల్ఫ్ డ్రైవ్ ఒకే యాప్‌లో',
-    choiceDesc: 'టాక్సీ బుక్ చేయండి లేదా థార్ 4x4 మరియు స్కూటర్లను అద్దెకు తీసుకోండి.'
-  },
-  kn: {
-    chooseLang: 'ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ',
-    selectLangSub: 'ನಿಮ್ಮ ಆದ್ಯತೆಯ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ',
-    searchPlaceholder: 'ಭಾಷೆ ಹುಡುಕಿ (ಉದಾ. ಕನ್ನಡ, English)...',
-    confirm: 'ದೃಢೀಕರಿಸಿ',
-    continue: 'ಮುಂದುವರಿಯಿರಿ',
-    getMoving: 'WOW GOA ಜೊತೆಗೆ ಪ್ರಯಾಣ ಪ್ರಾರಂಭಿಸಿ',
-    enterOtp: 'OTP ನಮೂದಿಸಿ',
-    resendIn: 'ಮತ್ತೆ ಕಳುಹಿಸಿ',
-    change: 'ಬದಲಾಯಿಸಿ',
-    skip: 'ಬಿಟ್ಟುಬಿಡಿ',
-    passenger: 'ಪ್ರಯಾಣಿಕ (Rider)',
-    driver: 'ಚಾಲಕ ಪಾಲುದಾರ',
-    phonePlaceholder: 'ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಅಥವಾ ಇಮೇಲ್',
-    namePlaceholder: 'ಪ್ರಯಾಣಿಕರ ಹೆಸರು (ಉದಾ. Jenny)',
-    terms: 'ಮುಂದುವರಿಯುವ ಮೂಲಕ, ನೀವು ಸೇವಾ ನಿಯಮಗಳು ಮತ್ತು ಗೌಪ್ಯತಾ ನೀತಿಯನ್ನು ಒಪ್ಪುತ್ತೀರಿ',
-    instantDemo: 'ಡೆಮೊ ಕೋಡ್:',
-    autoFill: 'ಸ್ವಯಂ ಭರ್ತಿ',
-    clarityTitle: 'ಪಾರದರ್ಶಕ ಮತ್ತು ಪ್ರಾಮಾಣಿಕ ದರಗಳು',
-    clarityDesc: 'ಗೋವಾ ವಿಮಾನ ನಿಲ್ದಾಣ ಮತ್ತು ಬೀಚ್‌ಗಳಿಗೆ ಯಾವುದೇ ಗುಪ್ತ ಶುಲ್ಕಗಳಿಲ್ಲದ ಪ್ರಾಮಾಣಿಕ ದರಗಳು.',
-    chauffeursTitle: 'ಪರಿಶೀಲಿಸಿದ ಸ್ಥಳೀಯ ಚಾಲಕರು',
-    chauffeursDesc: 'ಗೋವಾದ ಎಲ್ಲಾ ರಸ್ತೆಗಳನ್ನು ತಿಳಿದಿರುವ ವಿಶ್ವಾಸಾರ್ಹ ಚಾಲಕರೊಂದಿಗೆ ಸುರಕ್ಷಿತ ಪ್ರಯಾಣ.',
-    choiceTitle: 'ಟ್ಯಾಕ್ಸಿ ಮತ್ತು ಸೆಲ್ಫ್ ಡ್ರೈವ್ ಒಂದೇ ಆ್ಯಪ್‌ನಲ್ಲಿ',
-    choiceDesc: 'ಟ್ಯಾಕ್ಸಿ ಬುಕ್ ಮಾಡಿ ಅಥವಾ ಥಾರ್ 4x4 ಮತ್ತು ಸ್ಕೂಟರ್‌ಗಳನ್ನು ಬಾಡಿಗೆಗೆ ಪಡೆಯಿರಿ.'
-  },
-  ml: {
-    chooseLang: 'ഭാഷ തിരഞ്ഞെടുക്കുക',
-    selectLangSub: 'നിങ്ങളുടെ ഇഷ്ടപ്പെട്ട ഭാഷ തിരഞ്ഞെടുക്കുക',
-    searchPlaceholder: 'ഭാഷ തിരയുക (ഉദാ. മലയാളം, English)...',
-    confirm: 'സ്ഥിരീകരിക്കുക',
-    continue: 'തുടരുക',
-    getMoving: 'WOW GOA യോടൊപ്പം യാത്ര ചെയ്യൂ',
-    enterOtp: 'OTP നൽകുക',
-    resendIn: 'വീണ്ടും അയക്കുക',
-    change: 'മാറ്റുക',
-    skip: 'ഒഴിവാക്കുക',
-    passenger: 'യാത്രക്കാരൻ',
-    driver: 'ഡ്രൈവർ പങ്കാളി',
-    phonePlaceholder: 'മൊബൈൽ നമ്പർ അല്ലെങ്കിൽ ഇമെയിൽ',
-    namePlaceholder: 'യാത്രക്കാരന്റെ പേര് (ഉദാ. Jenny)',
-    terms: 'തുടരുന്നതിലൂടെ, നിങ്ങൾ സേവന നിబంధനകളും സ്വകാര്യതാ നയവും അംഗീകരിക്കുന്നു',
-    instantDemo: 'ഡെമോ കോഡ്:',
-    autoFill: 'ഓട്ടോ ഫിൽ',
-    clarityTitle: 'സുതാര്യവും ന്യായവുമായ നിരക്കുകൾ',
-    clarityDesc: 'ഗോവ വിമാനത്താവളത്തിലേക്കും ബീച്ചുകളിലേക്കും മറഞ്ഞിരിക്കുന്ന നിരക്കുകളില്ലാത്ത ന്യായമായ നിരക്കുകൾ.',
-    chauffeursTitle: 'പരിശോധിച്ചുറപ്പിച്ച പ്രാദേശിക ഡ്രൈവർമാർ',
-    chauffeursDesc: 'ഗോവയിലെ എല്ലാ വഴികളും അറിയാവുന്ന വിശ്വസ്തരായ ഡ്രൈവർമാരോടൊപ്പം സുരക്ഷിത യാത്ര.',
-    choiceTitle: 'ടാക്സിയും സെൽഫ് ഡ്രൈവും ഒരൊറ്റ ആപ്പിൽ',
-    choiceDesc: 'ടാക്സി ബുക്ക് ചെയ്യുക അല്ലെങ്കിൽ താർ 4x4, സ്കൂട്ടറുകൾ വാടകയ്‌ക്കെടുക്കുക.'
   }
 };
+
+/**
+ * Classy Photographic Onboarding Images (Ultra-Realistic Goa Photography)
+ */
+const ONBOARDING_IMAGES = [
+  '/assets/mobile/slide_sunset.jpg',
+  '/assets/mobile/slide_airport.jpg',
+  '/assets/mobile/slide_thar.jpg'
+];
 
 export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = false }) {
   // Theme state: 'light' | 'dark'
@@ -556,14 +381,13 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
 
   const [langSearch, setLangSearch] = useState('');
 
-  // Dynamically filter languages based on tourist search query
+  // Dynamically filter languages without congestion
   const filteredLanguages = useMemo(() => {
     const query = langSearch.trim().toLowerCase();
     if (!query) return ALL_LANGUAGES;
     return ALL_LANGUAGES.filter(lang => 
       lang.label.toLowerCase().includes(query) ||
       lang.native.toLowerCase().includes(query) ||
-      lang.region.toLowerCase().includes(query) ||
       lang.id.toLowerCase().includes(query)
     );
   }, [langSearch]);
@@ -599,16 +423,46 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
     }
   }, [flowStep]);
 
+  // Dynamic Onboarding Slides using selected language
+  const onboardingSlides = useMemo(() => [
+    {
+      id: 'clarity',
+      badge: 'ZERO SURGE PROMISE',
+      title: t.clarityTitle,
+      description: t.clarityDesc,
+      image: ONBOARDING_IMAGES[0]
+    },
+    {
+      id: 'chauffeurs',
+      badge: 'GOA TOURISM CERTIFIED',
+      title: t.chauffeursTitle,
+      description: t.chauffeursDesc,
+      image: ONBOARDING_IMAGES[1]
+    },
+    {
+      id: 'choice',
+      badge: 'ALL-IN-ONE MOBILITY',
+      title: t.choiceTitle,
+      description: t.choiceDesc,
+      image: ONBOARDING_IMAGES[2]
+    }
+  ], [t]);
+
+  // ── AUTOMATIC SLIDE ROTATION (Every 3.8s) ──
+  useEffect(() => {
+    if (flowStep === 'onboarding') {
+      const autoTimer = setInterval(() => {
+        setCurrentSlide(prev => (prev + 1) % onboardingSlides.length);
+      }, 3800);
+      return () => clearInterval(autoTimer);
+    }
+  }, [flowStep, onboardingSlides.length]);
+
   // Role: 'customer' (Passenger/Rider) | 'driver' (Chauffeur Partner)
   const [role, setRole] = useState('customer');
 
-  // Auth method: 'phone' | 'email'
-  const [authMethod, setAuthMethod] = useState('phone');
-  
-  // Passenger fields
+  // Passenger phone
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [fullName, setFullName] = useState('Jenny'); // Default Jenny
   
   // Driver fields
   const [selectedDriver, setSelectedDriver] = useState(DEMO_DRIVERS[0]);
@@ -655,43 +509,6 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
     setFlowStep('onboarding');
   };
 
-  // Dynamic Onboarding Slides using selected language
-  const onboardingSlides = [
-    {
-      id: 'clarity',
-      badge: 'ZERO SURGE PROMISE',
-      title: t.clarityTitle,
-      description: t.clarityDesc,
-      themeColor: '#FFB703'
-    },
-    {
-      id: 'chauffeurs',
-      badge: 'GOA TOURISM CERTIFIED',
-      title: t.chauffeursTitle,
-      description: t.chauffeursDesc,
-      themeColor: '#10B981'
-    },
-    {
-      id: 'choice',
-      badge: 'ALL-IN-ONE MOBILITY',
-      title: t.choiceTitle,
-      description: t.choiceDesc,
-      themeColor: '#3B82F6'
-    }
-  ];
-
-  // Handle Onboarding Next
-  const handleNextOnboarding = () => {
-    if (currentSlide < onboardingSlides.length - 1) {
-      setCurrentSlide(prev => prev + 1);
-    } else {
-      try {
-        localStorage.setItem('wowgoa_onboarded_completed', 'true');
-      } catch (e) {}
-      setFlowStep('getmoving');
-    }
-  };
-
   const handleSkipOnboarding = () => {
     try {
       localStorage.setItem('wowgoa_onboarded_completed', 'true');
@@ -727,13 +544,14 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       return;
     }
 
-    // Customer
-    const cleanPhone = phone.replace(/\D/g, '');
-    const cleanEmail = email.trim().toLowerCase();
+    // Customer Phone / Email
+    const rawInput = phone.trim();
+    const isEmailInput = rawInput.includes('@');
+    const cleanPhone = rawInput.replace(/\D/g, '');
 
-    if (authMethod === 'email') {
-      if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-        setErrorMsg('Please enter a valid Gmail or Email address.');
+    if (isEmailInput) {
+      if (!rawInput.includes('.') || rawInput.length < 6) {
+        setErrorMsg('Please enter a valid email address.');
         return;
       }
     } else {
@@ -749,17 +567,17 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
 
     try {
       const res = await sendCustomerOtp(
-        authMethod === 'phone' ? cleanPhone : '',
-        authMethod === 'email' ? cleanEmail : ''
+        !isEmailInput ? cleanPhone : '',
+        isEmailInput ? rawInput.toLowerCase() : ''
       );
 
       if (res && res.otp) {
         setGeneratedOtp(String(res.otp));
       }
 
-      setInfoMsg(authMethod === 'email' 
-        ? `4-digit code sent to ${cleanEmail}` 
-        : `4-digit code sent to +91 ${cleanPhone}`);
+      setInfoMsg(isEmailInput 
+        ? `Verification code dispatched to ${rawInput}` 
+        : `Verification code dispatched to +91 ${cleanPhone}`);
 
       setFlowStep('otp');
       setResendTimer(30);
@@ -846,8 +664,9 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
     }
 
     // Customer
-    const cleanPhone = phone.replace(/\D/g, '');
-    const cleanEmail = email.trim().toLowerCase();
+    const rawInput = phone.trim();
+    const isEmailInput = rawInput.includes('@');
+    const cleanPhone = rawInput.replace(/\D/g, '');
 
     try {
       let isSuccess = false;
@@ -857,8 +676,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
         isSuccess = true;
       } else {
         const verifyRes = await verifyCustomerOtp(
-          authMethod === 'phone' ? cleanPhone : '',
-          authMethod === 'email' ? cleanEmail : '',
+          !isEmailInput ? cleanPhone : '',
+          isEmailInput ? rawInput.toLowerCase() : '',
           enteredCode
         );
         if (verifyRes && verifyRes.success) {
@@ -869,11 +688,10 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
 
       if (isSuccess) {
         const userObj = {
-          id: returnedCust?.id || (authMethod === 'email' ? `email_${Date.now()}` : `rider_${cleanPhone || 'jenny'}`),
-          name: fullName.trim() || returnedCust?.name || (authMethod === 'email' ? cleanEmail.split('@')[0] : 'Jenny'),
+          id: returnedCust?.id || (isEmailInput ? `email_${Date.now()}` : `rider_${cleanPhone || 'jenny'}`),
+          name: returnedCust?.name || (isEmailInput ? rawInput.split('@')[0] : 'Jenny'),
           phone: cleanPhone ? `+91 ${cleanPhone.slice(-10)}` : (returnedCust?.phone || '+91 9876543210'),
-          email: cleanEmail || returnedCust?.email || 'jenny@example.com',
-          authMethod: authMethod === 'email' ? 'gmail_otp' : 'phone_otp',
+          email: isEmailInput ? rawInput : (returnedCust?.email || 'traveler@wowgoa.in'),
           role: 'customer',
           verifiedAt: new Date().toISOString()
         };
@@ -893,11 +711,10 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
     } catch (err) {
       if (enteredCode === generatedOtp || enteredCode === '1234') {
         const userObj = {
-          id: authMethod === 'email' ? `email_${Date.now()}` : `rider_${cleanPhone || 'jenny'}`,
-          name: fullName.trim() || 'Jenny',
+          id: isEmailInput ? `email_${Date.now()}` : `rider_${cleanPhone || 'jenny'}`,
+          name: isEmailInput ? rawInput.split('@')[0] : 'Jenny',
           phone: cleanPhone ? `+91 ${cleanPhone.slice(-10)}` : '+91 9876543210',
-          email: cleanEmail || 'jenny@example.com',
-          authMethod: authMethod === 'email' ? 'gmail_otp' : 'phone_otp',
+          email: isEmailInput ? rawInput : 'traveler@wowgoa.in',
           role: 'customer',
           verifiedAt: new Date().toISOString()
         };
@@ -924,12 +741,13 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       return;
     }
 
-    const cleanPhone = phone.replace(/\D/g, '');
-    const cleanEmail = email.trim().toLowerCase();
+    const rawInput = phone.trim();
+    const isEmailInput = rawInput.includes('@');
+    const cleanPhone = rawInput.replace(/\D/g, '');
     try {
       const res = await sendCustomerOtp(
-        authMethod === 'phone' ? cleanPhone : '',
-        authMethod === 'email' ? cleanEmail : ''
+        !isEmailInput ? cleanPhone : '',
+        isEmailInput ? rawInput.toLowerCase() : ''
       );
       if (res && res.otp) setGeneratedOtp(String(res.otp));
       setInfoMsg('New verification code dispatched.');
@@ -937,7 +755,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
   };
 
   // Base background style
-  const rootBg = isDark ? '#0F1216' : '#FFFFFF';
+  const rootBg = isDark ? '#0A0E14' : '#FFFFFF';
   const rootColor = isDark ? '#F8FAFC' : '#0F172A';
 
   return (
@@ -960,7 +778,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       transition: 'background-color 0.2s ease, color 0.2s ease'
     }}>
 
-      {/* ── BACKGROUND WATERMARK: WOW GOA LOGO AT AN ACUTE ANGLE (LOGGH / FAINT) ── */}
+      {/* ── BACKGROUND WATERMARK: WOW GOA LOGO AT AN ACUTE ANGLE (FAINT / LIGHT / LOGGH) ── */}
       <div style={{
         position: 'absolute',
         top: '48%',
@@ -969,7 +787,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
         width: '320px',
         maxWidth: '82vw',
         height: '320px',
-        opacity: isDark ? 0.05 : 0.075,
+        opacity: isDark ? 0.04 : 0.065,
         pointerEvents: 'none',
         zIndex: 0,
         display: 'flex',
@@ -1029,7 +847,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               <img src="/wowgoa-logo.png" alt="WOW GOA" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
 
-            {/* Glowing Brand Title with Car Accent */}
+            {/* Glowing Brand Title */}
             <div style={{ textAlign: 'center' }}>
               <div style={{ 
                 fontSize: '28px', 
@@ -1057,7 +875,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
             </div>
           </div>
 
-          {/* Bottom Spinner / Loading Arc */}
+          {/* Bottom Spinner */}
           <div style={{
             position: 'absolute',
             bottom: '48px',
@@ -1093,7 +911,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          SCREEN 2: CHOOSE LANGUAGE (ALL LANGUAGES + TOURIST SEARCH BAR)
+          SCREEN 2: CHOOSE LANGUAGE (CLEAN, BASIC, UNCONGESTED, NO FLAGS)
          ══════════════════════════════════════════════════════════════════════ */}
       {flowStep === 'language' && (
         <div style={{
@@ -1108,14 +926,14 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
           zIndex: 10,
           padding: '8px 0 8px'
         }}>
-          {/* Top Header & Normal Theme Button */}
+          {/* Header & Clean Normal Theme Button */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexShrink: 0 }}>
               <div>
                 <h1 style={{ fontSize: '24px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
                   {t.chooseLang}
                 </h1>
-                <p style={{ fontSize: '12.5px', color: isDark ? '#94A3B8' : '#475569', margin: 0 }}>
+                <p style={{ fontSize: '13px', color: isDark ? '#94A3B8' : '#64748B', margin: 0 }}>
                   {t.selectLangSub}
                 </p>
               </div>
@@ -1127,11 +945,11 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '5px',
-                  background: isDark ? '#1E293B' : '#FFFFFF',
-                  border: isDark ? '1.5px solid #475569' : '2px solid #0F172A',
+                  gap: '6px',
+                  background: isDark ? '#161B22' : '#FFFFFF',
+                  border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
                   borderRadius: '8px',
-                  padding: '7px 11px',
+                  padding: '7px 12px',
                   color: isDark ? '#FFFFFF' : '#0F172A',
                   fontSize: '11.5px',
                   fontWeight: 700,
@@ -1144,19 +962,19 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               </button>
             </div>
 
-            {/* 🔍 SEARCH BAR FOR TOURISTS (HIGH CONTRAST & VISIBLE) */}
-            <div style={{ marginBottom: '12px', flexShrink: 0 }}>
+            {/* SPACIOUS, UNCLUTTERED SEARCH BAR */}
+            <div style={{ marginBottom: '16px', flexShrink: 0 }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
+                gap: '10px',
                 background: isDark ? '#161B22' : '#FFFFFF',
-                border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A', // Crisp visible border in light mode
+                border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
                 borderRadius: '14px',
-                padding: '0 12px',
-                boxShadow: isDark ? 'none' : '0 2px 6px rgba(15, 23, 42, 0.06)'
+                padding: '0 14px',
+                boxShadow: isDark ? 'none' : '0 2px 6px rgba(15, 23, 42, 0.05)'
               }}>
-                <Search size={16} color={isDark ? "#FFB703" : "#0F172A"} />
+                <Search size={17} color={isDark ? "#FFB703" : "#0F172A"} />
                 <input
                   type="text"
                   placeholder={t.searchPlaceholder}
@@ -1167,8 +985,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                     border: 'none',
                     outline: 'none',
                     background: 'transparent',
-                    padding: '11px 0',
-                    fontSize: '13.5px',
+                    padding: '13px 0',
+                    fontSize: '14px',
                     fontWeight: 700,
                     color: isDark ? '#FFFFFF' : '#0F172A'
                   }}
@@ -1185,35 +1003,19 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                       padding: '4px'
                     }}
                   >
-                    <X size={15} />
+                    <X size={16} />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Language Count Hint */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between', 
-              fontSize: '11px', 
-              fontWeight: 700, 
-              color: isDark ? '#8B949E' : '#64748B', 
-              marginBottom: '8px',
-              padding: '0 2px',
-              flexShrink: 0
-            }}>
-              <span>{filteredLanguages.length} Languages Available</span>
-              <span style={{ color: '#FFB703' }}>Tourist &amp; Local Friendly</span>
-            </div>
-
-            {/* Scrollable Language Selection List (25+ Languages) */}
+            {/* Clean, Basic Language Selection List (No Flags, High Visibility Borders) */}
             <div style={{ 
               flex: 1, 
               overflowY: 'auto', 
               display: 'flex', 
               flexDirection: 'column', 
-              gap: '8px',
+              gap: '10px',
               paddingRight: '2px',
               paddingBottom: '8px'
             }}>
@@ -1227,49 +1029,38 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '12px 14px',
-                      borderRadius: '13px',
+                      padding: '14px 18px',
+                      borderRadius: '14px',
                       background: isSelected 
                         ? (isDark ? '#FFFFFF' : '#0F172A') 
                         : (isDark ? '#161B22' : '#FFFFFF'),
                       border: isSelected 
                         ? (isDark ? '2px solid #FFFFFF' : '2.5px solid #0F172A') 
-                        : (isDark ? '1.5px solid #30363D' : '2px solid #0F172A'), // Visible borders in light mode
+                        : (isDark ? '1.5px solid #30363D' : '2px solid #0F172A'), // Crisp visible border in light mode
                       color: isSelected 
                         ? (isDark ? '#0F172A' : '#FFFFFF') 
                         : (isDark ? '#E6EDF3' : '#0F172A'),
                       cursor: 'pointer',
-                      transition: 'all 0.12s ease',
+                      transition: 'all 0.15s ease',
                       boxShadow: isDark ? 'none' : '0 2px 5px rgba(0,0,0,0.04)'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '20px' }}>{lang.flag}</span>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '14.5px', fontWeight: 800 }}>
-                            {lang.label}
-                          </span>
-                          <span style={{ 
-                            fontSize: '12px', 
-                            opacity: isSelected ? 0.9 : 0.65,
-                            fontWeight: 700
-                          }}>
-                            · {lang.native}
-                          </span>
-                        </div>
-                        <div style={{ 
-                          fontSize: '10.5px', 
-                          opacity: isSelected ? 0.8 : 0.55, 
-                          fontWeight: 600,
-                          marginTop: '1px'
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '15px', fontWeight: 800 }}>
+                        {lang.label}
+                      </span>
+                      {lang.native !== lang.label && (
+                        <span style={{ 
+                          fontSize: '13px', 
+                          opacity: isSelected ? 0.85 : 0.65,
+                          fontWeight: 600
                         }}>
-                          {lang.region}
-                        </div>
-                      </div>
+                          ({lang.native})
+                        </span>
+                      )}
                     </div>
 
-                    {/* Check Circle Icon */}
+                    {/* Radio Check Indicator */}
                     {isSelected ? (
                       <div style={{
                         width: '22px',
@@ -1299,7 +1090,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
 
               {filteredLanguages.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '30px 10px', color: isDark ? '#8B949E' : '#64748B' }}>
-                  <p style={{ fontSize: '13px', margin: '0 0 6px', fontWeight: 700 }}>No language matching "{langSearch}"</p>
+                  <p style={{ fontSize: '13px', margin: '0 0 8px', fontWeight: 700 }}>No language matching "{langSearch}"</p>
                   <button
                     type="button"
                     onClick={() => setLangSearch('')}
@@ -1307,14 +1098,14 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                       background: '#FFB703',
                       border: 'none',
                       borderRadius: '8px',
-                      padding: '6px 12px',
-                      fontSize: '11.5px',
+                      padding: '7px 14px',
+                      fontSize: '12px',
                       fontWeight: 800,
                       color: '#000',
                       cursor: 'pointer'
                     }}
                   >
-                    View All Languages
+                    View All
                   </button>
                 </div>
               )}
@@ -1322,7 +1113,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
           </div>
 
           {/* Bottom Solid Yellow "Confirm" CTA Button */}
-          <div style={{ marginTop: '12px', flexShrink: 0 }}>
+          <div style={{ marginTop: '14px', flexShrink: 0 }}>
             <button
               type="button"
               onClick={handleConfirmLanguage}
@@ -1332,7 +1123,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 color: '#000000',
                 border: isDark ? 'none' : '2px solid #0F172A',
                 borderRadius: '16px',
-                padding: '15px',
+                padding: '16px',
                 fontSize: '16px',
                 fontWeight: 900,
                 cursor: 'pointer',
@@ -1352,7 +1143,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          SCREEN 3: ONBOARDING INTRO (Clarity / Trust / Carousel with Illustration)
+          SCREEN 3: ONBOARDING INTRO (CLASSY REAL PHOTOGRAPHY + AUTO-SLIDE)
          ══════════════════════════════════════════════════════════════════════ */}
       {flowStep === 'onboarding' && (
         <div style={{
@@ -1367,7 +1158,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
           zIndex: 10,
           padding: '10px 0 8px'
         }}>
-          {/* Top Nav: Back & Skip */}
+          {/* Top Bar: Back & Skip */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <button
               type="button"
@@ -1376,8 +1167,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 else setFlowStep('language');
               }}
               style={{
-                background: isDark ? '#1E293B' : '#FFFFFF',
-                border: isDark ? '1px solid #475569' : '2px solid #0F172A',
+                background: isDark ? '#161B22' : '#FFFFFF',
+                border: isDark ? '1px solid #30363D' : '2px solid #0F172A',
                 borderRadius: '50%',
                 width: '36px',
                 height: '36px',
@@ -1391,7 +1182,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               <ArrowLeft size={16} />
             </button>
 
-            {/* Active Language Badge */}
+            {/* Language Pill without flags */}
             <button
               type="button"
               onClick={() => setFlowStep('language')}
@@ -1402,15 +1193,15 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 background: isDark ? '#161B22' : '#F1F5F9',
                 border: isDark ? '1px solid #30363D' : '1.5px solid #0F172A',
                 borderRadius: '16px',
-                padding: '4px 8px',
+                padding: '5px 10px',
                 fontSize: '11px',
                 fontWeight: 700,
                 color: isDark ? '#FFB703' : '#0F172A',
                 cursor: 'pointer'
               }}
             >
-              <span>{activeLangObj.flag}</span>
               <span>{activeLangObj.label}</span>
+              <ChevronDown size={11} />
             </button>
 
             <button
@@ -1430,56 +1221,47 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
             </button>
           </div>
 
-          {/* Illustration Card (Modern Goa Cab Vector) */}
+          {/* CLASSY REAL PHOTOGRAPHY CARD (AUTO-ROTATING) */}
           <div style={{
-            background: isDark ? '#161B22' : '#F8FAFC',
+            borderRadius: '22px',
+            overflow: 'hidden',
             border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
-            borderRadius: '24px',
-            padding: '24px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '260px',
-            boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.3)' : '0 4px 12px rgba(15, 23, 42, 0.08)',
+            boxShadow: isDark ? '0 12px 30px rgba(0,0,0,0.5)' : '0 8px 24px rgba(15, 23, 42, 0.1)',
             position: 'relative',
-            overflow: 'hidden'
+            height: '240px',
+            background: '#000000'
           }}>
-            {/* Scenic Vector Graphic */}
-            <svg width="220" height="150" viewBox="0 0 220 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Road / Curve */}
-              <path d="M10 135 C 70 135, 110 110, 210 110" stroke={isDark ? "#30363D" : "#CBD5E1"} strokeWidth="4" strokeDasharray="6 6" />
-              {/* Palm Tree Outline (Goa Vibe) */}
-              <path d="M185 105 Q188 70 180 40 Q175 42 165 48 M180 40 Q192 35 205 45 M180 40 Q185 25 180 15" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" />
-              {/* Modern Goa Cab Body */}
-              <rect x="35" y="70" width="130" height="42" rx="12" fill="#FFB703" />
-              {/* Cab Roof */}
-              <path d="M60 70 L75 44 L125 44 L145 70 Z" fill="#000000" opacity={isDark ? "0.9" : "0.85"} />
-              {/* Windows */}
-              <path d="M78 48 L100 48 L100 66 L68 66 Z" fill="#FFFFFF" opacity="0.8" />
-              <path d="M104 48 L122 48 L138 66 L104 66 Z" fill="#FFFFFF" opacity="0.8" />
-              {/* Wheels */}
-              <circle cx="65" cy="112" r="13" fill="#1E293B" stroke="#FFB703" strokeWidth="3" />
-              <circle cx="135" cy="112" r="13" fill="#1E293B" stroke="#FFB703" strokeWidth="3" />
-              {/* Taxi Roof Light */}
-              <rect x="92" y="38" width="22" height="7" rx="3" fill="#000000" stroke="#FFB703" strokeWidth="1.5" />
-              {/* GPS Pin */}
-              <g transform="translate(100, 5)">
-                <circle cx="10" cy="10" r="9" fill="#EF4444" />
-                <circle cx="10" cy="10" r="3.5" fill="#FFFFFF" />
-              </g>
-            </svg>
+            <img 
+              src={onboardingSlides[currentSlide].image} 
+              alt={onboardingSlides[currentSlide].title}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transition: 'opacity 0.4s ease'
+              }}
+            />
 
-            {/* Slide Badge */}
+            {/* Bottom Gradient Fade */}
             <div style={{
-              marginTop: '12px',
-              background: isDark ? 'rgba(255, 183, 3, 0.15)' : '#FEF3C7',
-              border: isDark ? '1px solid rgba(255, 183, 3, 0.4)' : '1.5px solid #D97706',
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)'
+            }} />
+
+            {/* Slide Badge on photo */}
+            <div style={{
+              position: 'absolute',
+              bottom: '14px',
+              left: '16px',
+              background: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255, 183, 3, 0.6)',
               padding: '4px 10px',
               borderRadius: '20px',
               fontSize: '10.5px',
               fontWeight: 800,
-              color: isDark ? '#FFB703' : '#B45309',
+              color: '#FFB703',
               letterSpacing: '0.6px',
               textTransform: 'uppercase'
             }}>
@@ -1487,8 +1269,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
             </div>
           </div>
 
-          {/* Slide Text Content in Active Language */}
-          <div style={{ textAlign: 'center', padding: '16px 8px 8px' }}>
+          {/* Slide Text Content */}
+          <div style={{ textAlign: 'center', padding: '16px 8px 6px' }}>
             <h2 style={{ 
               fontSize: '22px', 
               fontWeight: 900, 
@@ -1508,27 +1290,29 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
             </p>
           </div>
 
-          {/* Dots Indicator */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-center', gap: '8px', margin: '12px 0 16px' }}>
+          {/* Auto-Slide Dots Indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', margin: '10px 0 16px' }}>
             {onboardingSlides.map((_, idx) => (
               <div
                 key={idx}
+                onClick={() => setCurrentSlide(idx)}
                 style={{
-                  width: currentSlide === idx ? '26px' : '8px',
+                  width: currentSlide === idx ? '28px' : '8px',
                   height: '8px',
                   borderRadius: '4px',
                   background: currentSlide === idx ? '#FFB703' : (isDark ? '#30363D' : '#CBD5E1'),
+                  cursor: 'pointer',
                   transition: 'all 0.25s ease'
                 }}
               />
             ))}
           </div>
 
-          {/* Bottom Solid Yellow "Continue" CTA */}
+          {/* Bottom Solid Yellow "Continue" / "Get Started" CTA */}
           <div>
             <button
               type="button"
-              onClick={handleNextOnboarding}
+              onClick={handleSkipOnboarding}
               style={{
                 width: '100%',
                 background: '#FFB703',
@@ -1547,7 +1331,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 letterSpacing: '0.3px'
               }}
             >
-              <span>{currentSlide === onboardingSlides.length - 1 ? t.confirm : t.continue}</span>
+              <span>{t.getStarted}</span>
               <ArrowRight size={18} strokeWidth={2.5} />
             </button>
           </div>
@@ -1555,7 +1339,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          SCREEN 4: GET MOVING / AUTH INPUT (Bottom Sheet Style in Selected Language)
+          SCREEN 4: GET MOVING / AUTH INPUT (NO NAME BOX, CLASSY REAL IMAGE)
          ═════════════════════════════════════════════════════════════════════ */}
       {flowStep === 'getmoving' && (
         <div style={{
@@ -1599,7 +1383,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
 
             {/* Top Right Controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {/* Dynamic Tourist Language Switcher Pill */}
+              {/* Clean Language Switcher Pill (No Flags) */}
               <button
                 type="button"
                 onClick={() => setFlowStep('language')}
@@ -1607,19 +1391,18 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '5px',
-                  background: isDark ? '#1E293B' : '#FFFFFF',
-                  border: isDark ? '1px solid #475569' : '2px solid #0F172A',
+                  background: isDark ? '#161B22' : '#FFFFFF',
+                  border: isDark ? '1px solid #30363D' : '2px solid #0F172A',
                   borderRadius: '20px',
-                  padding: '6px 10px',
+                  padding: '6px 11px',
                   color: isDark ? '#FFFFFF' : '#0F172A',
                   fontSize: '11.5px',
                   fontWeight: 800,
                   cursor: 'pointer'
                 }}
               >
-                <span>{activeLangObj.flag}</span>
-                <span>{activeLangObj.id.toUpperCase()}</span>
                 <Globe size={12} />
+                <span>{activeLangObj.id.toUpperCase()}</span>
                 <ChevronDown size={11} />
               </button>
 
@@ -1631,8 +1414,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '5px',
-                  background: isDark ? '#1E293B' : '#FFFFFF',
-                  border: isDark ? '1.5px solid #475569' : '2px solid #0F172A',
+                  background: isDark ? '#161B22' : '#FFFFFF',
+                  border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
                   borderRadius: '8px',
                   padding: '6px 10px',
                   color: isDark ? '#FFFFFF' : '#0F172A',
@@ -1647,31 +1430,49 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
             </div>
           </div>
 
-          {/* Hero Artwork Area */}
+          {/* CLASSY PHOTOGRAPHIC HERO (NO CARTOON GRAPHICS) */}
           <div style={{
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
             justifyContent: 'center',
-            padding: '10px 0',
+            padding: '4px 0 12px',
             position: 'relative'
           }}>
-            {/* Sleek Vector Car & Map Pin Scene */}
-            <svg width="240" height="130" viewBox="0 0 240 130" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="80" y="8" width="80" height="110" rx="10" fill={isDark ? "#1E293B" : "#E2E8F0"} opacity="0.6" />
-              <path d="M85 35 L120 50 L155 30" stroke="#FFB703" strokeWidth="2.5" strokeDasharray="3 3" />
-              <circle cx="120" cy="50" r="12" fill="#3B82F6" />
-              <circle cx="120" cy="50" r="5" fill="#FFFFFF" />
-              
-              <rect x="30" y="65" width="180" height="42" rx="12" fill="#1D4ED8" />
-              <path d="M60 65 L80 40 L160 40 L185 65 Z" fill="#1E40AF" />
-              <path d="M84 44 L118 44 L118 62 L70 62 Z" fill="#93C5FD" opacity="0.8" />
-              <path d="M122 44 L154 44 L172 62 L122 62 Z" fill="#93C5FD" opacity="0.8" />
-              <circle cx="65" cy="107" r="14" fill="#0F172A" stroke="#94A3B8" strokeWidth="3" />
-              <circle cx="175" cy="107" r="14" fill="#0F172A" stroke="#94A3B8" strokeWidth="3" />
-              <rect x="200" y="75" width="8" height="6" rx="2" fill="#FEF08A" />
-            </svg>
+            <div style={{
+              borderRadius: '20px',
+              overflow: 'hidden',
+              height: '180px',
+              border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
+              boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.4)' : '0 6px 18px rgba(15, 23, 42, 0.08)',
+              position: 'relative',
+              background: '#000000'
+            }}>
+              <img 
+                src="/assets/mobile/slide_airport.jpg" 
+                alt="Goa Chauffeur" 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 60%)'
+              }} />
+              <div style={{
+                position: 'absolute',
+                bottom: '12px',
+                left: '14px',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <ShieldCheck size={14} color="#FFB703" />
+                <span>Goa Tourism Certified Mobility</span>
+              </div>
+            </div>
           </div>
 
           {/* Bottom Sheet Drawer Card */}
@@ -1696,7 +1497,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
             {/* Role Switcher Pill */}
             <div style={{
               display: 'flex',
-              background: isDark ? '#0F1216' : '#F1F5F9',
+              background: isDark ? '#0A0E14' : '#F1F5F9',
               border: isDark ? '1px solid #30363D' : '1.5px solid #0F172A',
               borderRadius: '12px',
               padding: '3px',
@@ -1776,42 +1577,39 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               </div>
             )}
 
-            {/* Input Form */}
+            {/* Input Form (NO NAME BOX — ONLY PHONE/EMAIL) */}
             <form onSubmit={handleSubmitInput}>
               {role === 'customer' ? (
                 <div>
-                  {/* Phone / Email Input with Gold Focus Border */}
-                  <div style={{ marginBottom: '12px' }}>
+                  {/* Clean Single Mobile / Email Input */}
+                  <div style={{ marginBottom: '16px' }}>
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
-                      background: isDark ? '#0D1117' : '#FFFFFF',
+                      background: isDark ? '#0A0E14' : '#FFFFFF',
                       border: isDark ? '2px solid #FFB703' : '2px solid #0F172A',
                       borderRadius: '14px',
                       overflow: 'hidden'
                     }}>
                       <div style={{
-                        padding: '13px 12px',
+                        padding: '14px 14px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '5px',
+                        gap: '6px',
                         borderRight: isDark ? '1.5px solid rgba(255, 183, 3, 0.4)' : '2px solid #0F172A',
                         background: isDark ? '#161B22' : '#F1F5F9',
                         fontSize: '14px',
                         fontWeight: 900,
                         color: isDark ? '#FFB703' : '#0F172A'
                       }}>
-                        <span>🇮🇳</span>
-                        <span>+91</span>
+                        <span>@</span>
                       </div>
                       <input
-                        type="tel"
-                        inputMode="numeric"
+                        type="text"
                         placeholder={t.phonePlaceholder}
-                        maxLength={10}
                         value={phone}
                         onChange={(e) => {
-                          setPhone(e.target.value.replace(/\D/g, ''));
+                          setPhone(e.target.value);
                           setErrorMsg('');
                         }}
                         style={{
@@ -1819,43 +1617,16 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                           border: 'none',
                           outline: 'none',
                           background: 'transparent',
-                          padding: '13px 12px',
-                          fontSize: '16px',
+                          padding: '14px 12px',
+                          fontSize: '15.5px',
                           fontWeight: 800,
                           color: isDark ? '#FFFFFF' : '#0F172A'
                         }}
                       />
                     </div>
-                  </div>
-
-                  {/* Passenger Name Input */}
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      background: isDark ? '#0D1117' : '#FFFFFF',
-                      border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
-                      borderRadius: '12px',
-                      padding: '0 12px'
-                    }}>
-                      <User size={15} color={isDark ? "#94A3B8" : "#475569"} />
-                      <input
-                        type="text"
-                        placeholder={t.namePlaceholder}
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        style={{
-                          flex: 1,
-                          border: 'none',
-                          outline: 'none',
-                          background: 'transparent',
-                          padding: '10px 8px',
-                          fontSize: '13.5px',
-                          fontWeight: 700,
-                          color: isDark ? '#FFFFFF' : '#0F172A'
-                        }}
-                      />
-                    </div>
+                    <span style={{ fontSize: '11px', color: isDark ? '#8B949E' : '#64748B', marginTop: '5px', display: 'block' }}>
+                      Enter 10-digit mobile number or Gmail address
+                    </span>
                   </div>
                 </div>
               ) : (
@@ -1883,7 +1654,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                               : (isDark ? '1px solid #30363D' : '2px solid #0F172A'),
                             background: isSelected 
                               ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5') 
-                              : (isDark ? '#0D1117' : '#FFFFFF'),
+                              : (isDark ? '#0A0E14' : '#FFFFFF'),
                             cursor: 'pointer'
                           }}
                         >
@@ -1900,7 +1671,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    background: isDark ? '#0D1117' : '#FFFFFF',
+                    background: isDark ? '#0A0E14' : '#FFFFFF',
                     border: '2px solid #10B981',
                     borderRadius: '12px',
                     overflow: 'hidden'
@@ -1919,13 +1690,13 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               {/* Solid Yellow "Continue" Button */}
               <button
                 type="submit"
-                disabled={isLoading || (role === 'driver' ? driverPhone.length < 10 : phone.length < 10)}
+                disabled={isLoading || (role === 'driver' ? driverPhone.length < 10 : phone.trim().length < 6)}
                 style={{
                   width: '100%',
-                  background: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) 
+                  background: (role === 'driver' ? driverPhone.length >= 10 : phone.trim().length >= 6) 
                     ? '#FFB703' 
                     : (isDark ? '#21262D' : '#E2E8F0'),
-                  color: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) 
+                  color: (role === 'driver' ? driverPhone.length >= 10 : phone.trim().length >= 6) 
                     ? '#000000' 
                     : (isDark ? '#64748B' : '#94A3B8'),
                   border: isDark ? 'none' : '2px solid #0F172A',
@@ -1933,12 +1704,12 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   padding: '15px',
                   fontSize: '15.5px',
                   fontWeight: 900,
-                  cursor: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) ? 'pointer' : 'not-allowed',
+                  cursor: (role === 'driver' ? driverPhone.length >= 10 : phone.trim().length >= 6) ? 'pointer' : 'not-allowed',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  boxShadow: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) 
+                  boxShadow: (role === 'driver' ? driverPhone.length >= 10 : phone.trim().length >= 6) 
                     ? '0 4px 16px rgba(255, 183, 3, 0.35)' 
                     : 'none',
                   transition: 'all 0.15s ease'
@@ -1970,7 +1741,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          SCREEN 5: ENTER OTP SCREEN (In Selected Language with Visible Borders)
+          SCREEN 5: ENTER OTP SCREEN
          ══════════════════════════════════════════════════════════════════════ */}
       {flowStep === 'otp' && (
         <div style={{
@@ -1992,8 +1763,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 type="button"
                 onClick={() => setFlowStep('getmoving')}
                 style={{
-                  background: isDark ? '#1E293B' : '#FFFFFF',
-                  border: isDark ? '1px solid #475569' : '2px solid #0F172A',
+                  background: isDark ? '#161B22' : '#FFFFFF',
+                  border: isDark ? '1px solid #30363D' : '2px solid #0F172A',
                   borderRadius: '50%',
                   width: '38px',
                   height: '38px',
@@ -2007,27 +1778,26 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 <ArrowLeft size={18} />
               </button>
 
-              {/* Dynamic Tourist Language Switcher Pill */}
+              {/* Clean Language Switcher Pill */}
               <button
                 type="button"
                 onClick={() => setFlowStep('language')}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '5px',
-                  background: isDark ? '#1E293B' : '#FFFFFF',
-                  border: isDark ? '1px solid #475569' : '2px solid #0F172A',
+                  gap: '4px',
+                  background: isDark ? '#161B22' : '#FFFFFF',
+                  border: isDark ? '1px solid #30363D' : '2px solid #0F172A',
                   borderRadius: '20px',
-                  padding: '6px 10px',
+                  padding: '6px 11px',
                   color: isDark ? '#FFFFFF' : '#0F172A',
                   fontSize: '11.5px',
                   fontWeight: 800,
                   cursor: 'pointer'
                 }}
               >
-                <span>{activeLangObj.flag}</span>
-                <span>{activeLangObj.id.toUpperCase()}</span>
                 <Globe size={12} />
+                <span>{activeLangObj.id.toUpperCase()}</span>
               </button>
 
               {/* Normal Dark / White Mode Button */}
@@ -2038,8 +1808,8 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '5px',
-                  background: isDark ? '#1E293B' : '#FFFFFF',
-                  border: isDark ? '1.5px solid #475569' : '2px solid #0F172A',
+                  background: isDark ? '#161B22' : '#FFFFFF',
+                  border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
                   borderRadius: '8px',
                   padding: '6px 10px',
                   color: isDark ? '#FFFFFF' : '#0F172A',
@@ -2053,15 +1823,14 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               </button>
             </div>
 
-            {/* Title & Phone with "Change" Link (Translated) */}
+            {/* Title & Phone/Email with "Change" Link */}
             <h1 style={{ fontSize: '26px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
               {t.enterOtp}
             </h1>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-              <span style={{ fontSize: '16px' }}>🇮🇳</span>
               <span style={{ fontSize: '14.5px', fontWeight: 800, color: isDark ? '#E6EDF3' : '#0F172A' }}>
-                {role === 'driver' ? `+91 ${driverPhone}` : `+91 ${phone || '9876543210'}`}
+                {role === 'driver' ? `+91 ${driverPhone}` : (phone.includes('@') ? phone : `+91 ${phone}`)}
               </span>
               <button
                 type="button"
@@ -2182,12 +1951,12 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
               )}
             </div>
 
-            {/* 1-Tap Demo OTP Helper */}
+            {/* Real OTP Display Helper Box */}
             <div style={{
               background: isDark ? '#161B22' : '#FFFBEB',
               border: isDark ? '1.5px solid rgba(255, 183, 3, 0.4)' : '2px solid #D97706',
               borderRadius: '14px',
-              padding: '10px 14px',
+              padding: '12px 14px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -2197,7 +1966,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                 <span style={{ fontSize: '11px', color: isDark ? '#8B949E' : '#78350F', display: 'block', fontWeight: 600 }}>
                   {t.instantDemo}
                 </span>
-                <span style={{ fontSize: '16px', fontWeight: 900, color: isDark ? '#FFB703' : '#B45309', letterSpacing: '0.08em' }}>
+                <span style={{ fontSize: '17px', fontWeight: 900, color: isDark ? '#FFB703' : '#B45309', letterSpacing: '0.1em' }}>
                   {generatedOtp}
                 </span>
               </div>
@@ -2269,7 +2038,7 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
         width: '130px',
         height: '4px',
         borderRadius: '2px',
-        background: isDark ? '#484F58' : '#CBD5E1',
+        background: isDark ? '#30363D' : '#CBD5E1',
         margin: '8px auto 0',
         zIndex: 10
       }} />
