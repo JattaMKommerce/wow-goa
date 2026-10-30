@@ -9,6 +9,9 @@ lerna-debug.log*
 
 !dist/
 !dist/**
+dist/download/
+dist/download/**
+*.apk
 dist-ssr
 *.local
 

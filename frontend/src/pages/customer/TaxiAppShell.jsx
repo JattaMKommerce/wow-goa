@@ -412,7 +412,7 @@ export default function TaxiAppShell({
                 boxShadow: '0 25px 60px rgba(0,0,0,0.25)',
                 position: 'relative',
                 color: '#0F172A',
-                border: '1px solid #E2E8F0'
+                border: '2px solid #0F172A'
               }}>
                 {/* Close Button */}
                 <button
@@ -423,7 +423,7 @@ export default function TaxiAppShell({
                     top: '16px',
                     right: '16px',
                     background: '#F1F5F9',
-                    border: 'none',
+                    border: '1.5px solid #0F172A',
                     borderRadius: '50%',
                     width: '32px',
                     height: '32px',
@@ -431,7 +431,7 @@ export default function TaxiAppShell({
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    color: '#64748B'
+                    color: '#0F172A'
                   }}
                 >
                   <X size={16} />

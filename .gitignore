@@ -6,13 +6,13 @@ node_modules/
 dist/
 dist-ssr/
 !frontend/dist/
-!frontend/dist/**
+!frontend/dist/*
+!frontend/dist/assets/
+!frontend/dist/assets/**
 frontend/dist/download/
-frontend/dist/download/*
-frontend/dist/**/*.apk
+frontend/dist/download/**
 *.apk
 frontend/public/download/*.apk
-frontend/dist/download/*.apk
 
 # Cache and temporary logs
 .vite/
@@ -26,6 +26,8 @@ backend/qa_e2e_results.json
 .env.local
 deploy_ready/
 deploy_ready/*
+deploy_staging/
+deploy_staging/*
 
 
 # OS / Editor files
