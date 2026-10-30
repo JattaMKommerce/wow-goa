@@ -1,8 +1,11 @@
 import React from 'react';
-import { Car, Compass, CalendarCheck, Bike, Sparkles, PhoneCall } from 'lucide-react';
+import { Car, Compass, CalendarCheck, Bike, Sparkles } from 'lucide-react';
 
-export default function MobileBottomNav({ activeTab, setActiveTab, onOpenSupport }) {
-  const navItems = [
+export default function MobileBottomNav({ activeTab, setActiveTab, onOpenSupport, currentUser }) {
+  // Check if logged-in user is a driver/chauffeur
+  const isDriverMode = currentUser?.role === 'chauffeur' || currentUser?.role === 'chauffer' || currentUser?.role === 'driver';
+
+  const customerNavItems = [
     {
       id: 'cabs',
       label: 'Cabs',
@@ -42,10 +45,19 @@ export default function MobileBottomNav({ activeTab, setActiveTab, onOpenSupport
     }
   ];
 
+  const navItems = customerNavItems;
+
   const handleSelect = (id) => {
     // Light haptic feedback if supported
     if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
       try { window.navigator.vibrate(10); } catch (e) {}
+    }
+
+    if (id === 'chauffeur') {
+      // Navigate to driver companion app
+      setActiveTab('chauffeur');
+      try { window.history.pushState(null, '', '/chauffeur'); } catch (e) {}
+      return;
     }
 
     if (id === 'bikes') {
@@ -72,6 +84,8 @@ export default function MobileBottomNav({ activeTab, setActiveTab, onOpenSupport
     }, 50);
   };
 
+  const isDriverRoute = activeTab === 'chauffeur';
+
   return (
     <nav 
       className="mobile-bottom-nav d-md-none" 
@@ -82,10 +96,10 @@ export default function MobileBottomNav({ activeTab, setActiveTab, onOpenSupport
         left: 0,
         right: 0,
         height: '66px',
-        background: 'rgba(11, 25, 44, 0.96)',
+        background: isDriverRoute ? 'rgba(15, 23, 42, 0.98)' : 'rgba(11, 25, 44, 0.96)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        borderTop: '1px solid rgba(255, 255, 255, 0.12)',
+        borderTop: isDriverRoute ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(255, 255, 255, 0.12)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
@@ -188,6 +202,93 @@ export default function MobileBottomNav({ activeTab, setActiveTab, onOpenSupport
           </button>
         );
       })}
+
+      {/* Driver App Tab — always visible, glowing accent */}
+      <button
+        type="button"
+        onClick={() => handleSelect('chauffeur')}
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          background: isDriverRoute
+            ? 'linear-gradient(180deg, rgba(56,189,248,0.18) 0%, transparent 100%)'
+            : 'none',
+          border: 'none',
+          outline: 'none',
+          cursor: 'pointer',
+          padding: '4px 2px',
+          position: 'relative',
+          transition: 'all 0.2s ease',
+          color: isDriverRoute ? '#38bdf8' : 'rgba(56, 189, 248, 0.7)'
+        }}
+      >
+        {/* Active Pill — cyan for driver */}
+        {isDriverRoute && (
+          <span
+            style={{
+              position: 'absolute',
+              top: '4px',
+              width: '36px',
+              height: '3px',
+              borderRadius: '3px',
+              background: 'linear-gradient(90deg, #0ea5e9, #38bdf8)',
+              boxShadow: '0 0 10px rgba(56, 189, 248, 0.8)'
+            }}
+          />
+        )}
+
+        <div style={{ position: 'relative', marginTop: isDriverRoute ? '2px' : '0' }}>
+          <div
+            style={{
+              width: '36px',
+              height: '32px',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: isDriverRoute ? 'rgba(56, 189, 248, 0.2)' : 'rgba(56, 189, 248, 0.08)',
+              border: isDriverRoute ? '1px solid rgba(56, 189, 248, 0.4)' : 'none',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {/* Steering wheel emoji-style car icon */}
+            <span style={{ fontSize: '16px', lineHeight: 1 }}>🚗</span>
+          </div>
+
+          {/* Pulse dot — indicates driver mode */}
+          {!isDriverRoute && (
+            <span
+              style={{
+                position: 'absolute',
+                top: '-2px',
+                right: '-2px',
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: '#38bdf8',
+                boxShadow: '0 0 6px rgba(56, 189, 248, 0.9)',
+                animation: 'pulse 2s infinite'
+              }}
+            />
+          )}
+        </div>
+
+        <span
+          style={{
+            fontSize: '10px',
+            fontWeight: isDriverRoute ? '800' : '600',
+            lineHeight: '1.2',
+            marginTop: '1px',
+            letterSpacing: '0.2px'
+          }}
+        >
+          Driver
+        </span>
+      </button>
     </nav>
   );
 }

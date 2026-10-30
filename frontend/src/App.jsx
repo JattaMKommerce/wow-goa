@@ -3178,7 +3178,7 @@ export default function App() {
       {/* Live Active Ride Island & OTP Floating Bar */}
       <LiveCustomerRideBar />
 
-      <MobileBottomNav activeTab={activeTab} setActiveTab={handleTabChange} />
+      <MobileBottomNav activeTab={activeTab} setActiveTab={handleTabChange} currentUser={currentUser} />
     </div>
   );
 }
