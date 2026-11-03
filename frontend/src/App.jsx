@@ -2387,13 +2387,38 @@ export default function App() {
         triggerOpenLogin={() => setShowLoginModal(true)}
         onOpenLogin={() => setShowLoginModal(true)}
         onLogout={handleLogout}
+        isOverHero={activeTab !== 'cabs' && activeTab !== 'taxi'}
       />
 
       {/* Hero and Search Widget Container - Only show on general portal tabs, NOT on dedicated Cabs tab */}
       {activeTab !== 'cabs' && activeTab !== 'taxi' && (
         <>
-          <Hero />
-          <SearchWidget
+          <Hero
+            onNavigateTab={handleTabChange}
+            activeTab={activeTab}
+            pickupLoc={pickupLoc} 
+            setPickupLoc={setPickupLoc} 
+            dropLoc={dropLoc} 
+            setDropLoc={setDropLoc} 
+            pickupDate={pickupDate} 
+            setPickupDate={setPickupDate} 
+            dropDate={dropDate}
+            setDropDate={setDropDate}
+            pickupTime={pickupTime} 
+            setPickupTime={setPickupTime} 
+            dropTime={dropTime} 
+            setDropTime={setDropTime} 
+            handleSearchSubmit={handleSearchSubmit} 
+            setSearchTriggered={setSearchTriggered}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            hotelRooms={hotelRooms}
+            setHotelRooms={setHotelRooms}
+            hotelAdults={hotelAdults}
+            setHotelAdults={setHotelAdults}
+          />
+          {(activeTab === 'flights' || activeTab === 'visa') && (
+            <SearchWidget
             activeTab={activeTab}
             setActiveTab={handleTabChange}
             pickupLoc={pickupLoc} 
@@ -2439,6 +2464,7 @@ export default function App() {
             cabServiceType={cabServiceType}
             setCabServiceType={setCabServiceType}
           />
+          )}
         </>
       )}
 

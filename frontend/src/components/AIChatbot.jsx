@@ -4,14 +4,14 @@ import {
   Compass, Hotel, Car, Users, Calendar, ArrowRight, CheckCircle2, ShieldCheck,
   Maximize2, Minimize2
 } from 'lucide-react';
-import chatbotAvatar from '../assets/aichatbot.webp';
+import chatbotAvatar from '../assets/tara-concierge.jpg';
 import chatbotAnimationVideo from '../assets/chatbot-animation.mp4';
 import { chatWithAI, createAiLead, updateAiLeadChat, getAIChatbotSettings } from '../services/api';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
 
 const aiMessages = [
   "Plan Your Goa Trip",
-  "Need Help? Ask Luzia",
+  "Ask Tara Concierge",
   "Let's Explore Goa",
   "Welcome to Goa! 🌴"
 ];
@@ -126,7 +126,7 @@ export default function AIChatbot() {
         if (prev.length === 0) {
           return [{
             role: 'assistant',
-            content: "Olá! I’m **Luzia** 🌴 Let's craft your dream Goa trip together!\n\nAre you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?"
+            content: "Hello! I’m **Tara** 🌴, your luxury Goa Travel Concierge. Let's craft your dream Goa trip together!\n\nAre you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?"
           }];
         }
         return prev;
@@ -460,7 +460,7 @@ export default function AIChatbot() {
     if (isOpen && messages.length === 0) {
       setMessages([{
         role: 'assistant',
-        content: "Olá! I’m Luzia. Are you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?"
+        content: "Hello! I’m Tara, your luxury Goa Travel Concierge. Are you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?"
       }]);
     }
   }, [isOpen]);
@@ -925,7 +925,7 @@ export default function AIChatbot() {
     } else {
       setMessages([{
         role: 'assistant',
-        content: `Olá ${cleanName}! I’m **Luzia**. Are you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?`
+        content: `Hello ${cleanName}! I’m **Tara**, your Goa Travel Concierge. Are you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?`
       }]);
     }
   };
@@ -1267,14 +1267,42 @@ export default function AIChatbot() {
           </span>
         </div>
 
-        {/* Floating Robot Avatar Wrapper with Centered Round Aura & Canvas */}
-        <div className="sophia-avatar-wrapper ai-avatar-wrapper">
-          <canvas
-            ref={canvasRef}
-            id="ai-avatar-canvas"
-            width="1280"
-            height="720"
-          />
+        {/* Photorealistic Female Travel Concierge Avatar Wrapper */}
+        <div className="tara-avatar-wrapper" style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'sophiaAntiGravityFloat 3.8s ease-in-out infinite' }}>
+          <div className="tara-avatar-circle" style={{
+            position: 'relative',
+            width: '76px',
+            height: '76px',
+            borderRadius: '50%',
+            padding: '3px',
+            background: 'linear-gradient(135deg, #FFF0B3 0%, #F5C518 50%, #FF9F1C 100%)',
+            boxShadow: '0 8px 30px rgba(245, 197, 24, 0.5), 0 0 20px rgba(245, 197, 24, 0.3)',
+            transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            cursor: 'pointer'
+          }}>
+            <img
+              src={chatbotAvatar}
+              alt="Tara - WOW GOA AI Concierge"
+              style={{
+                width: '100%',
+                height: '100%',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                display: 'block'
+              }}
+            />
+            <span style={{
+              position: 'absolute',
+              bottom: '2px',
+              right: '2px',
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              background: '#22c55e',
+              border: '2.5px solid #060B17',
+              boxShadow: '0 0 8px #22c55e'
+            }} />
+          </div>
         </div>
       </div>
 
@@ -1672,16 +1700,16 @@ export default function AIChatbot() {
           <div className="d-flex align-items-center justify-content-between px-3 pb-2.5 pt-0.5">
             <div className="d-flex align-items-center gap-2.5" style={{ minWidth: 0 }}>
               <div className="rounded-circle bg-white d-flex align-items-center justify-content-center shadow-sm overflow-hidden flex-shrink-0" style={{ width: '38px', height: '38px' }}>
-                <img src={chatbotAvatar} alt="Luzia AI" style={{ width: '92%', height: '92%', objectFit: 'contain' }} />
+                <img src={chatbotAvatar} alt="Tara AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
               <div style={{ minWidth: 0 }}>
                 <div className="d-flex align-items-center gap-1.5 flex-wrap">
-                  <h6 className="mb-0 fw-bold text-white text-truncate" style={{ fontSize: '15px', lineHeight: '1.2' }}>Luzia</h6>
-                  <span className="badge bg-white text-dark rounded-pill px-2 py-0.5 shadow-xs" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2px' }}>AI Travel Expert</span>
+                  <h6 className="mb-0 fw-bold text-white text-truncate" style={{ fontSize: '15px', lineHeight: '1.2' }}>Tara</h6>
+                  <span className="badge bg-warning text-dark rounded-pill px-2 py-0.5 shadow-xs" style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.2px' }}>Goa Concierge</span>
                 </div>
                 <small style={{ opacity: 0.95, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                   <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', flexShrink: 0 }}></span>
-                  <span className="text-truncate">Online | WOW GOA Assistant</span>
+                  <span className="text-truncate">Online | WOW GOA Concierge</span>
                 </small>
               </div>
             </div>
@@ -1746,7 +1774,7 @@ export default function AIChatbot() {
                 {/* 1. Friendly Luzia Greeting Message Bubble */}
                 <div className="d-flex align-items-start gap-2.5">
                   <div className="rounded-circle bg-white d-flex align-items-center justify-content-center shadow-xs flex-shrink-0 border" style={{ width: '34px', height: '34px', overflow: 'hidden' }}>
-                    <img src={chatbotAvatar} alt="Luzia AI" style={{ width: '92%', height: '92%', objectFit: 'contain' }} />
+                    <img src={chatbotAvatar} alt="Tara AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div
                     className="p-3 bg-white text-dark border rounded-4 shadow-xs"

@@ -1,11 +1,37 @@
 /* Navbar Styling */
 .premium-navbar {
-  background: rgba(11, 25, 44, 0.95);
-  backdrop-filter: blur(10px);
+  background: rgba(6, 11, 23, 0.95);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 8px 0;
-  transition: var(--transition-smooth);
-  z-index: 1000;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1050;
+}
+
+.premium-navbar.over-hero:not(.scrolled) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+  z-index: 1050;
+}
+
+.premium-navbar.scrolled {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: rgba(6, 11, 23, 0.94) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5) !important;
+  z-index: 1050;
 }
 
 .navbar-brand {

@@ -1,8 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Compass, LogOut, User, ChevronDown } from 'lucide-react';
 import { useSiteConfig } from '../context/SiteConfigContext';
 
-export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOpenLogin, onOpenLogin, onLogout }) {
+export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOpenLogin, onOpenLogin, onLogout, isOverHero = true }) {
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 25);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
   const { liveConfig } = useSiteConfig();
   const headerLinks = liveConfig?.menus?.header || [];
   const handleOpenLogin = triggerOpenLogin || onOpenLogin;
@@ -20,7 +29,7 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
     (activeTab === 'portal' && (!currentUser || currentUser.role === 'driver'));
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark premium-navbar">
+    <nav className={`navbar navbar-expand-lg navbar-dark premium-navbar ${isOverHero ? "over-hero" : ""} ${isScrolled ? "scrolled" : ""}`}>
       <div className="container-fluid px-xl-5 px-lg-4 px-3" style={{ maxWidth: '1440px' }}>
         <a className="navbar-brand d-flex align-items-center" href="/" onClick={(e) => { e.preventDefault(); setActiveTab('selfdrive'); }}>
           <div className="me-2 text-warning d-flex align-items-center">
