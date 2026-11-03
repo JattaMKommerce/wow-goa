@@ -969,17 +969,6 @@ export default function Hero({
             <p className="hero-subtitle">
               {activeDest.tagline}
             </p>
-
-            <button 
-              type="button" 
-              className="hero-preview-btn"
-              onClick={() => setShowVideoModal(true)}
-            >
-              <div className="hero-play-icon-circle">
-                <Play size={15} fill="#06101E" style={{ marginLeft: '2px' }} />
-              </div>
-              <span>Watch Destination Cinema</span>
-            </button>
           </div>
 
         </div>
