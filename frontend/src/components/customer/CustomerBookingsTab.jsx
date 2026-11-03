@@ -4,7 +4,7 @@ import CustomerCancellationModal from './CustomerCancellationModal';
 import {
   Calendar, Car, Hotel, Compass, Plane, Package, Search,
   Filter, Download, Eye, CheckCircle2, Clock, XCircle,
-  FileText, ArrowRight, ShieldCheck, MapPin, ChevronRight, X
+  FileText, ArrowRight, ShieldCheck, MapPin, ChevronRight, X, Star
 } from 'lucide-react';
 import { formatBookingDateTime, formatDateShort } from '../../utils/dateUtils';
 
@@ -12,7 +12,9 @@ export default function CustomerBookingsTab({
   currentUser,
   bookings = [],
   onOpenBookingDetails,
-  initialCategory = 'all'
+  initialCategory = 'all',
+  onRateNow,
+  reviewedBookingIds
 }) {
   const [categoryFilter, setCategoryFilter] = useState(initialCategory || 'all');
   const [sightseeingSubFilter, setSightseeingSubFilter] = useState('sightseeing'); // 'sightseeing' | 'activities'
@@ -625,6 +627,25 @@ export default function CustomerBookingsTab({
                     <Eye size={14} />
                     <span>View & Print Voucher</span>
                   </button>
+                  {(b.status || '').toLowerCase() === 'completed' && onRateNow && (
+                    (reviewedBookingIds && reviewedBookingIds.has(String(b.id || b.booking_id))) || b.has_reviewed ? (
+                      <div className="text-center mt-2">
+                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill fw-bold text-xs d-inline-flex align-items-center gap-1">
+                          <CheckCircle2 size={12} /> Reviewed
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onRateNow(b)}
+                        className="btn btn-sm btn-outline-warning text-dark fw-bold rounded-pill py-2 w-100 text-xs d-flex align-items-center justify-content-center gap-1.5 shadow-xs mt-1.5"
+                        style={{ background: '#FFFDF0', borderColor: '#F59E0B' }}
+                        title="Rate Your Experience"
+                      >
+                        <Star size={13} fill="#F59E0B" stroke="#F59E0B" />
+                        <span>Rate Experience</span>
+                      </button>
+                    )
+                  )}
                   {canCancel(b) && (
                     <button
                       onClick={() => setCancellingBooking(b)}
@@ -737,6 +758,23 @@ export default function CustomerBookingsTab({
 
                     <td className="py-3.5 text-end pe-4 text-nowrap">
                       <div className="d-inline-flex align-items-center justify-content-end gap-2">
+                        {(b.status || '').toLowerCase() === 'completed' && onRateNow && (
+                          (reviewedBookingIds && reviewedBookingIds.has(String(b.id || b.booking_id))) || b.has_reviewed ? (
+                            <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1.5 rounded-pill fw-bold text-xs d-inline-flex align-items-center gap-1">
+                              <CheckCircle2 size={12} /> Reviewed
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => onRateNow(b)}
+                              className="btn btn-sm btn-outline-warning text-dark fw-bold rounded-pill px-3 py-1.5 text-xs d-inline-flex align-items-center gap-1.5 shadow-xs"
+                              style={{ background: '#FFFDF0', borderColor: '#F59E0B' }}
+                              title="Rate Your Experience"
+                            >
+                              <Star size={12} fill="#F59E0B" stroke="#F59E0B" />
+                              <span>Rate Experience</span>
+                            </button>
+                          )
+                        )}
                         <button 
                           onClick={() => {
                             if (onOpenBookingDetails && typeof onOpenBookingDetails === 'function') {

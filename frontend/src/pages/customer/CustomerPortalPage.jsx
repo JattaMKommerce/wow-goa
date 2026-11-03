@@ -34,7 +34,6 @@ import { getTodayDateStr, addDays } from '../../utils/dateUtils';
 import NotificationSoundToggle from '../../components/common/NotificationSoundToggle';
 import { handleIncomingNotifications, registerSeenNotifications, getRelativeTimeString, parseNotificationTitleAndStatus } from '../../utils/notificationSound';
 import CustomerReviewModal from '../../components/customer/CustomerReviewModal';
-import ReviewReminderBanner from '../../components/customer/ReviewReminderBanner';
 
 const SIDEBAR_GROUPS = [
   {
@@ -805,10 +804,26 @@ export default function CustomerPortalPage({
     });
 
     setReminderBooking(unreviewed || null);
-  }, [customerUser, customerBookings, reviewedBookingIds, dismissedReminderIds]);
+
+    // Auto-trigger Review Pop-up Modal when an unreviewed completed booking is detected
+    if (unreviewed && !reviewModalBooking) {
+      const bId = String(unreviewed.id || unreviewed.booking_id);
+      if (!dismissedReminderIds.has(bId)) {
+        const timer = setTimeout(() => {
+          setReviewModalBooking(unreviewed);
+        }, 700);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [customerUser, customerBookings, reviewedBookingIds, dismissedReminderIds, reviewModalBooking]);
 
   const handleCloseReviewModal = (reason = '') => {
-    // Closing review modal or choosing "Maybe Later" does NOT mark booking as reviewed
+    // When customer closes or dismisses the review popup modal:
+    // Record in dismissedReminderIds so it doesn't pop up again in this session
+    if (reviewModalBooking) {
+      const bId = String(reviewModalBooking.id || reviewModalBooking.booking_id);
+      setDismissedReminderIds(prev => new Set(prev).add(bId));
+    }
     setReviewModalBooking(null);
   };
 
@@ -819,7 +834,8 @@ export default function CustomerPortalPage({
     setReviewedBookingIds(prev => new Set(prev).add(cleanId));
     // 2. Permanently stop showing the review reminder for that booking
     setReminderBooking(null);
-    setReviewModalBooking(null);
+    // NOTE: Keep reviewModalBooking mounted so CustomerReviewModal displays the luxury Thank You screen!
+    // Modal will close gracefully when the guest clicks "Done — Back to Dashboard"
     // 3. Refresh live server customer data so booking.has_reviewed becomes true on server record
     if (typeof refreshCustomerData === 'function') {
       refreshCustomerData();
@@ -1788,13 +1804,8 @@ export default function CustomerPortalPage({
               </div>
             ) : (
               <>
-                {reminderBooking && (
-                  <ReviewReminderBanner
-                    booking={reminderBooking}
-                    onRateNow={handleTriggerReview}
-                    onDismiss={handleDismissReminder}
-                  />
-                )}
+                {/* Review Reminder Banner removed from top nav area as requested.
+                    Reviews now automatically appear as a dedicated Pop-up Modal! */}
 
                 {activeTab === 'overview' && (
                   <CustomerOverviewTab 
@@ -1812,6 +1823,8 @@ export default function CustomerPortalPage({
                     onSelectBooking={handleOpenBookingDetails}
                     onViewDetails={handleOpenDetail}
                     onDirectBook={(item) => handleOpenDetail(item)}
+                    onRateNow={handleTriggerReview}
+                    reviewedBookingIds={reviewedBookingIds}
                   />
                 )}
 
@@ -1855,6 +1868,8 @@ export default function CustomerPortalPage({
                     bookings={customerBookings}
                     onOpenBookingDetails={handleOpenBookingDetails}
                     initialCategory={bookingsCategoryFilter}
+                    onRateNow={handleTriggerReview}
+                    reviewedBookingIds={reviewedBookingIds}
                   />
                 )}
 

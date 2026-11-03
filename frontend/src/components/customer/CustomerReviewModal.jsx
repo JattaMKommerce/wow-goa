@@ -116,7 +116,7 @@ export default function CustomerReviewModal({
       onSuccess(bookingId, submittedRating);
     }
     if (onClose) {
-      onClose();
+      onClose('success_completed');
     }
   };
 
@@ -155,77 +155,104 @@ export default function CustomerReviewModal({
               </div>
               <div>
                 <h6 className="modal-title fw-bold mb-0 text-white" style={{ fontSize: '15px', letterSpacing: '-0.2px' }}>
-                  {isSuccess ? 'Review Submitted' : alreadyReviewed ? 'Review Already Submitted' : 'How was your experience?'}
+                  {isSuccess ? 'Thank You for Your Feedback! 🌟' : alreadyReviewed ? 'Review Already Submitted' : 'How was your experience?'}
                 </h6>
                 <div className="text-white-50" style={{ fontSize: '11.5px' }}>
                   Booking #{bookingId} • {serviceName}
                 </div>
               </div>
             </div>
-            {!isSuccess && (
-              <button
-                type="button"
-                className="btn-close btn-close-white"
-                onClick={() => !submitting && onClose && onClose('dismissed')}
-                disabled={submitting}
-                aria-label="Close"
-              />
-            )}
+            <button
+              type="button"
+              className="btn-close btn-close-white"
+              onClick={() => !submitting && onClose && onClose(isSuccess ? 'success_completed' : 'dismissed')}
+              disabled={submitting}
+              aria-label="Close"
+            />
           </div>
 
           {/* Modal Body */}
           <div className="modal-body p-4 text-start">
             {isSuccess ? (
               /* Success View */
-              <div className="text-center py-2">
+              <div className="text-center py-2 animate-fade-in">
                 <div
-                  className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                  style={{ width: '64px', height: '64px', background: 'rgba(22, 163, 74, 0.12)', color: '#16A34A' }}
+                  className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3 shadow-sm"
+                  style={{
+                    width: '68px',
+                    height: '68px',
+                    background: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+                    color: '#059669',
+                    border: '2px solid #A7F3D0'
+                  }}
                 >
-                  <CheckCircle2 size={36} />
+                  <CheckCircle2 size={38} />
                 </div>
                 
-                <h5 className="fw-bold text-dark mb-1" style={{ fontSize: '18px' }}>
-                  Review Submitted
+                <h5 className="fw-black text-dark mb-1 font-heading" style={{ fontSize: '20px' }}>
+                  Thank You for Your Feedback! 🌟
                 </h5>
-                <p className="fw-semibold text-primary mb-2" style={{ fontSize: '14px' }}>
-                  Thank you for sharing your experience!
+                <p className="fw-bold mb-2" style={{ color: '#EA580C', fontSize: '14px' }}>
+                  We truly appreciate you taking the time to review your journey.
                 </p>
-                <p className="text-muted small mb-4" style={{ lineHeight: '1.5' }}>
-                  Your review has been submitted successfully and will help other customers make better booking decisions.
+                <p className="text-secondary small mb-3 px-1" style={{ lineHeight: '1.6', fontSize: '13px' }}>
+                  {submittedRating >= 4 ? (
+                    <>
+                      We are thrilled to know that you had a wonderful holiday experience with <strong>WOW GOA</strong>. Your valuable review helps fellow travelers discover the magic of Goa and inspires our team to continuously elevate our luxury services!
+                    </>
+                  ) : (
+                    <>
+                      Thank you for sharing your candid feedback with <strong>WOW GOA</strong>. We deeply value your honesty and will use your input to refine our hospitality standards and ensure future journeys exceed expectations.
+                    </>
+                  )}
                 </p>
 
                 {/* Dynamically matching submitted star rating */}
                 <div
-                  className="p-3 rounded-3 mb-4 d-inline-flex flex-column align-items-center justify-content-center"
-                  style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', minWidth: '220px' }}
+                  className="p-3 rounded-4 mb-3 d-inline-flex flex-column align-items-center justify-content-center w-100"
+                  style={{
+                    background: 'linear-gradient(135deg, #FFFDF8 0%, #FFF8EE 100%)',
+                    border: '1.5px solid #FDE68A',
+                    boxShadow: '0 4px 14px rgba(251, 191, 36, 0.12)'
+                  }}
                 >
-                  <span className="text-muted text-xs text-uppercase fw-semibold mb-1" style={{ letterSpacing: '0.5px' }}>
-                    Your Rating
+                  <span className="text-muted text-xs text-uppercase fw-bold mb-1" style={{ letterSpacing: '0.8px' }}>
+                    Verified Rating • {serviceName}
                   </span>
-                  <div className="d-flex align-items-center justify-content-center gap-1 my-1">
+                  <div className="d-flex align-items-center justify-content-center gap-1.5 my-1">
                     {[1, 2, 3, 4, 5].map((starIdx) => (
                       <Star
                         key={starIdx}
-                        size={22}
-                        fill={starIdx <= submittedRating ? '#FFB800' : 'none'}
-                        stroke={starIdx <= submittedRating ? '#FFB800' : '#CBD5E1'}
+                        size={24}
+                        fill={starIdx <= submittedRating ? '#F59E0B' : 'none'}
+                        stroke={starIdx <= submittedRating ? '#F59E0B' : '#CBD5E1'}
+                        strokeWidth={starIdx <= submittedRating ? 0 : 1.5}
+                        style={{ filter: starIdx <= submittedRating ? 'drop-shadow(0 2px 4px rgba(245, 158, 11, 0.35))' : 'none' }}
                       />
                     ))}
                   </div>
-                  <span className="fw-bold text-dark text-xs mt-0.5">
-                    {RATING_LABELS[submittedRating] || `${submittedRating} Stars`}
+                  <span className="fw-black text-xs mt-1" style={{ color: '#92400E' }}>
+                    {submittedRating} / 5 Stars — {RATING_LABELS[submittedRating] || `${submittedRating} Stars`}
                   </span>
+                </div>
+
+                <div className="text-center text-muted mb-3" style={{ fontSize: '12px' }}>
+                  🌴 <em>We look forward to welcoming you back on your next Goa holiday!</em>
                 </div>
 
                 <div>
                   <button
                     type="button"
-                    className="btn w-100 py-2.5 rounded-3 fw-bold text-white shadow-sm"
-                    style={{ background: '#0D1B2E', border: 'none', fontSize: '14px' }}
+                    className="btn w-100 py-2.5 rounded-pill fw-bold text-white shadow-sm"
+                    style={{
+                      background: 'linear-gradient(135deg, #0D1B2E 0%, #1A2F4C 100%)',
+                      border: 'none',
+                      fontSize: '14px',
+                      letterSpacing: '0.2px'
+                    }}
                     onClick={handleContinueSuccess}
                   >
-                    Continue
+                    Done — Back to Dashboard
                   </button>
                 </div>
               </div>

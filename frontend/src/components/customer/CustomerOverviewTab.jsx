@@ -296,7 +296,9 @@ export default function CustomerOverviewTab({
   onSelectBooking,
   onDirectBook,
   walletBalance = 0,
-  cashbackBalance = 0
+  cashbackBalance = 0,
+  onRateNow,
+  reviewedBookingIds
 }) {
   const [walletData, setWalletData] = useState({ available_balance: 0, nearest_expiring: null });
   const [loadingWallet, setLoadingWallet] = useState(false);
@@ -979,12 +981,31 @@ export default function CustomerOverviewTab({
                     {getStatusBadge(b.status)}
                   </td>
                   <td className="text-end pe-4">
-                    <button 
-                      onClick={() => onSelectBooking(b)}
-                      className="btn btn-sm btn-light border text-dark fw-bold rounded-pill px-3 py-1 text-xs"
-                    >
-                      Details
-                    </button>
+                    <div className="d-inline-flex align-items-center justify-content-end gap-1.5">
+                      {String(b.status || '').toLowerCase() === 'completed' && onRateNow && (
+                        (reviewedBookingIds && reviewedBookingIds.has(String(b.id || b.booking_id))) || b.has_reviewed ? (
+                          <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 rounded-pill fw-bold text-xxs d-inline-flex align-items-center gap-1">
+                            <CheckCircle2 size={11} /> Reviewed
+                          </span>
+                        ) : (
+                          <button 
+                            onClick={() => onRateNow(b)}
+                            className="btn btn-sm btn-outline-warning text-dark fw-bold rounded-pill px-2.5 py-1 text-xs d-inline-flex align-items-center gap-1 shadow-xs"
+                            style={{ background: '#FFFDF0', borderColor: '#F59E0B' }}
+                            title="Rate Experience"
+                          >
+                            <Star size={11} fill="#F59E0B" stroke="#F59E0B" />
+                            <span>Rate</span>
+                          </button>
+                        )
+                      )}
+                      <button 
+                        onClick={() => onSelectBooking(b)}
+                        className="btn btn-sm btn-light border text-dark fw-bold rounded-pill px-3 py-1 text-xs"
+                      >
+                        Details
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
