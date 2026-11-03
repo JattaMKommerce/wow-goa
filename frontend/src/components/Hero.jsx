@@ -191,49 +191,85 @@ export default function Hero({
     }
   };
 
+  const scrollToResultsSection = () => {
+    const performScroll = () => {
+      const el = document.getElementById('results-section');
+      if (el) {
+        const navHeight = 75;
+        const bodyTop = document.body.getBoundingClientRect().top;
+        const elTop = el.getBoundingClientRect().top;
+        const targetY = Math.max(0, elTop - bodyTop - navHeight);
+        window.scrollTo({
+          top: targetY,
+          behavior: 'smooth'
+        });
+      }
+    };
+
+    performScroll();
+    setTimeout(performScroll, 60);
+    setTimeout(performScroll, 200);
+    setTimeout(performScroll, 400);
+  };
+
   const handleSearchClick = (e) => {
     if (e) e.preventDefault();
-    if (setPickupDate && localCheckIn) setPickupDate(localCheckIn);
-    if (setDropDate && localCheckOut) setDropDate(localCheckOut);
-    if (setPickupLoc && transferPickup) setPickupLoc(transferPickup);
-    if (setDropLoc && transferDropoff) setDropLoc(transferDropoff);
-    if (setSearchTriggered) setSearchTriggered(true);
 
     if (searchTab === 'cabs') {
+      if (setPickupLoc && transferPickup) setPickupLoc(transferPickup);
+      if (setDropLoc && transferDropoff) setDropLoc(transferDropoff);
+      if (setPickupDate && localCheckIn) setPickupDate(localCheckIn);
+      if (setSearchTriggered) setSearchTriggered(true);
       if (onNavigateTab) onNavigateTab('cabs');
       return;
     }
+
     if (searchTab === 'packages') {
+      if (setPickupDate && localCheckIn) setPickupDate(localCheckIn);
+      if (setSearchQuery && localDestination) setSearchQuery(localDestination);
+      if (setSearchTriggered) setSearchTriggered(true);
       if (onNavigateTab) onNavigateTab('packages');
       if (handleSearchSubmit) handleSearchSubmit('packages');
-      setTimeout(() => {
-        document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
-      }, 60);
+      scrollToResultsSection();
       return;
     }
+
     if (searchTab === 'hotels') {
+      if (setPickupLoc && localDestination) setPickupLoc(localDestination);
+      if (setSearchQuery && localDestination) setSearchQuery(localDestination);
+      if (setPickupDate && localCheckIn) setPickupDate(localCheckIn);
+      if (setDropDate && localCheckOut) setDropDate(localCheckOut);
+      if (setSearchTriggered) setSearchTriggered(true);
       if (onNavigateTab) onNavigateTab('hotels');
       if (handleSearchSubmit) handleSearchSubmit('hotels');
-      setTimeout(() => {
-        document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
-      }, 60);
+      scrollToResultsSection();
       return;
     }
+
     if (searchTab === 'activities') {
+      if (setSearchQuery && activityType) setSearchQuery(activityType);
+      if (setPickupDate && localCheckIn) setPickupDate(localCheckIn);
+      if (setSearchTriggered) setSearchTriggered(true);
       if (onNavigateTab) onNavigateTab('activities');
       if (handleSearchSubmit) handleSearchSubmit('activities');
-      setTimeout(() => {
-        document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
-      }, 60);
+      scrollToResultsSection();
       return;
     }
 
     // Default: Self Drive
-    if (onNavigateTab) onNavigateTab('selfdrive');
-    if (handleSearchSubmit) handleSearchSubmit('selfdrive');
-    setTimeout(() => {
-      document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
-    }, 60);
+    if (setPickupDate && localCheckIn) setPickupDate(localCheckIn);
+    if (setDropDate && localCheckOut) setDropDate(localCheckOut);
+    if (setPickupLoc && localDestination) setPickupLoc(localDestination);
+    if (setDropLoc) setDropLoc('');
+    if (setSearchTriggered) setSearchTriggered(true);
+
+    if (localVehicleType && localVehicleType.includes('Bikes')) {
+      if (onNavigateTab) onNavigateTab('bikes');
+    } else {
+      if (onNavigateTab) onNavigateTab('selfdrive');
+      if (handleSearchSubmit) handleSearchSubmit('selfdrive');
+    }
+    scrollToResultsSection();
   };
 
   const currentWord = TYPEWRITER_WORDS[wordIdx] || 'Baga Beach';
@@ -977,7 +1013,7 @@ export default function Hero({
         <div className="hero-search-wrapper">
           <div className="hero-search-glass-card">
             
-            {/* Service Tabs on Top */}
+                        {/* Service Tabs on Top */}
             <div className="hero-search-tabs">
               <button
                 type="button"
@@ -985,6 +1021,7 @@ export default function Hero({
                 onClick={() => {
                   setSearchTab('selfdrive');
                   if (onNavigateTab) onNavigateTab('selfdrive');
+                  scrollToResultsSection();
                 }}
               >
                 <Car size={14} />
@@ -1009,6 +1046,7 @@ export default function Hero({
                 onClick={() => {
                   setSearchTab('packages');
                   if (onNavigateTab) onNavigateTab('packages');
+                  scrollToResultsSection();
                 }}
               >
                 <Compass size={14} />
@@ -1021,6 +1059,7 @@ export default function Hero({
                 onClick={() => {
                   setSearchTab('hotels');
                   if (onNavigateTab) onNavigateTab('hotels');
+                  scrollToResultsSection();
                 }}
               >
                 <Hotel size={14} />
@@ -1033,6 +1072,7 @@ export default function Hero({
                 onClick={() => {
                   setSearchTab('activities');
                   if (onNavigateTab) onNavigateTab('activities');
+                  scrollToResultsSection();
                 }}
               >
                 <MapPin size={14} />
@@ -1388,7 +1428,7 @@ export default function Hero({
           <div 
             className="hero-scroll-indicator"
             onClick={() => {
-              document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
+              scrollToResultsSection();
             }}
           >
             <div className="hero-mouse-icon">
