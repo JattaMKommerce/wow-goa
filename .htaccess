@@ -43,3 +43,19 @@
   </IfModule>
 </FilesMatch>
 
+# -------------------------------------------------------------
+# Enable GZIP / DEFLATE Compression
+# -------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/x-javascript text/javascript application/json application/xml image/svg+xml
+</IfModule>
+
+# -------------------------------------------------------------
+# Prevent LiteSpeed QUIC / HTTP3 Drops (ERR_QUIC_GOAWAY)
+# -------------------------------------------------------------
+<IfModule mod_headers.c>
+  Header always unset Alt-Svc
+  Header unset Alt-Svc
+</IfModule>
+
+

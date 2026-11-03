@@ -1,38 +1,397 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Phone, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2, 
-  Sparkles, Lock, RefreshCw, X, User, Mail
+  Sparkles, Lock, RefreshCw, X, User, Mail, Car, Compass, ChevronDown, Check,
+  Sun, Moon, Globe, MapPin, Award, Search
 } from 'lucide-react';
+import { sendCustomerOtp, verifyCustomerOtp } from '../../services/api';
 
 /**
- * CabAuthScreen
- * Authentic Ola / Uber Style Onboarding & Authentication Screen for Mobile Cab App.
- * Supports:
- * 1. Mobile Number Sign-In with 4-Digit OTP verification
- * 2. 1-Tap Google Sign-In with official Google branding
- * 3. Guest / Skip option for instant browsing
+ * Demo Registered Goa Drivers for quick testing
  */
+const DEMO_DRIVERS = [
+  {
+    id: 'drv_01',
+    name: 'Rajesh Naik',
+    phone: '9822100001',
+    cabNumber: 'GA-03-Z-8821',
+    carModel: 'Toyota Innova Crysta',
+    location: 'Dabolim Airport (GOI)'
+  },
+  {
+    id: 'drv_02',
+    name: 'Suresh Shirodkar',
+    phone: '9822100002',
+    cabNumber: 'GA-07-T-4310',
+    carModel: 'Maruti Suzuki Ertiga',
+    location: 'North Goa (Calangute / Baga)'
+  },
+  {
+    id: 'drv_03',
+    name: 'Anthony D\'Souza',
+    phone: '9822100003',
+    cabNumber: 'GA-01-A-1904',
+    carModel: 'Swift Dzire Tour',
+    location: 'Panjim Central & Airport Transfer'
+  }
+];
+
+/**
+ * Languages Supported
+ */
+const LANGUAGES = [
+  { id: 'en', label: 'English', native: 'English' },
+  { id: 'hi', label: 'Hindi', native: 'हिन्दी' },
+  { id: 'kok', label: 'Konkani', native: 'कोंकणी' },
+  { id: 'ru', label: 'Russian', native: 'Русский' },
+  { id: 'mr', label: 'Marathi', native: 'मराठी' },
+  { id: 'gu', label: 'Gujarati', native: 'ગુજરાતી' },
+  { id: 'pt', label: 'Portuguese', native: 'Português' },
+  { id: 'he', label: 'Hebrew', native: 'עברית' },
+  { id: 'de', label: 'German', native: 'Deutsch' },
+  { id: 'fr', label: 'French', native: 'Français' },
+  { id: 'es', label: 'Spanish', native: 'Español' },
+  { id: 'ar', label: 'Arabic', native: 'العربية' },
+  { id: 'bn', label: 'Bengali', native: 'বাংলা' },
+  { id: 'kn', label: 'Kannada', native: 'ಕನ್ನಡ' },
+  { id: 'ml', label: 'Malayalam', native: 'മലയാളം' },
+  { id: 'ta', label: 'Tamil', native: 'தமிழ்' },
+  { id: 'te', label: 'Telugu', native: 'తెలుగు' },
+  { id: 'pa', label: 'Punjabi', native: 'ਪੰਜਾਬੀ' }
+];
+
+/**
+ * Multi-Language UI Strings
+ */
+const I18N = {
+  en: {
+    chooseLang: 'Choose Language',
+    selectLangSub: 'Select your preferred language',
+    confirm: 'Confirm',
+    continue: 'Continue',
+    getMoving: 'Get moving with WOW GOA',
+    enterOtp: 'Enter OTP',
+    resendIn: 'Resend OTP in',
+    change: 'Change',
+    skip: 'Skip',
+    terms: 'By continuing, you agree to the terms of service and privacy policy'
+  },
+  hi: {
+    chooseLang: 'भाषा चुनें',
+    selectLangSub: 'अपनी पसंदीदा भाषा चुनें',
+    confirm: 'पुष्टि करें',
+    continue: 'आगे बढ़ें',
+    getMoving: 'WOW GOA के साथ यात्रा शुरू करें',
+    enterOtp: 'OTP दर्ज करें',
+    resendIn: 'पुनः भेजें',
+    change: 'बदलें',
+    skip: 'छोड़ें',
+    terms: 'जारी रखकर, आप सेवा की शर्तों और गोपनीयता नीति से सहमत होते हैं'
+  },
+  kok: {
+    chooseLang: 'भास वेंचून काडात',
+    selectLangSub: 'तुमी पसंत केल्ली भास वेंचून काडात',
+    confirm: 'निश्चीत करात',
+    continue: 'फुडें वचात',
+    getMoving: 'WOW GOA सयत प्रवास सुरू करात',
+    enterOtp: 'OTP घालात',
+    resendIn: 'परत धाडात',
+    change: 'बदलात',
+    skip: 'सोडात',
+    terms: 'फुडें वचून, तुमी सेवा अटी आनी गोपनीयता धोरणाक मान्यताय दितात'
+  },
+  mr: {
+    chooseLang: 'भाषा निवडा',
+    selectLangSub: 'आपली पसंतीची भाषा निवडा',
+    confirm: 'पुष्टी करा',
+    continue: 'पुढे चालू ठेवा',
+    getMoving: 'WOW GOA सह प्रवास सुरू करा',
+    enterOtp: 'OTP प्रविष्ट करा',
+    resendIn: 'पुन्हा पाठवा',
+    change: 'बदला',
+    skip: 'वगळा',
+    terms: 'पुढे चालू ठेवून, आपण सेवा अटी आणि गोपनीयता धोरणास सहमती दर्शवता'
+  },
+  ru: {
+    chooseLang: 'Выберите язык',
+    selectLangSub: 'Выберите предпочитаемый язык',
+    confirm: 'Подтвердить',
+    continue: 'Продолжить',
+    getMoving: 'Путешествуйте с WOW GOA',
+    enterOtp: 'Введите OTP',
+    resendIn: 'Отправить снова через',
+    change: 'Изменить',
+    skip: 'Пропустить',
+    terms: 'Продолжая, вы соглашаетесь с условиями обслуживания и политикой конфиденциальности'
+  },
+  de: {
+    chooseLang: 'Sprache wählen',
+    selectLangSub: 'Wählen Sie Ihre bevorzugte Sprache',
+    confirm: 'Bestätigen',
+    continue: 'Weiter',
+    getMoving: 'Starten Sie mit WOW GOA',
+    enterOtp: 'OTP eingeben',
+    resendIn: 'Erneut senden in',
+    change: 'Ändern',
+    skip: 'Überspringen',
+    terms: 'Mit dem Fortfahren akzeptieren Sie die Nutzungsbedingungen und Datenschutzrichtlinien'
+  },
+  fr: {
+    chooseLang: 'Choisir la langue',
+    selectLangSub: 'Sélectionnez votre langue préférée',
+    confirm: 'Confirmer',
+    continue: 'Continuer',
+    getMoving: 'Déplacez-vous avec WOW GOA',
+    enterOtp: 'Entrez le code OTP',
+    resendIn: 'Renvoyer dans',
+    change: 'Modifier',
+    skip: 'Passer',
+    terms: 'En continuant, vous acceptez les conditions de service et la politique de confidentialité'
+  },
+  es: {
+    chooseLang: 'Elige tu idioma',
+    selectLangSub: 'Selecciona tu idioma preferido',
+    confirm: 'Confirmar',
+    continue: 'Continuar',
+    getMoving: 'Muévete con WOW GOA',
+    enterOtp: 'Introduce OTP',
+    resendIn: 'Reenviar en',
+    change: 'Cambiar',
+    skip: 'Omitir',
+    terms: 'Al continuar, aceptas los términos de servicio y la política de privacidad'
+  },
+  pt: {
+    chooseLang: 'Escolha o idioma',
+    selectLangSub: 'Selecione o seu idioma de preferência',
+    confirm: 'Confirmar',
+    continue: 'Continuar',
+    getMoving: 'Mova-se com a WOW GOA',
+    enterOtp: 'Inserir OTP',
+    resendIn: 'Reenviar em',
+    change: 'Alterar',
+    skip: 'Pular',
+    terms: 'Ao continuar, você concorda com os termos de serviço e política de privacidade'
+  },
+  he: {
+    chooseLang: 'בחר שפה',
+    selectLangSub: 'בחר את השפה המועדפת עליך',
+    confirm: 'אישור',
+    continue: 'המשך',
+    getMoving: 'יוצאים לדרך עם WOW GOA',
+    enterOtp: 'הזן קוד OTP',
+    resendIn: 'שלח שוב בעוד',
+    change: 'שנה',
+    skip: 'דלג',
+    terms: 'בהמשך השימוש, הינך מסכים לתנאי השירות ומדיניות הפרטיות'
+  },
+  ar: {
+    chooseLang: 'اختر اللغة',
+    selectLangSub: 'حدد لغتك المفضلة',
+    confirm: 'تأكيد',
+    continue: 'متابعة',
+    getMoving: 'انطلق في رحلتك مع WOW GOA',
+    enterOtp: 'أدخل رمز OTP',
+    resendIn: 'إعادة الإرسال خلال',
+    change: 'تغيير',
+    skip: 'تخطي',
+    terms: 'بالمتابعة، فإنك توافق على شروط الخدمة وسياسة الخصوصية'
+  },
+  gu: {
+    chooseLang: 'ભાષા પસંદ કરો',
+    selectLangSub: 'તમારી પસંદગીની ભાષા પસંદ કરો',
+    confirm: 'પુષ્ટિ કરો',
+    continue: 'આગળ વધો',
+    getMoving: 'WOW GOA સાથે મુસાફરી શરૂ કરો',
+    enterOtp: 'OTP દાખલ કરો',
+    resendIn: 'ફરીથી મોકલો',
+    change: 'બદલો',
+    skip: 'છોડો',
+    terms: 'આગળ વધીને, તમે સેવાની શરતો અને ગોપનીયતા નીતિ સાથે સંમત થાઓ છો'
+  },
+  bn: {
+    chooseLang: 'ভাষা নির্বাচন করুন',
+    selectLangSub: 'আপনার পছন্দের ভাষা নির্বাচন করুন',
+    confirm: 'নিশ্চিত করুন',
+    continue: 'এগিয়ে যান',
+    getMoving: 'WOW GOA এর সাথে যাত্রা শুরু করুন',
+    enterOtp: 'OTP লিখুন',
+    resendIn: 'পুনরায় পাঠান',
+    change: 'পরিবর্তন',
+    skip: 'এড়িয়ে যান',
+    terms: 'চালিয়ে গিয়ে, আপনি পরিষেবার শর্তাবলী এবং গোপনীয়তা নীতিতে সম্মত হচ্ছেন'
+  },
+  kn: {
+    chooseLang: 'ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ',
+    selectLangSub: 'ನಿಮ್ಮ ಆದ್ಯತೆಯ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ',
+    confirm: 'ದೃಢೀಕರಿಸಿ',
+    continue: 'ಮುಂದುವರಿಯಿರಿ',
+    getMoving: 'WOW GOA ಜೊತೆಗೆ ಪ್ರಯಾಣ ಪ್ರಾರಂಭಿಸಿ',
+    enterOtp: 'OTP ನಮೂದಿಸಿ',
+    resendIn: 'ಮತ್ತೆ ಕಳುಹಿಸಿ',
+    change: 'ಬದಲಾಯಿಸಿ',
+    skip: 'ಬಿಟ್ಟುಬಿಡಿ',
+    terms: 'ಮುಂದುವರಿಯುವ ಮೂಲಕ, ನೀವು ಸೇವಾ ನಿಯಮಗಳು ಮತ್ತು ಗೌಪ್ಯತಾ ನೀತಿಯನ್ನು ಒಪ್ಪುತ್ತೀರಿ'
+  },
+  ml: {
+    chooseLang: 'ഭാഷ തിരഞ്ഞെടുക്കുക',
+    selectLangSub: 'നിങ്ങൾക്ക് ഇഷ്ടമുള്ള ഭാഷ തിരഞ്ഞെടുക്കുക',
+    confirm: 'സ്ഥിരീകരിക്കുക',
+    continue: 'തുടരുക',
+    getMoving: 'WOW GOA-ൽ യാത്ര ആരംഭിക്കുക',
+    enterOtp: 'OTP നൽകുക',
+    resendIn: 'വീണ്ടും അയക്കുക',
+    change: 'മാറ്റുക',
+    skip: 'ഒഴിവാക്കുക',
+    terms: 'തുടരുന്നതിലൂടെ, നിങ്ങൾ സേവന നിబంధനകളും സ്വകാര್ಯതാ നയവും അംഗീകരിക്കുന്നു'
+  },
+  ta: {
+    chooseLang: 'மொழியைத் தேர்ந்தெடுக்கவும்',
+    selectLangSub: 'உங்கள் விருப்ப மொழியைத் தேர்ந்தெடுக்கவும்',
+    confirm: 'உறுதிப்படுத்தவும்',
+    continue: 'தொடரவும்',
+    getMoving: 'WOW GOA உடன் பயணத்தைத் தொடங்குங்கள்',
+    enterOtp: 'OTP உள்ளிடவும்',
+    resendIn: 'மீண்டும் அனுப்பவும்',
+    change: 'மாற்று',
+    skip: 'தவிர்',
+    terms: 'தொடர்வதன் மூலம், நீங்கள் சேவை விதிமுறைகள் மற்றும் தனியுரிமைக் கொள்கையை ஒப்புக்கொள்கிறீர்கள்'
+  },
+  te: {
+    chooseLang: 'భాషను ఎంచుకోండి',
+    selectLangSub: 'మీకు ఇష్టమైన భాషను ఎంచుకోండి',
+    confirm: 'ధృవీకరించండి',
+    continue: 'కొనసాగించండి',
+    getMoving: 'WOW GOA తో ప్రయాణం ప్రారంభించండి',
+    enterOtp: 'OTP నమోదు చేయండి',
+    resendIn: 'మళ్లీ పంపండి',
+    change: 'మార్చండి',
+    skip: 'దాటవేయి',
+    terms: 'కొనసాగించడం ద్వారా, మీరు సేవా నిబంధనలు మరియు గోప్యతా విధానాన్ని అంగీకరిస్తున్నారు'
+  },
+  pa: {
+    chooseLang: 'ਭਾਸ਼ਾ ਚੁਣੋ',
+    selectLangSub: 'ਆਪਣੀ ਪਸੰਦੀਦਾ ਭਾਸ਼ਾ ਚੁਣੋ',
+    confirm: 'ਪੁਸ਼ਟੀ ਕਰੋ',
+    continue: 'ਅੱਗੇ ਵਧੋ',
+    getMoving: 'WOW GOA ਨਾਲ ਯਾਤਰਾ ਸ਼ੁਰੂ ਕਰੋ',
+    enterOtp: 'OTP ਦਰਜ ਕਰੋ',
+    resendIn: 'ਮੁੜ ਭੇਜੋ',
+    change: 'ਬਦਲੋ',
+    skip: 'ਛੱਡੋ',
+    terms: 'ਜਾਰੀ ਰੱਖ ਕੇ, ਤੁਸੀਂ ਸੇਵਾ ਦੀਆਂ ਸ਼ਰਤਾਂ ਅਤੇ ਗੋਪਨੀਯਤਾ ਨੀਤੀ ਨਾਲ ਸਹਿਮਤ ਹੁੰਦੇ ਹੋ'
+  }
+};
+
+/**
+ * Onboarding Slides (Clarity, Trust, Freedom)
+ */
+const ONBOARDING_SLIDES = [
+  {
+    id: 'clarity',
+    badge: 'ZERO SURGE PROMISE',
+    title: 'CLARITY & HONEST FARES',
+    description: "Fair pricing, crystal clear, Your trust, our promise sincere. With WOW GOA, you'll find no hidden fee, Transparency is our guarantee across Goa.",
+    themeColor: '#FFB703',
+    image: '/assets/mobile/slide_sunset.jpg'
+  },
+  {
+    id: 'chauffeurs',
+    badge: 'GOA TOURISM CERTIFIED',
+    title: 'VERIFIED LOCAL DRIVERS',
+    description: 'Travel safely with polite, background-verified tourist chauffeurs who know every beach, airport terminal, and scenic highway detour.',
+    themeColor: '#10B981',
+    image: '/assets/mobile/slide_airport.jpg'
+  },
+  {
+    id: 'choice',
+    badge: 'ALL-IN-ONE MOBILITY',
+    title: 'CABS & SELF DRIVE IN ONE APP',
+    description: 'Book point-to-point chauffeur cabs or rent Thar 4x4, Creta, Swift & Activa scooters with door-step delivery & unlimited kilometers.',
+    themeColor: '#3B82F6',
+    image: '/assets/mobile/slide_thar.jpg'
+  }
+];
+
 export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = false }) {
-  const [step, setStep] = useState('phone'); // 'phone' | 'otp' | 'google_modal'
+  // Theme state: 'light' | 'dark'
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('wowgoa_cab_theme') || 'dark';
+    } catch (e) {
+      return 'dark';
+    }
+  });
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    try {
+      localStorage.setItem('wowgoa_cab_theme', nextTheme);
+    } catch (e) {}
+  };
+
+  const isDark = theme === 'dark';
+
+  // Language state
+  const [selectedLang, setSelectedLang] = useState(() => {
+    try {
+      return localStorage.getItem('wowgoa_lang') || 'en';
+    } catch (e) {
+      return 'en';
+    }
+  });
+
+  const t = I18N[selectedLang] || I18N.en;
+
+  // Language live search query
+  const [langSearch, setLangSearch] = useState('');
+  const filteredLanguages = useMemo(() => {
+    const q = langSearch.trim().toLowerCase();
+    if (!q) return LANGUAGES;
+    return LANGUAGES.filter(l => 
+      l.label.toLowerCase().includes(q) || 
+      l.native.toLowerCase().includes(q) ||
+      l.id.toLowerCase().includes(q)
+    );
+  }, [langSearch]);
+
+  // Flow Step: starts directly on 'language' per user request -> 'onboarding' -> 'getmoving' -> 'otp'
+  const [flowStep, setFlowStep] = useState('language');
+
+  // Onboarding slide index
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Role: 'customer' (Passenger/Rider) | 'driver' (Chauffeur Partner)
+  const [role, setRole] = useState('customer');
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+
+  // Auth method: 'phone' | 'email'
+  const [authMethod, setAuthMethod] = useState('phone');
+  
+  // Passenger fields
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
+  
+  // Driver fields
+  const [selectedDriver, setSelectedDriver] = useState(DEMO_DRIVERS[0]);
+  const [driverPhone, setDriverPhone] = useState(DEMO_DRIVERS[0].phone);
+  
+  // OTP states
   const [otpDigits, setOtpDigits] = useState(['', '', '', '']);
   const [generatedOtp, setGeneratedOtp] = useState('4821');
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [infoMsg, setInfoMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  // Google Sign-In custom modal state
-  const [customGoogleEmail, setCustomGoogleEmail] = useState('');
-  const [customGoogleName, setCustomGoogleName] = useState('');
 
   const otpInputRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
 
   // Resend countdown timer
   useEffect(() => {
     let timer;
-    if (step === 'otp' && resendTimer > 0) {
+    if (flowStep === 'otp' && resendTimer > 0) {
       timer = setInterval(() => {
         setResendTimer(prev => prev - 1);
       }, 1000);
@@ -40,42 +399,121 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       setCanResend(true);
     }
     return () => clearInterval(timer);
-  }, [step, resendTimer]);
+  }, [flowStep, resendTimer]);
 
-  // Focus first OTP box when entering OTP step
+  // Focus first OTP box
   useEffect(() => {
-    if (step === 'otp') {
+    if (flowStep === 'otp') {
       setTimeout(() => {
         otpInputRefs[0]?.current?.focus();
       }, 200);
     }
-  }, [step]);
+  }, [flowStep]);
 
-  // Handle Phone Submit & Generate OTP
-  const handlePhoneSubmit = (e) => {
+  // Handle Confirm Language
+  const handleConfirmLanguage = () => {
+    try {
+      localStorage.setItem('wowgoa_lang', selectedLang);
+    } catch (e) {}
+    setFlowStep('onboarding');
+  };
+
+  // Handle Onboarding Next
+  const handleNextOnboarding = () => {
+    if (currentSlide < ONBOARDING_SLIDES.length - 1) {
+      setCurrentSlide(prev => prev + 1);
+    } else {
+      try {
+        localStorage.setItem('wowgoa_onboarded_completed', 'true');
+      } catch (e) {}
+      setFlowStep('getmoving');
+    }
+  };
+
+  const handleSkipOnboarding = () => {
+    try {
+      localStorage.setItem('wowgoa_onboarded_completed', 'true');
+    } catch (e) {}
+    setFlowStep('getmoving');
+  };
+
+  // Handle Request OTP
+  const handleSubmitInput = async (e) => {
     e?.preventDefault();
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
-      setErrorMsg('Please enter a valid 10-digit mobile number.');
+    setErrorMsg('');
+    setInfoMsg('');
+
+    if (role === 'driver') {
+      const cleanDriverPhone = driverPhone.replace(/\D/g, '');
+      if (cleanDriverPhone.length < 10) {
+        setErrorMsg('Please enter a valid 10-digit driver mobile number.');
+        return;
+      }
+
+      setIsLoading(true);
+      const localOtp = '1234';
+      setGeneratedOtp(localOtp);
+
+      setTimeout(() => {
+        setIsLoading(false);
+        setInfoMsg(`Driver code sent to +91 ${cleanDriverPhone}. Use code ${localOtp} to start duty.`);
+        setFlowStep('otp');
+        setResendTimer(30);
+        setCanResend(false);
+        setOtpDigits(['', '', '', '']);
+      }, 350);
       return;
     }
 
-    setErrorMsg('');
+    // Customer
+    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (authMethod === 'email') {
+      if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+        setErrorMsg('Please enter a valid Gmail or Email address.');
+        return;
+      }
+    } else {
+      if (cleanPhone.length < 10) {
+        setErrorMsg('Please enter a valid 10-digit mobile number.');
+        return;
+      }
+    }
+
     setIsLoading(true);
+    const localOtp = String(Math.floor(1000 + Math.random() * 9000));
+    setGeneratedOtp(localOtp);
 
-    // Generate random 4-digit OTP or default 4821
-    const newOtp = String(Math.floor(1000 + Math.random() * 9000));
-    setGeneratedOtp(newOtp);
+    try {
+      const res = await sendCustomerOtp(
+        authMethod === 'phone' ? cleanPhone : '',
+        authMethod === 'email' ? cleanEmail : ''
+      );
 
-    setTimeout(() => {
-      setIsLoading(false);
-      setStep('otp');
+      if (res && res.otp) {
+        setGeneratedOtp(String(res.otp));
+      }
+
+      setInfoMsg(authMethod === 'email' 
+        ? `4-digit code sent to ${cleanEmail}` 
+        : `4-digit code sent to +91 ${cleanPhone}`);
+
+      setFlowStep('otp');
       setResendTimer(30);
       setCanResend(false);
-    }, 500);
+      setOtpDigits(['', '', '', '']);
+    } catch (err) {
+      setFlowStep('otp');
+      setResendTimer(30);
+      setCanResend(false);
+      setOtpDigits(['', '', '', '']);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handle OTP Digit Input
+  // Handle OTP digit changes
   const handleOtpChange = (index, value) => {
     if (!/^\d*$/.test(value)) return;
 
@@ -84,26 +522,22 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
     setOtpDigits(newDigits);
     setErrorMsg('');
 
-    // Auto-advance to next input
     if (value && index < 3) {
       otpInputRefs[index + 1]?.current?.focus();
     }
 
-    // Auto-verify when 4 digits entered
     const fullOtp = newDigits.join('');
     if (fullOtp.length === 4) {
       verifyOtpCode(fullOtp);
     }
   };
 
-  // Handle Backspace navigation in OTP
   const handleKeyDown = (index, e) => {
     if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
       otpInputRefs[index - 1]?.current?.focus();
     }
   };
 
-  // Auto-fill Demo OTP
   const handleAutoFillOtp = () => {
     const digits = generatedOtp.split('');
     setOtpDigits(digits);
@@ -111,55 +545,138 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
   };
 
   // Verify OTP
-  const verifyOtpCode = (enteredCode) => {
+  const verifyOtpCode = async (enteredCode) => {
     setIsLoading(true);
-    setTimeout(() => {
+    setErrorMsg('');
+
+    if (role === 'driver') {
+      const cleanDriverPhone = driverPhone.replace(/\D/g, '');
+      const valid = enteredCode === generatedOtp || enteredCode === '1234' || enteredCode === '4821';
+
+      if (!valid) {
+        setIsLoading(false);
+        setErrorMsg('Invalid driver code. Use hint code 1234.');
+        return;
+      }
+
+      const driverObj = {
+        id: selectedDriver?.id || `drv_${cleanDriverPhone}`,
+        name: selectedDriver?.name || `Goa Chauffeur ${cleanDriverPhone.slice(-4)}`,
+        phone: `+91 ${cleanDriverPhone}`,
+        email: `${(selectedDriver?.name || 'driver').toLowerCase().replace(/\s+/g, '')}@wowgoa.in`,
+        role: 'chauffeur',
+        cabNumber: selectedDriver?.cabNumber || 'GA-03-Z-8821',
+        carModel: selectedDriver?.carModel || 'Toyota Innova Crysta',
+        location: selectedDriver?.location || 'Dabolim Airport (GOI)',
+        verifiedAt: new Date().toISOString()
+      };
+
+      try {
+        localStorage.setItem('wowgoa_cab_user', JSON.stringify(driverObj));
+        localStorage.setItem('active_role', 'DRIVER');
+        localStorage.setItem('user', JSON.stringify(driverObj));
+        localStorage.setItem('currentUser', JSON.stringify(driverObj));
+      } catch (e) {}
+
       setIsLoading(false);
+      onAuthSuccess(driverObj);
+      return;
+    }
+
+    // Customer
+    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanEmail = email.trim().toLowerCase();
+
+    try {
+      let isSuccess = false;
+      let returnedCust = null;
+
       if (enteredCode === generatedOtp || enteredCode === '1234' || enteredCode === '4821') {
-        const cleanPhone = phone.replace(/\D/g, '');
+        isSuccess = true;
+      } else {
+        const verifyRes = await verifyCustomerOtp(
+          authMethod === 'phone' ? cleanPhone : '',
+          authMethod === 'email' ? cleanEmail : '',
+          enteredCode
+        );
+        if (verifyRes && verifyRes.success) {
+          isSuccess = true;
+          returnedCust = verifyRes.customer;
+        }
+      }
+
+      if (isSuccess) {
         const userObj = {
-          id: `rider_${cleanPhone}`,
-          name: fullName.trim() || `Rider ${cleanPhone.slice(-4)}`,
-          phone: `+91 ${cleanPhone.slice(-10)}`,
-          authMethod: 'phone_otp',
+          id: returnedCust?.id || (authMethod === 'email' ? `email_${Date.now()}` : `rider_${cleanPhone || 'jenny'}`),
+          name: fullName.trim() || returnedCust?.name || (authMethod === 'email' ? cleanEmail.split('@')[0] : 'Jenny'),
+          phone: cleanPhone ? `+91 ${cleanPhone.slice(-10)}` : (returnedCust?.phone || '+91 9876543210'),
+          email: cleanEmail || returnedCust?.email || 'jenny@example.com',
+          authMethod: authMethod === 'email' ? 'gmail_otp' : 'phone_otp',
+          role: 'customer',
+          verifiedAt: new Date().toISOString()
+        };
+
+        try {
+          localStorage.setItem('wowgoa_cab_user', JSON.stringify(userObj));
+          localStorage.setItem('currentUser', JSON.stringify(userObj));
+          localStorage.setItem('wowgoa_rider_name', userObj.name);
+          if (userObj.phone) localStorage.setItem('wowgoa_rider_phone', userObj.phone);
+          if (userObj.email) localStorage.setItem('wowgoa_rider_email', userObj.email);
+        } catch (e) {}
+
+        onAuthSuccess(userObj);
+      } else {
+        setErrorMsg('Invalid verification code. Please check your code.');
+      }
+    } catch (err) {
+      if (enteredCode === generatedOtp || enteredCode === '1234') {
+        const userObj = {
+          id: authMethod === 'email' ? `email_${Date.now()}` : `rider_${cleanPhone || 'jenny'}`,
+          name: fullName.trim() || 'Jenny',
+          phone: cleanPhone ? `+91 ${cleanPhone.slice(-10)}` : '+91 9876543210',
+          email: cleanEmail || 'jenny@example.com',
+          authMethod: authMethod === 'email' ? 'gmail_otp' : 'phone_otp',
           role: 'customer',
           verifiedAt: new Date().toISOString()
         };
         onAuthSuccess(userObj);
       } else {
-        setErrorMsg('Invalid verification code. Please try again.');
+        setErrorMsg('Invalid verification code.');
       }
-    }, 400);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Resend OTP
-  const handleResendOtp = () => {
+  const handleResendOtp = async () => {
     if (!canResend) return;
-    const newOtp = String(Math.floor(1000 + Math.random() * 9000));
+    const newOtp = role === 'driver' ? '1234' : String(Math.floor(1000 + Math.random() * 9000));
     setGeneratedOtp(newOtp);
     setResendTimer(30);
     setCanResend(false);
     setOtpDigits(['', '', '', '']);
     setErrorMsg('');
+
+    if (role === 'driver') {
+      setInfoMsg('New code dispatched: ' + newOtp);
+      return;
+    }
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      const res = await sendCustomerOtp(
+        authMethod === 'phone' ? cleanPhone : '',
+        authMethod === 'email' ? cleanEmail : ''
+      );
+      if (res && res.otp) setGeneratedOtp(String(res.otp));
+      setInfoMsg('New verification code dispatched.');
+    } catch (e) {}
   };
 
-  // Google Sign-In Complete
-  const handleGoogleSignIn = (selectedEmail, selectedName) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      const userObj = {
-        id: `google_${Date.now()}`,
-        name: selectedName || 'Goa Traveler',
-        email: selectedEmail || 'rider@gmail.com',
-        phone: phone ? `+91 ${phone.replace(/\D/g, '').slice(-10)}` : '+91 98221 44510',
-        authMethod: 'google',
-        role: 'customer',
-        verifiedAt: new Date().toISOString()
-      };
-      onAuthSuccess(userObj);
-    }, 500);
-  };
+  // Base background style
+  const rootBg = isDark ? '#0F1216' : '#FFFFFF';
+  const rootColor = isDark ? '#F8FAFC' : '#0F172A';
 
   return (
     <div style={{
@@ -170,353 +687,1053 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
       maxHeight: '100vh',
       overflowX: 'hidden',
       overflowY: 'auto',
-      background: 'linear-gradient(180deg, #0B192C 0%, #112239 40%, #ffffff 40.1%, #ffffff 100%)',
+      background: rootBg,
+      color: rootColor,
       display: 'flex',
       flexDirection: 'column',
-      alignItems: 'center',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      justifyContent: 'space-between',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      padding: flowStep === 'splash' ? '0' : '16px 20px',
+      boxSizing: 'border-box',
+      transition: 'background-color 0.2s ease, color 0.2s ease'
     }}>
 
-      {/* ── TOP HEADER / BRANDING ── */}
+      {/* ── BACKGROUND WATERMARK: WOW GOA LOGO AT AN ACUTE ANGLE (LOGGH / FAINT) ── */}
       <div style={{
-        width: '100%',
-        maxWidth: '460px',
-        padding: '36px 20px 24px',
-        color: '#ffffff',
+        position: 'absolute',
+        top: '48%',
+        left: '50%',
+        transform: 'translate(-50%, -50%) rotate(-25deg)',
+        width: '320px',
+        maxWidth: '82vw',
+        height: '320px',
+        opacity: isDark ? 0.05 : 0.075,
+        pointerEvents: 'none',
+        zIndex: 0,
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
-        textAlign: 'center',
-        position: 'relative'
+        justifyContent: 'center',
+        userSelect: 'none'
       }}>
-        {/* Skip button on top right */}
-        {onSkip && (
-          <button
-            type="button"
-            onClick={onSkip}
-            style={{
-              position: 'absolute',
-              top: '20px',
-              right: '20px',
-              background: 'rgba(255, 255, 255, 0.12)',
-              border: 'none',
-              borderRadius: '20px',
-              padding: '6px 14px',
-              color: '#ffffff',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            Skip & Explore
-          </button>
-        )}
-
-        {/* Logo Badge */}
-        <div style={{
-          width: '64px',
-          height: '64px',
-          borderRadius: '18px',
-          background: '#ffffff',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '6px',
-          marginBottom: '14px'
-        }}>
-          <img src="/wowgoa-logo.png" alt="WOW GOA CABS" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '12px' }} />
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#ffffff', margin: 0, letterSpacing: '-0.02em' }}>
-            WOW GOA
-          </h1>
-          <span style={{
-            background: '#ff9f1c',
-            color: '#0B192C',
-            fontSize: '11px',
-            fontWeight: 900,
-            padding: '2px 8px',
-            borderRadius: '6px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em'
-          }}>
-            CABS
-          </span>
-        </div>
-
-        <p style={{ fontSize: '13px', color: '#cbd5e1', margin: 0, maxWidth: '320px', lineHeight: 1.4 }}>
-          Goa’s Official Cab & Airport Transfer Service. Zero Surge Guaranteed 24/7.
-        </p>
+        <img 
+          src="/wowgoa-logo.png" 
+          alt="" 
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            objectFit: 'contain'
+          }} 
+        />
       </div>
 
-      {/* ── MAIN AUTHENTICATION CARD ── */}
-      <div style={{
-        width: '100%',
-        maxWidth: '440px',
-        background: '#ffffff',
-        borderRadius: '24px',
-        boxShadow: '0 12px 40px rgba(0, 0, 0, 0.12)',
-        padding: '24px 20px',
-        margin: '0 16px 24px',
-        border: '1px solid #e2e8f0'
-      }}>
+      {/* ══════════════════════════════════════════════════════════════════════
+          SCREEN 1: SPLASH SCREEN (WOW GOA LOGO + CAR ACCENT + SPINNER)
+         ══════════════════════════════════════════════════════════════════════ */}
+      {flowStep === 'splash' && (
+        <div 
+          onClick={() => setFlowStep('language')}
+          style={{
+            height: '100vh',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            position: 'relative',
+            zIndex: 10
+          }}
+        >
+          {/* Centered Brand Emblem */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+            animation: 'fadeIn 0.5s ease'
+          }}>
+            <div style={{
+              width: '90px',
+              height: '90px',
+              borderRadius: '24px',
+              background: '#ffffff',
+              boxShadow: '0 12px 36px rgba(0,0,0,0.4)',
+              border: '2px solid #FFB703',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '12px'
+            }}>
+              <img src="/wowgoa-logo.png" alt="WOW GOA" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
 
-        {/* ════════════════════════════════════════════════════════════════════
-            STEP 1: PHONE NUMBER & GOOGLE SIGN-IN
-           ════════════════════════════════════════════════════════════════════ */}
-        {step === 'phone' && (
+            {/* Glowing Brand Title with Car Accent */}
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                fontSize: '28px', 
+                fontWeight: 900, 
+                letterSpacing: '1px',
+                color: isDark ? '#FFFFFF' : '#0F172A',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}>
+                <span>WOW GOA</span>
+                <span style={{ color: '#FFB703', fontWeight: 900 }}>Cabs</span>
+              </div>
+              <p style={{ 
+                fontSize: '12px', 
+                color: isDark ? '#94A3B8' : '#64748B', 
+                letterSpacing: '1.2px', 
+                textTransform: 'uppercase',
+                fontWeight: 700,
+                margin: '4px 0 0'
+              }}>
+                Goa Tourism Certified Mobility
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom Spinner / Loading Arc */}
+          <div style={{
+            position: 'absolute',
+            bottom: '48px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <div style={{
+              width: '26px',
+              height: '26px',
+              borderRadius: '50%',
+              border: '3px solid rgba(255, 183, 3, 0.2)',
+              borderTopColor: '#FFB703',
+              animation: 'spin 0.8s linear infinite'
+            }} />
+            <span style={{ fontSize: '11px', color: isDark ? '#64748B' : '#94A3B8', fontWeight: 600 }}>
+              Tap anywhere to continue
+            </span>
+          </div>
+
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            @keyframes fadeIn {
+              from { opacity: 0; transform: scale(0.96); }
+              to { opacity: 1; transform: scale(1); }
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          SCREEN 2: CHOOSE LANGUAGE (Exact Flow from Reference)
+         ══════════════════════════════════════════════════════════════════════ */}
+      {flowStep === 'language' && (
+        <div style={{
+          width: '100%',
+          maxWidth: '440px',
+          margin: '0 auto',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          position: 'relative',
+          zIndex: 10,
+          padding: '12px 0 8px'
+        }}>
+          {/* Top Header & Normal Theme Button */}
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>
-              Get started with WOW GOA Cabs
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div>
+                <h1 style={{ fontSize: '26px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
+                  {t.chooseLang}
+                </h1>
+                <p style={{ fontSize: '13px', color: isDark ? '#94A3B8' : '#475569', margin: 0 }}>
+                  {t.selectLangSub}
+                </p>
+              </div>
+
+              {/* Normal Dark / White Mode Button */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: isDark ? '#1E293B' : '#FFFFFF',
+                  border: isDark ? '1.5px solid #475569' : '2px solid #0F172A',
+                  borderRadius: '8px',
+                  padding: '7px 11px',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.08)'
+                }}
+              >
+                {isDark ? <Sun size={13} color="#FFB703" /> : <Moon size={13} color="#0F172A" />}
+                <span>{isDark ? 'White' : 'Dark'}</span>
+              </button>
+            </div>
+
+            {/* Search Language Bar */}
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: isDark ? '#161B22' : '#FFFFFF',
+                border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
+                borderRadius: '14px',
+                padding: '0 14px',
+                boxShadow: isDark ? 'none' : '0 2px 6px rgba(15, 23, 42, 0.05)'
+              }}>
+                <Search size={16} color={isDark ? "#FFB703" : "#0F172A"} />
+                <input
+                  type="text"
+                  placeholder="Search language (e.g. English, Русский, हिन्दी)..."
+                  value={langSearch}
+                  onChange={(e) => setLangSearch(e.target.value)}
+                  style={{
+                    flex: 1,
+                    border: 'none',
+                    outline: 'none',
+                    background: 'transparent',
+                    padding: '12px 0',
+                    fontSize: '13.5px',
+                    fontWeight: 700,
+                    color: isDark ? '#FFFFFF' : '#0F172A'
+                  }}
+                />
+                {langSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setLangSearch('')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: isDark ? '#94A3B8' : '#64748B',
+                      cursor: 'pointer',
+                      padding: '4px'
+                    }}
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Language Selection List (Scrollable) */}
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '9px',
+              maxHeight: 'calc(100vh - 250px)',
+              overflowY: 'auto',
+              paddingRight: '2px'
+            }}>
+              {filteredLanguages.map((lang) => {
+                const isSelected = selectedLang === lang.id;
+                return (
+                  <div
+                    key={lang.id}
+                    onClick={() => setSelectedLang(lang.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '15px 16px',
+                      borderRadius: '14px',
+                      background: isSelected 
+                        ? (isDark ? '#FFFFFF' : '#0F172A') 
+                        : (isDark ? '#161B22' : '#FFFFFF'),
+                      border: isSelected 
+                        ? (isDark ? '2px solid #FFFFFF' : '2px solid #0F172A') 
+                        : (isDark ? '1.5px solid #30363D' : '2px solid #0F172A'), // Visible borders in light mode
+                      color: isSelected 
+                        ? (isDark ? '#0F172A' : '#FFFFFF') 
+                        : (isDark ? '#E6EDF3' : '#0F172A'),
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: isDark ? 'none' : '0 2px 6px rgba(0,0,0,0.04)'
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontSize: '15.5px', fontWeight: 800 }}>
+                        {lang.label}
+                      </span>
+                      <span style={{ 
+                        fontSize: '12px', 
+                        marginLeft: '8px', 
+                        opacity: isSelected ? 0.8 : 0.6,
+                        fontWeight: 600
+                      }}>
+                        ({lang.native})
+                      </span>
+                    </div>
+
+                    {/* Check Circle Icon */}
+                    {isSelected ? (
+                      <div style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        background: isDark ? '#0F172A' : '#FFB703',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: isDark ? '#FFFFFF' : '#0F172A'
+                      }}>
+                        <Check size={14} strokeWidth={3} />
+                      </div>
+                    ) : (
+                      <div style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        border: isDark ? '1.5px solid #484F58' : '2px solid #CBD5E1'
+                      }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Bottom Solid Yellow "Confirm" CTA Button */}
+          <div style={{ marginTop: '24px' }}>
+            <button
+              type="button"
+              onClick={handleConfirmLanguage}
+              style={{
+                width: '100%',
+                background: '#FFB703',
+                color: '#000000',
+                border: isDark ? 'none' : '2px solid #0F172A',
+                borderRadius: '16px',
+                padding: '16px',
+                fontSize: '16px',
+                fontWeight: 900,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 16px rgba(255, 183, 3, 0.35)',
+                letterSpacing: '0.3px'
+              }}
+            >
+              <span>{t.confirm}</span>
+              <ArrowRight size={18} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          SCREEN 3: ONBOARDING INTRO (Clarity / Trust / Carousel with Illustration)
+         ══════════════════════════════════════════════════════════════════════ */}
+      {flowStep === 'onboarding' && (
+        <div style={{
+          width: '100%',
+          maxWidth: '440px',
+          margin: '0 auto',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          position: 'relative',
+          zIndex: 10,
+          padding: '10px 0 8px'
+        }}>
+          {/* Top Nav: Back & Skip */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (currentSlide > 0) setCurrentSlide(prev => prev - 1);
+                else setFlowStep('language');
+              }}
+              style={{
+                background: isDark ? '#1E293B' : '#FFFFFF',
+                border: isDark ? '1px solid #475569' : '2px solid #0F172A',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: isDark ? '#FFFFFF' : '#0F172A'
+              }}
+            >
+              <ArrowLeft size={16} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSkipOnboarding}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: isDark ? '#FFB703' : '#0F172A',
+                fontSize: '13px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                padding: '6px 10px'
+              }}
+            >
+              {t.skip}
+            </button>
+          </div>
+
+          {/* Classy Photographic Card (Mature, Ultra-Realistic Goa Photography) */}
+          <div style={{
+            borderRadius: '22px',
+            overflow: 'hidden',
+            height: '240px',
+            width: '100%',
+            position: 'relative',
+            border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
+            boxShadow: isDark ? '0 12px 30px rgba(0,0,0,0.5)' : '0 8px 24px rgba(15, 23, 42, 0.1)',
+            background: '#000000'
+          }}>
+            <img 
+              src={ONBOARDING_SLIDES[currentSlide].image} 
+              alt={ONBOARDING_SLIDES[currentSlide].title}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transition: 'opacity 0.3s ease'
+              }}
+            />
+
+            {/* Bottom Gradient Overlay */}
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)'
+            }} />
+
+            {/* Slide Badge Capsule */}
+            <div style={{
+              position: 'absolute',
+              bottom: '14px',
+              left: '16px',
+              background: 'rgba(0, 0, 0, 0.7)',
+              border: `1.5px solid ${ONBOARDING_SLIDES[currentSlide].themeColor}`,
+              padding: '5px 12px',
+              borderRadius: '20px',
+              fontSize: '11px',
+              fontWeight: 900,
+              color: ONBOARDING_SLIDES[currentSlide].themeColor,
+              letterSpacing: '0.6px',
+              textTransform: 'uppercase'
+            }}>
+              {ONBOARDING_SLIDES[currentSlide].badge}
+            </div>
+          </div>
+
+          {/* Slide Text Content */}
+          <div style={{ textAlign: 'center', padding: '16px 8px 8px' }}>
+            <h2 style={{ 
+              fontSize: '22px', 
+              fontWeight: 900, 
+              color: isDark ? '#FFFFFF' : '#0F172A', 
+              margin: '0 0 8px', 
+              letterSpacing: '-0.01em' 
+            }}>
+              {ONBOARDING_SLIDES[currentSlide].title}
             </h2>
-            <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 18px', lineHeight: 1.4 }}>
-              Enter your mobile number to sign in or register instantly.
+            <p style={{ 
+              fontSize: '13px', 
+              color: isDark ? '#94A3B8' : '#475569', 
+              margin: 0, 
+              lineHeight: 1.5 
+            }}>
+              {ONBOARDING_SLIDES[currentSlide].description}
             </p>
+          </div>
+
+          {/* Dots Indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', margin: '12px 0 16px' }}>
+            {ONBOARDING_SLIDES.map((_, idx) => (
+              <div
+                key={idx}
+                style={{
+                  width: currentSlide === idx ? '26px' : '8px',
+                  height: '8px',
+                  borderRadius: '4px',
+                  background: currentSlide === idx ? '#FFB703' : (isDark ? '#30363D' : '#CBD5E1'),
+                  transition: 'all 0.25s ease'
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Bottom Solid Yellow "Continue" CTA */}
+          <div>
+            <button
+              type="button"
+              onClick={handleNextOnboarding}
+              style={{
+                width: '100%',
+                background: '#FFB703',
+                color: '#000000',
+                border: isDark ? 'none' : '2px solid #0F172A',
+                borderRadius: '16px',
+                padding: '16px',
+                fontSize: '16px',
+                fontWeight: 900,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 16px rgba(255, 183, 3, 0.35)',
+                letterSpacing: '0.3px'
+              }}
+            >
+              <span>{currentSlide === ONBOARDING_SLIDES.length - 1 ? 'Get Started' : t.continue}</span>
+              <ArrowRight size={18} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          SCREEN 4: GET MOVING / AUTH INPUT (Bottom Sheet Style from Reference)
+         ═════════════════════════════════════════════════════════════════════ */}
+      {flowStep === 'getmoving' && (
+        <div style={{
+          width: '100%',
+          maxWidth: '440px',
+          margin: '0 auto',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          position: 'relative',
+          zIndex: 10
+        }}>
+          {/* Top Bar with Language Pill & Normal Theme Button */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '4px 0 10px',
+            zIndex: 50
+          }}>
+            {/* Brand Logo & Name */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: '#ffffff',
+                border: isDark ? '1.5px solid rgba(255, 183, 3, 0.4)' : '2px solid #0F172A',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px'
+              }}>
+                <img src="/wowgoa-logo.png" alt="WOW GOA" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              </div>
+              <span style={{ fontSize: '15px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                WOW GOA
+              </span>
+            </div>
+
+            {/* Top Right Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Language Selector Pill EN 🌐 */}
+              <button
+                type="button"
+                onClick={() => setFlowStep('language')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: isDark ? '#1E293B' : '#FFFFFF',
+                  border: isDark ? '1px solid #475569' : '2px solid #0F172A',
+                  borderRadius: '20px',
+                  padding: '6px 10px',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  fontSize: '11.5px',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                <span>{selectedLang.toUpperCase()}</span>
+                <Globe size={13} />
+                <ChevronDown size={11} />
+              </button>
+
+              {/* Normal Dark / White Mode Button */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: isDark ? '#1E293B' : '#FFFFFF',
+                  border: isDark ? '1.5px solid #475569' : '2px solid #0F172A',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                {isDark ? <Sun size={13} color="#FFB703" /> : <Moon size={13} color="#0F172A" />}
+                <span>{isDark ? 'White' : 'Dark'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* WOW GOA Branded Emblem Area (Classy Logo instead of cartoon car) */}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px 0 10px',
+            position: 'relative'
+          }}>
+            <div style={{
+              width: '84px',
+              height: '84px',
+              borderRadius: '22px',
+              background: '#ffffff',
+              border: isDark ? '2px solid #FFB703' : '2px solid #0F172A',
+              boxShadow: isDark ? '0 10px 28px rgba(255, 183, 3, 0.3)' : '0 8px 24px rgba(15, 23, 42, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '10px'
+            }}>
+              <img src="/wowgoa-logo.png" alt="WOW GOA" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
+            <div style={{ textAlign: 'center', marginTop: '12px' }}>
+              <div style={{ fontSize: '20px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A', letterSpacing: '-0.02em' }}>
+                WOW GOA <span style={{ color: '#FFB703' }}>Cabs</span>
+              </div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: isDark ? '#94A3B8' : '#64748B', letterSpacing: '0.8px', textTransform: 'uppercase', marginTop: '3px' }}>
+                Goa Tourism Certified Mobility
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Sheet Drawer Card */}
+          <div style={{
+            background: isDark ? '#161B22' : '#FFFFFF',
+            border: isDark ? '1.5px solid #30363D' : '2px solid #0F172A',
+            borderTopLeftRadius: '28px',
+            borderTopRightRadius: '28px',
+            padding: '16px 20px 20px',
+            boxShadow: isDark ? '0 -10px 30px rgba(0,0,0,0.5)' : '0 -10px 30px rgba(15, 23, 42, 0.12)',
+            zIndex: 60
+          }}>
+            {/* Sheet Handle Bar */}
+            <div style={{
+              width: '40px',
+              height: '4px',
+              borderRadius: '2px',
+              background: isDark ? '#484F58' : '#CBD5E1',
+              margin: '0 auto 14px'
+            }} />
+
+            {/* Role Switcher Pill */}
+            <div style={{
+              display: 'flex',
+              background: isDark ? '#0F1216' : '#F1F5F9',
+              border: isDark ? '1px solid #30363D' : '1.5px solid #0F172A',
+              borderRadius: '12px',
+              padding: '3px',
+              marginBottom: '16px',
+              gap: '4px'
+            }}>
+              <button
+                type="button"
+                onClick={() => { setRole('customer'); setErrorMsg(''); }}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '7px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: role === 'customer' ? '#FFB703' : 'transparent',
+                  color: role === 'customer' ? '#000000' : (isDark ? '#94A3B8' : '#64748B'),
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                <span>🚗</span>
+                <span>Passenger / Rider</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setRole('driver'); setErrorMsg(''); }}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '7px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: role === 'driver' ? '#10B981' : 'transparent',
+                  color: role === 'driver' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                <span>🚖</span>
+                <span>Driver Partner</span>
+              </button>
+            </div>
+
+            {/* Heading: Get moving with WOW GOA */}
+            <h2 style={{
+              fontSize: '22px',
+              fontWeight: 900,
+              color: isDark ? '#FFFFFF' : '#0F172A',
+              margin: '0 0 14px',
+              letterSpacing: '-0.02em'
+            }}>
+              {role === 'driver' ? 'Chauffeur Duty Login' : t.getMoving}
+            </h2>
 
             {errorMsg && (
               <div style={{
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                color: '#b91c1c',
-                borderRadius: '10px',
+                background: '#FEF2F2',
+                border: '2px solid #EF4444',
+                color: '#B91C1C',
+                borderRadius: '12px',
                 padding: '9px 12px',
                 fontSize: '12px',
-                fontWeight: 600,
-                marginBottom: '14px'
+                fontWeight: 700,
+                marginBottom: '12px'
               }}>
                 {errorMsg}
               </div>
             )}
 
-            <form onSubmit={handlePhoneSubmit}>
-              {/* Phone Input with +91 country badge */}
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                  Mobile Number
-                </label>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  border: '1.5px solid #cbd5e1',
-                  borderRadius: '12px',
-                  background: '#f8fafc',
-                  overflow: 'hidden',
-                  transition: 'border 0.2s ease'
-                }}>
+            {/* Input Form */}
+            <form onSubmit={handleSubmitInput}>
+              {role === 'customer' ? (
+                <div>
+                  {/* Phone / Email Input with Gold Focus Border */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      background: isDark ? '#0D1117' : '#FFFFFF',
+                      border: isDark ? '2px solid #FFB703' : '2px solid #0F172A',
+                      borderRadius: '14px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        padding: '13px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        borderRight: isDark ? '1.5px solid rgba(255, 183, 3, 0.4)' : '2px solid #0F172A',
+                        background: isDark ? '#161B22' : '#F1F5F9',
+                        fontSize: '14px',
+                        fontWeight: 900,
+                        color: isDark ? '#FFB703' : '#0F172A'
+                      }}>
+                        <span>🇮🇳</span>
+                        <span>+91</span>
+                      </div>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        placeholder="Mobile number or Email"
+                        maxLength={10}
+                        value={phone}
+                        onChange={(e) => {
+                          setPhone(e.target.value.replace(/\D/g, ''));
+                          setErrorMsg('');
+                        }}
+                        style={{
+                          flex: 1,
+                          border: 'none',
+                          outline: 'none',
+                          background: 'transparent',
+                          padding: '13px 12px',
+                          fontSize: '16px',
+                          fontWeight: 800,
+                          color: isDark ? '#FFFFFF' : '#0F172A'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+
+                </div>
+              ) : (
+                /* Driver Account Quick Select */
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                    {DEMO_DRIVERS.map((drv) => {
+                      const isSelected = selectedDriver?.id === drv.id;
+                      return (
+                        <div
+                          key={drv.id}
+                          onClick={() => {
+                            setSelectedDriver(drv);
+                            setDriverPhone(drv.phone);
+                            setErrorMsg('');
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 12px',
+                            borderRadius: '10px',
+                            border: isSelected 
+                              ? '2px solid #10B981' 
+                              : (isDark ? '1px solid #30363D' : '2px solid #0F172A'),
+                            background: isSelected 
+                              ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5') 
+                              : (isDark ? '#0D1117' : '#FFFFFF'),
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <div>
+                            <span style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#FFFFFF' : '#0F172A' }}>{drv.name}</span>
+                            <span style={{ fontSize: '10px', marginLeft: '6px', color: '#10B981', fontWeight: 700 }}>{drv.cabNumber}</span>
+                          </div>
+                          {isSelected && <Check size={14} color="#10B981" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+
                   <div style={{
-                    padding: '12px 12px',
-                    background: '#e2e8f0',
-                    color: '#0f172a',
-                    fontSize: '14px',
-                    fontWeight: 800,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    borderRight: '1px solid #cbd5e1',
-                    flexShrink: 0
+                    background: isDark ? '#0D1117' : '#FFFFFF',
+                    border: '2px solid #10B981',
+                    borderRadius: '12px',
+                    overflow: 'hidden'
                   }}>
-                    <span>🇮🇳</span>
-                    <span>+91</span>
+                    <span style={{ padding: '11px', background: isDark ? '#161B22' : '#ECFDF5', fontSize: '13px', fontWeight: 800, color: '#10B981' }}>+91</span>
+                    <input
+                      type="tel"
+                      value={driverPhone}
+                      onChange={(e) => setDriverPhone(e.target.value.replace(/\D/g, ''))}
+                      style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', padding: '11px', fontSize: '15px', fontWeight: 800, color: isDark ? '#fff' : '#000' }}
+                    />
                   </div>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    placeholder="Enter 10-digit number"
-                    maxLength={10}
-                    value={phone}
-                    onChange={(e) => {
-                      setPhone(e.target.value.replace(/\D/g, ''));
-                      setErrorMsg('');
-                    }}
-                    style={{
-                      flex: 1,
-                      border: 'none',
-                      outline: 'none',
-                      background: 'transparent',
-                      padding: '12px 14px',
-                      fontSize: '16px',
-                      fontWeight: 700,
-                      color: '#0f172a',
-                      letterSpacing: '0.04em'
-                    }}
-                  />
                 </div>
-              </div>
+              )}
 
-              {/* Optional Name */}
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                  Full Name (for Chauffeur greeting)
-                </label>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  borderRadius: '12px',
-                  background: '#f8fafc',
-                  padding: '10px 12px'
-                }}>
-                  <User size={16} color="#64748b" />
-                  <input
-                    type="text"
-                    placeholder="e.g. Rahul Sharma"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    style={{
-                      flex: 1,
-                      border: 'none',
-                      outline: 'none',
-                      background: 'transparent',
-                      fontSize: '13.5px',
-                      color: '#0f172a'
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Submit Button */}
+              {/* Solid Yellow "Continue" Button */}
               <button
                 type="submit"
-                disabled={isLoading || phone.length < 10}
+                disabled={isLoading || (role === 'driver' ? driverPhone.length < 10 : phone.length < 10)}
                 style={{
                   width: '100%',
-                  background: phone.length >= 10 ? '#0B192C' : '#94a3b8',
-                  color: '#ffffff',
-                  border: 'none',
+                  background: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) 
+                    ? '#FFB703' 
+                    : (isDark ? '#21262D' : '#E2E8F0'),
+                  color: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) 
+                    ? '#000000' 
+                    : (isDark ? '#64748B' : '#94A3B8'),
+                  border: isDark ? 'none' : '2px solid #0F172A',
                   borderRadius: '14px',
-                  padding: '13px',
-                  fontSize: '15px',
-                  fontWeight: 800,
+                  padding: '15px',
+                  fontSize: '15.5px',
+                  fontWeight: 900,
+                  cursor: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) ? 'pointer' : 'not-allowed',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  cursor: phone.length >= 10 ? 'pointer' : 'not-allowed',
-                  boxShadow: phone.length >= 10 ? '0 4px 16px rgba(11, 25, 44, 0.25)' : 'none',
-                  transition: 'all 0.2s ease'
+                  boxShadow: (role === 'driver' ? driverPhone.length >= 10 : phone.length >= 10) 
+                    ? '0 4px 16px rgba(255, 183, 3, 0.35)' 
+                    : 'none',
+                  transition: 'all 0.15s ease'
                 }}
               >
                 {isLoading ? (
-                  <span>Sending OTP...</span>
+                  <span>Sending code...</span>
                 ) : (
                   <>
-                    <span>Continue with Phone Number</span>
-                    <ArrowRight size={17} />
+                    <span>{t.continue}</span>
+                    <ArrowRight size={17} strokeWidth={2.5} />
                   </>
                 )}
               </button>
             </form>
 
-            {/* ── DIVIDER ── */}
+            {/* Legal Terms Footer */}
             <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              margin: '20px 0 16px',
-              color: '#94a3b8',
-              fontSize: '12px',
-              fontWeight: 600
+              textAlign: 'center',
+              marginTop: '12px',
+              fontSize: '10.5px',
+              color: isDark ? '#8B949E' : '#64748B',
+              lineHeight: 1.4
             }}>
-              <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
-              <span style={{ padding: '0 12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>or continue with</span>
-              <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+              By continuing, you agree to the <span style={{ textDecoration: 'underline', color: isDark ? '#FFB703' : '#0F172A', fontWeight: 700 }}>terms of service</span> and <span style={{ textDecoration: 'underline', color: isDark ? '#FFB703' : '#0F172A', fontWeight: 700 }}>privacy policy</span>
             </div>
-
-            {/* ── GOOGLE SIGN-IN BUTTON ── */}
-            <button
-              type="button"
-              onClick={() => setStep('google_modal')}
-              style={{
-                width: '100%',
-                background: '#ffffff',
-                border: '1.5px solid #cbd5e1',
-                borderRadius: '14px',
-                padding: '12px 16px',
-                fontSize: '14.5px',
-                fontWeight: 700,
-                color: '#1f2937',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)',
-                cursor: 'pointer',
-                transition: 'background 0.15s ease'
-              }}
-            >
-              {/* Official Google 'G' Multi-Color SVG */}
-              <svg width="20" height="20" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-              </svg>
-              <span>Continue with Google</span>
-            </button>
-
-            {/* Terms note */}
-            <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', marginTop: '16px', lineHeight: 1.4 }}>
-              By continuing, you agree to WOW GOA's Terms of Service and Privacy Policy.
-            </p>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ════════════════════════════════════════════════════════════════════
-            STEP 2: OTP VERIFICATION SCREEN
-           ════════════════════════════════════════════════════════════════════ */}
-        {step === 'otp' && (
+      {/* ══════════════════════════════════════════════════════════════════════
+          SCREEN 5: ENTER OTP SCREEN (Exact Flow & Structure from Reference)
+         ══════════════════════════════════════════════════════════════════════ */}
+      {flowStep === 'otp' && (
+        <div style={{
+          width: '100%',
+          maxWidth: '440px',
+          margin: '0 auto',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          position: 'relative',
+          zIndex: 10,
+          padding: '10px 0 8px'
+        }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+            {/* Back Button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <button
                 type="button"
-                onClick={() => setStep('phone')}
+                onClick={() => setFlowStep('getmoving')}
                 style={{
-                  background: '#f1f5f9',
-                  border: 'none',
+                  background: isDark ? '#1E293B' : '#FFFFFF',
+                  border: isDark ? '1px solid #475569' : '2px solid #0F172A',
                   borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
+                  width: '38px',
+                  height: '38px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: isDark ? '#FFFFFF' : '#0F172A'
+                }}
+              >
+                <ArrowLeft size={18} />
+              </button>
+
+              {/* Normal Dark / White Mode Button */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: isDark ? '#1E293B' : '#FFFFFF',
+                  border: isDark ? '1.5px solid #475569' : '2px solid #0F172A',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
                   cursor: 'pointer'
                 }}
               >
-                <ArrowLeft size={16} color="#0f172a" />
+                {isDark ? <Sun size={13} color="#FFB703" /> : <Moon size={13} color="#0F172A" />}
+                <span>{isDark ? 'White' : 'Dark'}</span>
               </button>
-              <div>
-                <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                  Enter 4-Digit Code
-                </h2>
-                <span style={{ fontSize: '12px', color: '#64748b' }}>
-                  Sent to +91 {phone}
-                </span>
-              </div>
             </div>
+
+            {/* Title & Phone with "Change" Link (from reference screenshot) */}
+            <h1 style={{ fontSize: '26px', fontWeight: 900, color: isDark ? '#FFFFFF' : '#0F172A', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+              {t.enterOtp}
+            </h1>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
+              <span style={{ fontSize: '16px' }}>🇮🇳</span>
+              <span style={{ fontSize: '14.5px', fontWeight: 800, color: isDark ? '#E6EDF3' : '#0F172A' }}>
+                {role === 'driver' ? `+91 ${driverPhone}` : `+91 ${phone || '9876543210'}`}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFlowStep('getmoving')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#FFB703',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  marginLeft: '4px'
+                }}
+              >
+                {t.change}
+              </button>
+            </div>
+
+            {infoMsg && (
+              <div style={{
+                background: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
+                border: isDark ? '1.5px solid #10B981' : '2px solid #059669',
+                color: isDark ? '#34D399' : '#047857',
+                borderRadius: '12px',
+                padding: '9px 12px',
+                fontSize: '12.5px',
+                fontWeight: 700,
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <CheckCircle2 size={15} color="#10B981" />
+                <span>{infoMsg}</span>
+              </div>
+            )}
 
             {errorMsg && (
               <div style={{
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                color: '#b91c1c',
-                borderRadius: '10px',
+                background: '#FEF2F2',
+                border: '2px solid #EF4444',
+                color: '#B91C1C',
+                borderRadius: '12px',
                 padding: '9px 12px',
-                fontSize: '12px',
-                fontWeight: 600,
-                marginBottom: '14px'
+                fontSize: '12.5px',
+                fontWeight: 700,
+                marginBottom: '16px'
               }}>
                 {errorMsg}
               </div>
             )}
 
-            {/* 4 OTP Digit Input Boxes */}
+            {/* Label: Enter OTP */}
+            <div style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#8B949E' : '#475569', marginBottom: '12px' }}>
+              Enter OTP
+            </div>
+
+            {/* 4 Digit Boxes (With Rounded Corners & High Visibility Borders) */}
             <div style={{
               display: 'flex',
-              justifyContent: 'center',
               gap: '12px',
-              margin: '20px 0 16px'
+              marginBottom: '20px'
             }}>
               {otpDigits.map((digit, idx) => (
                 <input
@@ -529,96 +1746,28 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   onChange={(e) => handleOtpChange(idx, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(idx, e)}
                   style={{
-                    width: '56px',
+                    flex: 1,
                     height: '62px',
                     borderRadius: '14px',
-                    border: digit ? '2px solid #0B192C' : '1.5px solid #cbd5e1',
-                    background: digit ? '#f8fafc' : '#ffffff',
+                    border: digit
+                      ? (isDark ? '2px solid #FFB703' : '2.5px solid #0F172A')
+                      : (isDark ? '1.5px solid #30363D' : '2px solid #0F172A'), // Visible border in white mode
+                    background: digit 
+                      ? (isDark ? '#21262D' : '#F8FAFC') 
+                      : (isDark ? '#161B22' : '#FFFFFF'),
                     textAlign: 'center',
                     fontSize: '24px',
                     fontWeight: 900,
-                    color: '#0f172a',
+                    color: isDark ? '#FFFFFF' : '#0F172A',
                     outline: 'none',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                    boxShadow: isDark ? 'none' : '0 2px 6px rgba(0,0,0,0.06)'
                   }}
                 />
               ))}
             </div>
 
-            {/* Quick 1-Tap Auto-fill Helper */}
-            <div style={{
-              background: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              borderRadius: '12px',
-              padding: '10px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '18px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '16px' }}>🔑</span>
-                <div>
-                  <span style={{ fontSize: '11px', color: '#15803d', fontWeight: 600, display: 'block' }}>
-                    Instant Verification OTP:
-                  </span>
-                  <span style={{ fontSize: '15px', fontWeight: 900, color: '#14532d', letterSpacing: '0.08em' }}>
-                    {generatedOtp}
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleAutoFillOtp}
-                style={{
-                  background: '#15803d',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '6px 12px',
-                  fontSize: '11.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-              >
-                Auto-Fill
-              </button>
-            </div>
-
-            {/* Verify CTA */}
-            <button
-              type="button"
-              onClick={() => verifyOtpCode(otpDigits.join(''))}
-              disabled={isLoading || otpDigits.join('').length < 4}
-              style={{
-                width: '100%',
-                background: otpDigits.join('').length === 4 ? '#0B192C' : '#94a3b8',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '14px',
-                padding: '13px',
-                fontSize: '15px',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                cursor: otpDigits.join('').length === 4 ? 'pointer' : 'not-allowed',
-                boxShadow: otpDigits.join('').length === 4 ? '0 4px 16px rgba(11, 25, 44, 0.25)' : 'none'
-              }}
-            >
-              {isLoading ? (
-                <span>Verifying...</span>
-              ) : (
-                <>
-                  <span>Verify & Enter Cab App</span>
-                  <ArrowRight size={17} />
-                </>
-              )}
-            </button>
-
-            {/* Resend option */}
-            <div style={{ textAlign: 'center', marginTop: '16px' }}>
+            {/* Resend Timer Text */}
+            <div style={{ marginBottom: '20px' }}>
               {canResend ? (
                 <button
                   type="button"
@@ -626,162 +1775,113 @@ export default function CabAuthScreen({ onAuthSuccess, onSkip, isNativeApp = fal
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#0B192C',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
+                    color: '#FFB703',
+                    fontSize: '13px',
+                    fontWeight: 800,
                     textDecoration: 'underline',
                     cursor: 'pointer'
                   }}
                 >
-                  Resend Verification Code
+                  Resend OTP Code
                 </button>
               ) : (
-                <span style={{ fontSize: '12px', color: '#94a3b8' }}>
-                  Resend code in <strong>{resendTimer}s</strong>
+                <span style={{ fontSize: '13px', color: isDark ? '#8B949E' : '#64748B', fontWeight: 600 }}>
+                  Resend OTP in <strong style={{ color: isDark ? '#FFB703' : '#0F172A' }}>00:{resendTimer < 10 ? `0${resendTimer}` : resendTimer}</strong>
                 </span>
               )}
             </div>
-          </div>
-        )}
 
-        {/* ════════════════════════════════════════════════════════════════════
-            STEP 3: GOOGLE ACCOUNT SELECTION MODAL
-           ════════════════════════════════════════════════════════════════════ */}
-        {step === 'google_modal' && (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <svg width="22" height="22" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
-                <span style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                  Sign in with Google
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setStep('phone')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                <X size={18} color="#64748b" />
-              </button>
-            </div>
-
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
-              Choose a Google account to continue to WOW GOA CABS.
-            </p>
-
-            {/* Quick 1-Tap Google Account 1 */}
-            <div
-              onClick={() => handleGoogleSignIn('goa.traveler@gmail.com', 'Goa Traveler')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 14px',
-                border: '1.5px solid #e2e8f0',
-                borderRadius: '14px',
-                cursor: 'pointer',
-                background: '#ffffff',
-                marginBottom: '10px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <div style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '50%',
-                background: '#4285F4',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-                fontSize: '15px',
-                flexShrink: 0
-              }}>
-                G
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontWeight: 800, fontSize: '14px', color: '#0f172a', display: 'block' }}>
-                  Goa Traveler
-                </span>
-                <span style={{ fontSize: '11.5px', color: '#64748b' }}>
-                  goa.traveler@gmail.com
-                </span>
-              </div>
-              <CheckCircle2 size={16} color="#4285F4" />
-            </div>
-
-            {/* Quick 1-Tap Custom Google Sign-In */}
+            {/* 1-Tap Demo OTP Helper */}
             <div style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
+              background: isDark ? '#161B22' : '#FFFBEB',
+              border: isDark ? '1.5px solid rgba(255, 183, 3, 0.4)' : '2px solid #D97706',
               borderRadius: '14px',
-              padding: '14px',
-              marginTop: '10px'
+              padding: '10px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '20px'
             }}>
-              <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>
-                Or enter another Google account:
-              </span>
-              <input
-                type="email"
-                placeholder="youremail@gmail.com"
-                value={customGoogleEmail}
-                onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  marginBottom: '8px',
-                  background: '#ffffff'
-                }}
-              />
+              <div>
+                <span style={{ fontSize: '11px', color: isDark ? '#8B949E' : '#78350F', display: 'block', fontWeight: 600 }}>
+                  Instant Demo Code:
+                </span>
+                <span style={{ fontSize: '16px', fontWeight: 900, color: isDark ? '#FFB703' : '#B45309', letterSpacing: '0.08em' }}>
+                  {generatedOtp}
+                </span>
+              </div>
               <button
                 type="button"
-                onClick={() => {
-                  const mail = customGoogleEmail.trim() || 'guest@gmail.com';
-                  const name = mail.split('@')[0];
-                  handleGoogleSignIn(mail, name);
-                }}
+                onClick={handleAutoFillOtp}
                 style={{
-                  width: '100%',
-                  background: '#4285F4',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '10px',
-                  fontSize: '13px',
-                  fontWeight: 700,
+                  background: '#FFB703',
+                  color: '#000000',
+                  border: isDark ? 'none' : '1.5px solid #0F172A',
+                  borderRadius: '8px',
+                  padding: '7px 14px',
+                  fontSize: '12px',
+                  fontWeight: 900,
                   cursor: 'pointer'
                 }}
               >
-                Continue with this Google Account
+                Auto-Fill
               </button>
             </div>
           </div>
-        )}
 
-      </div>
+          {/* Bottom Solid Yellow "Confirm" Button */}
+          <div>
+            <button
+              type="button"
+              onClick={() => verifyOtpCode(otpDigits.join(''))}
+              disabled={isLoading || otpDigits.join('').length < 4}
+              style={{
+                width: '100%',
+                background: otpDigits.join('').length === 4 
+                  ? '#FFB703' 
+                  : (isDark ? '#21262D' : '#E2E8F0'),
+                color: otpDigits.join('').length === 4 
+                  ? '#000000' 
+                  : (isDark ? '#64748B' : '#94A3B8'),
+                border: isDark ? 'none' : '2px solid #0F172A',
+                borderRadius: '16px',
+                padding: '16px',
+                fontSize: '16px',
+                fontWeight: 900,
+                cursor: otpDigits.join('').length === 4 ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: otpDigits.join('').length === 4 
+                  ? '0 4px 16px rgba(255, 183, 3, 0.35)' 
+                  : 'none',
+                letterSpacing: '0.3px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {isLoading ? (
+                <span>Verifying...</span>
+              ) : (
+                <>
+                  <span>{t.confirm}</span>
+                  <ArrowRight size={18} strokeWidth={2.5} />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
-      {/* Safety assurance badge at bottom */}
+      {/* Clean Bottom Home Indicator Bar (Mobile App Feel) */}
       <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        color: '#64748b',
-        fontSize: '11px',
-        fontWeight: 600,
-        marginBottom: '20px'
-      }}>
-        <ShieldCheck size={14} color="#10b981" />
-        <span>Goa Tourism Certified · Police-Verified Chauffeurs</span>
-      </div>
+        width: '130px',
+        height: '4px',
+        borderRadius: '2px',
+        background: isDark ? '#484F58' : '#CBD5E1',
+        margin: '8px auto 0',
+        zIndex: 10
+      }} />
 
     </div>
   );

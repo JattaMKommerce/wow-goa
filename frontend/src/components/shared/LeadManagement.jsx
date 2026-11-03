@@ -11,7 +11,7 @@ import AIChatbotToggle from '../common/AIChatbotToggle';
 
 const SOURCE_TABS = [
   'All',
-  'Goa Tourist Visa',
+  'Tourist Visa',
   'Hotel Enquiries',
   'Vehicle Rental',
   'Vendor Onboarding',
@@ -48,6 +48,7 @@ const NEXT_ACTION_PRESETS = [
 
 function SourceBadge({ source }) {
   const configs = {
+    'Tourist Visa': { bg: '#fff1f2', color: '#e11d48', border: '#fecdd3', icon: Globe },
     'Goa Tourist Visa': { bg: '#fff1f2', color: '#e11d48', border: '#fecdd3', icon: Globe },
     'Hotel Enquiries': { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe', icon: Building },
     'Vehicle Rental': { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa', icon: Car },
@@ -448,28 +449,10 @@ export default function LeadManagement({ usersList = [], currentUser }) {
             const n = (currentUser?.name || '').toLowerCase().trim();
             return (u && (a === u || a.includes(u))) || (n && (a === n || a.includes(n)));
           });
-        } else if (isAdmin) {
-          // Admin sees leads assigned to Admin, unassigned leads, and leads assigned to Sub-Admins to monitor their work
-          visibleLeads = data.filter(l => {
-            const a = (l.assigned_to || l.assignedTo || '').toLowerCase().trim();
-            const u = (currentUser?.username || '').toLowerCase().trim();
-            const n = (currentUser?.name || '').toLowerCase().trim();
-            const isUnassigned = !a || a === 'unassigned' || a === 'none' || a === 'null';
-            const isAssignedToThisAdmin = a === 'admin' || (u && (a === u || a.includes(u))) || (n && (a === n || a.includes(n)));
-            
-            // Check if assigned to any Sub-Admin / Agent
-            const isAssignedToSubAdmin = assignableUsers.some(sub => {
-              const subR = (sub.role || '').toLowerCase();
-              if (!['subadmin', 'sub_admin', 'agent'].includes(subR)) return false;
-              const subU = (sub.username || '').toLowerCase().trim();
-              const subN = (sub.name || '').toLowerCase().trim();
-              return (subU && a.includes(subU)) || (subN && a.includes(subN));
-            });
-
-            return isUnassigned || isAssignedToThisAdmin || isAssignedToSubAdmin;
-          });
+        } else if (isAdmin || isSuperAdmin) {
+          // Admin and Superadmin have full operational visibility across all leads and actions
+          visibleLeads = data;
         }
-        // If isSuperAdmin: sees all leads without filtering
 
         setLeads(visibleLeads);
         setLastSyncedAt(Date.now());
@@ -600,7 +583,10 @@ export default function LeadManagement({ usersList = [], currentUser }) {
 
   // Filtered Leads
   const filteredLeads = leads.filter(item => {
-    const matchSource = (activeSource === 'All') || (item.source === activeSource);
+    const matchSource = (activeSource === 'All') || 
+      (activeSource.toLowerCase().includes('visa') 
+        ? Boolean(item.source && item.source.toLowerCase().includes('visa')) 
+        : item.source === activeSource);
     const matchStatus = (selectedStatus === 'All Statuses') || (item.status === selectedStatus);
     const q = search.toLowerCase().trim();
     const matchSearch = !q || 

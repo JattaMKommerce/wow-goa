@@ -63,6 +63,8 @@ import VendorLoginPage from './pages/vendor/VendorLoginPage';
 import RoleAccessDeniedModal from './components/vendor/RoleAccessDeniedModal';
 import PublicVendorStorefrontPage from './pages/vendor/PublicVendorStorefrontPage';
 import TaxiVendorPortalPage from './pages/vendor/TaxiVendorPortalPage';
+import ChauffeurPortal from './pages/taxi/ChauffeurPortal';
+import { AuthProvider } from './context/TaxiAuthContext';
 import CustomerCabsPage from './pages/customer/CustomerCabsPage';
 import TaxiAppShell from './pages/customer/TaxiAppShell';
 import ApkDownloadPage from './pages/customer/ApkDownloadPage';
@@ -118,7 +120,8 @@ export default function App() {
       if (p.startsWith('/cabs') || p.startsWith('/taxi')) return 'cabs';
       if (p.startsWith('/visa')) return 'visa';
       if ((p === '/vehicle' || p === '/vehicles' || p.startsWith('/vehicle/') || p.startsWith('/vehicles/')) && p !== '/vehicle/login') return 'selfdrive';
-      if (p.startsWith('/admin') || p === '/portal' || p.startsWith('/sub-admin') || p.startsWith('/subadmin') || p.startsWith('/superadmin') || p.startsWith('/super-admin') || p === '/vendor' || p === '/hotel-vendor' || p === '/flight-vendor' || p === '/taxi-vendor' || p.startsWith('/taxi-vendor') || p === '/chauffeur' || p === '/chauffer' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login' || p === '/taxi/login') return 'portal';
+      if (p === '/chauffeur' || p === '/chauffer' || p === '/taxi-chauffeur') return 'chauffeur';
+      if (p.startsWith('/admin') || p === '/portal' || p.startsWith('/sub-admin') || p.startsWith('/subadmin') || p.startsWith('/superadmin') || p.startsWith('/super-admin') || p === '/vendor' || p === '/hotel-vendor' || p === '/flight-vendor' || p === '/taxi-vendor' || p.startsWith('/taxi-vendor') || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login' || p === '/taxi/login') return 'portal';
       if (p.startsWith('/b2b') || p === '/register' || p.startsWith('/vendor/register')) return 'b2b';
       if (p.startsWith('/driver')) return 'driver';
       if (p.startsWith('/customer')) return 'customer';
@@ -781,8 +784,8 @@ export default function App() {
       }
       else if (cleanPath === 'craft' || cleanPath === 'craftmytrip') newTab = 'craftmytrip';
       else if (cleanPath === 'custom-trip') newTab = 'custom-trip';
-      else if (cleanPath === 'customer' || cleanPath.startsWith('customer') || cleanPath === 'my-bookings') newTab = 'customer';
-      else if (cleanPath === 'admin' || cleanPath === 'portal' || cleanPath === 'superadmin' || cleanPath === 'vendor' || cleanPath === 'hotel-vendor' || cleanPath === 'hotel-pms' || cleanPath === 'flight-vendor' || cleanPath === 'sub-admin' || cleanPath === 'subadmin' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login' || p === '/taxi/login' || cleanPath === 'taxi-portal' || cleanPath === 'taxi-dispatch' || cleanPath === 'taxi-chauffeur' || cleanPath === 'taxi-fleet') newTab = 'portal';
+      else if (cleanPath === 'chauffeur' || cleanPath === 'chauffer' || cleanPath === 'taxi-chauffeur') newTab = 'chauffeur';
+      else if (cleanPath === 'admin' || cleanPath === 'portal' || cleanPath === 'superadmin' || cleanPath === 'vendor' || cleanPath === 'hotel-vendor' || cleanPath === 'hotel-pms' || cleanPath === 'flight-vendor' || cleanPath === 'sub-admin' || cleanPath === 'subadmin' || p === '/vehicle/login' || p === '/hotel/login' || p === '/flight/login' || p === '/taxi/login' || cleanPath === 'taxi-portal' || cleanPath === 'taxi-dispatch' || cleanPath === 'taxi-fleet') newTab = 'portal';
       else if (cleanPath === 'dashboard') newTab = 'dashboard';
       else if (cleanPath === 'b2b' || cleanPath.startsWith('b2b') || p === '/register' || p.startsWith('/vendor/register')) newTab = 'b2b';
       else if (cleanPath === 'driver') newTab = 'driver';
@@ -1838,6 +1841,11 @@ export default function App() {
 
   // ─── DEDICATED TAXI APP SHELL (STRICTLY CABS ONLY, NO WEBSITE PAGES) ───────
   // Isolated ride-hailing interface for APK installations and direct cab bookers
+  const isMobileDevice = typeof window !== 'undefined' && (
+    window.innerWidth <= 768 ||
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '')
+  );
+
   const isNativeApp = typeof window !== 'undefined' && (
     Boolean(window.Capacitor?.isNativePlatform?.()) ||
     Boolean(window.Capacitor) ||
@@ -1845,6 +1853,13 @@ export default function App() {
     window.location.search.includes('mode=app') ||
     window.location.search.includes('source=apk') ||
     window.location.search.includes('app=taxi') ||
+    window.location.search.includes('step=language') ||
+    window.location.search.includes('step=lang') ||
+    window.location.search.includes('flow=') ||
+    window.location.search.includes('lang=') ||
+    window.location.pathname === '/app' ||
+    window.location.pathname === '/cabs/app' ||
+    ((path.startsWith('/cabs') || path.startsWith('/taxi')) && isMobileDevice) ||
     (window.location.hostname === 'localhost' && window.location.protocol === 'https:') ||
     (window.navigator && window.navigator.userAgent && (
       window.navigator.userAgent.includes('Capacitor') ||
@@ -1874,6 +1889,11 @@ export default function App() {
     return (
       <B2BPortalPage
         activities={activities}
+        cars={cars}
+        bikes={bikes}
+        hotels={hotels}
+        flights={flights}
+        bookings={bookings}
         onNavigateHome={() => {
           handleTabChange('selfdrive');
         }}
@@ -2015,16 +2035,33 @@ export default function App() {
       }
     }
 
+    // ── Dedicated Taxi Operations CRM Hub (Bookings, Drivers, Cabs) ───────────
+    if (path === '/taxi-portal' || path === '/taxi-crm' || path === '/taxi-dispatch' || 
+        path === '/taxi-drivers' || path === '/taxi-fleet' || path === '/taxi-chauffeur' ||
+        path === '/taxi-hub' || path === '/taxi-operations') {
+      const initialTab = path === '/taxi-chauffeur' 
+        ? 'chauffeur' 
+        : (path === '/taxi-fleet' ? 'fleet' : (path === '/taxi-drivers' ? 'drivers' : 'dispatch'));
+      return (
+        <TaxiOperationsHub
+          initialTab={initialTab}
+          onLogout={handleLogout}
+          onNavigateHome={() => handleTabChange('taxi')}
+        />
+      );
+    }
+
     // Taxi & Cab Vendor & Chauffeur route guard
-    if (path === '/taxi-vendor' || path === '/chauffeur' || path === '/chauffer' || 
+    const isChauffeurRoute = path === '/chauffeur' || path === '/chauffer' || path === '/taxi-chauffeur' || activeTab === 'chauffeur';
+    if (path === '/taxi-vendor' || isChauffeurRoute || 
         ((currentUser?.role === 'taxi_vendor' || currentUser?.role === 'chauffeur' || currentUser?.role === 'chauffer' || currentUser?.role === 'dispatcher') && 
-         (path === '/portal' || path === '/taxi-vendor' || path === '/chauffeur' || path === '/chauffer'))) {
+         (path === '/portal' || path === '/taxi-vendor' || isChauffeurRoute))) {
       if (!currentUser) {
         return (
           <VendorLoginPage
-            vendorType="taxi"
-            onLoginSuccess={(u) => handleVendorLoginSuccess(u, (path === '/chauffeur' || path === '/chauffer' || u?.role === 'chauffeur' || u?.role === 'chauffer') ? '/chauffeur' : '/taxi-vendor')}
-            onNavigateHome={() => handleTabChange('selfdrive')}
+            vendorType={isChauffeurRoute ? "chauffeur" : "taxi"}
+            onLoginSuccess={(u) => handleVendorLoginSuccess(u, isChauffeurRoute ? '/chauffeur' : '/taxi-vendor')}
+            onNavigateHome={() => handleTabChange('cabs')}
             onNavigateRegister={() => {
               handleTabChange('b2b');
               window.history.pushState(null, '', '/b2b/register?vendor=taxi_vendor');
@@ -2033,16 +2070,25 @@ export default function App() {
           />
         );
       }
-      if (path === '/chauffeur' || path === '/chauffer' || currentUser.role === 'chauffeur' || currentUser.role === 'chauffer') {
+      if (isChauffeurRoute || currentUser.role === 'chauffeur' || currentUser.role === 'chauffer') {
         try { localStorage.setItem('active_role', 'DRIVER'); } catch (e) {}
+        return (
+          <AuthProvider>
+            <ChauffeurPortal
+              currentUser={currentUser}
+              onLogout={handleLogout}
+              onNavigateHome={() => handleTabChange('cabs')}
+            />
+          </AuthProvider>
+        );
       }
-      if (currentUser.role !== 'taxi_vendor' && currentUser.role !== 'admin' && currentUser.role !== 'superadmin' && currentUser.role !== 'chauffeur' && currentUser.role !== 'chauffer' && currentUser.role !== 'dispatcher') {
+      if (currentUser.role !== 'taxi_vendor' && currentUser.role !== 'admin' && currentUser.role !== 'superadmin' && currentUser.role !== 'dispatcher') {
         return (
           <RoleAccessDeniedModal
             currentUser={currentUser}
             expectedRole="Taxi & Cab Vendor / Chauffeur"
             onLogout={handleLogout}
-            onNavigateHome={() => handleTabChange('selfdrive')}
+            onNavigateHome={() => handleTabChange('cabs')}
           />
         );
       }
@@ -2469,8 +2515,8 @@ export default function App() {
       )}
 
       {/* Dynamic Results & Content Section */}
-      <main className={activeTab === 'cabs' || activeTab === 'taxi' ? 'p-0 m-0 border-0' : 'py-5'} id="results-section" style={{ scrollMarginTop: '80px', minHeight: '80vh' }}>
-        <div className={activeTab === 'cabs' || activeTab === 'taxi' ? 'w-100 p-0 m-0' : 'container'}>
+      <main className={activeTab === 'cabs' || activeTab === 'taxi' || activeTab === 'visa' ? 'p-0 m-0 border-0' : 'py-5'} id="results-section" style={{ scrollMarginTop: '80px', minHeight: '80vh' }}>
+        <div className={activeTab === 'cabs' || activeTab === 'taxi' || activeTab === 'visa' ? 'w-100 p-0 m-0' : 'container'}>
           <div className="tab-slide-enter">
           
           {activeTab === 'packages' && (
@@ -3170,7 +3216,7 @@ export default function App() {
       {/* Live Active Ride Island & OTP Floating Bar */}
       <LiveCustomerRideBar />
 
-      <MobileBottomNav activeTab={activeTab} setActiveTab={handleTabChange} />
+      <MobileBottomNav activeTab={activeTab} setActiveTab={handleTabChange} currentUser={currentUser} />
     </div>
   );
 }

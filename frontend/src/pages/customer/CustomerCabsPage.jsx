@@ -76,8 +76,8 @@ const GOA_LOCATIONS = [
   { name: 'Dudhsagar Waterfalls Entry (Kulem)', category: 'South Goa Inland', region: 'Adventure Hub', popular: true }
 ];
 
-// Complete Tourist Fleet Categories (Normal, Sedan, Executive SUV, Luxury VIP, Maxi Coach)
-const TOURIST_VEHICLES = [
+// Complete Tourist Fleet Categories (Default starter fleet)
+const DEFAULT_TOURIST_VEHICLES = [
   {
     id: 'normal-hatchback',
     name: 'Normal Hatchback',
@@ -155,23 +155,32 @@ const TOURIST_VEHICLES = [
   }
 ];
 
+export const getActiveTaxiVehicles = () => {
+  try {
+    const raw = localStorage.getItem('wowgoa_taxi_vehicles');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const active = parsed.filter(v => v.active !== false);
+        if (active.length > 0) return active;
+      }
+    }
+  } catch (e) {}
+  return DEFAULT_TOURIST_VEHICLES;
+};
+
 export default function CustomerCabsPage({ onBookCab }) {
-  // Page View Modes: 'landing' (Uber storefront) | 'booking' (Dedicated Tourist Booking Page) | 'confirmed'
+  // Page View Modes: 'landing' (Uber storefront first page) | 'booking' (Dedicated Tourist Booking Page) | 'confirmed'
   const [currentView, setCurrentView] = useState(() => {
     try {
-      const saved = localStorage.getItem('wowgoa_active_ride');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.status && parsed.status !== 'Completed') return 'confirmed';
-      }
-      const dispatches = JSON.parse(localStorage.getItem('wowgoa_taxi_dispatches') || '[]');
-      if (dispatches.length > 0) {
-        const d = dispatches[0];
-        if (['Requested', 'Confirmed', 'Dispatched', 'Driver Arrived', 'In Progress', 'Declined'].includes(d.status)) {
-          return 'confirmed';
-        }
-      }
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      if (viewParam === 'booking') return 'booking';
+      if (viewParam === 'confirmed') return 'confirmed';
     } catch (e) {}
+    // In mobile APK app, directly open the ride booking console
+    if (isNativeApp) return 'booking';
+    // Default to the Taxi first page
     return 'landing';
   });
   const [showAppBookingModal, setShowAppBookingModal] = useState(false);
@@ -196,13 +205,35 @@ export default function CustomerCabsPage({ onBookCab }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Filters on Dedicated Booking Page: Seats & Vehicle Class
+  const [availableVehicles, setAvailableVehicles] = useState(() => getActiveTaxiVehicles());
   const [seatFilter, setSeatFilter] = useState('all'); // 'all', '4', '6', '13'
   const [classFilter, setClassFilter] = useState('all'); // 'all', 'normal', 'sedan', 'suv', 'luxury', 'coach'
-  const [selectedVehicleId, setSelectedVehicleId] = useState('sedan-prime');
+  const [selectedVehicleId, setSelectedVehicleId] = useState(() => {
+    const list = getActiveTaxiVehicles();
+    return list[0]?.id || 'sedan-prime';
+  });
 
-  // Tourist Passenger Details
-  const [touristName, setTouristName] = useState('');
-  const [touristPhone, setTouristPhone] = useState('');
+  // Real-time synchronization when vehicle handler adds/modifies vehicles in portal
+  useEffect(() => {
+    const syncVehicles = () => {
+      const active = getActiveTaxiVehicles();
+      setAvailableVehicles(active);
+      setSelectedVehicleId(prev => {
+        if (active.some(v => v.id === prev)) return prev;
+        return active[0]?.id || 'sedan-prime';
+      });
+    };
+    window.addEventListener('storage', syncVehicles);
+    window.addEventListener('wowgoa_vehicles_updated', syncVehicles);
+    return () => {
+      window.removeEventListener('storage', syncVehicles);
+      window.removeEventListener('wowgoa_vehicles_updated', syncVehicles);
+    };
+  }, []);
+
+  // Tourist Passenger Details (Pre-filled from login)
+  const [touristName, setTouristName] = useState(() => cabUser?.name || localStorage.getItem('wowgoa_rider_name') || 'Traveler');
+  const [touristPhone, setTouristPhone] = useState(() => cabUser?.phone || localStorage.getItem('wowgoa_rider_phone') || '');
   const [touristFlight, setTouristFlight] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash', 'upi', 'card'
   const [extraLuggage, setExtraLuggage] = useState(false);
@@ -212,36 +243,15 @@ export default function CustomerCabsPage({ onBookCab }) {
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth());
 
-  // Active Confirmed Trip State (Persisted across tab switches and refreshes)
+  // Active Confirmed Trip State (Persisted only if rider actively booked in current session)
   const [isBooking, setIsBooking] = useState(false);
   const [activeConfirmedRide, setActiveConfirmedRide] = useState(() => {
     try {
       const saved = localStorage.getItem('wowgoa_active_ride');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.refId) return parsed;
-      }
-      const dispatches = JSON.parse(localStorage.getItem('wowgoa_taxi_dispatches') || '[]');
-      if (dispatches.length > 0) {
-        const d = dispatches[0];
-        if (['Requested', 'Confirmed', 'Dispatched', 'Driver Arrived', 'In Progress', 'Declined'].includes(d.status)) {
-          return {
-            refId: d.id,
-            otp: d.otp || '4821',
-            status: d.status === 'Dispatched' ? 'Confirmed' : d.status,
-            pickup: d.service ? d.service.split('➔')[0].trim() : 'Benaulim Beach',
-            dropoff: d.service ? (d.service.split('➔')[1] || '').trim() : 'Ponda',
-            fare: d.amount || 790,
-            passengerName: d.customer || 'Valued Guest',
-            passengerPhone: d.phone || '+91 98221 44510',
-            chauffeur: {
-              name: d.chauffeur || 'Suresh Naik',
-              vehiclePlate: d.vehiclePlate || 'GA-03-Z-8899',
-              phone: '+91 98221 44510',
-              rating: 4.93,
-              trips: 1840
-            }
-          };
+        if (parsed && parsed.refId && parsed.status && !['Completed', 'Cancelled'].includes(parsed.status)) {
+          return parsed;
         }
       }
     } catch (e) {}
@@ -665,9 +675,9 @@ export default function CustomerCabsPage({ onBookCab }) {
     return Math.round(base + extra);
   };
 
-  // Filtered Vehicles by Seats & Class
+  // Filtered Vehicles by Seats & Class (Only showing active vehicles added by fleet operator)
   const filteredVehicles = useMemo(() => {
-    return TOURIST_VEHICLES.filter(v => {
+    return availableVehicles.filter(v => {
       // Seat filter
       if (seatFilter === '4' && v.seats !== 4) return false;
       if (seatFilter === '6' && v.seats < 6) return false;
@@ -678,9 +688,9 @@ export default function CustomerCabsPage({ onBookCab }) {
 
       return true;
     });
-  }, [seatFilter, classFilter]);
+  }, [availableVehicles, seatFilter, classFilter]);
 
-  const selectedVehicle = TOURIST_VEHICLES.find(v => v.id === selectedVehicleId) || TOURIST_VEHICLES[1];
+  const selectedVehicle = availableVehicles.find(v => v.id === selectedVehicleId) || availableVehicles[0] || DEFAULT_TOURIST_VEHICLES[0];
 
   // Handler: Swap Pickup & Dropoff
   const handleSwapLocations = () => {
@@ -689,10 +699,11 @@ export default function CustomerCabsPage({ onBookCab }) {
     setDropoffLocation(temp);
   };
 
-  // Handler: Navigate to Dedicated Booking Page
+  // Handler: Navigate to Dedicated Booking Page (Smooth booking flow with no QR modal)
   const handleOpenBookingPage = (serviceTitle = 'Point-to-Point') => {
     setServiceType(serviceTitle);
-    setShowAppBookingModal(true);
+    setShowAppBookingModal(false);
+    setCurrentView('booking');
   };
 
   const proceedToDedicatedBooking = () => {
@@ -767,6 +778,8 @@ export default function CustomerCabsPage({ onBookCab }) {
         customer: pName,
         phone: pPhone,
         service: `${pickupLocation} ➔ ${dropoffLocation}`,
+        pickup: pickupLocation,
+        dropoff: dropoffLocation,
         car: selectedVehicle.model || 'Sedan Prime',
         chauffeur: 'Suresh Naik',
         vehiclePlate: 'GA-03-Z-8899',
@@ -832,40 +845,70 @@ export default function CustomerCabsPage({ onBookCab }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'auto', background: '#fff', fontFamily: '"Uber Move Text", system-ui, -apple-system, sans-serif' }}>
 
-        {/* Top Nav Bar */}
-        <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0 24px', height: '52px', minHeight: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button type="button" onClick={() => setCurrentView('landing')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, color: '#111' }}>
-              <ArrowLeft size={18} /> Back
-            </button>
-            <span style={{ fontWeight: 700, fontSize: '18px', color: '#111' }}>🚕 Goa Cabs</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Top Nav Bar: Minimal on mobile app to prevent duplicate stacked headers */}
+        {isNativeApp ? (
+          <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '7px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
+            <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🚕</span>
+              <span>Goa Instant Cabs &amp; Airport Transfers</span>
+            </span>
             <button
               type="button"
               onClick={() => setShowTripsHistoryModal(true)}
               style={{
-                background: '#f8fafc',
+                background: '#ffffff',
                 border: '1px solid #cbd5e1',
-                borderRadius: '20px',
-                padding: '5px 12px',
-                fontSize: '12px',
+                borderRadius: '14px',
+                padding: '4px 10px',
+                fontSize: '11.5px',
                 fontWeight: 700,
                 color: '#0f172a',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '4px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
               }}
             >
-              <Clock size={13} />
-              <span>Activity / Trips</span>
+              <Clock size={11.5} />
+              <span>Activity</span>
             </button>
-            <span style={{ fontSize: '13px', color: '#6b7280' }}>📞 +91 98221 44510</span>
-            <span style={{ background: '#000', color: '#fff', borderRadius: '20px', padding: '4px 14px', fontSize: '12px', fontWeight: 600 }}>Zero Surge</span>
           </div>
-        </div>
+        ) : (
+          <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0 24px', height: '52px', minHeight: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <button type="button" onClick={() => setCurrentView('landing')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, color: '#111' }}>
+                <ArrowLeft size={18} /> Back
+              </button>
+              <span style={{ fontWeight: 700, fontSize: '18px', color: '#111' }}>🚕 Goa Cabs</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setShowTripsHistoryModal(true)}
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '20px',
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Clock size={13} />
+                <span>Activity / Trips</span>
+              </button>
+              <span style={{ fontSize: '13px', color: '#6b7280' }}>📞 +91 98221 44510</span>
+              <span style={{ background: '#000', color: '#fff', borderRadius: '20px', padding: '4px 14px', fontSize: '12px', fontWeight: 600 }}>Zero Surge</span>
+            </div>
+          </div>
+        )}
 
         {/* Main 3-column layout */}
         <div className="cabs-3col-layout" style={{ display: 'flex', width: '100%', minHeight: 'auto', alignItems: 'stretch' }}>
@@ -1004,15 +1047,25 @@ export default function CustomerCabsPage({ onBookCab }) {
               </select>
             </div>
 
-            {/* Contact (compact) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <input type="text" placeholder="Your name"
-                style={{ padding: '10px 14px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', background: '#fff', color: '#111' }}
-                value={touristName} onChange={(e) => setTouristName(e.target.value)} />
-              <input type="tel" placeholder="Mobile / WhatsApp"
-                style={{ padding: '10px 14px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', background: '#fff', color: '#111' }}
-                value={touristPhone} onChange={(e) => setTouristPhone(e.target.value)} />
-            </div>
+            {/* Contact Details (Streamlined & Clean) */}
+            {(touristPhone || cabUser?.phone) ? (
+              <div style={{ padding: '8px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '12px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span>👤</span>
+                  <span>Rider: <strong style={{ color: '#0F172A' }}>{touristName || 'Traveler'}</strong></span>
+                </span>
+                <span style={{ fontWeight: 700, color: '#0F172A' }}>{touristPhone || cabUser?.phone}</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <input type="text" placeholder="Your name"
+                  style={{ padding: '10px 14px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', background: '#fff', color: '#111' }}
+                  value={touristName} onChange={(e) => setTouristName(e.target.value)} />
+                <input type="tel" placeholder="Mobile / WhatsApp"
+                  style={{ padding: '10px 14px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', background: '#fff', color: '#111' }}
+                  value={touristPhone} onChange={(e) => setTouristPhone(e.target.value)} />
+              </div>
+            )}
 
             {/* Add-ons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 14px', background: '#f7f7f7', borderRadius: '10px' }}>
@@ -1063,9 +1116,13 @@ export default function CustomerCabsPage({ onBookCab }) {
                       background: isSelected ? '#f7f7f7' : '#fff',
                       transition: 'all 0.15s ease'
                     }}>
-                    {/* Vehicle icon */}
-                    <div style={{ width: '52px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: '30px', lineHeight: 1 }}>{v.icon}</span>
+                    {/* Vehicle image / icon */}
+                    <div style={{ width: '54px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', borderRadius: '6px' }}>
+                      {v.image ? (
+                        <img src={v.image} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ fontSize: '28px', lineHeight: 1 }}>{v.icon || '🚗'}</span>
+                      )}
                     </div>
 
                     {/* Info */}
@@ -1079,7 +1136,7 @@ export default function CustomerCabsPage({ onBookCab }) {
                         {v.badge === 'Family Favorite' && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: '4px', padding: '1px 5px', fontSize: '10px', fontWeight: 600 }}>Good deal</span>}
                       </div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                        {v.eta} min · {v.features[0]}
+                        {v.eta || 4} min · {v.desc || (v.features && v.features[0]) || `${v.fuel || 'Petrol'} · AC`}
                       </div>
                     </div>
 

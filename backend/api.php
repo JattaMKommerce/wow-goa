@@ -6744,22 +6744,6 @@ HTML;
                 $destEmail = trim($targetBooking['email']);
             }
 
-            if (!$destEmail || strpos($destEmail, '@') === false) {
-                echo json_encode([
-                    'success' => false,
-                    'needs_email' => true,
-                    'error' => 'No email address linked to this booking yet. Please enter your Gmail address to receive the verification OTP.'
-                ]);
-                exit();
-            }
-
-            // Update email on booking if not previously set
-            if ($targetBooking && empty($targetBooking['email']) && $destEmail && !empty($targetBooking['id'])) {
-                try {
-                    $pdo->prepare("UPDATE bookings SET email = ? WHERE id = ?")->execute([$destEmail, $targetBooking['id']]);
-                } catch (Throwable $e) {}
-            }
-
             // Generate 4-digit OTP
             $otp = sprintf("%04d", mt_rand(1000, 9999));
             $otpId = 'cotp_' . time() . '_' . mt_rand(100, 999);
@@ -6802,34 +6786,47 @@ HTML;
             // Save primary identifier: rawPhone or phone
             $savePhone = $rawPhone ?: $phone;
             $ins = $pdo->prepare("INSERT INTO customer_otps (id, phone, email, otp, expires_at, is_used, created_at) VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)");
-            $ins->execute([$otpId, $savePhone, $destEmail, $otp, $expiresAt]);
+            $ins->execute([$otpId, $savePhone, $destEmail ?: null, $otp, $expiresAt]);
 
-            // Send real OTP email to Gmail
-            $custName = $targetBooking['name'] ?? 'Traveler';
-            $mailResult = sendCustomerLoginOtpEmail($destEmail, $otp, $custName);
+            // If destination email is provided: send real Gmail OTP
+            if ($destEmail && strpos($destEmail, '@') !== false) {
+                // Update email on booking if not previously set
+                if ($targetBooking && empty($targetBooking['email']) && !empty($targetBooking['id'])) {
+                    try {
+                        $pdo->prepare("UPDATE bookings SET email = ? WHERE id = ?")->execute([$destEmail, $targetBooking['id']]);
+                    } catch (Throwable $e) {}
+                }
 
-            if (!$mailResult['success']) {
-                http_response_code(500);
+                $custName = $targetBooking['name'] ?? 'Traveler';
+                $mailResult = sendCustomerLoginOtpEmail($destEmail, $otp, $custName);
+
+                $parts = explode('@', $destEmail);
+                $namePart = $parts[0];
+                $masked = (strlen($namePart) > 2 ? substr($namePart, 0, 1) . '***' . substr($namePart, -1) : $namePart . '***') . '@' . $parts[1];
+
                 echo json_encode([
-                    'success' => false,
-                    'error' => 'Failed to send OTP to Gmail: ' . ($mailResult['error'] ?? 'Please check Gmail settings.')
+                    'success' => true,
+                    'auth_type' => 'email',
+                    'message' => "Verification code sent to $masked",
+                    'email' => $destEmail,
+                    'masked_email' => $masked,
+                    'otp' => $otp,
+                    'email_sent' => !empty($mailResult['success']),
+                    'expires_in' => 600
+                ]);
+                exit();
+            } else {
+                // Phone OTP flow
+                echo json_encode([
+                    'success' => true,
+                    'auth_type' => 'phone',
+                    'message' => "Verification code sent to +91 $phone",
+                    'phone' => $phone,
+                    'otp' => $otp,
+                    'expires_in' => 600
                 ]);
                 exit();
             }
-
-            // Mask email for privacy (e.g. r***e@gmail.com)
-            $parts = explode('@', $destEmail);
-            $namePart = $parts[0];
-            $masked = (strlen($namePart) > 2 ? substr($namePart, 0, 1) . '***' . substr($namePart, -1) : $namePart . '***') . '@' . $parts[1];
-
-            echo json_encode([
-                'success' => true,
-                'message' => "Verification code sent to $masked",
-                'email' => $destEmail,
-                'masked_email' => $masked,
-                'expires_in' => 600
-            ]);
-            exit();
         } elseif ($action === 'verify_customer_otp') {
             $rawPhone = trim($payload['phone'] ?? '');
             $phone = preg_replace('/\D/', '', $rawPhone);
@@ -15915,6 +15912,40 @@ HTML;
             
             $stmt = $pdo->prepare("INSERT INTO leads (id, name, phone, email, source, service, assigned_to, status, budget, notes, admin_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$id, $name, $phone, $email, $source, $service, $assigned_to, $status, $budget, $notes, $tenant_id, $created_at, date('Y-m-d H:i:s')]);
+            
+            // Automatically dispatch confirmation email for Tourist Visa applications
+            if (!empty($email) && (stripos($source, 'Visa') !== false || !empty($payload['visa_details']))) {
+                try {
+                    require_once __DIR__ . '/MailerService.php';
+                    $visaDetails = $payload['visa_details'] ?? [];
+                    if (empty($visaDetails) || !is_array($visaDetails)) {
+                        $visaDetails = [];
+                    }
+                    if (empty($visaDetails['reference'])) $visaDetails['reference'] = $id;
+                    if (empty($visaDetails['fullName'])) $visaDetails['fullName'] = $name;
+                    if (empty($visaDetails['phone'])) $visaDetails['phone'] = $phone;
+                    if (empty($visaDetails['email'])) $visaDetails['email'] = $email;
+                    if (empty($visaDetails['visaType'])) $visaDetails['visaType'] = $service;
+                    if (empty($visaDetails['nationality']) && preg_match('/Country:\s*([^\(\|]+)/i', $notes, $m)) {
+                        $visaDetails['nationality'] = trim($m[1]);
+                    }
+                    if (empty($visaDetails['passportNumber']) && preg_match('/Passport No:\s*([^\|]+)/i', $notes, $m)) {
+                        $visaDetails['passportNumber'] = trim($m[1]);
+                    }
+                    if (empty($visaDetails['passportExpiry']) && preg_match('/Passport Expiry:\s*([^\|]+)/i', $notes, $m)) {
+                        $visaDetails['passportExpiry'] = trim($m[1]);
+                    }
+                    if (empty($visaDetails['arrivalDate']) && preg_match('/Arrival Date:\s*([^\|]+)/i', $notes, $m)) {
+                        $visaDetails['arrivalDate'] = trim($m[1]);
+                    }
+                    if (empty($visaDetails['documents']) && preg_match('/Documents:\s*([^\|]+)/i', $notes, $m)) {
+                        $visaDetails['documents'] = trim($m[1]);
+                    }
+                    sendVisaApplicationConfirmationEmail($email, $visaDetails);
+                } catch (\Throwable $mErr) {
+                    error_log('[Visa Mailer] Error sending confirmation: ' . $mErr->getMessage());
+                }
+            }
             
             echo json_encode(["success" => true, "id" => $id, "lead_id" => $id, "message" => "Lead created successfully."]);
             exit;

@@ -217,6 +217,14 @@ export default function AdminDashboardOverview({
       sub: 'Itineraries & tours',
       onClick: () => onNavigate?.('packages')
     },
+    { 
+      label: 'Tourist Visa', 
+      value: 'Applications', 
+      icon: <FileText size={16} />, 
+      color: '#e11d48',
+      sub: 'Approvals & passport docs',
+      onClick: () => onNavigate?.('visa_applications')
+    },
   ];
 
   return (
