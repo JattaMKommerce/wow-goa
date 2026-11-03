@@ -6,14 +6,17 @@ import {
 } from 'lucide-react';
 import chatbotAvatar from '../assets/tara-concierge.jpg';
 import chatbotAnimationVideo from '../assets/chatbot-animation.mp4';
+import tara3dAvatar from '../assets/tara-concierge-3d.webp';
 import { chatWithAI, createAiLead, updateAiLeadChat, getAIChatbotSettings } from '../services/api';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
 
 const aiMessages = [
-  "Plan Your Goa Trip",
-  "Ask Tara Concierge",
-  "Let's Explore Goa",
-  "Welcome to Goa! 🌴"
+  "🌴 Plan Your Goa Trip",
+  "✨ Ask Tara Concierge",
+  "🏖️ Explore Secret Beaches",
+  "🚗 Rent Thar & Self Drive",
+  "🚕 Book Airport Cabs",
+  "🌊 Scuba & Water Sports"
 ];
 
 const CRAFT_SUGGESTIONS = [
@@ -35,6 +38,7 @@ const DEFAULT_SUGGESTIONS = [
 export default function AIChatbot() {
   const [isChatbotEnabled, setIsChatbotEnabled] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
   const [msgIndex, setMsgIndex] = useState(0);
   const [fade, setFade] = useState(true);
   const [leadId, setLeadId] = useState(null);
@@ -350,6 +354,16 @@ export default function AIChatbot() {
     return () => {
       if ('speechSynthesis' in window) window.speechSynthesis.onvoiceschanged = null;
     };
+  }, []);
+
+    useEffect(() => {
+    if (avatarVideoRef.current) {
+      avatarVideoRef.current.play().then(() => {
+        setVideoLoaded(true);
+      }).catch(() => {
+        setVideoLoaded(false);
+      });
+    }
   }, []);
 
   // Real-time canvas processing to strip black background into true transparency
@@ -1224,7 +1238,7 @@ export default function AIChatbot() {
 
   return (
     <>
-      {/* ─── FLOATING AI ASSISTANT ROBOT TRIGGER ──────────────────────── */}
+            {/* ─── FLOATING 3D TARA AI CONCIERGE TRIGGER (WOW GOA) ─────────── */}
       <video
         ref={avatarVideoRef}
         src={chatbotAnimationVideo}
@@ -1233,6 +1247,8 @@ export default function AIChatbot() {
         loop
         muted
         playsInline
+        onCanPlay={() => setVideoLoaded(true)}
+        onLoadedData={() => setVideoLoaded(true)}
         style={{ display: 'none' }}
       />
 
@@ -1240,7 +1256,7 @@ export default function AIChatbot() {
         onClick={() => handleOpenChat()}
         role="button"
         tabIndex={0}
-        aria-label="Open Luzia AI Assistant"
+        aria-label="Open Tara AI Travel Concierge"
         className={`sophia-floating-trigger ai-floating-trigger ${isOpen ? 'is-hidden' : 'is-visible'}`}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -1257,7 +1273,7 @@ export default function AIChatbot() {
             style={{
               color: '#0f172a',
               fontWeight: 700,
-              fontSize: '15px',
+              fontSize: '14.5px',
               opacity: fade ? 1 : 0,
               transition: 'opacity 0.35s ease-in-out',
               whiteSpace: 'nowrap'
@@ -1267,42 +1283,34 @@ export default function AIChatbot() {
           </span>
         </div>
 
-        {/* Photorealistic Female Travel Concierge Avatar Wrapper */}
-        <div className="tara-avatar-wrapper" style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'sophiaAntiGravityFloat 3.8s ease-in-out infinite' }}>
-          <div className="tara-avatar-circle" style={{
-            position: 'relative',
-            width: '76px',
-            height: '76px',
-            borderRadius: '50%',
-            padding: '3px',
-            background: 'linear-gradient(135deg, #FFF0B3 0%, #F5C518 50%, #FF9F1C 100%)',
-            boxShadow: '0 8px 30px rgba(245, 197, 24, 0.5), 0 0 20px rgba(245, 197, 24, 0.3)',
-            transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-            cursor: 'pointer'
-          }}>
+        {/* 3D Animated Tara Concierge Avatar Wrapper */}
+        <div className="sophia-avatar-wrapper ai-avatar-wrapper">
+          <canvas
+            ref={canvasRef}
+            id="ai-avatar-canvas"
+            width="1280"
+            height="720"
+            style={{
+              width: '195px',
+              height: 'auto',
+              display: videoLoaded ? 'block' : 'none',
+              filter: 'drop-shadow(0 14px 28px rgba(0, 0, 0, 0.45))'
+            }}
+          />
+          {!videoLoaded && (
             <img
-              src={chatbotAvatar}
-              alt="Tara - WOW GOA AI Concierge"
+              src={tara3dAvatar}
+              alt="Tara - WOW GOA Official AI Concierge"
+              id="ai-avatar-poster"
               style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: '50%',
-                objectFit: 'cover',
-                display: 'block'
+                width: '185px',
+                height: 'auto',
+                display: 'block',
+                filter: 'drop-shadow(0 14px 28px rgba(0, 0, 0, 0.45))',
+                pointerEvents: 'none'
               }}
             />
-            <span style={{
-              position: 'absolute',
-              bottom: '2px',
-              right: '2px',
-              width: '14px',
-              height: '14px',
-              borderRadius: '50%',
-              background: '#22c55e',
-              border: '2.5px solid #060B17',
-              boxShadow: '0 0 8px #22c55e'
-            }} />
-          </div>
+          )}
         </div>
       </div>
 
@@ -1315,7 +1323,7 @@ export default function AIChatbot() {
           right: -6px;
           z-index: 1045;
           display: flex;
-          align-items: center;
+          align-items: flex-end;
           cursor: pointer;
           user-select: none;
           background: transparent !important;
@@ -1348,11 +1356,12 @@ export default function AIChatbot() {
         .ai-speech-pill {
           position: relative;
           z-index: 1;
-          margin-right: -32px;
-          padding: 11px 24px;
+          margin-right: -24px;
+          margin-bottom: 22px;
+          padding: 11px 22px;
           background: #ffffff;
-          border: 1.5px solid rgba(0, 168, 255, 0.25);
-          box-shadow: 0 10px 25px rgba(0, 140, 255, 0.12), 0 4px 6px rgba(0, 0, 0, 0.03);
+          border: 1.5px solid rgba(245, 197, 24, 0.55);
+          box-shadow: 0 10px 25px rgba(245, 197, 24, 0.22), 0 4px 8px rgba(0, 0, 0, 0.08);
           border-radius: 9999px;
           color: #0f172a !important;
           font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -1360,7 +1369,7 @@ export default function AIChatbot() {
           font-weight: 700;
           letter-spacing: -0.2px;
           display: flex;
-          align-items: center;
+          align-items: flex-end;
           gap: 10px;
           white-space: nowrap;
           transition: all 0.3s ease;
@@ -1378,8 +1387,8 @@ export default function AIChatbot() {
         }
         .sophia-floating-trigger:hover .sophia-speech-pill,
         .ai-floating-trigger:hover .sophia-speech-pill {
-          box-shadow: 0 14px 30px rgba(0, 140, 255, 0.2), 0 6px 10px rgba(0, 0, 0, 0.05);
-          border-color: rgba(0, 168, 255, 0.4);
+          box-shadow: 0 14px 30px rgba(245, 197, 24, 0.35), 0 6px 10px rgba(0, 0, 0, 0.08);
+          border-color: rgba(245, 197, 24, 0.8);
         }
 
         /* 3. Glowing Green Status Indicator Dot */
@@ -1407,7 +1416,7 @@ export default function AIChatbot() {
           width: 210px;
           height: auto;
           display: flex;
-          align-items: center;
+          align-items: flex-end;
           justify-content: center;
           overflow: visible !important;
           background: transparent !important;
@@ -1430,14 +1439,15 @@ export default function AIChatbot() {
           width: 200px;
           height: 200px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(0, 195, 255, 0.45) 0%, rgba(0, 140, 255, 0.12) 55%, transparent 75%);
+          background: radial-gradient(circle, rgba(245, 197, 24, 0.42) 0%, rgba(255, 159, 28, 0.16) 55%, transparent 75%);
           filter: blur(22px);
           z-index: 0;
           pointer-events: none;
         }
 
         /* 5. Canvas Display Resolution */
-        #ai-avatar-canvas {
+        #ai-avatar-canvas,
+        #ai-avatar-poster {
           -webkit-mask-image: linear-gradient(to bottom, black 72%, rgba(0, 0, 0, 0.85) 86%, transparent 100%);
           mask-image: linear-gradient(to bottom, black 72%, rgba(0, 0, 0, 0.85) 86%, transparent 100%);
           width: 210px;
