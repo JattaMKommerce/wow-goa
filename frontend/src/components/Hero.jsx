@@ -979,27 +979,6 @@ export default function Hero({
             </button>
           </div>
 
-          {/* Right Column: 8 Goa Destination Vertical Cards */}
-          <div className="hero-right-column">
-            {GOA_DESTINATIONS.map((dest, idx) => {
-              const isSelected = destIdx === idx;
-              return (
-                <div
-                  key={dest.id}
-                  className={`dest-card-item ${isSelected ? 'active' : ''}`}
-                  onClick={() => handleSelectDest(idx)}
-                >
-                  <img 
-                    src={dest.thumb} 
-                    alt={dest.name} 
-                    className="dest-card-thumb" 
-                  />
-                  <span className="dest-card-name">{dest.name}</span>
-                </div>
-              );
-            })}
-          </div>
-
         </div>
 
         {/* Center Bottom: Floating Frosted-Glass Search Card */}
