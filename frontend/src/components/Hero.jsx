@@ -399,23 +399,23 @@ export default function Hero({
         }
 
         .hero-serif-discover {
-          font-family: 'Playfair Display', serif;
+          font-family: 'Playfair Display', Georgia, serif;
           font-style: italic;
           font-weight: 700;
-          font-size: clamp(42px, 5.2vw, 76px);
-          line-height: 1.05;
-          letter-spacing: -1.2px;
+          font-size: clamp(38px, 4.8vw, 68px);
+          line-height: 1.1;
+          letter-spacing: -0.2px;
           color: #ffffff;
           display: block;
           text-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
         }
 
         .hero-serif-destination {
-          font-family: 'Playfair Display', serif;
-          font-weight: 900;
-          font-size: clamp(46px, 5.8vw, 84px);
-          line-height: 1.05;
-          letter-spacing: -1px;
+          font-family: 'Playfair Display', Georgia, serif;
+          font-weight: 700;
+          font-size: clamp(42px, 5.2vw, 76px);
+          line-height: 1.15;
+          letter-spacing: 0.5px;
           display: block;
           background: linear-gradient(135deg, #FFF0B3 0%, #F5C518 40%, #E5A826 80%, #FF9F1C 100%);
           -webkit-background-clip: text;
@@ -440,13 +440,13 @@ export default function Hero({
 
         .hero-typewriter-cursor {
           display: inline-block;
-          width: 4px;
-          height: 0.82em;
+          width: 3px;
+          height: 0.74em;
           background: #F5C518;
           margin-left: 6px;
-          vertical-align: -0.05em;
+          vertical-align: -0.02em;
           border-radius: 2px;
-          box-shadow: 0 0 12px #F5C518;
+          box-shadow: 0 0 10px rgba(245, 197, 24, 0.8);
         }
 
         .hero-typewriter-cursor.blinking {
@@ -464,13 +464,16 @@ export default function Hero({
         }
 
         .hero-subtitle {
-          font-size: clamp(14px, 1.2vw, 16px);
-          line-height: 1.55;
+          font-family: 'Plus Jakarta Sans', 'Outfit', sans-serif;
+          font-size: clamp(14px, 1.15vw, 15.5px);
+          line-height: 1.65;
           color: rgba(255, 255, 255, 0.92);
-          max-width: 530px;
-          margin-bottom: 20px;
-          font-weight: 400;
-          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+          max-width: 580px;
+          margin-bottom: 22px;
+          font-weight: 450;
+          text-transform: none !important;
+          letter-spacing: 0.15px !important;
+          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
         }
 
         /* Watch destination preview pill */

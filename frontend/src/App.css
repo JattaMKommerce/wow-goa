@@ -127,12 +127,13 @@
 }
 
 .hero-subtitle {
-  font-size: 16px;
-  text-transform: uppercase;
-  letter-spacing: 4px;
-  color: var(--teal);
-  font-weight: 700;
-  margin-bottom: 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  text-transform: none;
+  letter-spacing: normal;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 400;
+  margin-bottom: 18px;
 }
 
 .hero-title {
