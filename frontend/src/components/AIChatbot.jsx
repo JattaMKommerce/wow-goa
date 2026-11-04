@@ -1218,7 +1218,6 @@ export default function AIChatbot() {
             muted
             playsInline
             preload="auto"
-            poster={tara3dAvatar}
             onCanPlay={() => setVideoLoaded(true)}
             onLoadedData={() => setVideoLoaded(true)}
             style={{

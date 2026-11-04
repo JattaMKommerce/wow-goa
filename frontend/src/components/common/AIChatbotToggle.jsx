@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import chatbotAvatar from '../../assets/aichatbot.webp';
+import chatbotAvatar from '../../assets/luzia-avatar-icon.webp';
 import { getAIChatbotSettings, toggleAIChatbot } from '../../services/api';
 import { Sparkles, Bot } from 'lucide-react';
 

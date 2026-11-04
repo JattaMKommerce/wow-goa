@@ -443,7 +443,7 @@ export default function Hero({
           letter-spacing: -0.2px;
           color: #ffffff;
           display: block;
-          text-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85), 0 4px 16px rgba(0, 0, 0, 0.75), 0 8px 32px rgba(0, 0, 0, 0.65);
         }
 
         .hero-serif-destination {
@@ -456,7 +456,7 @@ export default function Hero({
           background: linear-gradient(135deg, #FFF0B3 0%, #F5C518 40%, #E5A826 80%, #FF9F1C 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-          filter: drop-shadow(0 4px 22px rgba(229, 168, 38, 0.45));
+          filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95)) drop-shadow(0 4px 14px rgba(0, 0, 0, 0.85)) drop-shadow(0 8px 28px rgba(0, 0, 0, 0.65));
         }
 
         /* Typewriter text styling */
@@ -472,6 +472,7 @@ export default function Hero({
           background: linear-gradient(135deg, #FFF0B3 0%, #F5C518 40%, #E5A826 80%, #FF9F1C 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
+          filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95)) drop-shadow(0 4px 14px rgba(0, 0, 0, 0.85)) drop-shadow(0 8px 28px rgba(0, 0, 0, 0.65));
         }
 
         .hero-typewriter-cursor {
@@ -482,7 +483,7 @@ export default function Hero({
           margin-left: 6px;
           vertical-align: -0.02em;
           border-radius: 2px;
-          box-shadow: 0 0 10px rgba(245, 197, 24, 0.8);
+          box-shadow: 0 0 10px rgba(245, 197, 24, 0.9), 0 2px 6px rgba(0, 0, 0, 0.8);
         }
 
         .hero-typewriter-cursor.blinking {
