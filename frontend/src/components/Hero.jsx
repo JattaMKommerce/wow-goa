@@ -341,20 +341,20 @@ export default function Hero({
         }
 
         .hero-bg-photo.active {
-          opacity: 0.88;
+          opacity: 1;
           transform: scale(1.06);
           z-index: 2;
         }
 
-        /* Cinema Vignette & Gradients - Enhanced high contrast for crystal clear text readability */
+        /* Cinema Vignette & Gradients */
         .hero-vignette-overlay {
           position: absolute;
           inset: 0;
           background: linear-gradient(180deg, 
-            rgba(6, 11, 23, 0.65) 0%, 
-            rgba(6, 11, 23, 0.35) 25%, 
-            rgba(6, 11, 23, 0.45) 60%, 
-            rgba(6, 11, 23, 0.92) 100%
+            rgba(6, 11, 23, 0.35) 0%, 
+            rgba(6, 11, 23, 0.05) 30%, 
+            rgba(6, 11, 23, 0.35) 70%, 
+            rgba(6, 11, 23, 0.85) 100%
           );
           z-index: 3;
           pointer-events: none;
@@ -363,12 +363,7 @@ export default function Hero({
         .hero-side-gradient {
           position: absolute;
           inset: 0;
-          background: linear-gradient(90deg, 
-            rgba(6, 11, 23, 0.88) 0%, 
-            rgba(6, 11, 23, 0.72) 36%, 
-            rgba(6, 11, 23, 0.38) 64%, 
-            rgba(6, 11, 23, 0.08) 100%
-          );
+          background: radial-gradient(circle at 25% 45%, rgba(6, 11, 23, 0.2) 0%, rgba(6, 11, 23, 0.75) 100%);
           z-index: 3;
           pointer-events: none;
         }
@@ -420,39 +415,23 @@ export default function Hero({
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          background: rgba(6, 11, 23, 0.85);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 208, 39, 0.55);
+          background: rgba(245, 197, 24, 0.15);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid rgba(245, 197, 24, 0.4);
           border-radius: 100px;
-          padding: 5px 16px;
-          color: #FFD027;
+          padding: 4px 14px;
+          color: #F5C518;
           font-size: 11.5px;
           font-weight: 800;
           letter-spacing: 1px;
           text-transform: uppercase;
           margin-bottom: 12px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
-          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         }
 
         .hero-title-group {
           margin-bottom: 14px;
-          position: relative;
-          isolation: isolate;
-        }
-
-        .hero-title-group::before {
-          content: '';
-          position: absolute;
-          top: -24px;
-          left: -32px;
-          width: calc(100% + 64px);
-          height: calc(100% + 48px);
-          background: radial-gradient(ellipse at 35% 50%, rgba(6, 11, 23, 0.65) 0%, rgba(6, 11, 23, 0.25) 55%, transparent 80%);
-          pointer-events: none;
-          z-index: -1;
-          filter: blur(16px);
         }
 
         .hero-serif-discover {
@@ -464,17 +443,20 @@ export default function Hero({
           letter-spacing: -0.2px;
           color: #ffffff;
           display: block;
-          text-shadow: 0 3px 12px rgba(0, 0, 0, 0.95), 0 1px 3px rgba(0, 0, 0, 0.90);
+          text-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
         }
 
         .hero-serif-destination {
           font-family: 'Playfair Display', Georgia, serif;
-          font-weight: 800;
+          font-weight: 700;
           font-size: clamp(42px, 5.2vw, 76px);
           line-height: 1.15;
           letter-spacing: 0.5px;
           display: block;
-          filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.90));
+          background: linear-gradient(135deg, #FFF0B3 0%, #F5C518 40%, #E5A826 80%, #FF9F1C 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          filter: drop-shadow(0 4px 22px rgba(229, 168, 38, 0.45));
         }
 
         /* Typewriter text styling */
@@ -484,14 +466,12 @@ export default function Hero({
           position: relative;
           min-width: clamp(260px, 22vw, 460px);
           white-space: nowrap;
-          filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.90));
         }
 
         .hero-typewriter-text {
-          background: linear-gradient(135deg, #FFF6C8 0%, #FFD027 35%, #F5A623 70%, #FF8C00 100%);
+          background: linear-gradient(135deg, #FFF0B3 0%, #F5C518 40%, #E5A826 80%, #FF9F1C 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-          font-weight: 800;
         }
 
         .hero-typewriter-cursor {
@@ -523,13 +503,13 @@ export default function Hero({
           font-family: 'Plus Jakarta Sans', 'Outfit', sans-serif;
           font-size: clamp(14px, 1.15vw, 15.5px);
           line-height: 1.65;
-          color: rgba(255, 255, 255, 0.96);
+          color: rgba(255, 255, 255, 0.92);
           max-width: 580px;
           margin-bottom: 22px;
-          font-weight: 500;
+          font-weight: 450;
           text-transform: none !important;
           letter-spacing: 0.15px !important;
-          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 1px 3px rgba(0, 0, 0, 0.90);
+          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
         }
 
         /* Watch destination preview pill */
