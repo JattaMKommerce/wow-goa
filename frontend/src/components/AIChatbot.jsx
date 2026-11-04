@@ -4,7 +4,7 @@ import {
   Compass, Hotel, Car, Users, Calendar, ArrowRight, CheckCircle2, ShieldCheck,
   Maximize2, Minimize2
 } from 'lucide-react';
-import chatbotAvatar from '../assets/tara-concierge.jpg';
+import chatbotAvatar from '../assets/luzia-avatar-icon.webp';
 import chatbotAnimationVideo from '../assets/chatbot-animation.mp4';
 import chatbotAnimationWebm from '../assets/chatbot-animation.webm';
 import tara3dAvatar from '../assets/tara-concierge-3d.webp';
@@ -132,7 +132,7 @@ export default function AIChatbot() {
         if (prev.length === 0) {
           return [{
             role: 'assistant',
-            content: "Hello! I’m **Tara** 🌴, your luxury Goa Travel Concierge. Let's craft your dream Goa trip together!\n\nAre you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?"
+            content: "Hello! I’m **Luzia** 🌴, your luxury Goa Travel Concierge. Let's craft your dream Goa trip together!\n\nAre you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?"
           }];
         }
         return prev;
@@ -410,7 +410,7 @@ export default function AIChatbot() {
     if (isOpen && messages.length === 0) {
       setMessages([{
         role: 'assistant',
-        content: "Hello! I’m Tara, your luxury Goa Travel Concierge. Are you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?"
+        content: "Hello! I’m Luzia, your luxury Goa Travel Concierge. Are you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?"
       }]);
     }
   }, [isOpen]);
@@ -875,7 +875,7 @@ export default function AIChatbot() {
     } else {
       setMessages([{
         role: 'assistant',
-        content: `Hello ${cleanName}! I’m **Tara**, your Goa Travel Concierge. Are you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?`
+        content: `Hello ${cleanName}! I’m **Luzia**, your Goa Travel Concierge. Are you looking for accommodation, a self-drive vehicle, experiences, or a complete Goa holiday?`
       }]);
     }
   };
