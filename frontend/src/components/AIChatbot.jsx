@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import chatbotAvatar from '../assets/tara-concierge.jpg';
 import chatbotAnimationVideo from '../assets/chatbot-animation.mp4';
+import chatbotAnimationWebm from '../assets/chatbot-animation.webm';
 import tara3dAvatar from '../assets/tara-concierge-3d.webp';
 import { chatWithAI, createAiLead, updateAiLeadChat, getAIChatbotSettings } from '../services/api';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
@@ -357,132 +358,30 @@ export default function AIChatbot() {
     };
   }, []);
 
-    useEffect(() => {
-    if (avatarVideoRef.current) {
-      avatarVideoRef.current.play().then(() => {
-        setVideoLoaded(true);
-      }).catch(() => {
-        setVideoLoaded(false);
-      });
-    }
-  }, []);
-
-    // Real-time canvas processing to crop, center and strip black background with 60 FPS performance
+      // Silky-smooth hardware-accelerated 60 FPS video playback with zero CPU overhead
   useEffect(() => {
     const video = avatarVideoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!video) return;
 
-    let animId;
-    let lastRenderedTime = -1;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-    // Target internal square dimensions (perfect 1:1 aspect ratio, 78k pixels, ultra-fast <0.4ms)
-    const TARGET_SIZE = 280;
-    // Source square crop centered on Tara (center X=577, Y=10, 710x710)
-    const SRC_X = 222;
-    const SRC_Y = 10;
-    const SRC_SIZE = 710;
-
-    const renderCurrentFrame = () => {
-      // Don't waste CPU if video isn't ready, is paused/ended, or tab is hidden
-      if (document.hidden || video.paused || video.ended || video.readyState < 2) {
-        return;
-      }
-
-      // Skip duplicate rendering if video frame hasn't advanced
-      if (video.currentTime === lastRenderedTime && canvas.width === TARGET_SIZE) {
-        return;
-      }
-      lastRenderedTime = video.currentTime;
-
-      if (canvas.width !== TARGET_SIZE || canvas.height !== TARGET_SIZE) {
-        canvas.width = TARGET_SIZE;
-        canvas.height = TARGET_SIZE;
-      }
-
-      // Crop squarely with generous breathing room around hair, flower, headset and shoulders
-      ctx.drawImage(video, SRC_X, SRC_Y, SRC_SIZE, SRC_SIZE, 0, 0, TARGET_SIZE, TARGET_SIZE);
-      const frame = ctx.getImageData(0, 0, TARGET_SIZE, TARGET_SIZE);
-      const data = frame.data;
-      const total = (TARGET_SIZE * TARGET_SIZE) * 4;
-
-      for (let idx = 0; idx < total; idx += 4) {
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-        const pixelIndex = idx >> 2;
-        const px = pixelIndex % TARGET_SIZE;
-        const py = (pixelIndex / TARGET_SIZE) | 0;
-
-        // Channel analysis
-        const maxC = r > g ? (r > b ? r : b) : (g > b ? g : b);
-        const minC = r < g ? (r < b ? r : b) : (g < b ? g : b);
-        const spread = maxC - minC;
-        const normY = py / TARGET_SIZE;
-        const normX = px / TARGET_SIZE;
-
-        // 1. Character Core Protection:
-        // Her head, hair, bangs, pupils, and body MUST NEVER have holes cut out of them
-        const headDist = ((px - 140.0) / 54.0) * ((px - 140.0) / 54.0) + ((py - 96.0) / 62.0) * ((py - 96.0) / 62.0);
-        const isBodyCore = (py >= 135 && px >= 65 && px <= 215 && py <= 245);
-
-        if (headDist <= 1.0 || isBodyCore) {
-          // Inside character: 100% solid, full rich hair and face!
-          data[idx + 3] = 255;
-        } else {
-          // Outside character: remove dark background cleanly
-          const isOuterCorner = (normY < 0.10 && (normX < 0.35 || normX > 0.65)) || (normX < 0.15 && normY < 0.40) || (normX > 0.85 && normY < 0.40);
-
-          if (isOuterCorner && maxC <= 45 && spread <= 10) {
-            data[idx + 3] = 0;
-          } else if (maxC <= 28) {
-            data[idx + 3] = 0;
-          } else if (maxC <= 35 && spread <= 6) {
-            data[idx + 3] = 0;
-          } else if (maxC < 48 && spread <= 8) {
-            data[idx + 3] = (((maxC - 28) * 12.75) | 0);
-          } else {
-            data[idx + 3] = 255;
-          }
-        }
-
-        // 2. Smooth bottom chest fade (natural organic curve)
-        if (normY > 0.88 && data[idx + 3] > 0) {
-          const fadeNorm = (1.0 - normY) / 0.12;
-          const fadeSmooth = Math.max(0, Math.min(1, fadeNorm));
-          data[idx + 3] = (data[idx + 3] * fadeSmooth) | 0;
-        }
-      }
-      ctx.putImageData(frame, 0, 0);
+    const startPlayback = () => {
+      video.play().then(() => {
+        setVideoLoaded(true);
+      }).catch(() => {
+        // Autoplay policy or user interaction needed
+        setVideoLoaded(true);
+      });
     };
 
-    const drawFrame = () => {
-      renderCurrentFrame();
-      animId = requestAnimationFrame(drawFrame);
-    };
-
-    const handleImmediateRedraw = () => {
-      lastRenderedTime = -1;
-      renderCurrentFrame();
-    };
-
-    video.addEventListener('play', handleImmediateRedraw);
-    video.addEventListener('seeking', handleImmediateRedraw);
-    video.addEventListener('seeked', handleImmediateRedraw);
-    video.addEventListener('timeupdate', handleImmediateRedraw);
-    video.addEventListener('loadeddata', handleImmediateRedraw);
-
-    video.play().catch(() => { });
-    animId = requestAnimationFrame(drawFrame);
+    if (video.readyState >= 2) {
+      startPlayback();
+    } else {
+      video.addEventListener('canplay', startPlayback, { once: true });
+      video.addEventListener('loadeddata', startPlayback, { once: true });
+    }
 
     return () => {
-      cancelAnimationFrame(animId);
-      video.removeEventListener('play', handleImmediateRedraw);
-      video.removeEventListener('seeking', handleImmediateRedraw);
-      video.removeEventListener('seeked', handleImmediateRedraw);
-      video.removeEventListener('timeupdate', handleImmediateRedraw);
-      video.removeEventListener('loadeddata', handleImmediateRedraw);
+      video.removeEventListener('canplay', startPlayback);
+      video.removeEventListener('loadeddata', startPlayback);
     };
   }, []);
 
@@ -1276,18 +1175,7 @@ export default function AIChatbot() {
   return (
     <>
             {/* ─── FLOATING 3D TARA AI CONCIERGE TRIGGER (WOW GOA) ─────────── */}
-      <video
-        ref={avatarVideoRef}
-        src={chatbotAnimationVideo}
-        id="ai-hidden-video"
-        autoPlay
-        loop
-        muted
-        playsInline
-        onCanPlay={() => setVideoLoaded(true)}
-        onLoadedData={() => setVideoLoaded(true)}
-        style={{ display: 'none' }}
-      />
+
 
       <div
         onClick={() => handleOpenChat()}
@@ -1320,33 +1208,45 @@ export default function AIChatbot() {
           </span>
         </div>
 
-        {/* 3D Animated Luzia Concierge Avatar Wrapper */}
+        {/* 3D Animated Luzia Concierge Avatar Wrapper (Hardware Alpha WebM) */}
         <div className="sophia-avatar-wrapper ai-avatar-wrapper">
-          <canvas
-            ref={canvasRef}
-            id="ai-avatar-canvas"
-            width="280"
-            height="280"
+          <video
+            ref={avatarVideoRef}
+            id="ai-avatar-video"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            poster={tara3dAvatar}
+            onCanPlay={() => setVideoLoaded(true)}
+            onLoadedData={() => setVideoLoaded(true)}
             style={{
-              width: '215px',
-              height: '215px',
+              width: '240px',
+              height: '168px',
               objectFit: 'contain',
               display: videoLoaded ? 'block' : 'none',
-              filter: 'drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12))'
+              filter: 'drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12))',
+              pointerEvents: 'none',
+              background: 'transparent'
             }}
-          />
+          >
+            <source src={chatbotAnimationWebm} type="video/webm" />
+            <source src={chatbotAnimationVideo} type="video/mp4" />
+          </video>
           {!videoLoaded && (
             <img
               src={tara3dAvatar}
               alt="Luzia - WOW GOA Official AI Concierge"
               id="ai-avatar-poster"
               style={{
-                width: '215px',
-                height: '215px',
+                width: '240px',
+                height: '168px',
                 objectFit: 'contain',
                 display: 'block',
                 filter: 'drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12))',
-                pointerEvents: 'none'
+                pointerEvents: 'none',
+                background: 'transparent'
               }}
             />
           )}
@@ -1457,8 +1357,8 @@ export default function AIChatbot() {
         .ai-avatar-wrapper {
           position: relative;
           z-index: 10;
-          width: 215px;
-          height: 215px;
+          width: 240px;
+          height: 168px;
           display: flex;
           align-items: flex-end;
           justify-content: center;
@@ -1481,20 +1381,21 @@ export default function AIChatbot() {
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 180px;
-          height: 180px;
+          width: 170px;
+          height: 170px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(255, 159, 28, 0.20) 0%, rgba(255, 159, 28, 0.06) 50%, transparent 70%);
+          background: radial-gradient(circle, rgba(255, 159, 28, 0.18) 0%, rgba(255, 159, 28, 0.04) 55%, transparent 70%);
           filter: blur(18px);
           z-index: 0;
           pointer-events: none;
         }
 
-        /* 5. Canvas Display Resolution & Sizing */
+        /* 5. Video & Poster Display Resolution & Sizing */
+        #ai-avatar-video,
         #ai-avatar-canvas,
         #ai-avatar-poster {
-          width: 215px;
-          height: 215px;
+          width: 240px;
+          height: 168px;
           object-fit: contain;
           z-index: 10;
           position: relative;
@@ -1507,13 +1408,14 @@ export default function AIChatbot() {
         @media (max-width: 600px) {
           .sophia-avatar-wrapper,
           .ai-avatar-wrapper {
-            width: 175px !important;
-            height: 175px !important;
+            width: 190px !important;
+            height: 133px !important;
           }
+          #ai-avatar-video,
           #ai-avatar-canvas,
           #ai-avatar-poster {
-            width: 175px !important;
-            height: 175px !important;
+            width: 190px !important;
+            height: 133px !important;
           }
           .sophia-speech-pill,
           .ai-speech-pill {
