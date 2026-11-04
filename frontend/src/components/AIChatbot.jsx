@@ -377,71 +377,87 @@ export default function AIChatbot() {
     let lastRenderedTime = -1;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    // Target internal dimensions (optimized for instant CPU throughput: only ~64k pixels vs 921k)
-    const TARGET_W = 280;
-    const TARGET_H = 231;
-    // Source crop bounding box centered on Tara (excludes side borders and right-side watermark)
-    const SRC_X = 150;
+    // Target internal square dimensions (perfect 1:1 aspect ratio, 78k pixels, ultra-fast <0.4ms)
+    const TARGET_SIZE = 280;
+    // Source square crop centered on Tara (center X=577, Y=10, 710x710)
+    const SRC_X = 222;
     const SRC_Y = 10;
-    const SRC_W = 880;
-    const SRC_H = 710;
+    const SRC_SIZE = 710;
 
     const renderCurrentFrame = () => {
-      // Don't waste CPU if video isn't ready, is paused/ended, or document is hidden
+      // Don't waste CPU if video isn't ready, is paused/ended, or tab is hidden
       if (document.hidden || video.paused || video.ended || video.readyState < 2) {
         return;
       }
 
       // Skip duplicate rendering if video frame hasn't advanced
-      if (video.currentTime === lastRenderedTime && canvas.width === TARGET_W) {
+      if (video.currentTime === lastRenderedTime && canvas.width === TARGET_SIZE) {
         return;
       }
       lastRenderedTime = video.currentTime;
 
-      if (canvas.width !== TARGET_W || canvas.height !== TARGET_H) {
-        canvas.width = TARGET_W;
-        canvas.height = TARGET_H;
+      if (canvas.width !== TARGET_SIZE || canvas.height !== TARGET_SIZE) {
+        canvas.width = TARGET_SIZE;
+        canvas.height = TARGET_SIZE;
       }
 
-      // Crop tightly around Tara into high-performance buffer
-      ctx.drawImage(video, SRC_X, SRC_Y, SRC_W, SRC_H, 0, 0, TARGET_W, TARGET_H);
-      const frame = ctx.getImageData(0, 0, TARGET_W, TARGET_H);
+      // Crop squarely with generous breathing room around hair, flower, headset and shoulders
+      ctx.drawImage(video, SRC_X, SRC_Y, SRC_SIZE, SRC_SIZE, 0, 0, TARGET_SIZE, TARGET_SIZE);
+      const frame = ctx.getImageData(0, 0, TARGET_SIZE, TARGET_SIZE);
       const data = frame.data;
-      const total = (TARGET_W * TARGET_H) * 4;
+      const total = (TARGET_SIZE * TARGET_SIZE) * 4;
 
       for (let idx = 0; idx < total; idx += 4) {
         const r = data[idx];
         const g = data[idx + 1];
         const b = data[idx + 2];
         const pixelIndex = idx >> 2;
-        const py = (pixelIndex / TARGET_W) | 0;
+        const py = (pixelIndex / TARGET_SIZE) | 0;
 
-        // Fast min/max channel calculation
+        // Channel analysis
         const maxC = r > g ? (r > b ? r : b) : (g > b ? g : b);
         const minC = r < g ? (r < b ? r : b) : (g < b ? g : b);
         const spread = maxC - minC;
-        const normY = py / TARGET_H;
+        const normY = py / TARGET_SIZE;
 
-        // Clean background removal (no rectangular black box):
-        // Neutral background compression noise in video has maxC <= 32 and spread <= 8
-        if (maxC <= 32 && spread <= 8) {
+        // 1. Pure background elimination (no black box, no compression noise)
+        if (maxC <= 34 && spread <= 8) {
           data[idx + 3] = 0;
+          continue;
         } else if (maxC <= 40 && spread <= 6) {
           data[idx + 3] = 0;
-        } else if (maxC < 32) {
+          continue;
+        } else if (maxC < 34) {
           data[idx + 3] = 0;
-        } else if (maxC < 50 && spread <= 10) {
-          // Smooth anti-aliased edge blend
-          data[idx + 3] = (((maxC - 32) * 14.16) | 0);
+          continue;
+        }
+
+        // 2. Smooth edge anti-aliasing with de-fringing (prevents black jagged outline)
+        if (maxC < 54 && spread <= 10) {
+          let alpha = (maxC - 34) / 20.0;
+          alpha = alpha < 0 ? 0 : (alpha > 1 ? 1 : alpha);
+          // Smoothstep curve
+          alpha = alpha * alpha * (3.0 - 2.0 * alpha);
+          data[idx + 3] = (alpha * 255) | 0;
+
+          // De-fringe: lift edge pixels to character color so dark matte doesn't outline hair/headset
+          if (alpha > 0.05) {
+            const boost = Math.min(1.6, 1.0 / Math.max(0.3, alpha));
+            data[idx] = Math.min(255, (r * boost) | 0);
+            data[idx + 1] = Math.min(255, (g * boost) | 0);
+            data[idx + 2] = Math.min(255, (b * boost) | 0);
+          }
         } else {
-          // Solid character pixel (preserves face, eyes, hair highlights, and clothes)
+          // Solid character pixel
           data[idx + 3] = 255;
         }
 
-        // Soft feather at bottom edge so Tara blends seamlessly into page
-        if (normY > 0.88 && data[idx + 3] > 0) {
-          const feather = (1.0 - normY) / 0.12;
-          data[idx + 3] = (data[idx + 3] * Math.max(0, Math.min(1, feather))) | 0;
+        // 3. Smooth bottom chest fade (natural organic curve, no abrupt horizontal cut)
+        if (normY > 0.86 && data[idx + 3] > 0) {
+          const fadeNorm = (1.0 - normY) / 0.14;
+          const fadeSmooth = Math.max(0, Math.min(1, fadeNorm));
+          const fadeCurved = fadeSmooth * fadeSmooth * (3.0 - 2.0 * fadeSmooth);
+          data[idx + 3] = (data[idx + 3] * fadeCurved) | 0;
         }
       }
       ctx.putImageData(frame, 0, 0);
@@ -1310,18 +1326,19 @@ export default function AIChatbot() {
           </span>
         </div>
 
-        {/* 3D Animated Tara Concierge Avatar Wrapper */}
+        {/* 3D Animated Luzia Concierge Avatar Wrapper */}
         <div className="sophia-avatar-wrapper ai-avatar-wrapper">
           <canvas
             ref={canvasRef}
             id="ai-avatar-canvas"
             width="280"
-            height="231"
+            height="280"
             style={{
-              width: '250px',
-              height: 'auto',
+              width: '215px',
+              height: '215px',
+              objectFit: 'contain',
               display: videoLoaded ? 'block' : 'none',
-              filter: 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18))'
+              filter: 'drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12))'
             }}
           />
           {!videoLoaded && (
@@ -1330,10 +1347,11 @@ export default function AIChatbot() {
               alt="Luzia - WOW GOA Official AI Concierge"
               id="ai-avatar-poster"
               style={{
-                width: '250px',
-                height: 'auto',
+                width: '215px',
+                height: '215px',
+                objectFit: 'contain',
                 display: 'block',
-                filter: 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18))',
+                filter: 'drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12))',
                 pointerEvents: 'none'
               }}
             />
@@ -1347,7 +1365,7 @@ export default function AIChatbot() {
         .ai-floating-trigger {
           position: fixed;
           bottom: 12px;
-          right: -6px;
+          right: -4px;
           z-index: 1045;
           display: flex;
           align-items: flex-end;
@@ -1372,28 +1390,28 @@ export default function AIChatbot() {
         }
         .sophia-floating-trigger:hover,
         .ai-floating-trigger:hover {
-          transform: scale(1.03);
+          transform: scale(1.02);
         }
         .sophia-floating-trigger:active,
         .ai-floating-trigger:active {
-          transform: scale(0.97);
+          transform: scale(0.98);
         }
 
         /* 2. Overlapping Speech Pill Badge (Refined for Luzia) */
         .sophia-speech-pill,
         .ai-speech-pill {
           position: relative;
-          z-index: 1;
-          margin-right: -20px;
-          margin-bottom: 22px;
-          padding: 10px 18px;
+          z-index: 12;
+          margin-right: -10px;
+          margin-bottom: 24px;
+          padding: 9px 17px;
           background: rgba(255, 255, 255, 0.98);
           border: 1.5px solid rgba(255, 159, 28, 0.45);
-          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(255, 159, 28, 0.16);
+          box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(255, 159, 28, 0.15);
           border-radius: 9999px;
           color: #0f172a !important;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-          font-size: 14.5px;
+          font-size: 14px;
           font-weight: 700;
           letter-spacing: -0.2px;
           display: flex;
@@ -1411,20 +1429,23 @@ export default function AIChatbot() {
         .sophia-speech-text {
           color: #0f172a !important;
           font-weight: 700 !important;
-          font-size: 15.5px !important;
+          font-size: 14px !important;
           letter-spacing: -0.2px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
         .sophia-floating-trigger:hover .sophia-speech-pill,
         .ai-floating-trigger:hover .sophia-speech-pill {
-          box-shadow: 0 14px 30px rgba(245, 197, 24, 0.35), 0 6px 10px rgba(0, 0, 0, 0.08);
-          border-color: rgba(245, 197, 24, 0.8);
+          box-shadow: 0 12px 26px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(255, 159, 28, 0.25);
+          border-color: rgba(255, 159, 28, 0.65);
         }
 
         /* 3. Glowing Green Status Indicator Dot */
         .sophia-status-dot,
         .ai-status-indicator {
-          width: 10px;
-          height: 10px;
+          width: 8px;
+          height: 8px;
           border-radius: 50%;
           background: #10b981;
           box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
@@ -1433,17 +1454,17 @@ export default function AIChatbot() {
         }
         @keyframes dot-pulse {
           0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
-          70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+          70% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
           100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
-        /* 4. Large Avatar Container */
+        /* 4. Avatar Container (Proper Proportions & Zero Cropping) */
         .sophia-avatar-wrapper,
         .ai-avatar-wrapper {
           position: relative;
           z-index: 10;
-          width: 250px;
-          height: auto;
+          width: 215px;
+          height: 215px;
           display: flex;
           align-items: flex-end;
           justify-content: center;
@@ -1455,31 +1476,32 @@ export default function AIChatbot() {
         }
         @keyframes sophiaAntiGravityFloat {
           0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-8px); }
+          50% { transform: translateY(-7px); }
         }
 
-        /* Subtle Warm Aura Glow behind character */
+        /* Subtle Luxury Glow behind character */
         .sophia-avatar-wrapper::before,
         .ai-avatar-wrapper::before {
           content: '';
           position: absolute;
-          top: 52%;
+          top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 210px;
-          height: 210px;
+          width: 180px;
+          height: 180px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(245, 197, 24, 0.32) 0%, rgba(255, 159, 28, 0.12) 55%, transparent 75%);
-          filter: blur(20px);
+          background: radial-gradient(circle, rgba(255, 159, 28, 0.20) 0%, rgba(255, 159, 28, 0.06) 50%, transparent 70%);
+          filter: blur(18px);
           z-index: 0;
           pointer-events: none;
         }
 
-        /* 5. Canvas Display Resolution */
+        /* 5. Canvas Display Resolution & Sizing */
         #ai-avatar-canvas,
         #ai-avatar-poster {
-          width: 250px;
-          height: auto;
+          width: 215px;
+          height: 215px;
+          object-fit: contain;
           z-index: 10;
           position: relative;
           pointer-events: none;
@@ -1491,18 +1513,20 @@ export default function AIChatbot() {
         @media (max-width: 600px) {
           .sophia-avatar-wrapper,
           .ai-avatar-wrapper {
-            width: 190px !important;
+            width: 175px !important;
+            height: 175px !important;
           }
           #ai-avatar-canvas,
           #ai-avatar-poster {
-            width: 190px !important;
+            width: 175px !important;
+            height: 175px !important;
           }
           .sophia-speech-pill,
           .ai-speech-pill {
-            font-size: 13px !important;
-            padding: 8px 16px !important;
-            margin-right: -16px !important;
-            margin-bottom: 16px !important;
+            font-size: 12.5px !important;
+            padding: 7px 14px !important;
+            margin-right: -8px !important;
+            margin-bottom: 14px !important;
           }
         }
 
