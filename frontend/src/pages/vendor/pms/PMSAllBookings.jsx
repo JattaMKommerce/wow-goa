@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Download, Eye, CheckCircle, XCircle, Calendar, Phone, CreditCard, RefreshCw, ChevronDown, FileText } from 'lucide-react';
+import { Search, Filter, Download, Eye, CheckCircle, XCircle, Calendar, Phone, CreditCard, RefreshCw, ChevronDown, FileText, MessageSquare } from 'lucide-react';
 import { updateBookingStatus } from '../../../services/api';
 import WalletRechargeRequiredModal from '../../../components/vendor/WalletRechargeRequiredModal';
 
@@ -67,6 +67,36 @@ export default function PMSAllBookings({ currentUser, vendorHotels, vendorBookin
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'bookings.csv'; a.click();
+  };
+
+  const handleHotelShareWhatsApp = (booking) => {
+    if (!booking) return;
+    const cleanPhone = String(booking.phone || '').replace(/\D/g, '');
+    const waPhone = cleanPhone ? (cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone) : '';
+    const bId = String(booking.id || booking.booking_id || '').replace(/^#/, '');
+    const cName = booking.name || booking.customer_name || 'Valued Guest';
+    const hotelName = booking.item_name || booking.hotel_name || 'Hotel Stay';
+    const checkIn = booking.pickup_date || 'Scheduled';
+    const checkOut = booking.drop_date || '';
+    const datesStr = checkIn + (checkOut ? ` to ${checkOut}` : '');
+    const amount = Number(booking.total_amount || booking.total_paid || 0);
+
+    const summaryText =
+      `🎟️ *WOW GOA — HOTEL BOOKING CONFIRMATION VOUCHER*\n\n` +
+      `*Booking ID:* #${bId}\n` +
+      `*Guest Name:* ${cName}\n` +
+      `*Hotel / Resort:* ${hotelName}\n` +
+      `*Stay Schedule:* ${datesStr}\n` +
+      `*Total Amount:* ₹${amount.toLocaleString('en-IN')}\n` +
+      `*Booking Status:* ${booking.status || 'Confirmed'}\n\n` +
+      `Track your booking live and download your official A4 voucher:\n` +
+      `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}/customer\n\n` +
+      `*WOW GOA Rentals & Stays* • 24x7 Helpline: +91 9916933476`;
+
+    const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(summaryText)}`;
+    if (typeof window !== 'undefined') {
+      window.open(waUrl, '_blank');
+    }
   };
 
   const handleStatusUpdate = async (bookingId, newStatus) => {
@@ -265,7 +295,16 @@ export default function PMSAllBookings({ currentUser, vendorHotels, vendorBookin
               })()}
             </div>
             <div className="p-4 border-top d-flex align-items-center justify-content-between flex-wrap gap-2">
-              <div className="d-flex align-items-center gap-2">
+              <div className="d-flex align-items-center flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleHotelShareWhatsApp(selectedBooking)}
+                  className="btn btn-sm rounded-pill px-3 fw-bold text-white shadow-xs d-flex align-items-center gap-1.5"
+                  style={{ background: '#25D366', borderColor: '#25D366' }}
+                  title="Send official booking voucher via WhatsApp to guest"
+                >
+                  <MessageSquare size={13} /> WhatsApp Voucher
+                </button>
                 {selectedBooking.status !== 'Completed' && selectedBooking.status !== 'Cancelled' && (
                   <>
                     {selectedBooking.status !== 'Confirmed' && (

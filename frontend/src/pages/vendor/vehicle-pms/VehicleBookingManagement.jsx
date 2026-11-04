@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Eye, Check, X, Clock, ArrowRight, AlertCircle, CheckCircle, Car, Filter, Download, Plus, Edit, Trash2, Save, Calendar, User, Phone, Mail, DollarSign, Key, ShieldCheck, Loader2, RotateCcw, Send, FileText } from 'lucide-react';
+import { Search, Eye, Check, X, Clock, ArrowRight, AlertCircle, CheckCircle, Car, Filter, Download, Plus, Edit, Trash2, Save, Calendar, User, Phone, Mail, DollarSign, Key, ShieldCheck, Loader2, RotateCcw, Send, FileText, MessageSquare } from 'lucide-react';
 import { createBooking, updateBooking, updateBookingStatus, deleteBooking, updateBookingHandover, fetchVehicleUnits, sendBookingVoucherEmail } from '../../../services/api';
 import WalletRechargeRequiredModal from '../../../components/vendor/WalletRechargeRequiredModal';
 import BookingVoucher from '../../../components/common/BookingVoucher';
@@ -184,6 +184,36 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
       });
     } finally {
       setIsEmailSending(false);
+    }
+  };
+
+  const handleVendorShareWhatsApp = (booking) => {
+    if (!booking) return;
+    const cleanPhone = String(booking.phone || '').replace(/\D/g, '');
+    const waPhone = cleanPhone ? (cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone) : '';
+    const bId = String(booking.id || booking.booking_id || '').replace(/^#/, '');
+    const cName = booking.name || booking.customer_name || 'Valued Guest';
+    const item = booking.item_name || booking.vehicle_name || 'Self Drive Vehicle';
+    const pickupDate = booking.pickup_date || 'Scheduled';
+    const dropDate = booking.drop_date || booking.return_date || '';
+    const datesStr = pickupDate + (dropDate ? ` to ${dropDate}` : '');
+    const amount = Number(booking.total_amount || booking.total_paid || 0);
+
+    const summaryText =
+      `🎟️ *WOW GOA — BOOKING CONFIRMATION VOUCHER*\n\n` +
+      `*Booking ID:* #${bId}\n` +
+      `*Guest Name:* ${cName}\n` +
+      `*Vehicle / Service:* ${item}\n` +
+      `*Dates:* ${datesStr}\n` +
+      `*Total Amount:* ₹${amount.toLocaleString('en-IN')}\n` +
+      `*Booking Status:* ${booking.status || 'Confirmed'}\n\n` +
+      `Track your booking live and download your official A4 voucher:\n` +
+      `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}/customer\n\n` +
+      `*WOW GOA Rentals & Stays* • 24x7 Helpline: +91 9916933476`;
+
+    const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(summaryText)}`;
+    if (typeof window !== 'undefined') {
+      window.open(waUrl, '_blank');
     }
   };
 
@@ -1072,7 +1102,7 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
                 </div>
               )}
 
-              <div className="d-flex gap-2">
+              <div className="d-flex flex-wrap gap-2">
                 <button
                   type="button"
                   className="btn btn-sm btn-primary flex-grow-1 py-1.5 rounded-2 fw-bold text-xs d-flex align-items-center justify-content-center gap-1 shadow-sm"
@@ -1085,9 +1115,18 @@ export default function VehicleBookingManagement({ bookings = [], cars = [], bik
                     </>
                   ) : (
                     <>
-                      <Send size={12} /> {selected.voucher_email_sent == 1 ? 'Resend Voucher Email' : 'Email Voucher to Customer'}
+                      <Send size={12} /> {selected.voucher_email_sent == 1 ? 'Resend Email' : 'Email Voucher'}
                     </>
                   )}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-success py-1.5 px-2.5 rounded-2 fw-bold text-xs d-flex align-items-center gap-1 text-white shadow-xs"
+                  style={{ background: '#25D366', borderColor: '#25D366' }}
+                  onClick={() => handleVendorShareWhatsApp(selected)}
+                  title="Send official booking voucher via WhatsApp to customer"
+                >
+                  <MessageSquare size={12} /> WhatsApp
                 </button>
                 <button
                   type="button"
