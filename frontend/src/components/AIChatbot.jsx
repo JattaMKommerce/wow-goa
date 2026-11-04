@@ -11,12 +11,13 @@ import { chatWithAI, createAiLead, updateAiLeadChat, getAIChatbotSettings } from
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
 
 const aiMessages = [
-  "🌴 Plan Your Goa Trip",
-  "✨ Ask Tara Concierge",
-  "🏖️ Explore Secret Beaches",
-  "🚗 Rent Thar & Self Drive",
-  "🚕 Book Airport Cabs",
-  "🌊 Scuba & Water Sports"
+  "Hi! I'm Luzia 👋",
+  "Ask Luzia Concierge ✨",
+  "Plan Your Goa Trip 🌴",
+  "Rent Thar & Self Drive 🚙",
+  "Book Airport Cabs 🚕",
+  "Scuba & Water Sports 🌊",
+  "Secret Beaches & Resorts 🏖️"
 ];
 
 const CRAFT_SUGGESTIONS = [
@@ -1282,7 +1283,7 @@ export default function AIChatbot() {
         onClick={() => handleOpenChat()}
         role="button"
         tabIndex={0}
-        aria-label="Open Tara AI Travel Concierge"
+        aria-label="Open Luzia AI Travel Concierge"
         className={`sophia-floating-trigger ai-floating-trigger ${isOpen ? 'is-hidden' : 'is-visible'}`}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -1326,7 +1327,7 @@ export default function AIChatbot() {
           {!videoLoaded && (
             <img
               src={tara3dAvatar}
-              alt="Tara - WOW GOA Official AI Concierge"
+              alt="Luzia - WOW GOA Official AI Concierge"
               id="ai-avatar-poster"
               style={{
                 width: '250px',
@@ -1378,27 +1379,28 @@ export default function AIChatbot() {
           transform: scale(0.97);
         }
 
-        /* 2. Overlapping Speech Pill Badge */
+        /* 2. Overlapping Speech Pill Badge (Refined for Luzia) */
         .sophia-speech-pill,
         .ai-speech-pill {
           position: relative;
           z-index: 1;
-          margin-right: -24px;
+          margin-right: -20px;
           margin-bottom: 22px;
-          padding: 11px 22px;
-          background: #ffffff;
-          border: 1.5px solid rgba(245, 197, 24, 0.55);
-          box-shadow: 0 10px 25px rgba(245, 197, 24, 0.22), 0 4px 8px rgba(0, 0, 0, 0.08);
+          padding: 10px 18px;
+          background: rgba(255, 255, 255, 0.98);
+          border: 1.5px solid rgba(255, 159, 28, 0.45);
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(255, 159, 28, 0.16);
           border-radius: 9999px;
           color: #0f172a !important;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          font-size: 15.5px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          font-size: 14.5px;
           font-weight: 700;
           letter-spacing: -0.2px;
           display: flex;
-          align-items: flex-end;
-          gap: 10px;
+          align-items: center;
+          gap: 8px;
           white-space: nowrap;
+          will-change: transform;
           transition: all 0.3s ease;
           animation: sophiaPillFloat 3.8s ease-in-out infinite;
         }
@@ -1756,11 +1758,11 @@ export default function AIChatbot() {
           <div className="d-flex align-items-center justify-content-between px-3 pb-2.5 pt-0.5">
             <div className="d-flex align-items-center gap-2.5" style={{ minWidth: 0 }}>
               <div className="rounded-circle bg-white d-flex align-items-center justify-content-center shadow-sm overflow-hidden flex-shrink-0" style={{ width: '38px', height: '38px' }}>
-                <img src={chatbotAvatar} alt="Tara AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={chatbotAvatar} alt="Luzia AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
               <div style={{ minWidth: 0 }}>
                 <div className="d-flex align-items-center gap-1.5 flex-wrap">
-                  <h6 className="mb-0 fw-bold text-white text-truncate" style={{ fontSize: '15px', lineHeight: '1.2' }}>Tara</h6>
+                  <h6 className="mb-0 fw-bold text-white text-truncate" style={{ fontSize: '15px', lineHeight: '1.2' }}>Luzia</h6>
                   <span className="badge bg-warning text-dark rounded-pill px-2 py-0.5 shadow-xs" style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.2px' }}>Goa Concierge</span>
                 </div>
                 <small style={{ opacity: 0.95, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
@@ -1830,7 +1832,7 @@ export default function AIChatbot() {
                 {/* 1. Friendly Luzia Greeting Message Bubble */}
                 <div className="d-flex align-items-start gap-2.5">
                   <div className="rounded-circle bg-white d-flex align-items-center justify-content-center shadow-xs flex-shrink-0 border" style={{ width: '34px', height: '34px', overflow: 'hidden' }}>
-                    <img src={chatbotAvatar} alt="Tara AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={chatbotAvatar} alt="Luzia AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div
                     className="p-3 bg-white text-dark border rounded-4 shadow-xs"
