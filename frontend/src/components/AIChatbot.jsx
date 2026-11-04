@@ -366,55 +366,75 @@ export default function AIChatbot() {
     }
   }, []);
 
-  // Real-time canvas processing to strip black background into true transparency
+    // Real-time canvas processing to crop, center and strip black background with 60 FPS performance
   useEffect(() => {
     const video = avatarVideoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
     let animId;
+    let lastRenderedTime = -1;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    // Target internal dimensions (optimized for instant CPU throughput: only ~64k pixels vs 921k)
+    const TARGET_W = 280;
+    const TARGET_H = 231;
+    // Source crop bounding box centered on Tara (excludes side borders and right-side watermark)
+    const SRC_X = 170;
+    const SRC_Y = 10;
+    const SRC_W = 860;
+    const SRC_H = 710;
 
     const renderCurrentFrame = () => {
       if (video.readyState >= 2) {
-        if (video.videoWidth && canvas.width !== video.videoWidth) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+        // Skip duplicate rendering if video frame hasn't advanced
+        if (video.currentTime === lastRenderedTime && canvas.width === TARGET_W) {
+          return;
+        }
+        lastRenderedTime = video.currentTime;
+
+        if (canvas.width !== TARGET_W || canvas.height !== TARGET_H) {
+          canvas.width = TARGET_W;
+          canvas.height = TARGET_H;
         }
 
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        // Crop tightly around Tara into high-performance buffer
+        ctx.drawImage(video, SRC_X, SRC_Y, SRC_W, SRC_H, 0, 0, TARGET_W, TARGET_H);
+        const frame = ctx.getImageData(0, 0, TARGET_W, TARGET_H);
         const data = frame.data;
-        const l = data.length / 4;
-        const cw = canvas.width;
-        const ch = canvas.height;
+        const total = (TARGET_W * TARGET_H) * 4;
 
-        for (let i = 0; i < l; i++) {
-          const idx = i * 4;
+        for (let idx = 0; idx < total; idx += 4) {
           const r = data[idx];
           const g = data[idx + 1];
           const b = data[idx + 2];
-          const px = i % cw;
-          const py = (i / cw) | 0;
+          const pixelIndex = idx >> 2;
+          const px = pixelIndex % TARGET_W;
+          const py = (pixelIndex / TARGET_W) | 0;
 
-          if (px < cw * 0.05 || px > cw * 0.94 || py < ch * 0.04 || (px > cw * 0.86 && py > ch * 0.76)) {
-            data[idx + 3] = 0;
-            continue;
-          }
+          const normX = px / TARGET_W;
+          const normY = py / TARGET_H;
 
-          const normX = px / cw;
-          const normY = py / ch;
-          const isEyeZone = (normY >= 0.18 && normY <= 0.45 && normX >= 0.38 && normX <= 0.62);
+          // Face & eyes protection zone (keep crisp and solid)
+          const isFaceZone = (normY >= 0.10 && normY <= 0.52 && normX >= 0.30 && normX <= 0.70);
 
-          if (isEyeZone) {
+          if (isFaceZone) {
             data[idx + 3] = 255;
           } else {
-            const maxChannel = Math.max(r, g, b);
-            if (maxChannel < 28) {
+            const maxChannel = r > g ? (r > b ? r : b) : (g > b ? g : b);
+            if (maxChannel < 36) {
+              // Completely strip background noise
               data[idx + 3] = 0;
-            } else if (maxChannel < 45) {
-              data[idx + 3] = Math.floor(((maxChannel - 28) / 17) * 255);
+            } else if (maxChannel < 54) {
+              // Smooth anti-aliased edge blend
+              data[idx + 3] = ((maxChannel - 36) * 14.16) | 0;
             }
+          }
+
+          // Soft feather at bottom edge so Tara blends seamlessly into page
+          if (normY > 0.88 && data[idx + 3] > 0) {
+            const feather = (1.0 - normY) / 0.12;
+            data[idx + 3] = (data[idx + 3] * Math.max(0, Math.min(1, feather))) | 0;
           }
         }
         ctx.putImageData(frame, 0, 0);
@@ -427,6 +447,7 @@ export default function AIChatbot() {
     };
 
     const handleImmediateRedraw = () => {
+      lastRenderedTime = -1;
       renderCurrentFrame();
     };
 
@@ -1288,10 +1309,10 @@ export default function AIChatbot() {
           <canvas
             ref={canvasRef}
             id="ai-avatar-canvas"
-            width="1280"
-            height="720"
+            width="280"
+            height="231"
             style={{
-              width: '195px',
+              width: '250px',
               height: 'auto',
               display: videoLoaded ? 'block' : 'none',
               filter: 'drop-shadow(0 14px 28px rgba(0, 0, 0, 0.45))'
@@ -1303,7 +1324,7 @@ export default function AIChatbot() {
               alt="Tara - WOW GOA Official AI Concierge"
               id="ai-avatar-poster"
               style={{
-                width: '185px',
+                width: '250px',
                 height: 'auto',
                 display: 'block',
                 filter: 'drop-shadow(0 14px 28px rgba(0, 0, 0, 0.45))',
@@ -1413,7 +1434,7 @@ export default function AIChatbot() {
         .ai-avatar-wrapper {
           position: relative;
           z-index: 10;
-          width: 210px;
+          width: 250px;
           height: auto;
           display: flex;
           align-items: flex-end;
@@ -1428,19 +1449,19 @@ export default function AIChatbot() {
           50% { transform: translateY(-10px); }
         }
 
-        /* Centered Blue Aura Glow behind character */
+        /* Centered Golden/Warm Aura Glow behind character */
         .sophia-avatar-wrapper::before,
         .ai-avatar-wrapper::before {
           content: '';
           position: absolute;
-          top: 52%;
-          left: 51%;
+          top: 50%;
+          left: 50%;
           transform: translate(-50%, -50%);
-          width: 200px;
-          height: 200px;
+          width: 240px;
+          height: 240px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(245, 197, 24, 0.42) 0%, rgba(255, 159, 28, 0.16) 55%, transparent 75%);
-          filter: blur(22px);
+          background: radial-gradient(circle, rgba(245, 197, 24, 0.45) 0%, rgba(255, 159, 28, 0.18) 55%, transparent 75%);
+          filter: blur(24px);
           z-index: 0;
           pointer-events: none;
         }
@@ -1448,9 +1469,9 @@ export default function AIChatbot() {
         /* 5. Canvas Display Resolution */
         #ai-avatar-canvas,
         #ai-avatar-poster {
-          -webkit-mask-image: linear-gradient(to bottom, black 72%, rgba(0, 0, 0, 0.85) 86%, transparent 100%);
-          mask-image: linear-gradient(to bottom, black 72%, rgba(0, 0, 0, 0.85) 86%, transparent 100%);
-          width: 210px;
+          -webkit-mask-image: linear-gradient(to bottom, black 86%, transparent 100%);
+          mask-image: linear-gradient(to bottom, black 86%, transparent 100%);
+          width: 250px;
           height: auto;
           z-index: 10;
           position: relative;
