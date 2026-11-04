@@ -397,14 +397,14 @@ export default function AIChatbot() {
           const px = i % cw;
           const py = (i / cw) | 0;
 
-          if (px < cw * 0.055 || px > cw * 0.93 || py < ch * 0.04 || (px > cw * 0.77 && py > ch * 0.64)) {
+          if (px < cw * 0.05 || px > cw * 0.94 || py < ch * 0.04 || (px > cw * 0.86 && py > ch * 0.76)) {
             data[idx + 3] = 0;
             continue;
           }
 
           const normX = px / cw;
           const normY = py / ch;
-          const isEyeZone = (normY >= 0.20 && normY <= 0.42 && normX >= 0.43 && normX <= 0.59);
+          const isEyeZone = (normY >= 0.18 && normY <= 0.45 && normX >= 0.38 && normX <= 0.62);
 
           if (isEyeZone) {
             data[idx + 3] = 255;
