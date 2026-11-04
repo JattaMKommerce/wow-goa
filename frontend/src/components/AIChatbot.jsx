@@ -380,65 +380,70 @@ export default function AIChatbot() {
     const TARGET_W = 280;
     const TARGET_H = 231;
     // Source crop bounding box centered on Tara (excludes side borders and right-side watermark)
-    const SRC_X = 170;
+    const SRC_X = 150;
     const SRC_Y = 10;
-    const SRC_W = 860;
+    const SRC_W = 880;
     const SRC_H = 710;
 
     const renderCurrentFrame = () => {
-      if (video.readyState >= 2) {
-        // Skip duplicate rendering if video frame hasn't advanced
-        if (video.currentTime === lastRenderedTime && canvas.width === TARGET_W) {
-          return;
-        }
-        lastRenderedTime = video.currentTime;
-
-        if (canvas.width !== TARGET_W || canvas.height !== TARGET_H) {
-          canvas.width = TARGET_W;
-          canvas.height = TARGET_H;
-        }
-
-        // Crop tightly around Tara into high-performance buffer
-        ctx.drawImage(video, SRC_X, SRC_Y, SRC_W, SRC_H, 0, 0, TARGET_W, TARGET_H);
-        const frame = ctx.getImageData(0, 0, TARGET_W, TARGET_H);
-        const data = frame.data;
-        const total = (TARGET_W * TARGET_H) * 4;
-
-        for (let idx = 0; idx < total; idx += 4) {
-          const r = data[idx];
-          const g = data[idx + 1];
-          const b = data[idx + 2];
-          const pixelIndex = idx >> 2;
-          const px = pixelIndex % TARGET_W;
-          const py = (pixelIndex / TARGET_W) | 0;
-
-          const normX = px / TARGET_W;
-          const normY = py / TARGET_H;
-
-          // Face & eyes protection zone (keep crisp and solid)
-          const isFaceZone = (normY >= 0.10 && normY <= 0.52 && normX >= 0.30 && normX <= 0.70);
-
-          if (isFaceZone) {
-            data[idx + 3] = 255;
-          } else {
-            const maxChannel = r > g ? (r > b ? r : b) : (g > b ? g : b);
-            if (maxChannel < 36) {
-              // Completely strip background noise
-              data[idx + 3] = 0;
-            } else if (maxChannel < 54) {
-              // Smooth anti-aliased edge blend
-              data[idx + 3] = ((maxChannel - 36) * 14.16) | 0;
-            }
-          }
-
-          // Soft feather at bottom edge so Tara blends seamlessly into page
-          if (normY > 0.88 && data[idx + 3] > 0) {
-            const feather = (1.0 - normY) / 0.12;
-            data[idx + 3] = (data[idx + 3] * Math.max(0, Math.min(1, feather))) | 0;
-          }
-        }
-        ctx.putImageData(frame, 0, 0);
+      // Don't waste CPU if video isn't ready, is paused/ended, or document is hidden
+      if (document.hidden || video.paused || video.ended || video.readyState < 2) {
+        return;
       }
+
+      // Skip duplicate rendering if video frame hasn't advanced
+      if (video.currentTime === lastRenderedTime && canvas.width === TARGET_W) {
+        return;
+      }
+      lastRenderedTime = video.currentTime;
+
+      if (canvas.width !== TARGET_W || canvas.height !== TARGET_H) {
+        canvas.width = TARGET_W;
+        canvas.height = TARGET_H;
+      }
+
+      // Crop tightly around Tara into high-performance buffer
+      ctx.drawImage(video, SRC_X, SRC_Y, SRC_W, SRC_H, 0, 0, TARGET_W, TARGET_H);
+      const frame = ctx.getImageData(0, 0, TARGET_W, TARGET_H);
+      const data = frame.data;
+      const total = (TARGET_W * TARGET_H) * 4;
+
+      for (let idx = 0; idx < total; idx += 4) {
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const pixelIndex = idx >> 2;
+        const py = (pixelIndex / TARGET_W) | 0;
+
+        // Fast min/max channel calculation
+        const maxC = r > g ? (r > b ? r : b) : (g > b ? g : b);
+        const minC = r < g ? (r < b ? r : b) : (g < b ? g : b);
+        const spread = maxC - minC;
+        const normY = py / TARGET_H;
+
+        // Clean background removal (no rectangular black box):
+        // Neutral background compression noise in video has maxC <= 32 and spread <= 8
+        if (maxC <= 32 && spread <= 8) {
+          data[idx + 3] = 0;
+        } else if (maxC <= 40 && spread <= 6) {
+          data[idx + 3] = 0;
+        } else if (maxC < 32) {
+          data[idx + 3] = 0;
+        } else if (maxC < 50 && spread <= 10) {
+          // Smooth anti-aliased edge blend
+          data[idx + 3] = (((maxC - 32) * 14.16) | 0);
+        } else {
+          // Solid character pixel (preserves face, eyes, hair highlights, and clothes)
+          data[idx + 3] = 255;
+        }
+
+        // Soft feather at bottom edge so Tara blends seamlessly into page
+        if (normY > 0.88 && data[idx + 3] > 0) {
+          const feather = (1.0 - normY) / 0.12;
+          data[idx + 3] = (data[idx + 3] * Math.max(0, Math.min(1, feather))) | 0;
+        }
+      }
+      ctx.putImageData(frame, 0, 0);
     };
 
     const drawFrame = () => {
@@ -1315,7 +1320,7 @@ export default function AIChatbot() {
               width: '250px',
               height: 'auto',
               display: videoLoaded ? 'block' : 'none',
-              filter: 'drop-shadow(0 14px 28px rgba(0, 0, 0, 0.45))'
+              filter: 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18))'
             }}
           />
           {!videoLoaded && (
@@ -1327,7 +1332,7 @@ export default function AIChatbot() {
                 width: '250px',
                 height: 'auto',
                 display: 'block',
-                filter: 'drop-shadow(0 14px 28px rgba(0, 0, 0, 0.45))',
+                filter: 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18))',
                 pointerEvents: 'none'
               }}
             />
@@ -1349,6 +1354,7 @@ export default function AIChatbot() {
           user-select: none;
           background: transparent !important;
           -webkit-tap-highlight-color: transparent;
+          will-change: transform, opacity;
           transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
         }
         .sophia-floating-trigger.is-hidden,
@@ -1442,26 +1448,27 @@ export default function AIChatbot() {
           overflow: visible !important;
           background: transparent !important;
           border: none !important;
+          will-change: transform;
           animation: sophiaAntiGravityFloat 3.8s ease-in-out infinite;
         }
         @keyframes sophiaAntiGravityFloat {
           0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
+          50% { transform: translateY(-8px); }
         }
 
-        /* Centered Golden/Warm Aura Glow behind character */
+        /* Subtle Warm Aura Glow behind character */
         .sophia-avatar-wrapper::before,
         .ai-avatar-wrapper::before {
           content: '';
           position: absolute;
-          top: 50%;
+          top: 52%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 240px;
-          height: 240px;
+          width: 210px;
+          height: 210px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(245, 197, 24, 0.45) 0%, rgba(255, 159, 28, 0.18) 55%, transparent 75%);
-          filter: blur(24px);
+          background: radial-gradient(circle, rgba(245, 197, 24, 0.32) 0%, rgba(255, 159, 28, 0.12) 55%, transparent 75%);
+          filter: blur(20px);
           z-index: 0;
           pointer-events: none;
         }
@@ -1469,14 +1476,32 @@ export default function AIChatbot() {
         /* 5. Canvas Display Resolution */
         #ai-avatar-canvas,
         #ai-avatar-poster {
-          -webkit-mask-image: linear-gradient(to bottom, black 86%, transparent 100%);
-          mask-image: linear-gradient(to bottom, black 86%, transparent 100%);
           width: 250px;
           height: auto;
           z-index: 10;
           position: relative;
           pointer-events: none;
           display: block;
+          background: transparent !important;
+        }
+
+        /* Responsive scaling across device breakpoints */
+        @media (max-width: 600px) {
+          .sophia-avatar-wrapper,
+          .ai-avatar-wrapper {
+            width: 190px !important;
+          }
+          #ai-avatar-canvas,
+          #ai-avatar-poster {
+            width: 190px !important;
+          }
+          .sophia-speech-pill,
+          .ai-speech-pill {
+            font-size: 13px !important;
+            padding: 8px 16px !important;
+            margin-right: -16px !important;
+            margin-bottom: 16px !important;
+          }
         }
 
         @keyframes typing {
