@@ -412,6 +412,7 @@ export default function AIChatbot() {
         const g = data[idx + 1];
         const b = data[idx + 2];
         const pixelIndex = idx >> 2;
+        const px = pixelIndex % TARGET_SIZE;
         const py = (pixelIndex / TARGET_SIZE) | 0;
 
         // Channel analysis
@@ -419,45 +420,38 @@ export default function AIChatbot() {
         const minC = r < g ? (r < b ? r : b) : (g < b ? g : b);
         const spread = maxC - minC;
         const normY = py / TARGET_SIZE;
+        const normX = px / TARGET_SIZE;
 
-        // 1. Pure background elimination (no black box, no compression noise)
-        if (maxC <= 34 && spread <= 8) {
-          data[idx + 3] = 0;
-          continue;
-        } else if (maxC <= 40 && spread <= 6) {
-          data[idx + 3] = 0;
-          continue;
-        } else if (maxC < 34) {
-          data[idx + 3] = 0;
-          continue;
-        }
+        // 1. Character Core Protection:
+        // Her head, hair, bangs, pupils, and body MUST NEVER have holes cut out of them
+        const headDist = ((px - 140.0) / 54.0) * ((px - 140.0) / 54.0) + ((py - 96.0) / 62.0) * ((py - 96.0) / 62.0);
+        const isBodyCore = (py >= 135 && px >= 65 && px <= 215 && py <= 245);
 
-        // 2. Smooth edge anti-aliasing with de-fringing (prevents black jagged outline)
-        if (maxC < 54 && spread <= 10) {
-          let alpha = (maxC - 34) / 20.0;
-          alpha = alpha < 0 ? 0 : (alpha > 1 ? 1 : alpha);
-          // Smoothstep curve
-          alpha = alpha * alpha * (3.0 - 2.0 * alpha);
-          data[idx + 3] = (alpha * 255) | 0;
-
-          // De-fringe: lift edge pixels to character color so dark matte doesn't outline hair/headset
-          if (alpha > 0.05) {
-            const boost = Math.min(1.6, 1.0 / Math.max(0.3, alpha));
-            data[idx] = Math.min(255, (r * boost) | 0);
-            data[idx + 1] = Math.min(255, (g * boost) | 0);
-            data[idx + 2] = Math.min(255, (b * boost) | 0);
-          }
-        } else {
-          // Solid character pixel
+        if (headDist <= 1.0 || isBodyCore) {
+          // Inside character: 100% solid, full rich hair and face!
           data[idx + 3] = 255;
+        } else {
+          // Outside character: remove dark background cleanly
+          const isOuterCorner = (normY < 0.10 && (normX < 0.35 || normX > 0.65)) || (normX < 0.15 && normY < 0.40) || (normX > 0.85 && normY < 0.40);
+
+          if (isOuterCorner && maxC <= 45 && spread <= 10) {
+            data[idx + 3] = 0;
+          } else if (maxC <= 28) {
+            data[idx + 3] = 0;
+          } else if (maxC <= 35 && spread <= 6) {
+            data[idx + 3] = 0;
+          } else if (maxC < 48 && spread <= 8) {
+            data[idx + 3] = (((maxC - 28) * 12.75) | 0);
+          } else {
+            data[idx + 3] = 255;
+          }
         }
 
-        // 3. Smooth bottom chest fade (natural organic curve, no abrupt horizontal cut)
-        if (normY > 0.86 && data[idx + 3] > 0) {
-          const fadeNorm = (1.0 - normY) / 0.14;
+        // 2. Smooth bottom chest fade (natural organic curve)
+        if (normY > 0.88 && data[idx + 3] > 0) {
+          const fadeNorm = (1.0 - normY) / 0.12;
           const fadeSmooth = Math.max(0, Math.min(1, fadeNorm));
-          const fadeCurved = fadeSmooth * fadeSmooth * (3.0 - 2.0 * fadeSmooth);
-          data[idx + 3] = (data[idx + 3] * fadeCurved) | 0;
+          data[idx + 3] = (data[idx + 3] * fadeSmooth) | 0;
         }
       }
       ctx.putImageData(frame, 0, 0);
