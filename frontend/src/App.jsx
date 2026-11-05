@@ -19,7 +19,6 @@ import PackageDetailsModal from './components/PackageDetailsModal';
 import AIChatbot from './components/AIChatbot';
 import WhatsAppWidget from './components/WhatsAppWidget';
 import PopupRenderer from './components/website/PopupRenderer';
-import IntroAnimationOverlay from './components/common/IntroAnimationOverlay';
 
 import DynamicFeaturedHotels from './components/widgets/DynamicFeaturedHotels';
 import DynamicFeaturedVehicles from './components/widgets/DynamicFeaturedVehicles';
@@ -1732,22 +1731,19 @@ export default function App() {
     if (resetCountry) resetCountry();
   };
 
-  // ─── ONE-TIME INTRO ANIMATION ──────────────────────────────────────────
-  // Show the branded 3D intro video on first visit while data loads
-  const introShouldShow = (() => {
-    if (typeof window === 'undefined') return false;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('intro') === '1') return true;
-    const p = window.location.pathname.toLowerCase();
-    if (p.includes('/admin') || p.includes('/vendor') || p.includes('/driver') || p.includes('/b2b')) return false;
-    if (activeTab === 'admin' || activeTab === 'vendor' || activeTab === 'driver' || activeTab === 'b2b') return false;
-    try { return !sessionStorage.getItem('wow_goa_intro_seen'); } catch(e) { return false; }
-  })();
+  if (isAuthHydrating) {
+    return (
+      <div className="d-flex w-100 vh-100 align-items-center justify-content-center bg-light">
+        <div className="text-center">
+          <div className="spinner-border text-primary mb-2" style={{ width: '2.5rem', height: '2.5rem' }} role="status">
+            <span className="visually-hidden">Loading session...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  if (isAuthHydrating || !dataLoaded) {
-    if (introShouldShow) {
-      return <IntroAnimationOverlay activeTab={activeTab} />;
-    }
+  if (!dataLoaded) {
     return (
       <div className="d-flex w-100 vh-100 align-items-center justify-content-center bg-light">
         <div className="text-center">
