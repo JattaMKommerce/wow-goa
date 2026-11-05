@@ -12,8 +12,144 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;0,900;1,600;1,700;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- ================= Brand intro (wowgoa.in) =================
+         Plain HTML so it starts playing immediately, while the app bundle
+         loads underneath. Plays on every load/refresh of the home page (/, /home, /self-drive).
+         Never shown: deep links, native app / WebViews, bots, Save-Data/2G,
+         reduced-motion users, or with ?nointro in the URL.
+         Assets: /public/intro/ (intro.webm, intro.mp4, intro-poster.jpg) -->
+    <style>
+      html.wg-intro, html.wg-intro body { background: #E0DBD3; overflow: hidden; }
+      #wg-intro {
+        position: fixed; inset: 0; z-index: 2147483000;
+        display: flex; align-items: center; justify-content: center; overflow: hidden;
+        /* colours sampled from the video's own background vignette */
+        background: radial-gradient(ellipse at center, #E7E5DD 0%, #E0DBD3 45%, #D2CCC3 100%);
+        transition: opacity .65s ease, visibility .65s ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #wg-intro.is-leaving { opacity: 0; visibility: hidden; pointer-events: none; }
+      #wg-intro video {
+        display: block; flex: none; pointer-events: none;
+        width: min(100vw, 177.78vh); height: auto; aspect-ratio: 16 / 9; object-fit: cover;
+        -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%);
+        -webkit-mask-composite: source-in;
+        mask-image: linear-gradient(to bottom, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%);
+        mask-composite: intersect;
+        transition: transform .65s ease;
+      }
+      #wg-intro.is-leaving video { transform: scale(1.04); }
+      /* Portrait phones: the video's sides are empty background, so enlarge it a little,
+         and continue the video's left-to-right shading above and below it (no seam). */
+      @media (orientation: portrait) {
+        #wg-intro {
+          background:
+            radial-gradient(ellipse 70% 22% at 50% 50%, rgba(242,239,231,.95) 0%, rgba(242,239,231,0) 100%),
+            linear-gradient(to right, #D6D0C7 0%, #E0DBD3 22%, #E7E5DD 50%, #E0DBD3 78%, #D6D0C7 100%);
+        }
+        #wg-intro video {
+          width: 108vw;
+          -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24%, #000 76%, transparent 100%), linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 24%, #000 76%, transparent 100%), linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%);
+        }
+      }
+      #wg-intro button {
+        position: absolute;
+        right: max(18px, env(safe-area-inset-right));
+        bottom: max(18px, calc(env(safe-area-inset-bottom) + 12px));
+        display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px;
+        border: 1px solid rgba(255,255,255,.35); border-radius: 999px;
+        background: rgba(17,64,66,.72); color: #fff; cursor: pointer;
+        font: 600 14px/1.2 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif; letter-spacing: .02em;
+        -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+        opacity: 0; animation: wg-intro-in .4s ease .9s forwards;
+        transition: background .2s ease, transform .2s ease;
+      }
+      #wg-intro button span { font-size: 18px; line-height: 1; margin-top: -2px; }
+      #wg-intro button:hover { background: rgba(17,64,66,.9); transform: translateX(2px); }
+      #wg-intro button:focus-visible { outline: 2px solid #F5B82E; outline-offset: 3px; }
+      @keyframes wg-intro-in { to { opacity: 1; } }
+    </style>
+    <script>
+      (function () {
+        try {
+          var w = window, n = w.navigator || {}, ua = n.userAgent || '', l = w.location;
+          var p = l.pathname.replace(/\/+$/, '') || '/';
+          var conn = n.connection || {};
+          // ?intro forces it to play (for testing) regardless of the rules below
+          var force = /[?&]intro\b/.test(l.search);
+          var skip = !force && (
+            !/^\/(index\.html|home|self-?drive)?$/i.test(p) ||
+            /[?&]nointro\b/.test(l.search) ||
+            w.Capacitor || l.protocol === 'capacitor:' ||
+            /Capacitor|wowgoa\.cabs|; wv\)/.test(ua) ||
+            /mode=app|source=apk|app=taxi/.test(l.search) ||
+            n.webdriver || /bot|crawl|spider|slurp|lighthouse|headless|preview/i.test(ua) ||
+            conn.saveData || /(^|-)2g$/.test(conn.effectiveType || '') ||
+            (w.matchMedia && w.matchMedia('(prefers-reduced-motion: reduce)').matches));
+          if (!skip) document.documentElement.classList.add('wg-intro');
+        } catch (e) { /* storage blocked etc. -> no intro */ }
+      })();
+    </script>
   </head>
   <body>
+    <script>
+      (function () {
+        var root = document.documentElement;
+        if (!root.classList.contains('wg-intro')) return;
+
+        var box = document.createElement('div');
+        box.id = 'wg-intro';
+        box.setAttribute('role', 'presentation');
+        box.innerHTML =
+          '<video muted playsinline autoplay preload="auto" disablepictureinpicture disableremoteplayback' +
+          ' aria-hidden="true" tabindex="-1" poster="/intro/intro-poster.jpg?v=2">' +
+          '<source src="/intro/intro.webm?v=2" type="video/webm">' +
+          '<source src="/intro/intro.mp4?v=2" type="video/mp4">' +
+          '</video>' +
+          '<button type="button">Skip <span aria-hidden="true">&rsaquo;</span></button>';
+        document.body.appendChild(box);
+
+        var video = box.querySelector('video');
+        var done = false, started = false, timers = [];
+
+        function finish() {
+          if (done) return;
+          done = true;
+          timers.forEach(clearTimeout);
+          document.removeEventListener('keydown', onKey);
+          root.classList.remove('wg-intro');
+          box.classList.add('is-leaving');
+          setTimeout(function () {
+            try { video.pause(); video.removeAttribute('src'); video.load(); } catch (e) {}
+            if (box.parentNode) box.parentNode.removeChild(box);
+          }, 700);
+        }
+        function onKey(e) { if (e.key === 'Escape') finish(); }
+
+        video.muted = true; // required for autoplay on iOS/Android
+        video.addEventListener('playing', function () {
+          if (started) return;
+          started = true;
+          // Safety net: video length (6.3s) + generous slack for stutters.
+          timers.push(setTimeout(finish, 9000));
+        });
+        video.addEventListener('ended', finish);
+        video.addEventListener('timeupdate', function () {
+          if (video.duration && video.currentTime >= video.duration - 0.06) finish();
+        });
+        video.lastElementChild.addEventListener('error', finish); // all sources failed
+        box.querySelector('button').addEventListener('click', finish);
+        document.addEventListener('keydown', onKey);
+
+        // Very slow network: if it hasn't started in 3.5s, just show the site.
+        timers.push(setTimeout(function () { if (!started) finish(); }, 3500));
+
+        var pr = video.play && video.play();
+        // Autoplay blocked (e.g. iOS Low Power Mode) -> don't leave a still frame on screen.
+        if (pr && pr.catch) pr.catch(finish);
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
