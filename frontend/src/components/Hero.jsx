@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  MapPin, Play, Pause, Volume2, VolumeX, Calendar, 
+  MapPin, Calendar,
   Users, Search, ChevronRight, X, Sparkles, Navigation, 
   Compass, Car, Hotel, Check, Info, Clock, ArrowRight, ShieldCheck
 } from 'lucide-react';
@@ -882,35 +882,6 @@ export default function Hero({
           100% { top: 12px; opacity: 0; }
         }
 
-        /* Media controls (pause/play & mute) */
-        .hero-media-buttons {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .hero-media-icon-btn {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: rgba(11, 22, 44, 0.65);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .hero-media-icon-btn:hover {
-          background: rgba(255, 255, 255, 0.2);
-          border-color: #F5C518;
-          color: #F5C518;
-        }
-
         /* ─── VIDEO PREVIEW MODAL ────────────────────────────────── */
         .video-preview-modal-backdrop {
           position: fixed;
@@ -1409,7 +1380,7 @@ export default function Hero({
           </div>
         </div>
 
-        {/* ─── 3. BOTTOM CONTROLS: DASHES, SCROLL MOUSE, MEDIA BUTTONS ─── */}
+        {/* ─── 3. BOTTOM CONTROLS: DASHES, SCROLL MOUSE ─── */}
         <div className="hero-bottom-controls-row">
           
           {/* Progress Indicators (Left) */}
@@ -1437,25 +1408,8 @@ export default function Hero({
             <span>Scroll to Explore</span>
           </div>
 
-          {/* Media Buttons (Right: Play/Pause & Mute/Unmute) */}
-          <div className="hero-media-buttons">
-            <button 
-              type="button" 
-              className="hero-media-icon-btn"
-              onClick={() => setIsPlaying(!isPlaying)}
-              title={isPlaying ? "Pause Video" : "Play Video"}
-            >
-              {isPlaying ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: '1px' }} />}
-            </button>
-            <button 
-              type="button" 
-              className="hero-media-icon-btn"
-              onClick={() => setIsMuted(!isMuted)}
-              title={isMuted ? "Unmute Audio" : "Mute Audio"}
-            >
-              {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-            </button>
-          </div>
+          {/* Empty spacer (Right): keeps the scroll indicator in its position */}
+          <div aria-hidden="true" style={{ width: '72px' }} />
 
         </div>
 

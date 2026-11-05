@@ -1732,19 +1732,22 @@ export default function App() {
     if (resetCountry) resetCountry();
   };
 
-  if (isAuthHydrating) {
-    return (
-      <div className="d-flex w-100 vh-100 align-items-center justify-content-center bg-light">
-        <div className="text-center">
-          <div className="spinner-border text-primary mb-2" style={{ width: '2.5rem', height: '2.5rem' }} role="status">
-            <span className="visually-hidden">Loading session...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // ─── ONE-TIME INTRO ANIMATION ──────────────────────────────────────────
+  // Show the branded 3D intro video on first visit while data loads
+  const introShouldShow = (() => {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('intro') === '1') return true;
+    const p = window.location.pathname.toLowerCase();
+    if (p.includes('/admin') || p.includes('/vendor') || p.includes('/driver') || p.includes('/b2b')) return false;
+    if (activeTab === 'admin' || activeTab === 'vendor' || activeTab === 'driver' || activeTab === 'b2b') return false;
+    try { return !sessionStorage.getItem('wow_goa_intro_seen'); } catch(e) { return false; }
+  })();
 
-  if (!dataLoaded) {
+  if (isAuthHydrating || !dataLoaded) {
+    if (introShouldShow) {
+      return <IntroAnimationOverlay activeTab={activeTab} />;
+    }
     return (
       <div className="d-flex w-100 vh-100 align-items-center justify-content-center bg-light">
         <div className="text-center">
@@ -3214,8 +3217,6 @@ export default function App() {
       <AIChatbot />
       <PopupRenderer popups={liveConfig?.popups || []} onAction={() => {}} />
 
-      {/* One-time Visitor Intro Animation Overlay */}
-      <IntroAnimationOverlay activeTab={activeTab} />
 
       {/* Live Active Ride Island & OTP Floating Bar */}
       <LiveCustomerRideBar />

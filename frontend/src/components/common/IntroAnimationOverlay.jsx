@@ -121,6 +121,7 @@ export default function IntroAnimationOverlay({ activeTab }) {
         isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
       style={{
+        zIndex: 99999999,
         background: 'radial-gradient(circle at center, #f8faf7 0%, #ece8df 55%, #d1c7bd 100%)',
       }}
       title="Click anywhere to skip intro"
