@@ -19,6 +19,7 @@ import PackageDetailsModal from './components/PackageDetailsModal';
 import AIChatbot from './components/AIChatbot';
 import WhatsAppWidget from './components/WhatsAppWidget';
 import PopupRenderer from './components/website/PopupRenderer';
+import IntroAnimationOverlay from './components/common/IntroAnimationOverlay';
 
 import DynamicFeaturedHotels from './components/widgets/DynamicFeaturedHotels';
 import DynamicFeaturedVehicles from './components/widgets/DynamicFeaturedVehicles';
@@ -3212,6 +3213,9 @@ export default function App() {
       {activeTab !== 'portal' && <WhatsAppWidget />}
       <AIChatbot />
       <PopupRenderer popups={liveConfig?.popups || []} onAction={() => {}} />
+
+      {/* One-time Visitor Intro Animation Overlay */}
+      <IntroAnimationOverlay activeTab={activeTab} />
 
       {/* Live Active Ride Island & OTP Floating Bar */}
       <LiveCustomerRideBar />
