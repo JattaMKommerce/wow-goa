@@ -471,7 +471,14 @@ export default function Hero({
         .hero-typewriter-text {
           background: linear-gradient(135deg, #FFF0B3 0%, #F5C518 40%, #E5A826 80%, #FF9F1C 100%);
           -webkit-background-clip: text;
+          background-clip: text;
           -webkit-text-fill-color: transparent;
+          /* Gradient text is only painted inside the element's box; Playfair's
+             descenders (g, p, y, j) hang below it and got cut off. Extend the
+             box with padding and cancel it with negative margin so layout is unchanged. */
+          display: inline-block;
+          padding: 0.06em 0.08em 0.24em 0.02em;
+          margin: -0.06em -0.08em -0.24em -0.02em;
         }
 
         .hero-typewriter-cursor {

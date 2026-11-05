@@ -318,6 +318,15 @@ export default function App() {
   const [activities, setActivities] = useState([]);
   const [dataLoaded, setDataLoaded] = useState(false);
 
+  // Tell the brand intro (index.html) the real page is painted, so it can fade
+  // straight into the site instead of revealing the "Starting..." loader.
+  // useLayoutEffect = fires the instant the real page is in the DOM (before other effects run).
+  useLayoutEffect(() => {
+    if (!dataLoaded || isAuthHydrating || window.__WG_APP_READY__) return;
+    window.__WG_APP_READY__ = true;
+    window.dispatchEvent(new Event('wg-app-ready'));
+  }, [dataLoaded, isAuthHydrating]);
+
   // Load backend data on mount
   useEffect(() => {
     let safetyTimer = setTimeout(() => {

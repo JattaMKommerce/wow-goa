@@ -69,6 +69,21 @@
       #wg-intro button:hover { background: rgba(17,64,66,.9); transform: translateX(2px); }
       #wg-intro button:focus-visible { outline: 2px solid #F5B82E; outline-offset: 3px; }
       @keyframes wg-intro-in { to { opacity: 1; } }
+      /* After Skip: button disappears at once; if the site needs a moment more,
+         small brand-coloured dots appear (only after 0.5s, so usually never seen). */
+      #wg-intro.is-waiting button { visibility: hidden; }
+      #wg-intro .wg-intro-dots {
+        position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%);
+        display: none; gap: 8px;
+      }
+      #wg-intro.is-waiting .wg-intro-dots { display: flex; opacity: 0; animation: wg-intro-in .3s ease .5s forwards; }
+      #wg-intro .wg-intro-dots i {
+        width: 8px; height: 8px; border-radius: 50%; background: #114042;
+        animation: wg-intro-dot 1s ease-in-out infinite;
+      }
+      #wg-intro .wg-intro-dots i:nth-child(2) { background: #E8463F; animation-delay: .15s; }
+      #wg-intro .wg-intro-dots i:nth-child(3) { background: #F5B82E; animation-delay: .3s; }
+      @keyframes wg-intro-dot { 0%, 80%, 100% { transform: scale(.6); opacity: .5; } 40% { transform: scale(1); opacity: 1; } }
     </style>
     <script>
       (function () {
@@ -107,16 +122,21 @@
           '<source src="/intro/intro.webm?v=2" type="video/webm">' +
           '<source src="/intro/intro.mp4?v=2" type="video/mp4">' +
           '</video>' +
-          '<button type="button">Skip <span aria-hidden="true">&rsaquo;</span></button>';
+          '<button type="button">Skip <span aria-hidden="true">&rsaquo;</span></button>' +
+          '<div class="wg-intro-dots" aria-hidden="true"><i></i><i></i><i></i></div>';
         document.body.appendChild(box);
 
         var video = box.querySelector('video');
-        var done = false, started = false, timers = [];
+        var btn = box.querySelector('button');
+        var left = false, exiting = false, started = false, timers = [];
 
-        function finish() {
-          if (done) return;
-          done = true;
+        // Step 2: actually fade out — only once the real site is painted
+        // (App.jsx fires 'wg-app-ready'), so the "Starting..." loader is never seen.
+        function leave() {
+          if (left) return;
+          left = true;
           timers.forEach(clearTimeout);
+          window.removeEventListener('wg-app-ready', leave);
           document.removeEventListener('keydown', onKey);
           root.classList.remove('wg-intro');
           box.classList.add('is-leaving');
@@ -125,29 +145,48 @@
             if (box.parentNode) box.parentNode.removeChild(box);
           }, 700);
         }
-        function onKey(e) { if (e.key === 'Escape') finish(); }
+
+        // Step 1: intro is over (skipped / finished / failed). Show the final logo
+        // and leave as soon as the site is ready.
+        function exit(jumpToLogo) {
+          if (exiting || left) return;
+          exiting = true;
+          box.classList.add('is-waiting');
+          if (jumpToLogo && video.duration && started) {
+            try { video.pause(); video.currentTime = video.duration - 0.05; } catch (e) {}
+          }
+          if (window.__WG_APP_READY__) return leave();
+          window.addEventListener('wg-app-ready', leave);
+          timers.push(setTimeout(leave, 8000)); // never hold longer than this
+        }
+        function skip(e) { if (e) e.preventDefault(); exit(true); }
+        function onKey(e) { if (e.key === 'Escape') skip(); }
 
         video.muted = true; // required for autoplay on iOS/Android
         video.addEventListener('playing', function () {
           if (started) return;
           started = true;
           // Safety net: video length (6.3s) + generous slack for stutters.
-          timers.push(setTimeout(finish, 9000));
+          timers.push(setTimeout(function () { exit(true); }, 9000));
         });
-        video.addEventListener('ended', finish);
+        video.addEventListener('ended', function () { exit(false); });
         video.addEventListener('timeupdate', function () {
-          if (video.duration && video.currentTime >= video.duration - 0.06) finish();
+          if (video.duration && video.currentTime >= video.duration - 0.06) exit(false);
         });
-        video.lastElementChild.addEventListener('error', finish); // all sources failed
-        box.querySelector('button').addEventListener('click', finish);
+        video.lastElementChild.addEventListener('error', function () { exit(false); }); // all sources failed
+        // pointerdown reacts on press (not release) so Skip feels instant
+        btn.addEventListener('pointerdown', skip);
+        btn.addEventListener('click', skip);
         document.addEventListener('keydown', onKey);
 
-        // Very slow network: if it hasn't started in 3.5s, just show the site.
-        timers.push(setTimeout(function () { if (!started) finish(); }, 3500));
+        // Very slow network: if the video hasn't started in 3.5s, move on.
+        timers.push(setTimeout(function () { if (!started) exit(false); }, 3500));
+        // Absolute safety net from page start.
+        timers.push(setTimeout(leave, 20000));
 
         var pr = video.play && video.play();
         // Autoplay blocked (e.g. iOS Low Power Mode) -> don't leave a still frame on screen.
-        if (pr && pr.catch) pr.catch(finish);
+        if (pr && pr.catch) pr.catch(function () { exit(false); });
       })();
     </script>
     <div id="root"></div>
