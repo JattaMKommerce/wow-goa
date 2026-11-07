@@ -4,7 +4,7 @@ import {
   X, ChevronLeft, ChevronRight, Star, MapPin, ArrowLeft, CheckCircle, 
   Clock, ShieldCheck, Users, BedDouble, Maximize2, Coffee, Utensils, 
   Calendar, Info, AlertCircle, ExternalLink, ThumbsUp, MessageSquare, 
-  Compass, Eye, Sparkles, Check
+  Compass, Eye, Sparkles, Check, Waves
 } from 'lucide-react';
 import ImageCarousel from '../../components/common/ImageCarousel';
 import * as api from '../../services/api';
@@ -82,12 +82,13 @@ export default function HotelDetailsPage({
   const combinedGst = Math.round(combinedStaySubtotal * 0.18);
   const combinedGrandTotal = combinedStaySubtotal + combinedGst;
 
-  // ─── Phase B: 6-Section Sticky Navigation State ───
+  // ─── Phase B: 7-Section Sticky Navigation State ───
   const [activeNavSection, setActiveNavSection] = useState('overview');
 
   const NAV_TABS = [
     { id: 'overview', label: 'OVERVIEW' },
     { id: 'rooms', label: 'ROOMS' },
+    { id: 'nearby-destinations', label: 'NEARBY ATTRACTIONS' },
     { id: 'location', label: 'LOCATION' },
     { id: 'property-rules', label: 'PROPERTY RULES' },
     { id: 'user-reviews', label: 'USER REVIEWS' },
@@ -104,7 +105,7 @@ export default function HotelDetailsPage({
 
   // Scroll-spy listener to highlight current active sticky tab
   useEffect(() => {
-    const sectionIds = ['overview', 'rooms', 'location', 'property-rules', 'user-reviews', 'similar-properties'];
+    const sectionIds = ['overview', 'rooms', 'nearby-destinations', 'location', 'property-rules', 'user-reviews', 'similar-properties'];
     const handleScroll = () => {
       const scrollPosition = window.scrollY + 170;
       for (let i = sectionIds.length - 1; i >= 0; i--) {
@@ -121,6 +122,25 @@ export default function HotelDetailsPage({
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // ─── Nearby Destinations & Distance Highlights (Authoritative Approved Data) ───
+  const [nearbyDestinations, setNearbyDestinations] = useState(hotel?.nearby_destinations || []);
+  const [loadingDestinations, setLoadingDestinations] = useState(false);
+
+  useEffect(() => {
+    if (!hotel || !hotel.id) return;
+    if (hotel.nearby_destinations && Array.isArray(hotel.nearby_destinations) && hotel.nearby_destinations.length > 0) {
+      setNearbyDestinations(hotel.nearby_destinations);
+    } else {
+      setLoadingDestinations(true);
+      api.fetchHotelDestinations(hotel.id)
+        .then(dests => {
+          if (Array.isArray(dests)) setNearbyDestinations(dests);
+        })
+        .catch(err => console.warn('[HotelDetails] Error loading destinations:', err))
+        .finally(() => setLoadingDestinations(false));
+    }
+  }, [hotel?.id, hotel?.nearby_destinations]);
 
   // ─── Phase B: Similar Properties (Real Database API) ───
   const [similarHotels, setSimilarHotels] = useState([]);
@@ -1345,6 +1365,180 @@ export default function HotelDetailsPage({
               </div>
             )}
           </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION: NEARBY DESTINATIONS & ATTRACTIONS (#nearby-destinations)
+        ═══════════════════════════════════════════════════════════════ */}
+        <div id="nearby-destinations" style={{ scrollMarginTop: '130px' }} className="bg-white rounded-4 shadow-sm p-4 mb-4 border">
+          <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom gap-2">
+            <div>
+              <div className="d-flex align-items-center gap-2">
+                <div className="p-1.5 rounded-3 bg-success bg-opacity-10 text-success">
+                  <Waves size={20} />
+                </div>
+                <h4 className="fw-bold text-dark mb-0 font-heading">Nearby Destinations &amp; Attractions</h4>
+              </div>
+              <span className="text-muted text-xs">
+                Verified walking &amp; driving distances to beaches, heritage forts, markets, and attractions from {hotel.name}
+              </span>
+            </div>
+            {nearbyDestinations.length > 0 && (
+              <span className="badge rounded-pill px-3 py-1.5 text-xs fw-bold" style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0' }}>
+                ✨ {nearbyDestinations.length} Verified Nearby Hotspots
+              </span>
+            )}
+          </div>
+
+          {loadingDestinations ? (
+            <div className="text-center py-4 text-muted text-xs">
+              Loading verified attractions nearby...
+            </div>
+          ) : nearbyDestinations.length === 0 ? (
+            <div className="text-center py-4 text-muted text-xs">
+              <MapPin size={28} className="text-muted mb-2 mx-auto opacity-50" />
+              <div>Proximity details are currently being updated for this property.</div>
+            </div>
+          ) : (
+            <div>
+              {/* Featured Nearest Destination Hero Card */}
+              {nearbyDestinations[0] && (
+                <div 
+                  className="rounded-4 p-3.5 mb-4 border transition-all"
+                  style={{
+                    background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
+                    borderColor: '#86EFAC',
+                    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.08)'
+                  }}
+                >
+                  <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                    <div className="d-flex align-items-center gap-3">
+                      {nearbyDestinations[0].image ? (
+                        <img 
+                          src={nearbyDestinations[0].image} 
+                          alt={nearbyDestinations[0].destination_name}
+                          className="rounded-3 shadow-xs"
+                          style={{ width: '64px', height: '64px', objectFit: 'cover' }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="rounded-3 bg-success text-white d-flex align-items-center justify-content-center shadow-xs" style={{ width: '64px', height: '64px' }}>
+                          <Waves size={28} />
+                        </div>
+                      )}
+                      <div>
+                        <div className="d-flex align-items-center gap-2 mb-1">
+                          <span className="badge bg-success text-white rounded-pill px-2.5 py-0.5 text-xxs fw-bold text-uppercase">
+                            🌟 Nearest {nearbyDestinations[0].destination_category}
+                          </span>
+                          <span className="text-muted text-xxs fw-semibold">
+                            Verified Proximity
+                          </span>
+                        </div>
+                        <h5 className="fw-black text-dark mb-0 font-heading" style={{ fontSize: '1.25rem' }}>
+                          {nearbyDestinations[0].destination_name}
+                        </h5>
+                        <p className="text-muted text-xs mb-0 mt-0.5">
+                          {nearbyDestinations[0].description || `Conveniently situated just ${nearbyDestinations[0].distance_value} ${nearbyDestinations[0].distance_unit} from the property entrance.`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-md-end flex-shrink-0">
+                      <div className="fw-black font-heading text-dark" style={{ fontSize: '1.4rem', color: '#065F46' }}>
+                        {nearbyDestinations[0].distance_value} {nearbyDestinations[0].distance_unit}
+                      </div>
+                      <div className="text-xs fw-bold" style={{ color: '#047857' }}>
+                        {nearbyDestinations[0].travel_mode === 'Walking' ? (
+                          <span>🚶 ~{nearbyDestinations[0].walking_time_minutes || 2} min walking distance</span>
+                        ) : (
+                          <span>🚗 ~{nearbyDestinations[0].driving_time_minutes || 5} min driving distance</span>
+                        )}
+                      </div>
+                      {nearbyDestinations[0].latitude && nearbyDestinations[0].longitude && (
+                        <a 
+                          href={`https://www.google.com/maps/search/?api=1&query=${nearbyDestinations[0].latitude},${nearbyDestinations[0].longitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-outline-success btn-sm rounded-pill px-3 py-1 text-xxs fw-bold d-inline-flex align-items-center gap-1 mt-1.5"
+                        >
+                          <Compass size={12} /> View on Map
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Grid of All Nearby Destinations */}
+              <div className="row g-3">
+                {nearbyDestinations.map((dest, i) => (
+                  <div key={dest.id || i} className="col-12 col-md-6 col-lg-4">
+                    <div className="card h-100 border rounded-3 p-3 bg-light bg-opacity-40 hover-shadow transition-all">
+                      <div className="d-flex align-items-start gap-2.5 mb-2">
+                        {dest.image ? (
+                          <img 
+                            src={dest.image} 
+                            alt={dest.destination_name}
+                            className="rounded-3 shadow-2xs"
+                            style={{ width: '48px', height: '48px', objectFit: 'cover' }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="rounded-3 bg-white border text-primary d-flex align-items-center justify-content-center shadow-2xs" style={{ width: '48px', height: '48px' }}>
+                            <MapPin size={22} />
+                          </div>
+                        )}
+                        <div className="flex-grow-1 min-w-0">
+                          <div className="d-flex align-items-center justify-content-between gap-1 mb-0.5">
+                            <span className="badge bg-white text-secondary border rounded-pill px-2 py-0.5 text-xxs fw-bold">
+                              {dest.destination_category}
+                            </span>
+                            <span className="fw-black text-dark text-xs">
+                              {dest.distance_value} {dest.distance_unit}
+                            </span>
+                          </div>
+                          <h6 className="fw-bold text-dark mb-0 text-truncate font-heading" style={{ fontSize: '0.95rem' }} title={dest.destination_name}>
+                            {dest.destination_name}
+                          </h6>
+                        </div>
+                      </div>
+
+                      <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-auto">
+                        <span className="text-muted text-xxs fw-semibold">
+                          {dest.travel_mode === 'Walking' ? (
+                            <span className="text-success">🚶 ~{dest.walking_time_minutes || 2} min walk</span>
+                          ) : (
+                            <span className="text-primary">🚗 ~{dest.driving_time_minutes || 5} min drive</span>
+                          )}
+                        </span>
+                        {(dest.latitude && dest.longitude) ? (
+                          <a 
+                            href={`https://www.google.com/maps/search/?api=1&query=${dest.latitude},${dest.longitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary text-xxs fw-bold text-decoration-none d-flex align-items-center gap-1 hover-underline"
+                          >
+                            <ExternalLink size={11} /> Map
+                          </a>
+                        ) : (
+                          <a 
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest.destination_name + ' Goa')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-muted text-xxs fw-bold text-decoration-none d-flex align-items-center gap-1 hover-underline"
+                          >
+                            <Compass size={11} /> Explore
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+            </div>
+          )}
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════

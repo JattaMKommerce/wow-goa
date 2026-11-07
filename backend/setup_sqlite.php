@@ -595,7 +595,45 @@ $alterColumns = [
         assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         notes TEXT
-    )"
+    )",
+    "CREATE TABLE IF NOT EXISTS hotel_nearby_destinations (
+        id VARCHAR(50) PRIMARY KEY,
+        hotel_id VARCHAR(50) NOT NULL,
+        destination_name VARCHAR(255) NOT NULL,
+        destination_category VARCHAR(100) NOT NULL,
+        distance_value DECIMAL(10,2) NOT NULL,
+        distance_unit VARCHAR(20) NOT NULL DEFAULT 'km',
+        distance_meters INT NOT NULL,
+        travel_mode VARCHAR(50) NOT NULL DEFAULT 'Walking',
+        walking_time_minutes INT DEFAULT NULL,
+        driving_time_minutes INT DEFAULT NULL,
+        description TEXT DEFAULT NULL,
+        image TEXT DEFAULT NULL,
+        latitude DECIMAL(10,8) DEFAULT NULL,
+        longitude DECIMAL(11,8) DEFAULT NULL,
+        approval_status VARCHAR(30) NOT NULL DEFAULT 'DRAFT',
+        rejection_reason TEXT DEFAULT NULL,
+        pending_changes TEXT DEFAULT NULL,
+        submitted_by VARCHAR(50) DEFAULT NULL,
+        approved_by VARCHAR(50) DEFAULT NULL,
+        approved_at DATETIME DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )",
+    "CREATE TABLE IF NOT EXISTS hotel_destination_audit_logs (
+        id VARCHAR(50) PRIMARY KEY,
+        destination_id VARCHAR(50) NOT NULL,
+        action VARCHAR(50) NOT NULL,
+        old_values TEXT DEFAULT NULL,
+        new_values TEXT DEFAULT NULL,
+        performed_by VARCHAR(50) NOT NULL,
+        remarks TEXT DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )",
+    "CREATE INDEX IF NOT EXISTS idx_hdest_hotel_id ON hotel_nearby_destinations(hotel_id)",
+    "CREATE INDEX IF NOT EXISTS idx_hdest_approval ON hotel_nearby_destinations(approval_status)",
+    "CREATE INDEX IF NOT EXISTS idx_hdest_category ON hotel_nearby_destinations(destination_category)",
+    "CREATE INDEX IF NOT EXISTS idx_hdest_dist ON hotel_nearby_destinations(distance_meters)"
 ];
 foreach ($alterColumns as $q) {
     try { $pdo->exec($q); } catch (Exception $e) {}

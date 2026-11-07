@@ -1,5 +1,22 @@
-# Deny direct access to database.sqlite, environment files, and logs
-<FilesMatch "\.(sqlite|env|log|sql)$">
+# =============================================================================
+# WOW GOA backend - public web access rules
+#
+# Only 4 files in this folder are meant to be opened by URL:
+#   api.php              - all website / app / portal traffic (incl. payments)
+#   deploy_receiver.php  - receives GitHub Actions deployments
+#   cron_birthday.php    - daily birthday job (CLI or cron URL)
+#   cron_wallet.php      - daily cashback-wallet expiry job (CLI or cron URL)
+#
+# Every other PHP file is either a library that api.php loads from disk
+# (require/include are NOT affected by these rules) or a maintenance /
+# migration / setup / inspection / test script that must never be runnable
+# from the internet. Data files (database, backups, schema, cache, logs,
+# config) are also blocked; PHP can still read and write them on disk.
+# =============================================================================
+
+# --- 1. Block every PHP file by default (this folder and all subfolders,
+#        including uploads/, so an uploaded .php file can never be executed) ---
+<FilesMatch "\.(php[0-9]?|phtml|phar|inc)$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>
@@ -9,11 +26,52 @@
   </IfModule>
 </FilesMatch>
 
-# Forward Authorization header on Apache / FastCGI
+# --- 2. ...then re-allow only the 4 real entry points ---
+<FilesMatch "^(api|deploy_receiver|cron_birthday|cron_wallet)\.php$">
+  <IfModule mod_authz_core.c>
+    Require all granted
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Allow from all
+  </IfModule>
+</FilesMatch>
+
+# --- 3. Block databases, backups, schema/cache JSON, logs, config and archives ---
+#        (covers e.g. database.sqlite, *.sqlite.phase2_backup, *.bak, schema_full.json,
+#         exchange_rates_cache.json, tripgalileo_mysql.sql, php.ini, .env, *.log, *.zip)
+<FilesMatch "(\.(sqlite3?|db|sql|env|log|ini|conf|bak|backup|old|orig|save|swp|tmp|zip|tar|gz|tgz|7z|rar|json|md|yml|yaml|lock|sh|py|js|ts)$|backup$|^\.env)">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# --- 3b. Booking voucher copies are private (customer names, phones, booking details) ---
+#         vendor_storefront_actions.php saves a copy of every emailed voucher as
+#         uploads/voucher_<booking-id>.html and uploads/last_voucher_email.html.
+#         Nothing on the site links to these copies, so they are blocked from the web;
+#         PHP can still write them, and the emailed voucher itself is unchanged.
+<FilesMatch "^(voucher_.+|last_voucher_email)\.html?$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# --- 4. Never show a folder listing (e.g. /backend/uploads/) ---
+Options -Indexes
+
+# --- 5. Forward Authorization header on Apache / FastCGI (unchanged from before) ---
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteCond %{HTTP:Authorization} .
   RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 </IfModule>
 SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
-

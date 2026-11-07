@@ -12,7 +12,8 @@ export default function HotelVendorDashboard({
   onDeleteHotel,
   bookings,
   currentUser,
-  onEditRequest
+  onEditRequest,
+  onManageDestinations
 }) {
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
@@ -312,10 +313,25 @@ export default function HotelVendorDashboard({
       {activeTab === 'hotels' && (
         <div className="col-12">
           <div className="p-4 rounded-4 mb-4 shadow-sm position-relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', border: '1px solid rgba(76, 175, 80, 0.1)' }}>
-            <h4 className="fw-extrabold mb-2 text-dark font-heading">Active Hotel Listings</h4>
-            <p className="mb-0 text-secondary fw-medium" style={{ fontSize: '0.95rem' }}>
-              Manage your active hotel properties and pricing.
-            </p>
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+              <div>
+                <h4 className="fw-extrabold mb-1 text-dark font-heading">Active Hotel Listings</h4>
+                <p className="mb-0 text-secondary fw-medium" style={{ fontSize: '0.95rem' }}>
+                  Manage your active hotel properties, pricing, and nearby attractions.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onManageDestinations) onManageDestinations();
+                  else window.dispatchEvent(new CustomEvent('tripgalileo-navigate', { detail: { tab: 'hotel_destinations' } }));
+                }}
+                className="btn btn-sm rounded-pill px-3 py-2 text-white fw-bold d-flex align-items-center gap-1.5 shadow-sm"
+                style={{ background: '#0D9488', border: 'none', fontSize: '0.82rem' }}
+              >
+                <MapPin size={15} /> Nearby Destinations Master
+              </button>
+            </div>
           </div>
 
           <div className="card luxury-card p-4 h-100">
@@ -353,6 +369,21 @@ export default function HotelVendorDashboard({
                         </td>
                         <td>
                           <div className="d-flex gap-2 flex-wrap">
+                            <button
+                              className="btn btn-sm text-white fw-bold py-1 px-2.5 d-inline-flex align-items-center gap-1 shadow-xs"
+                              style={{ background: '#0D9488', borderColor: '#0D9488', fontSize: '0.78rem' }}
+                              onClick={() => {
+                                if (onManageDestinations) {
+                                  onManageDestinations(hotel);
+                                } else {
+                                  window.dispatchEvent(new CustomEvent('tripgalileo-navigate', { detail: { tab: 'hotel_destinations', hotelId: hotel.id } }));
+                                  window.dispatchEvent(new CustomEvent('navigate-vendor-tab', { detail: 'nearby_destinations', hotelId: hotel.id }));
+                                }
+                              }}
+                              title="Add or edit nearby destinations for this hotel"
+                            >
+                              <MapPin size={13} /> Nearby Attractions
+                            </button>
                             <button className="btn btn-sm btn-outline-primary py-1 px-2" onClick={() => handleEditHotelClick(hotel)}>
                               Edit
                             </button>

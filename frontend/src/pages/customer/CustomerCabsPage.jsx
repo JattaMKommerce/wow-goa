@@ -169,7 +169,10 @@ export const getActiveTaxiVehicles = () => {
   return DEFAULT_TOURIST_VEHICLES;
 };
 
-export default function CustomerCabsPage({ onBookCab }) {
+// isNativeApp / cabUser are passed by TaxiAppShell (APK); on the website they default
+// to false / null. (They used to be read without being declared, which crashed
+// /cabs and /taxi-vendor with "is not defined".)
+export default function CustomerCabsPage({ onBookCab, isNativeApp = false, cabUser = null }) {
   // Page View Modes: 'landing' (Uber storefront first page) | 'booking' (Dedicated Tourist Booking Page) | 'confirmed'
   const [currentView, setCurrentView] = useState(() => {
     try {

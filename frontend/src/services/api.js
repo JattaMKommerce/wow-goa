@@ -19,32 +19,49 @@ export function getCustomerToken() {
     if (custStr) {
       const cust = JSON.parse(custStr);
       if (cust && (cust.role === 'customer' || !cust.role)) {
-        return cust.token || cust.id || cust.phone || '';
+        return isSignedToken(cust.token) ? cust.token : ''; // never the customer's id or phone
       }
     }
   } catch (e) {}
   return '';
 }
 
+// A signed server token looks like "<base64url payload>.<64 hex signature>".
+export function isSignedToken(t) {
+  return typeof t === 'string' && /^[A-Za-z0-9_-]+\.[0-9a-f]{64}$/.test(t);
+}
+
 export function getAuthToken() {
+  // Only signed login tokens issued by the server are sent. A user's id, username,
+  // phone or email is never used as a credential (older screens may still store one; it is skipped).
   try {
     const adminToken = localStorage.getItem('auth_token');
-    if (adminToken) return adminToken;
+    if (isSignedToken(adminToken)) return adminToken;
     const b2bToken = localStorage.getItem('b2b_partner_token');
-    if (b2bToken) return b2bToken;
+    if (isSignedToken(b2bToken)) return b2bToken;
     const custStr = localStorage.getItem('customerUser');
     if (custStr) {
       const cust = JSON.parse(custStr);
-      if (cust.token || cust.id || cust.phone) return cust.token || cust.id || cust.phone;
+      if (cust && isSignedToken(cust.token)) return cust.token;
     }
     const currStr = localStorage.getItem('currentUser');
     if (currStr) {
       const user = JSON.parse(currStr);
-      return user.token || user.id || user.username || '';
+      if (user && isSignedToken(user.token)) return user.token;
     }
     return '';
   } catch (e) {
     return '';
+  }
+}
+
+// Signed token for B2B partner screens (prefers the partner's own login token).
+export function getB2BToken() {
+  try {
+    const b2b = localStorage.getItem('b2b_partner_token');
+    return isSignedToken(b2b) ? b2b : (getAuthToken() || '');
+  } catch (e) {
+    return getAuthToken() || '';
   }
 }
 
@@ -199,6 +216,15 @@ export async function fetchHotels(params = {}) {
     let url = `${API_BASE}?resource=hotels`;
     if (params.checkIn) url += `&check_in=${encodeURIComponent(params.checkIn)}`;
     if (params.checkOut) url += `&check_out=${encodeURIComponent(params.checkOut)}`;
+    if (params.destinationCategory && params.destinationCategory !== 'all') {
+      url += `&destination_category=${encodeURIComponent(params.destinationCategory)}`;
+    }
+    if (params.maxDistanceMeters) {
+      url += `&max_distance_meters=${encodeURIComponent(params.maxDistanceMeters)}`;
+    }
+    if (params.beachfrontOnly) {
+      url += `&beachfront_only=1`;
+    }
     const res = await apiFetch(url);
     if (!res.ok) return [];
     const data = await res.json();
@@ -338,33 +364,8 @@ export async function fetchUsers() {
     const userPassMap = JSON.parse(localStorage.getItem('user_passwords') || '{}');
     list = list.map(u => {
       const stored = userPassMap[u.id] || userPassMap[u.username] || userPassMap[u.email];
-      let pass = u.plain_password;
-
-      if (u.role === 'customer') {
-        pass = (stored && stored !== 'admin@2026' && stored !== 'Pass@123') ? stored : (u.plain_password && u.plain_password !== 'admin@2026' ? u.plain_password : 'OTP Login');
-      } else {
-        if (stored && stored !== 'admin@2026') {
-          pass = stored;
-        } else if (u.plain_password && u.plain_password !== 'admin@2026') {
-          pass = u.plain_password;
-        } else if (u.username === 'superadmin') {
-          pass = 'superadmin';
-        } else if (u.username === 'admin') {
-          pass = 'Admin@Goa2026';
-        } else if (u.username === 'goa_operations') {
-          pass = 'Ops@Goa2026';
-        } else if (u.role === 'vendor' || u.username === 'vendor') {
-          pass = 'Vendor@Fleet26';
-        } else if (u.role === 'hotel_vendor' || u.username === 'hotel_vendor') {
-          pass = 'Hotel@Goa2026';
-        } else if (u.role === 'flight_vendor' || u.username === 'flight_vendor') {
-          pass = 'Flight@Goa2026';
-        } else if (u.role === 'b2b') {
-          pass = stored || u.plain_password || `Partner@${String(u.username || u.id || '').slice(-4)}`;
-        } else {
-          pass = stored || u.plain_password || `${u.username || 'User'}@2026`;
-        }
-      }
+      // Display only a password that is actually stored; never invent or hard-code one.
+      const pass = stored || u.plain_password || '';
 
       return {
         ...u,
@@ -727,7 +728,7 @@ export async function b2bLogin(username, password) {
 
 export async function fetchB2BDashboard(partnerId) {
   const res = await apiFetch(`${API_BASE}?resource=b2b_dashboard&b2b_partner_id=${encodeURIComponent(partnerId || '')}`, {
-    headers: { 'Authorization': `Bearer ${partnerId || ''}` }
+    headers: { 'Authorization': `Bearer ${getB2BToken()}` }
   });
   if (!res.ok) throw new Error('Failed to fetch B2B dashboard');
   return await res.json();
@@ -743,7 +744,7 @@ export async function fetchB2BBookings(partnerId, filters = {}) {
   }).toString();
   const headers = {};
   if (partnerId && partnerId !== 'all') {
-    headers['Authorization'] = `Bearer ${partnerId}`;
+    headers['Authorization'] = `Bearer ${getB2BToken()}`;
     headers['X-B2B-Partner-ID'] = partnerId;
   }
   const res = await apiFetch(`${API_BASE}?${query}`, { headers });
@@ -754,7 +755,7 @@ export async function fetchB2BBookings(partnerId, filters = {}) {
 
 export async function fetchB2BCustomers(partnerId, search = '') {
   const res = await apiFetch(`${API_BASE}?resource=b2b_customers&b2b_partner_id=${encodeURIComponent(partnerId || '')}&search=${encodeURIComponent(search)}`, {
-    headers: { 'Authorization': `Bearer ${partnerId || ''}` }
+    headers: { 'Authorization': `Bearer ${getB2BToken()}` }
   });
   if (!res.ok) return [];
   const data = await res.json();
@@ -763,7 +764,7 @@ export async function fetchB2BCustomers(partnerId, search = '') {
 
 export async function fetchB2BReports(partnerId) {
   const res = await apiFetch(`${API_BASE}?resource=b2b_reports&b2b_partner_id=${encodeURIComponent(partnerId || '')}`, {
-    headers: { 'Authorization': `Bearer ${partnerId || ''}` }
+    headers: { 'Authorization': `Bearer ${getB2BToken()}` }
   });
   if (!res.ok) throw new Error('Failed to fetch B2B reports');
   return await res.json();
@@ -775,7 +776,7 @@ export async function fetchB2BPricingPreview(params) {
     ...params
   }).toString();
   const res = await apiFetch(`${API_BASE}?${query}`, {
-    headers: { 'Authorization': `Bearer ${params.b2b_partner_id || ''}` }
+    headers: { 'Authorization': `Bearer ${getB2BToken()}` }
   });
   const data = await res.json();
   if (!res.ok || !data.success) throw new Error(data.error || 'Pricing calculation failed');
@@ -783,14 +784,11 @@ export async function fetchB2BPricingPreview(params) {
 }
 
 export async function b2bBook(bookingPayload) {
-  const token = bookingPayload.b2b_partner_id 
-    || getAuthToken() 
-    || localStorage.getItem('b2b_partner_token')
-    || (() => { try { return JSON.parse(localStorage.getItem('b2b_partner_user') || '{}')?.id; } catch(e) { return ''; } })()
-    || '';
+  const token = getB2BToken();
+  const partnerUserId = (() => { try { return JSON.parse(localStorage.getItem('b2b_partner_user') || '{}')?.id || ''; } catch (e) { return ''; } })();
   const payloadWithPartner = {
     ...bookingPayload,
-    b2b_partner_id: bookingPayload.b2b_partner_id || token
+    b2b_partner_id: bookingPayload.b2b_partner_id || partnerUserId
   };
   const res = await apiFetch(`${API_BASE}?action=b2b_book`, {
     method: 'POST',
@@ -848,7 +846,7 @@ export async function saveB2BPricingRule(ruleData) {
 
 export async function fetchB2BAuditLogs(partnerId = '') {
   const res = await apiFetch(`${API_BASE}?resource=b2b_audit_logs&b2b_partner_id=${encodeURIComponent(partnerId)}`, {
-    headers: { 'Authorization': `Bearer ${partnerId || ''}` }
+    headers: { 'Authorization': `Bearer ${getB2BToken()}` }
   });
   if (!res.ok) return [];
   const data = await res.json();
@@ -1125,7 +1123,7 @@ export async function clearNotifications({ role = '', userId = '', phone = '' } 
 export async function fetchB2BWallet(partnerId) {
   try {
     const res = await apiFetch(`${API_BASE}?resource=b2b_wallet&partner_id=${encodeURIComponent(partnerId || '')}`, {
-      headers: { 'Authorization': `Bearer ${partnerId || ''}` }
+      headers: { 'Authorization': `Bearer ${getB2BToken()}` }
     });
     if (!res.ok) return { success: false, error: 'Failed to load wallet' };
     return await res.json();
@@ -1153,7 +1151,7 @@ export async function rechargeB2BWallet(payload) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${payload.b2b_partner_id || payload.partner_id || ''}`
+        'Authorization': `Bearer ${getB2BToken()}`
       },
       body: JSON.stringify({ action: 'b2b_wallet_recharge', ...payload })
     });
@@ -1169,7 +1167,7 @@ export async function adjustB2BWallet(payload) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${payload.admin_id || 'admin'}`
+        'Authorization': `Bearer ${getAuthToken()}`
       },
       body: JSON.stringify({ action: 'b2b_admin_adjust_wallet', ...payload })
     });
@@ -1185,7 +1183,7 @@ export async function cancelB2BBooking(bookingId, reason, partnerId) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${partnerId || ''}`
+        'Authorization': `Bearer ${getB2BToken()}`
       },
       body: JSON.stringify({ action: 'b2b_cancel_booking', booking_id: bookingId, reason: reason })
     });
@@ -1389,78 +1387,7 @@ export async function loginUser(username, password) {
     }
   }
 
-  // Check demo accounts
-  if ((cleanU === 'superadmin' || cleanU === 'superadmin@gmail.com') && (cleanP === 'superadmin' || cleanP === 'superadmin@2026' || cleanP === 'admin@2026')) {
-    return { id: 'u-1', username: 'superadmin', name: 'Super Admin', email: 'superadmin@gmail.com', role: 'superadmin' };
-  }
-  if ((cleanU === 'admin' || cleanU === 'admin@gmail.com') && (cleanP === 'admin@2026' || cleanP === 'admin')) {
-    return { id: 'u-2', username: 'admin', name: 'Admin', email: 'admin@gmail.com', role: 'admin' };
-  }
-  if ((cleanU === 'vendor' || cleanU === 'vendor@tripgalileo.com') && (cleanP === 'admin@2026' || cleanP === 'vendor')) {
-    return { id: 'u-3', username: 'vendor', name: 'Fleet Vendor', email: 'vendor@tripgalileo.com', role: 'vendor' };
-  }
-  if ((cleanU === 'hotel_vendor' || cleanU === 'hotel_vendor@tripgalileo.com') && (cleanP === 'admin@2026' || cleanP === 'hotel_vendor')) {
-    return { id: 'u-4', username: 'hotel_vendor', name: 'Hotel Partner', email: 'hotel_vendor@tripgalileo.com', role: 'hotel_vendor' };
-  }
-  if ((cleanU === 'flight_vendor' || cleanU === 'flight_vendor@tripgalileo.com') && (cleanP === 'admin@2026' || cleanP === 'flight_vendor')) {
-    return { id: 'u-5', username: 'flight_vendor', name: 'Flight Partner', email: 'flight_vendor@tripgalileo.com', role: 'flight_vendor' };
-  }
-  if ((cleanU === 'driver' || cleanU === 'driver@gmail.com' || cleanU === '1234567899') && (cleanP === 'driver@123' || cleanP === 'Driver@123' || cleanP === 'admin@2026' || cleanP === 'driver')) {
-    return {
-      id: 'drv-1788173418874',
-      username: 'driver@gmail.com',
-      name: 'driver',
-      email: 'driver@gmail.com',
-      phone: '1234567899',
-      role: 'driver',
-      status: 'Approved',
-      profile_photo: '',
-      address: 'Goa',
-      license_number: 'GA-1007',
-      experience_years: 'Standard Experience',
-      vehicle_details: 'Commercial Fleet'
-    };
-  }
-  if ((cleanU === 'b2b' || cleanU === 'b2b@goatest.com' || cleanU === 'b2b_partner_goa' || cleanU === 'partner_a' || cleanU === 'partner_a@agency.com') && (cleanP === 'admin@2026' || cleanP === 'b2b@2026' || cleanP === 'Partner@Goa26')) {
-    const b2bUser = {
-      id: 'b2b_partner_a',
-      username: 'partner_a',
-      name: 'Raj Sharma (ABC Travels Goa)',
-      email: 'partner_a@agency.com',
-      company_name: 'ABC Travels Goa',
-      role: 'b2b',
-      status: 'active',
-      allow_commission: 1,
-      allow_non_commission: 1,
-      default_commission_rate: 10,
-      default_net_discount_rate: 10
-    };
-    try {
-      localStorage.setItem('b2b_partner_user', JSON.stringify(b2bUser));
-      localStorage.setItem('b2b_partner_token', b2bUser.id);
-    } catch (e) {}
-    return b2bUser;
-  }
-  if ((cleanU === 'customer' || cleanU === 'customer@tripgalileo.com' || cleanU === 'user') && (cleanP === 'customer@2026' || cleanP === 'customer' || cleanP === 'admin@2026')) {
-    return { id: 'u-cust-1', username: 'customer', name: 'Demo Customer', email: 'customer@tripgalileo.com', role: 'customer' };
-  }
-
-  // Check locally created users in localStorage
-  try {
-    const localUsers = JSON.parse(localStorage.getItem('local_users') || '[]');
-    const passMap = JSON.parse(localStorage.getItem('user_passwords') || '{}');
-    const matched = localUsers.find(u => 
-      (u.username && u.username.toLowerCase() === cleanU) || 
-      (u.email && u.email.toLowerCase() === cleanU)
-    );
-    if (matched) {
-      const storedPass = passMap[matched.id] || passMap[matched.username] || passMap[matched.email] || matched.plain_password || matched.password;
-      if (!storedPass || storedPass === cleanP || cleanP === 'admin@2026') {
-        return matched;
-      }
-    }
-  } catch (e) {}
-
+  // No browser-side demo or local-user logins: only the server can authenticate.
   throw new Error("Invalid username or password. Check credentials.");
 }
 
@@ -1573,13 +1500,26 @@ export async function verifyCustomerOtp(phone, email = '', otp) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ phone, email, otp })
   });
-  return await res.json().catch(() => ({ success: false, error: 'Network error verifying OTP.' }));
+  const data = await res.json().catch(() => ({ success: false, error: 'Network error verifying OTP.' }));
+  // Keep the signed token with the customer object that the login screens store as 'customerUser'.
+  if (data && data.success && data.customer && data.token) {
+    data.customer = { ...data.customer, token: data.token };
+  }
+  return data;
 }
 
 
+// Random temporary password for accounts created without one (replaces the old public default).
+export function generateTempPassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#%';
+  const buf = new Uint32Array(14);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, (n) => chars[n % chars.length]).join('');
+}
+
 export async function registerUser(userData) {
   const newUserId = userData.id || `u-${Date.now()}`;
-  const password = userData.password || userData.plain_password || 'admin@2026';
+  const password = userData.password || userData.plain_password || generateTempPassword();
   const role = (userData.role || 'admin').toLowerCase().trim();
   const newUserRecord = {
     id: newUserId,
@@ -4340,11 +4280,23 @@ export async function pingDriverGps(telematicsData) {
   }
 }
 
+// Phone the passenger booked the cab with (saved by the cab booking screen), used to prove the ride is theirs.
+function getRiderPhone(dispatchId = '') {
+  try {
+    const ride = JSON.parse(localStorage.getItem('wowgoa_active_ride') || 'null');
+    if (ride && ride.passengerPhone && (!dispatchId || !ride.refId || String(ride.refId) === String(dispatchId))) return String(ride.passengerPhone);
+  } catch (e) {}
+  try { const p = localStorage.getItem('wowgoa_rider_phone'); if (p) return p; } catch (e) {}
+  try { const c = JSON.parse(localStorage.getItem('customerUser') || 'null'); if (c && c.phone) return String(c.phone); } catch (e) {}
+  return '';
+}
+
 export async function fetchRideLiveTrack(dispatchId = '', phone = '') {
   try {
     let url = `${API_BASE}?resource=ride_live_track`;
     if (dispatchId) url += `&id=${encodeURIComponent(dispatchId)}`;
-    if (phone) url += `&phone=${encodeURIComponent(phone)}`;
+    const ridePhone = phone || getRiderPhone(dispatchId);
+    if (ridePhone) url += `&phone=${encodeURIComponent(ridePhone)}`;
     const res = await apiFetch(url);
     return await res.json();
   } catch (err) {
@@ -4365,10 +4317,11 @@ export async function fetchVendorTelematics() {
 
 export async function rateCustomerTrip(rateData) {
   try {
+    const withPhone = { ...rateData, phone: rateData.phone || getRiderPhone(rateData.dispatch_id || rateData.id || '') };
     const res = await apiFetch(`${API_BASE}?action=customer_rate_trip`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(rateData)
+      body: JSON.stringify(withPhone)
     });
     return await res.json();
   } catch (err) {
@@ -4389,18 +4342,129 @@ export async function fetchCustomerPastTrips(phone = '') {
   }
 }
 
-export async function cancelCabRide(dispatchId, reason = 'Cancelled by passenger') {
+export async function cancelCabRide(dispatchId, reason = 'Cancelled by passenger', phone = '') {
   try {
     const res = await apiFetch(`${API_BASE}?action=cancel_booking`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dispatch_id: dispatchId, reason })
+      body: JSON.stringify({ dispatch_id: dispatchId, reason, phone: phone || getRiderPhone(dispatchId) })
     });
     return await res.json();
   } catch (err) {
     console.warn('[API] cancelCabRide error:', err.message);
     return { success: false, error: err.message };
   }
+}
+
+// ==========================================
+// Hotel Nearby Destinations & Highlights API
+// ==========================================
+
+export async function fetchHotelDestinations(hotelId = '') {
+  try {
+    let url = `${API_BASE}?resource=hotel_destinations`;
+    if (hotelId) url += `&hotel_id=${encodeURIComponent(hotelId)}`;
+    const res = await apiFetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.destinations || [];
+  } catch (err) {
+    console.warn('[API] fetchHotelDestinations error:', err.message);
+    return [];
+  }
+}
+
+export async function fetchVendorHotelDestinations(vendorId = '', hotelId = '') {
+  try {
+    let url = `${API_BASE}?resource=vendor_hotel_destinations`;
+    if (vendorId) url += `&vendor_id=${encodeURIComponent(vendorId)}`;
+    if (hotelId) url += `&hotel_id=${encodeURIComponent(hotelId)}`;
+    const res = await apiFetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.destinations || [];
+  } catch (err) {
+    console.warn('[API] fetchVendorHotelDestinations error:', err.message);
+    return [];
+  }
+}
+
+export async function fetchAdminHotelDestinations(status = 'all', hotelId = 'all') {
+  try {
+    let url = `${API_BASE}?resource=admin_hotel_destinations&status=${encodeURIComponent(status)}&hotel_id=${encodeURIComponent(hotelId)}`;
+    const res = await apiFetch(url);
+    if (!res.ok) throw new Error('Failed to fetch admin destinations');
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] fetchAdminHotelDestinations error:', err.message);
+    return { destinations: [], counts: {} };
+  }
+}
+
+export async function addHotelDestination(payload) {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'add_hotel_destination', ...payload })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.error || 'Failed to add nearby destination');
+  return data;
+}
+
+export async function updateHotelDestination(payload) {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'update_hotel_destination', ...payload })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.error || 'Failed to update destination');
+  return data;
+}
+
+export async function deleteHotelDestination(id, hotelId = '') {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'delete_hotel_destination', id, hotel_id: hotelId })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.error || 'Failed to delete destination');
+  return data;
+}
+
+export async function submitHotelDestinationApproval(id, hotelId = '') {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'submit_hotel_destination_approval', id, hotel_id: hotelId })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.error || 'Failed to submit destination for approval');
+  return data;
+}
+
+export async function approveHotelDestination(id) {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'approve_hotel_destination', id })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.error || 'Failed to approve destination');
+  return data;
+}
+
+export async function rejectHotelDestination(id, reason) {
+  const res = await apiFetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'reject_hotel_destination', id, rejection_reason: reason })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.error || 'Failed to reject destination');
+  return data;
 }
 
 // Re-export unified Taxi B2B operations client as default export

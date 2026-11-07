@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import chatbotAvatar from '../assets/luzia-avatar-icon.webp';
 import chatbotAnimationVideo from '../assets/chatbot-animation.mp4';
-import chatbotAnimationWebm from '../assets/chatbot-animation.webm';
+// 772x540 HD version (shown at 240x168 → sharp even on 3x phone screens): 2.2 MB instead of 4.2 MB
+import chatbotAnimationWebm from '../assets/chatbot-animation-hd.webm';
 import tara3dAvatar from '../assets/tara-concierge-3d.webp';
 import { chatWithAI, createAiLead, updateAiLeadChat, getAIChatbotSettings } from '../services/api';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';

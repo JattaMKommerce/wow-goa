@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, MapPin } from 'lucide-react';
+import { Star, MapPin, Waves } from 'lucide-react';
 
 export default function DynamicFeaturedHotels({ config, hotels = [], onBook, onBookHotel, onViewDetails, onViewHotel }) {
   if (config && !config.visible) return null;
@@ -55,9 +55,17 @@ export default function DynamicFeaturedHotels({ config, hotels = [], onBook, onB
                     ))}
                   </div>
                   <h5 className="fw-bold mb-1" style={{ color: '#0D1B2E', fontSize: '1.1rem' }} onClick={() => handleAction(hotel)}>{hotel.name}</h5>
-                  <div className="d-flex align-items-center text-muted mb-3" style={{ fontSize: '0.85rem' }}>
+                  <div className="d-flex align-items-center text-muted mb-2" style={{ fontSize: '0.85rem' }}>
                     <MapPin size={14} className="me-1" /> {hotel.area}
                   </div>
+                  {hotel.nearest_destination && (
+                    <div className="d-flex align-items-center gap-1.5 mb-3 px-2.5 py-1 rounded-pill fw-bold" style={{ background: '#F0FDF4', color: '#047857', border: '1px solid #A7F3D0', fontSize: '11px' }}>
+                      <Waves size={12} className="flex-shrink-0" />
+                      <span className="text-truncate">
+                        {hotel.nearest_destination.distance_value} {hotel.nearest_destination.distance_unit} from {hotel.nearest_destination.destination_name}
+                      </span>
+                    </div>
+                  )}
                   <div className="d-flex align-items-center justify-content-between mt-auto">
                     <div>
                       <div className="text-muted" style={{ fontSize: '0.75rem' }}>Starts from</div>

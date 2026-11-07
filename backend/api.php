@@ -641,6 +641,14 @@ if (!$connected) {
             VendorWalletAlertService::ensureSchema($pdo);
         } catch (Exception $e) {}
         try {
+            $checkTable = $pdo->query("SELECT 1 FROM hotel_nearby_destinations LIMIT 1");
+        } catch (Exception $e) {
+            try {
+                require_once __DIR__ . '/migrations/20261107_hotel_nearby_destinations.php';
+                runHotelNearbyDestinationsMigration($pdo);
+            } catch (Exception $e2) {}
+        }
+        try {
             $gsInitCount = $pdo->query("SELECT COUNT(*) FROM global_settings")->fetchColumn();
             if (intval($gsInitCount) === 0) {
                 $pdo->exec("INSERT INTO global_settings (id, siteName, hotel_booking_driver_enabled) VALUES (1, 'TripGalileo', 1)");
@@ -1810,25 +1818,31 @@ function reverseBookingCashback($pdo, $bookingId) {
 // ─── AUTHENTICATION & RBAC SECURITY ARCHITECTURE ───
 // ===================================================
 
-if (!defined('AUTH_SECRET')) {
-    define('AUTH_SECRET', 'wowgoa_auth_secret_key_2026_xK9#mQ2$zL8');
+// AUTH_SECRET is loaded from backend/.env by config.php (see .env.example). It is never hard-coded here.
+function wgAuthSecret() {
+    return (defined('AUTH_SECRET') && is_string(AUTH_SECRET) && strlen(AUTH_SECRET) >= 32) ? AUTH_SECRET : null;
 }
 
 /**
  * Generate a cryptographically signed HMAC-SHA256 bearer token.
  */
 function generateAuthToken($user) {
+    $secret = wgAuthSecret();
+    if ($secret === null || empty($user['id'])) {
+        return null; // no secret configured (or no user id): never issue an unsigned/weak token
+    }
     $payload = [
         'id' => $user['id'] ?? '',
         'username' => $user['username'] ?? ($user['email'] ?? ($user['phone'] ?? '')),
         'role' => $user['role'] ?? 'customer',
+        'phone' => $user['phone'] ?? '',
         'tenant_id' => $user['admin_id'] ?? 'admin',
         'time' => time(),
         'exp' => time() + (86400 * 7) // 7 days expiration
     ];
     $json = json_encode($payload);
     $b64 = rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
-    $sig = hash_hmac('sha256', $b64, AUTH_SECRET);
+    $sig = hash_hmac('sha256', $b64, $secret);
     return $b64 . '.' . $sig;
 }
 
@@ -1836,11 +1850,14 @@ function generateAuthToken($user) {
  * Verify HMAC-SHA256 signed bearer token.
  */
 function verifyAuthToken($token) {
-    if (empty($token) || !is_string($token)) return null;
+    $secret = wgAuthSecret();
+    if ($secret === null) return null; // fail closed: no secret, no valid tokens
+    if (empty($token) || !is_string($token) || strlen($token) > 4096) return null;
     $parts = explode('.', $token);
     if (count($parts) !== 2) return null;
     list($b64, $sig) = $parts;
-    $expectedSig = hash_hmac('sha256', $b64, AUTH_SECRET);
+    if (!preg_match('/^[A-Za-z0-9_-]+$/', $b64) || !preg_match('/^[0-9a-f]{64}$/', $sig)) return null;
+    $expectedSig = hash_hmac('sha256', $b64, $secret);
     if (!hash_equals($expectedSig, $sig)) return null;
     $remainder = strlen($b64) % 4;
     if ($remainder) {
@@ -1848,13 +1865,16 @@ function verifyAuthToken($token) {
     }
     $json = base64_decode(strtr($b64, '-_', '+/'));
     $payload = json_decode($json, true);
-    if (!$payload || !isset($payload['exp']) || $payload['exp'] < time()) return null;
+    if (!is_array($payload) || empty($payload['id']) || empty($payload['role']) || !isset($payload['exp'])) return null;
+    $exp = (int)$payload['exp'];
+    if ($exp < time() || $exp > time() + (86400 * 8)) return null; // expired, or an impossible lifetime
     return $payload;
 }
 
 /**
  * Universal Server-Side Authentication Helper.
- * Authenticates requester via signed bearer token, fallback database ID, or active session.
+ * Authenticates the requester ONLY via a signed, unexpired bearer token.
+ * A user ID, username, email or phone number is never accepted as a credential.
  */
 function authenticateRequest($pdo, $required = false) {
     $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
@@ -1898,30 +1918,19 @@ function authenticateRequest($pdo, $required = false) {
                     $verifiedUser = $uRow;
                 }
             }
-            if (!$verifiedUser && !empty($payload['role'])) {
+            // Staff, vendor, partner and driver tokens must match an active database account.
+            // Only customers (OTP login, id like c_<phone>) may be authenticated from the token alone.
+            if (!$verifiedUser && ($payload['role'] ?? '') === 'customer') {
                 $verifiedUser = [
                     'id' => $payload['id'] ?? '',
                     'username' => $payload['username'] ?? '',
                     'role' => $payload['role'] ?? 'guest',
+                    'phone' => $payload['phone'] ?? '',
                     'admin_id' => $payload['tenant_id'] ?? 'admin'
                 ];
             }
         }
 
-        // 2. Direct ID fallback (for backwards compatibility with demo accounts and existing sessions)
-        if (!$verifiedUser) {
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE (id = ? OR username = ? OR email = ? OR phone = ?) AND status = 'active'");
-            $stmt->execute([$token, $token, $token, $token]);
-            $verifiedUser = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$verifiedUser) {
-                $stmtD = $pdo->prepare("SELECT * FROM drivers WHERE (id = ? OR email = ? OR phone = ?) AND status IN ('Approved', 'Active')");
-                $stmtD->execute([$token, $token, $token]);
-                $dRow = $stmtD->fetch(PDO::FETCH_ASSOC);
-                if ($dRow) {
-                    $verifiedUser = array_merge($dRow, ['role' => 'driver']);
-                }
-            }
-        }
     }
 
     if (!$verifiedUser && $required) {
@@ -2519,57 +2528,35 @@ function checkInventoryAvailability($pdo, $serviceType, $itemId, $pickupDate, $d
 // ==========================================
 
 function getAuthenticatedB2BPartner($pdo, $required = true) {
-    $partnerIdOrToken = '';
-    
-    // Check all headers
+    // Security: a B2B partner is identified ONLY by a signed login token (from b2b_login / login).
+    // Raw partner IDs, usernames or emails in headers, the URL or the request body are NOT accepted.
     $headers = function_exists('getallheaders') ? getallheaders() : [];
+    $candidates = [];
     $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
     if (!$authHeader) {
         foreach ($headers as $k => $v) {
-            if (strtolower($k) === 'authorization') {
-                $authHeader = $v;
-                break;
-            }
+            if (strtolower($k) === 'authorization') { $authHeader = $v; break; }
         }
     }
-
     if ($authHeader && preg_match('/Bearer\s+(.+)$/i', trim($authHeader), $matches)) {
-        $partnerIdOrToken = trim($matches[1]);
+        $candidates[] = trim($matches[1]);
     }
-    
-    if (!$partnerIdOrToken) {
-        $partnerIdOrToken = $_SERVER['HTTP_X_B2B_PARTNER_ID'] ?? ($_GET['b2b_partner_id'] ?? ($_SESSION['b2b_partner_id'] ?? ''));
+    foreach ($headers as $k => $v) {
+        $lk = strtolower($k);
+        if ($lk === 'x-auth-token' || $lk === 'x-b2b-partner-id') { $candidates[] = trim((string)$v); }
+    }
+    foreach (['HTTP_X_AUTH_TOKEN', 'HTTP_X_B2B_PARTNER_ID'] as $sk) {
+        if (!empty($_SERVER[$sk])) { $candidates[] = trim((string)$_SERVER[$sk]); }
+    }
+    if (!empty($_GET['auth_token'])) { $candidates[] = trim((string)$_GET['auth_token']); }
+
+    $partnerIdOrToken = '';
+    foreach ($candidates as $cand) {
+        $decodedAuth = verifyAuthToken($cand);
+        if ($decodedAuth && !empty($decodedAuth['id'])) { $partnerIdOrToken = (string)$decodedAuth['id']; break; }
     }
 
-    if (!$partnerIdOrToken) {
-        foreach ($headers as $k => $v) {
-            if (strtolower($k) === 'x-b2b-partner-id' || strtolower($k) === 'x-auth-token') {
-                $partnerIdOrToken = trim($v);
-                break;
-            }
-        }
-    }
-
-    if (!$partnerIdOrToken && isset($_POST['b2b_partner_id'])) {
-        $partnerIdOrToken = $_POST['b2b_partner_id'];
-    }
-
-    if (!$partnerIdOrToken) {
-        global $payload;
-        if (isset($payload['b2b_partner_id']) && !empty($payload['b2b_partner_id'])) {
-            $partnerIdOrToken = $payload['b2b_partner_id'];
-        } else {
-            $raw = @file_get_contents('php://input');
-            if ($raw) {
-                $parsed = @json_decode($raw, true);
-                if (isset($parsed['b2b_partner_id']) && !empty($parsed['b2b_partner_id'])) {
-                    $partnerIdOrToken = $parsed['b2b_partner_id'];
-                }
-            }
-        }
-    }
-
-    if (!$partnerIdOrToken) {
+    if ($partnerIdOrToken === '') {
         if ($required) {
             http_response_code(401);
             echo json_encode(["success" => false, "error" => "Unauthorized: B2B Partner authentication required."]);
@@ -2578,47 +2565,16 @@ function getAuthenticatedB2BPartner($pdo, $required = true) {
         return null;
     }
 
-    // Decode HMAC token if provided (without clobbering global $payload)
-    $decodedAuth = verifyAuthToken($partnerIdOrToken);
-    if ($decodedAuth && !empty($decodedAuth['id'])) {
-        $partnerIdOrToken = $decodedAuth['id'];
-    }
-
     try {
-        $stmt = $pdo->prepare("SELECT id, username, email, phone, name, company_name, city, address, gst_number, logo_url, role, status, allow_commission, allow_non_commission, default_commission_rate, default_net_discount_rate, credit_limit, wallet_balance, initial_mode, requested_mode, mode_request_status, mode_requested_at, mode_rejection_reason, created_at FROM users WHERE (id = ? OR username = ? OR email = ?) AND status = 'active' AND role IN ('b2b', 'agent', 'admin', 'superadmin')");
-        $stmt->execute([$partnerIdOrToken, $partnerIdOrToken, $partnerIdOrToken]);
+        $stmt = $pdo->prepare("SELECT id, username, email, phone, name, company_name, city, address, gst_number, logo_url, role, status, allow_commission, allow_non_commission, default_commission_rate, default_net_discount_rate, credit_limit, wallet_balance, initial_mode, requested_mode, mode_request_status, mode_requested_at, mode_rejection_reason, created_at FROM users WHERE id = ? AND status = 'active' AND role IN ('b2b', 'agent', 'admin', 'superadmin')");
+        $stmt->execute([$partnerIdOrToken]);
         $partner = $stmt->fetch(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE (id = ? OR username = ? OR email = ?) AND status = 'active' AND role IN ('b2b', 'agent', 'admin', 'superadmin')");
-        $stmt->execute([$partnerIdOrToken, $partnerIdOrToken, $partnerIdOrToken]);
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? AND status = 'active' AND role IN ('b2b', 'agent', 'admin', 'superadmin')");
+        $stmt->execute([$partnerIdOrToken]);
         $partner = $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    if (!$partner && (strpos($partnerIdOrToken, 'b2b_') === 0 || $partnerIdOrToken === 'partner_a' || $partnerIdOrToken === 'partner_b')) {
-        try {
-            $isB = ($partnerIdOrToken === 'b2b_partner_b' || $partnerIdOrToken === 'partner_b');
-            $cName = $isB ? 'XYZ Holiday Planners' : 'ABC Travels Goa';
-            $pName = $isB ? 'Anil Naik' : 'Raj Sharma';
-            $pEmail = $isB ? 'partner_b@agency.com' : 'partner_a@agency.com';
-            $pUser = $isB ? 'partner_b' : ($partnerIdOrToken === 'b2b_partner_a' ? 'partner_a' : $partnerIdOrToken);
-            $pPhone = $isB ? '9876543211' : '9876543210';
-            $pGst = $isB ? '30BBBBB1111B2Z6' : '30AAAAA0000A1Z5';
-            $cLimit = 50000.00;
-
-            $nowDate = date('Y-m-d H:i:s');
-            $insPartner = $pdo->prepare("INSERT INTO users (
-                id, username, email, company_name, name, phone, gst_number, role, status,
-                allow_commission, allow_non_commission, default_commission_rate, default_net_discount_rate,
-                credit_limit, wallet_balance, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'b2b', 'active', 1, 1, 10.00, 10.00, ?, 0.00, ?)");
-            $insPartner->execute([$partnerIdOrToken, $pUser, $pEmail, $cName, $pName, $pPhone, $pGst, $cLimit, $nowDate]);
-
-            $stmt->execute([$partnerIdOrToken, $partnerIdOrToken, $partnerIdOrToken]);
-            $partner = $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (Exception $insEx) {
-            error_log("[B2B] Auto-provision partner error: " . $insEx->getMessage());
-        }
-    }
 
     if (!$partner) {
         if ($required) {
@@ -2697,6 +2653,33 @@ function createB2BNotification($pdo, $partnerId, $userId, $type, $title, $messag
  * - International digits only: "12025550199", "971501234567"
  * - National digits: "2025550199", "501234567"
  */
+// SECURITY: how many rows were created for this identity recently (rate limits, no schema change).
+function wgRecentCount($pdo, $table, $where, $params, $minutes) {
+    $isSqlite = ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite');
+    $since = $isSqlite ? "datetime('now', '-" . (int)$minutes . " minutes')" : "(NOW() - INTERVAL " . (int)$minutes . " MINUTE)";
+    try {
+        $st = $pdo->prepare("SELECT COUNT(*) FROM $table WHERE ($where) AND created_at >= $since");
+        $st->execute($params);
+        return (int)$st->fetchColumn();
+    } catch (Throwable $e) { return 0; }
+}
+
+// SECURITY: is this phone number linked to this email in an existing booking or customer record?
+// Without an SMS gateway, a phone number is only trusted when the verified email is already linked to it.
+function wgPhoneLinkedToEmail($pdo, $rawPhone, $email) {
+    $email = strtolower(trim((string)$email));
+    $vars = getCustomerPhoneVariants((string)$rawPhone);
+    if ($email === '' || empty($vars)) return false;
+    $c = []; $prm = [];
+    foreach ($vars as $v) { $c[] = "phone = ?"; $c[] = "phone LIKE ?"; $prm[] = $v; $prm[] = "%$v"; }
+    $prm[] = $email;
+    foreach (["SELECT 1 FROM bookings WHERE (" . implode(' OR ', $c) . ") AND LOWER(email) = ? LIMIT 1",
+              "SELECT 1 FROM users WHERE role = 'customer' AND (" . implode(' OR ', $c) . ") AND LOWER(email) = ? LIMIT 1"] as $sql) {
+        try { $st = $pdo->prepare($sql); $st->execute($prm); if ($st->fetchColumn()) return true; } catch (Throwable $e) {}
+    }
+    return false;
+}
+
 function getCustomerPhoneVariants($rawPhone) {
     $clean = preg_replace('/\D/', '', $rawPhone ?? '');
     if (empty($clean) || strlen($clean) < 4) {
@@ -2801,11 +2784,38 @@ function findAccountByIdentifier($pdo, $rawIdentifier) {
 }
 
 /**
+ * Verify a password against a stored account row (users / drivers).
+ * - Real bcrypt/argon2 hashes are checked with password_verify().
+ * - Legacy accounts whose password was stored in plain text (plain_password column, or a
+ *   plain value left in password_hash) are checked ONCE with a timing-safe comparison and the
+ *   password is immediately re-stored as a bcrypt hash in password_hash.
+ * There are no shared, default or hard-coded passwords.
+ */
+function wgVerifyAndUpgradePassword($pdo, $table, $row, $password) {
+    if (!in_array($table, ['users', 'drivers'], true) || !is_array($row) || empty($row['id']) || $password === '') {
+        return false;
+    }
+    $stored = (string)($row['password_hash'] ?? '');
+    if (preg_match('/^\$(2[aby]|argon2id?)\$/', $stored)) {
+        if (!password_verify($password, $stored)) return false;
+        if (password_needs_rehash($stored, PASSWORD_DEFAULT)) {
+            try { $pdo->prepare("UPDATE {$table} SET password_hash = ? WHERE id = ?")->execute([password_hash($password, PASSWORD_DEFAULT), $row['id']]); } catch (Exception $e) {}
+        }
+        return true;
+    }
+    $legacy = (string)($row['plain_password'] ?? '');
+    if ($legacy === '') $legacy = $stored; // plain text left in the password_hash column
+    if ($legacy === '' || !hash_equals($legacy, $password)) return false;
+    try { $pdo->prepare("UPDATE {$table} SET password_hash = ? WHERE id = ?")->execute([password_hash($password, PASSWORD_DEFAULT), $row['id']]); } catch (Exception $e) {}
+    return true;
+}
+
+/**
  * Authoritative Login Handler (Phase 10 Consolidation)
  * 
  * Handles authentication for all user types:
  * - Database users (admin, vendor, hotel_vendor, flight_vendor, b2b, customer, etc.)
- * - Demo/fallback users (superadmin, admin, vendor, hotel_vendor, flight_vendor)
+ * - (No demo, fallback or built-in accounts and no shared passwords)
  * - Drivers
  * 
  * Returns standardized response with user data and signed token.
@@ -2836,52 +2846,10 @@ function handleAuthoritativeLogin($pdo, $username, $password) {
         }
     }
 
-    // Database verification or standard demo account match
+    // Database verification only (no shared / default / hard-coded passwords, no built-in accounts)
     $isValid = false;
     if ($user) {
-        if (password_verify($password, $user['password_hash']) || 
-            $password === ($user['plain_password'] ?? '') || 
-            ($user['role'] === 'superadmin' && ($password === 'superadmin' || $password === 'superadmin@2026')) ||
-            ($user['role'] === 'admin' && ($password === 'admin@2026' || $password === 'admin' || $password === 'Ops@Goa2026' || $password === 'Admin@Goa2026')) ||
-            (in_array($user['role'], ['subadmin', 'sub_admin', 'agent']) && ($password === 'admin@2026' || $password === 'Pass@123' || $password === 'subadmin' || $password === 'subadmin@2026')) ||
-            ($user['role'] === 'vendor' && ($password === 'admin@2026' || $password === 'vendor' || $password === 'Vendor@Fleet26')) ||
-            ($user['role'] === 'hotel_vendor' && ($password === 'admin@2026' || $password === 'hotel_vendor' || $password === 'Hotel@Goa2026')) ||
-            ($user['role'] === 'flight_vendor' && ($password === 'admin@2026' || $password === 'flight_vendor' || $password === 'Flight@Goa2026'))) {
-            $isValid = true;
-        }
-    } else {
-        // Fallback demo users if not present in users table
-        if ($username === 'superadmin' || $username === 'superadmin@gmail.com') {
-            if ($password === 'superadmin') {
-                $user = ['id' => 'u-1', 'username' => 'superadmin', 'email' => 'superadmin@gmail.com', 'role' => 'superadmin'];
-                $isValid = true;
-            }
-        } elseif ($username === 'admin' || $username === 'admin@gmail.com') {
-            if ($password === 'admin@2026' || $password === 'admin') {
-                $user = ['id' => 'u-2', 'username' => 'admin', 'email' => 'admin@gmail.com', 'role' => 'admin'];
-                $isValid = true;
-            }
-        } elseif ($username === 'rahul_subadmin' || $username === 'subadmin' || $username === 'subadmin@tripgalileo.com') {
-            if ($password === 'admin@2026' || $password === 'Pass@123' || $password === 'subadmin' || $password === 'subadmin@2026') {
-                $user = ['id' => 'u-sub-1', 'username' => 'rahul_subadmin', 'name' => 'Rahul SubAdmin', 'email' => 'subadmin@tripgalileo.com', 'phone' => '+91 9876543210', 'role' => 'subadmin', 'status' => 'active'];
-                $isValid = true;
-            }
-        } elseif ($username === 'vendor' || $username === 'vendor@tripgalileo.com') {
-            if ($password === 'admin@2026' || $password === 'vendor') {
-                $user = ['id' => 'u-3', 'username' => 'vendor', 'email' => 'vendor@tripgalileo.com', 'role' => 'vendor'];
-                $isValid = true;
-            }
-        } elseif ($username === 'hotel_vendor' || $username === 'hotel_vendor@tripgalileo.com') {
-            if ($password === 'admin@2026' || $password === 'hotel_vendor') {
-                $user = ['id' => 'u-4', 'username' => 'hotel_vendor', 'email' => 'hotel_vendor@tripgalileo.com', 'role' => 'hotel_vendor'];
-                $isValid = true;
-            }
-        } elseif ($username === 'flight_vendor' || $username === 'flight_vendor@tripgalileo.com') {
-            if ($password === 'admin@2026' || $password === 'flight_vendor') {
-                $user = ['id' => 'u-5', 'username' => 'flight_vendor', 'email' => 'flight_vendor@tripgalileo.com', 'role' => 'flight_vendor'];
-                $isValid = true;
-            }
-        }
+        $isValid = wgVerifyAndUpgradePassword($pdo, 'users', $user, $password);
     }
 
     // Check drivers table if not already authenticated
@@ -2898,9 +2866,7 @@ function handleAuthoritativeLogin($pdo, $username, $password) {
             }
             $driverRow = $stmtDrv->fetch(PDO::FETCH_ASSOC);
             if ($driverRow) {
-                if (password_verify($password, $driverRow['password_hash']) || 
-                    $password === ($driverRow['plain_password'] ?? '') || 
-                    $password === 'Driver@123' || $password === 'Driver@2004' || $password === 'admin@2026') {
+                if (wgVerifyAndUpgradePassword($pdo, 'drivers', $driverRow, $password)) {
                     $isValid = true;
                     $user = [
                         'id' => $driverRow['id'],
@@ -2960,6 +2926,10 @@ function handleAuthoritativeLogin($pdo, $username, $password) {
             $user['last_active_at'] = $now;
         } catch (Exception $e) {}
         $token = generateAuthToken($user);
+        if (!$token) {
+            http_response_code(500);
+            return ["success" => false, "error" => "Login is temporarily unavailable: server authentication is not configured (AUTH_SECRET)."];
+        }
         return ["success" => true, "message" => "Login successful", "user" => $user, "token" => $token];
     } else {
         http_response_code(401);
@@ -3684,8 +3654,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $tenant_id = getTenantId();
         
         if ($resource === 'reset_packages') {
-            $pdo->exec("TRUNCATE TABLE packages");
-            echo "Packages truncated";
+            // Security: destructive operation is never available through GET.
+            http_response_code(405);
+            echo json_encode(["success" => false, "error" => "Method not allowed. Use POST action=reset_packages as a logged-in Super Admin."]);
             exit();
         } elseif ($resource === 'exchange_rates') {
             require_once __DIR__ . '/ExchangeRateService.php';
@@ -3872,6 +3843,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     }
                 }
             }
+
+            // Phase 4: Enrich hotel records with approved nearby destinations & nearest highlight
+            try {
+                require_once __DIR__ . '/hotel_destinations.php';
+                HotelDestinationsService::enrichHotelsWithDestinations($pdo, $data);
+
+                // Filter by destination_category if requested
+                if (!empty($_GET['destination_category']) && $_GET['destination_category'] !== 'all') {
+                    $reqCat = strtolower(trim($_GET['destination_category']));
+                    $data = array_values(array_filter($data, function($h) use ($reqCat) {
+                        $dests = $h['nearby_destinations'] ?? [];
+                        foreach ($dests as $d) {
+                            if (strtolower(trim($d['destination_category'])) === $reqCat) return true;
+                        }
+                        return false;
+                    }));
+                }
+
+                // Filter by max_distance_meters if requested
+                if (!empty($_GET['max_distance_meters'])) {
+                    $maxDist = intval($_GET['max_distance_meters']);
+                    $data = array_values(array_filter($data, function($h) use ($maxDist) {
+                        $dests = $h['nearby_destinations'] ?? [];
+                        foreach ($dests as $d) {
+                            if (intval($d['distance_meters']) <= $maxDist) return true;
+                        }
+                        return false;
+                    }));
+                }
+
+                // Filter beachfront if requested (beach <= 250m)
+                if (!empty($_GET['beachfront_only']) && ($_GET['beachfront_only'] === '1' || $_GET['beachfront_only'] === 'true')) {
+                    $data = array_values(array_filter($data, function($h) {
+                        $dests = $h['nearby_destinations'] ?? [];
+                        foreach ($dests as $d) {
+                            if (strtolower(trim($d['destination_category'])) === 'beaches' && intval($d['distance_meters']) <= 250) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    }));
+                }
+            } catch (Exception $e) {}
+
             echo json_encode($data);
             exit;} elseif ($resource === 'hotel_rooms_public') {
             $hotel_id = trim($_GET['hotel_id'] ?? '');
@@ -4111,7 +4126,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     'policies_json' => $hotel['policies_json'],
                     'rating' => floatval($hotel['rating'] ?: 4.5),
                     'stars' => intval($hotel['stars'] ?: 4),
-                    'badge' => $hotel['badge'] ?: 'Verified Stay'
+                    'badge' => $hotel['badge'] ?: 'Verified Stay',
+                    'nearby_destinations' => (function() use ($pdo, $hotel_id) {
+                        try {
+                            require_once __DIR__ . '/hotel_destinations.php';
+                            return HotelDestinationsService::getApprovedDestinationsForHotel($pdo, $hotel_id);
+                        } catch (Exception $e) { return []; }
+                    })(),
+                    'nearest_destination' => (function() use ($pdo, $hotel_id) {
+                        try {
+                            require_once __DIR__ . '/hotel_destinations.php';
+                            $d = HotelDestinationsService::getApprovedDestinationsForHotel($pdo, $hotel_id);
+                            return count($d) > 0 ? $d[0] : null;
+                        } catch (Exception $e) { return null; }
+                    })()
                 ],
                 'room_types' => $processedRooms
             ]);
@@ -4163,7 +4191,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 ],
                 'reviews' => $reviews
             ]);
-            exit;} elseif ($resource === 'public_reviews' || $resource === 'customer_reviews' || $action === 'get_public_reviews') {
+            exit;
+        } elseif ($resource === 'hotel_destinations') {
+            require_once __DIR__ . '/hotel_destinations.php';
+            $destId = trim($_GET['id'] ?? '');
+            $hotelId = trim($_GET['hotel_id'] ?? '');
+            if (!empty($destId)) {
+                $dest = HotelDestinationsService::getDestinationById($pdo, $destId);
+                $actor = HotelDestinationsService::resolveActor($pdo, null, $_GET);
+                $isAdmin = $actor && in_array(strtolower($actor['role'] ?? ''), ['admin', 'superadmin']);
+                if ($dest && ($dest['approval_status'] === 'APPROVED' || $isAdmin)) {
+                    echo json_encode(['success' => true, 'destination' => $dest]);
+                } else {
+                    http_response_code(404);
+                    echo json_encode(['success' => false, 'error' => 'Destination not found']);
+                }
+                exit;
+            } elseif (!empty($hotelId)) {
+                $dests = HotelDestinationsService::getApprovedDestinationsForHotel($pdo, $hotelId);
+                echo json_encode(['success' => true, 'hotel_id' => $hotelId, 'destinations' => $dests]);
+                exit;
+            } else {
+                $stmt = $pdo->query("SELECT d.*, h.name as hotel_name FROM hotel_nearby_destinations d LEFT JOIN hotels h ON d.hotel_id = h.id WHERE d.approval_status = 'APPROVED' ORDER BY d.distance_meters ASC");
+                $allDests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                echo json_encode(['success' => true, 'destinations' => $allDests ?: []]);
+                exit;
+            }
+        } elseif ($resource === 'pms_hotel_destinations' || $resource === 'vendor_hotel_destinations') {
+            require_once __DIR__ . '/hotel_destinations.php';
+            $actor = HotelDestinationsService::resolveActor($pdo, null, $_GET);
+            if (!$actor) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'Authentication required']);
+                exit;
+            }
+            $role = strtolower($actor['role'] ?? '');
+            $hotelId = trim($_GET['hotel_id'] ?? '');
+            if ($role === 'superadmin' || $role === 'admin') {
+                $vendorId = trim($_GET['vendor_id'] ?? $actor['id']);
+            } else {
+                $vendorId = $actor['id'];
+            }
+            $dests = HotelDestinationsService::getVendorDestinations($pdo, $vendorId, $hotelId ?: null);
+            echo json_encode(['success' => true, 'destinations' => $dests]);
+            exit;
+        } elseif ($resource === 'admin_hotel_destinations') {
+            require_once __DIR__ . '/hotel_destinations.php';
+            $actor = HotelDestinationsService::resolveActor($pdo, null, $_GET);
+            if (!$actor || !in_array(strtolower($actor['role'] ?? ''), ['admin', 'superadmin'])) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Forbidden: Admin access required']);
+                exit;
+            }
+            $status = trim($_GET['status'] ?? 'all');
+            $hotelId = trim($_GET['hotel_id'] ?? 'all');
+            $result = HotelDestinationsService::getAdminDestinations($pdo, $status, $hotelId);
+            echo json_encode(array_merge(['success' => true], $result));
+            exit;
+        } elseif ($resource === 'public_reviews' || $resource === 'customer_reviews' || $action === 'get_public_reviews') {
             // Strictly ordered: 5-star first, then 4-star, 3-star, 2-star, 1-star
             // ORDER BY rating DESC, created_at DESC
             $stmt = $pdo->query("SELECT id, booking_id, customer_name, service_type, service_name, rating, review_text, created_at 
@@ -4198,8 +4283,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ]);
             exit;} elseif ($resource === 'admin_reviews' || $action === 'get_admin_review_stats' || $action === 'get_admin_reviews') {
             $actor = authenticateRequest($pdo, false);
-            $roleHeader = $_SERVER['HTTP_X_USER_ROLE'] ?? ($_GET['role'] ?? ($_POST['role'] ?? ($payload['role'] ?? '')));
-            $actorRole = strtolower($actor['role'] ?? $roleHeader);
+            $actorRole = strtolower($actor['role'] ?? ''); // role from the authenticated account only
             if ($actorRole === 'vendor' || $actorRole === 'hotel_vendor') {
                 http_response_code(403);
                 echo json_encode(["success" => false, "error" => "Access denied. Vendors are not permitted to access customer reviews."]);
@@ -4244,8 +4328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ]);
             exit;} elseif ($resource === 'eligible_review_bookings' || $action === 'get_eligible_review_bookings') {
             $actor = authenticateRequest($pdo, false);
-            $roleHeader = $_SERVER['HTTP_X_USER_ROLE'] ?? ($_GET['role'] ?? ($_POST['role'] ?? ($payload['role'] ?? '')));
-            $actorRole = strtolower($actor['role'] ?? $roleHeader);
+            $actorRole = strtolower($actor['role'] ?? ''); // role from the authenticated account only
             if ($actorRole === 'vendor' || $actorRole === 'hotel_vendor') {
                 http_response_code(403);
                 echo json_encode(["success" => false, "error" => "Access denied. Vendors are not permitted to access reviews."]);
@@ -4666,9 +4749,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode($data);
             exit;} elseif ($resource === 'users') {
+            // Security: the account list is staff-only (it was public). Sub-admins get it without passwords.
+            $wgUsrActor = authenticateRequest($pdo, false);
+            $wgUsrRole = strtolower((string)($wgUsrActor['role'] ?? ''));
+            if (!in_array($wgUsrRole, ['admin', 'superadmin', 'subadmin', 'sub_admin'], true)) {
+                http_response_code($wgUsrActor ? 403 : 401);
+                echo json_encode([]);
+                exit;
+            }
             $stmt = $pdo->prepare("SELECT id, username, name, email, phone, city, role, date_of_birth, created_at, billing_price, status, kyc_status, plain_password, is_online, last_active_at FROM users WHERE (admin_id = ? OR admin_id IS NULL OR admin_id = '' OR admin_id = 'admin' OR ? = 'superadmin' OR ? = 'admin') ORDER BY created_at DESC");
             $stmt->execute([$tenant_id, $tenant_id, $tenant_id]);
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if (!in_array($wgUsrRole, ['admin', 'superadmin'], true)) {
+                foreach ($data as &$wgRow) { unset($wgRow['plain_password']); }
+                unset($wgRow);
+            }
             echo json_encode($data);
             exit;} elseif ($resource === 'customer_loyalty') {
             $phone = $_GET['phone'] ?? ($_GET['mobile'] ?? '');
@@ -4849,17 +4944,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $partnerIdParam = trim($_GET['b2b_partner_id'] ?? '');
 
             $tenant = getTenantId();
-            $userRole = strtolower($_SERVER['HTTP_X_USER_ROLE'] ?? '');
+            // Security: the all-partners view is only for an authenticated admin / superadmin.
+            // (Previously a missing partner id, tenant=admin or an X-User-Role header granted it.)
             $isAdmin = (
                 ($actor && in_array(strtolower($actor['role'] ?? ''), ['admin', 'superadmin'])) ||
-                ($partner && in_array(strtolower($partner['role'] ?? ''), ['admin', 'superadmin'])) ||
-                $tenant === 'admin' ||
-                $userRole === 'admin' ||
-                $userRole === 'superadmin' ||
-                !empty($_SESSION['admin_logged_in']) ||
-                empty($partnerIdParam) ||
-                $partnerIdParam === 'all'
+                ($partner && in_array(strtolower($partner['role'] ?? ''), ['admin', 'superadmin']))
             );
+            if (!$isAdmin && !$partner) {
+                http_response_code(401);
+                echo json_encode(["success" => false, "error" => "Unauthorized: login required.", "bookings" => []]);
+                exit;
+            }
 
             if ($isAdmin) {
                 $sql = "SELECT b.*, d.name as assigned_driver_name, d.phone as assigned_driver_phone, d.vehicle_details as assigned_driver_vehicle, d.status as assigned_driver_status FROM bookings b LEFT JOIN drivers d ON (b.assigned_driver_id = d.id OR b.assigned_driver_id = d.email) WHERE (b.booking_channel = 'B2B' OR b.b2b_partner_id IS NOT NULL)";
@@ -4996,7 +5091,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;} elseif ($resource === 'pricing_rules') {
             // Strict RBAC: Super Admin & Admin only. Vendors, Customers, and B2B Partners have NO access.
             $actor = authenticateRequest($pdo, false);
-            $userRole = strtolower($_SERVER['HTTP_X_USER_ROLE'] ?? ($actor['role'] ?? ''));
+            $userRole = strtolower($actor['role'] ?? ''); // never from request headers
             $isSuperAdmin = ($userRole === 'superadmin' || ($actor && $actor['role'] === 'superadmin'));
             $isAdmin = ($userRole === 'admin' || ($actor && $actor['role'] === 'admin') || $isSuperAdmin);
 
@@ -5093,7 +5188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             // Security / RBAC Check
             $actor = authenticateRequest($pdo, false);
             $partner = getAuthenticatedB2BPartner($pdo, false);
-            $userRole = strtolower($_SERVER['HTTP_X_USER_ROLE'] ?? ($actor['role'] ?? ($partner['role'] ?? '')));
+            $userRole = strtolower($actor['role'] ?? ($partner['role'] ?? '')); // authenticated account only
             $isAdmin = ($userRole === 'admin' || $userRole === 'superadmin');
 
             $isB2BBooking = (strtoupper($booking['booking_channel'] ?? '') === 'B2B' || !empty($booking['b2b_partner_id']));
@@ -5259,17 +5354,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $qUserId = trim($_GET['user_id'] ?? ($_GET['userId'] ?? ''));
             $qPhone = preg_replace('/\D/', '', $_GET['phone'] ?? ($_GET['mobile'] ?? ''));
 
-            if (!empty($qRole) && (!empty($qUserId) || !empty($qPhone))) {
-                // Explicit component query (e.g. Vendor Portal querying its own notifications)
-                $role = $qRole;
-                $actorId = $qUserId;
-                $userPhone = $qPhone;
-            } elseif ($actor) {
-                $role = strtolower($actor['role'] ?? '');
-                $actorId = strval($actor['id'] ?? '');
-                $userPhone = preg_replace('/\D/', '', $actor['phone'] ?? '');
-            } else {
-                // Graceful fallback to query parameters for all routes
+            // Security: whose notifications are returned is decided by the login token, not the URL.
+            if (!$actor) {
+                $wgB2bN = getAuthenticatedB2BPartner($pdo, false);
+                if ($wgB2bN) { $actor = $wgB2bN; }
+            }
+            if (!$actor) {
+                echo json_encode(['success' => true, 'notifications' => [], 'unread_count' => 0]);
+                exit;
+            }
+            $role = strtolower($actor['role'] ?? '');
+            $actorId = strval($actor['id'] ?? '');
+            $userPhone = preg_replace('/\D/', '', $actor['phone'] ?? '');
+            if (in_array($role, ['admin', 'superadmin'], true) && !empty($qRole) && (!empty($qUserId) || !empty($qPhone))) {
+                // Admins may still open another portal's feed explicitly.
                 $role = $qRole;
                 $actorId = $qUserId;
                 $userPhone = $qPhone;
@@ -5792,9 +5890,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             echo json_encode($data ?: []);
             exit;} elseif ($resource === 'leads') {
             try {
-                $userRole = $_SERVER['HTTP_X_USER_ROLE'] ?? ($_GET['user_role'] ?? '');
-                $userId = $_SERVER['HTTP_X_USER_ID'] ?? ($_GET['user_id'] ?? '');
-                $username = $_SERVER['HTTP_X_USER_IDENTIFIER'] ?? ($_GET['username'] ?? '');
+                // Security: leads contain customer details - staff only, identity from the login token.
+                $wgLeadActor = authenticateRequest($pdo, false);
+                $userRole = strtolower((string)($wgLeadActor['role'] ?? ''));
+                if ($userRole === 'sub_admin') $userRole = 'subadmin';
+                if (!in_array($userRole, ['admin', 'superadmin', 'subadmin', 'agent'], true)) {
+                    http_response_code($wgLeadActor ? 403 : 401);
+                    echo json_encode([]);
+                    exit;
+                }
+                $userId = (string)($wgLeadActor['id'] ?? '');
+                $username = (string)($wgLeadActor['username'] ?? '');
 
                 if ($userRole === 'subadmin' || $userRole === 'agent') {
                     // Sub-admin or Agent sees only leads assigned to them (or matching name/username)
@@ -5820,8 +5926,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     echo json_encode([]);
                     exit;
                 }
-                $userRole = $_SERVER['HTTP_X_USER_ROLE'] ?? ($_GET['user_role'] ?? '');
-                $username = $_SERVER['HTTP_X_USER_IDENTIFIER'] ?? ($_GET['username'] ?? '');
+                $wgLeadActor = authenticateRequest($pdo, false);
+                $userRole = strtolower((string)($wgLeadActor['role'] ?? ''));
+                if ($userRole === 'sub_admin') $userRole = 'subadmin';
+                if (!in_array($userRole, ['admin', 'superadmin', 'subadmin', 'agent'], true)) {
+                    http_response_code($wgLeadActor ? 403 : 401);
+                    echo json_encode([]);
+                    exit;
+                }
+                $username = (string)($wgLeadActor['username'] ?? '');
 
                 // Verify access if subadmin
                 if ($userRole === 'subadmin' || $userRole === 'agent') {
@@ -6583,6 +6696,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             include_once __DIR__ . '/hotel_pms_actions.php';
         }
 
+        // Hotel Nearby Destinations & Distance Highlight Actions
+        $destActions = [
+            'add_hotel_destination',
+            'update_hotel_destination',
+            'delete_hotel_destination',
+            'submit_hotel_destination_approval',
+            'approve_hotel_destination',
+            'reject_hotel_destination'
+        ];
+        if (in_array($action, $destActions, true)) {
+            require_once __DIR__ . '/hotel_destinations.php';
+            $actor = HotelDestinationsService::resolveActor($pdo, null, $payload);
+            if (!$actor) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'Authentication required']);
+                exit();
+            }
+
+            if ($action === 'add_hotel_destination') {
+                $res = HotelDestinationsService::addDestination($pdo, $actor, $payload);
+                if (!empty($res['code'])) http_response_code($res['code']);
+                echo json_encode($res);
+                exit();
+            } elseif ($action === 'update_hotel_destination') {
+                $res = HotelDestinationsService::updateDestination($pdo, $actor, $payload);
+                if (!empty($res['code'])) http_response_code($res['code']);
+                echo json_encode($res);
+                exit();
+            } elseif ($action === 'delete_hotel_destination') {
+                $id = trim($payload['id'] ?? ($payload['destination_id'] ?? ''));
+                $res = HotelDestinationsService::deleteDestination($pdo, $actor, $id);
+                if (!empty($res['code'])) http_response_code($res['code']);
+                echo json_encode($res);
+                exit();
+            } elseif ($action === 'submit_hotel_destination_approval') {
+                $id = trim($payload['id'] ?? ($payload['destination_id'] ?? ''));
+                $res = HotelDestinationsService::submitForApproval($pdo, $actor, $id);
+                if (!empty($res['code'])) http_response_code($res['code']);
+                echo json_encode($res);
+                exit();
+            } elseif ($action === 'approve_hotel_destination') {
+                $id = trim($payload['id'] ?? ($payload['destination_id'] ?? ''));
+                $res = HotelDestinationsService::approveDestination($pdo, $actor, $id);
+                if (!empty($res['code'])) http_response_code($res['code']);
+                echo json_encode($res);
+                exit();
+            } elseif ($action === 'reject_hotel_destination') {
+                $id = trim($payload['id'] ?? ($payload['destination_id'] ?? ''));
+                $reason = trim($payload['rejection_reason'] ?? ($payload['reason'] ?? ''));
+                $res = HotelDestinationsService::rejectDestination($pdo, $actor, $id, $reason);
+                if (!empty($res['code'])) http_response_code($res['code']);
+                echo json_encode($res);
+                exit();
+            }
+        }
+
         if ($action === 'calculate_booking_snapshot' || $action === 'convert_currency') {
             require_once __DIR__ . '/country_currency.php';
             require_once __DIR__ . '/ExchangeRateService.php';
@@ -6621,8 +6790,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userType = $accountMatch['type']; // 'user' or 'driver'
             $target = $accountMatch['account'];
 
+            // SECURITY: at most 5 reset codes per account per hour
+            if (wgRecentCount($pdo, 'password_resets', 'user_id = ? AND user_type = ?', [$target['id'], $userType], 60) >= 5) {
+                http_response_code(429);
+                echo json_encode(['success' => false, 'error' => 'Too many reset requests. Please wait an hour and try again.']);
+                exit();
+            }
+
             // Generate 6-digit numeric OTP and reset token
-            $otp = sprintf("%06d", mt_rand(100000, 999999));
+            $otp = sprintf("%06d", random_int(100000, 999999));
             $resetToken = bin2hex(random_bytes(24));
             $resetId = 'pr_' . time() . '_' . mt_rand(1000, 9999);
             $expiresAt = date('Y-m-d H:i:s', time() + 900); // 15 mins
@@ -6744,8 +6920,18 @@ HTML;
                 $destEmail = trim($targetBooking['email']);
             }
 
+            // SECURITY: at most 5 codes per phone/email per hour
+            $rlC = []; $rlP = [];
+            foreach (getCustomerPhoneVariants($rawPhone) as $pv) { $rlC[] = "phone = ?"; $rlP[] = $pv; }
+            if ($destEmail) { $rlC[] = "LOWER(email) = ?"; $rlP[] = strtolower($destEmail); }
+            if ($rlC && wgRecentCount($pdo, 'customer_otps', implode(' OR ', $rlC), $rlP, 60) >= 5) {
+                http_response_code(429);
+                echo json_encode(['success' => false, 'error' => 'Too many code requests. Please wait an hour and try again.']);
+                exit();
+            }
+
             // Generate 4-digit OTP
-            $otp = sprintf("%04d", mt_rand(1000, 9999));
+            $otp = sprintf("%04d", random_int(1000, 9999));
             $otpId = 'cotp_' . time() . '_' . mt_rand(100, 999);
             $expiresAt = date('Y-m-d H:i:s', time() + 600); // 10 minutes
 
@@ -6790,12 +6976,7 @@ HTML;
 
             // If destination email is provided: send real Gmail OTP
             if ($destEmail && strpos($destEmail, '@') !== false) {
-                // Update email on booking if not previously set
-                if ($targetBooking && empty($targetBooking['email']) && !empty($targetBooking['id'])) {
-                    try {
-                        $pdo->prepare("UPDATE bookings SET email = ? WHERE id = ?")->execute([$destEmail, $targetBooking['id']]);
-                    } catch (Throwable $e) {}
-                }
+                // SECURITY: an anonymous request no longer writes an email onto an existing booking.
 
                 $custName = $targetBooking['name'] ?? 'Traveler';
                 $mailResult = sendCustomerLoginOtpEmail($destEmail, $otp, $custName);
@@ -6810,21 +6991,16 @@ HTML;
                     'message' => "Verification code sent to $masked",
                     'email' => $destEmail,
                     'masked_email' => $masked,
-                    'otp' => $otp,
                     'email_sent' => !empty($mailResult['success']),
                     'expires_in' => 600
                 ]);
                 exit();
             } else {
-                // Phone OTP flow
-                echo json_encode([
-                    'success' => true,
-                    'auth_type' => 'phone',
-                    'message' => "Verification code sent to +91 $phone",
-                    'phone' => $phone,
-                    'otp' => $otp,
-                    'expires_in' => 600
-                ]);
+                // SECURITY: there is no SMS gateway, so a phone-only code could never be delivered
+                // (it used to be returned in this response, which let anyone log in as anyone).
+                $pdo->prepare("UPDATE customer_otps SET is_used = 1 WHERE id = ?")->execute([$otpId]);
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Please enter your email address to receive your verification code.']);
                 exit();
             }
         } elseif ($action === 'verify_customer_otp') {
@@ -6839,9 +7015,9 @@ HTML;
                 exit();
             }
 
-            // Allow developer backup code 1234 or verify against DB
+            // SECURITY: always verified against the database (developer backup code 1234 removed).
             $record = null;
-            if ($enteredOtp !== '1234') {
+            {
                 $pVars = getCustomerPhoneVariants($rawPhone);
                 $otpClauses = [];
                 $otpParams = [];
@@ -6870,8 +7046,13 @@ HTML;
                 $record = $stmt->fetch(PDO::FETCH_ASSOC);
 
                 if (!$record) {
+                    // SECURITY: a wrong guess cancels the pending code (stops guessing all 10,000 codes)
+                    try {
+                        $pdo->prepare("UPDATE customer_otps SET is_used = 1 WHERE (" . implode(' OR ', $otpClauses) . ") AND is_used = 0")
+                            ->execute(array_slice($otpParams, 0, -1));
+                    } catch (Throwable $e) {}
                     http_response_code(401);
-                    echo json_encode(['success' => false, 'error' => 'Incorrect verification code. Please check your Gmail.']);
+                    echo json_encode(['success' => false, 'error' => 'Incorrect verification code. Please request a new code.']);
                     exit();
                 }
 
@@ -6884,6 +7065,17 @@ HTML;
                 // Mark as used
                 $pdo->prepare("UPDATE customer_otps SET is_used = 1 WHERE id = ?")->execute([$record['id']]);
             }
+
+            // SECURITY: identity comes from the verified code record, not from the request.
+            // The email is proven (the code was emailed to it); the phone is trusted only if already linked to that email.
+            $email = strtolower(trim($record['email'] ?? ''));
+            if ($email === '') {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'This code cannot be used. Please request a new code.']);
+                exit();
+            }
+            $rawPhone = wgPhoneLinkedToEmail($pdo, $record['phone'] ?? '', $email) ? trim($record['phone']) : '';
+            $phone = preg_replace('/\D/', '', $rawPhone);
 
             // Find customer's bookings matching phone variants and/or email
             $bClauses = [];
@@ -6911,16 +7103,24 @@ HTML;
 
             $matched = !empty($custBookings) ? $custBookings[0] : null;
 
+            $wgCustomer = [
+                'id' => $matched['customer_id'] ?? ($matched['id'] ?? ($phone ? 'c_' . $phone : 'ce_' . substr(sha1($email), 0, 12))),
+                'name' => $matched['name'] ?? ($matched['customer_name'] ?? 'Traveler'),
+                'phone' => $rawPhone ?: ($matched['phone'] ?? $phone),
+                'email' => $email ?: ($matched['email'] ?? ''),
+                'role' => 'customer'
+            ];
+            $wgCustomerToken = generateAuthToken($wgCustomer);
+            if (!$wgCustomerToken) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Login is temporarily unavailable: server authentication is not configured (AUTH_SECRET).']);
+                exit();
+            }
             echo json_encode([
                 'success' => true,
                 'message' => 'Login successful',
-                'customer' => [
-                    'id' => $matched['customer_id'] ?? ($matched['id'] ?? ('c_' . $phone)),
-                    'name' => $matched['name'] ?? ($matched['customer_name'] ?? 'Traveler'),
-                    'phone' => $rawPhone ?: ($matched['phone'] ?? $phone),
-                    'email' => $email ?: ($matched['email'] ?? ''),
-                    'role' => 'customer'
-                ],
+                'customer' => $wgCustomer,
+                'token' => $wgCustomerToken,
                 'bookings' => $custBookings
             ]);
             exit();
@@ -6935,13 +7135,18 @@ HTML;
                 exit();
             }
 
-            $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE (reset_token = ? OR identifier = ? OR otp = ?) AND otp = ? AND is_used = 0 ORDER BY created_at DESC LIMIT 1");
-            $stmt->execute([$resetToken, $identifier, $otp, $otp]);
-            $resetRow = $stmt->fetch(PDO::FETCH_ASSOC);
+            // SECURITY: the code must belong to this reset session (was: any pending code matched)
+            $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE reset_token = ? AND otp = ? AND is_used = 0 ORDER BY created_at DESC LIMIT 1");
+            $stmt->execute([$resetToken, $otp]);
+            $resetRow = $resetToken !== '' ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
 
             if (!$resetRow) {
+                // a wrong guess cancels this reset session (stops guessing the 6-digit code)
+                if ($resetToken !== '') {
+                    try { $pdo->prepare("UPDATE password_resets SET is_used = 1 WHERE reset_token = ? AND is_used = 0")->execute([$resetToken]); } catch (Throwable $e) {}
+                }
                 http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Invalid verification code. Please check and try again.']);
+                echo json_encode(['success' => false, 'error' => 'Invalid verification code. Please request a new code and try again.']);
                 exit();
             }
 
@@ -6977,10 +7182,11 @@ HTML;
                 exit();
             }
 
-            // Verify token or valid unexpired OTP
-            $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE (reset_token = ? OR otp = ?) AND is_used = 0 ORDER BY created_at DESC LIMIT 1");
+            // SECURITY: both the reset session token AND the emailed code are required
+            // (was: the token alone, which forgot_password_request hands to anyone, was enough)
+            $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE reset_token = ? AND otp = ? AND is_used = 0 ORDER BY created_at DESC LIMIT 1");
             $stmt->execute([$resetToken, $otp]);
-            $resetRow = $stmt->fetch(PDO::FETCH_ASSOC);
+            $resetRow = ($resetToken !== '' && $otp !== '') ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
 
             if (!$resetRow) {
                 http_response_code(400);
@@ -7316,7 +7522,7 @@ HTML;
             }
         } elseif ($action === 'approve_vendor') {
             $actor = authenticateRequest($pdo, false);
-            $actorRole = strtolower(trim($actor['role'] ?? ($payload['user_role'] ?? ($_SERVER['HTTP_X_USER_ROLE'] ?? ''))));
+            $actorRole = strtolower(trim($actor['role'] ?? '')); // authenticated account only
             if (!in_array($actorRole, ['admin', 'superadmin', 'super_admin'])) {
                 http_response_code(403);
                 echo json_encode(["success" => false, "error" => "Forbidden: Only Super Admin or Admin can approve vendors."]);
@@ -7663,13 +7869,19 @@ HTML;
             ]);
             exit();
         } elseif ($action === 'mark_notification_read') {
-            $actor = authenticateRequest($pdo, false);
+            // Security: only the logged-in account's own notifications (identity from the token only).
+            $actor = authenticateRequest($pdo, false) ?: getAuthenticatedB2BPartner($pdo, false);
+            if (!$actor) {
+                http_response_code(401);
+                echo json_encode(["success" => false, "error" => "Unauthorized: login required."]);
+                exit();
+            }
             $notifId = $payload['id'] ?? ($payload['notification_id'] ?? null);
             $markAll = !empty($payload['all']);
-            $actorId = $actor['id'] ?? ($payload['user_id'] ?? ($payload['userId'] ?? ''));
-            $role = strtolower($actor['role'] ?? ($payload['role'] ?? ''));
-            $partnerId = $payload['b2b_partner_id'] ?? '';
-            $phone = preg_replace('/\D/', '', $payload['phone'] ?? ($payload['mobile'] ?? ''));
+            $actorId = strval($actor['id'] ?? '');
+            $role = strtolower($actor['role'] ?? '');
+            $partnerId = in_array($role, ['b2b', 'agent'], true) ? $actorId : '';
+            $phone = preg_replace('/\D/', '', $actor['phone'] ?? '');
 
             if ($markAll) {
                 if ($role === 'admin' || $role === 'superadmin' || $actorId === 'admin') {
@@ -7729,12 +7941,34 @@ HTML;
 
             echo json_encode(["success" => true, "message" => "Notification marked as read."]);
             exit();
+        } elseif ($action === 'reset_packages') {
+            // Security: Super Admin only, POST only, and an explicit confirmation phrase.
+            $wgActor = authenticateRequest($pdo, false);
+            if (!$wgActor || strtolower($wgActor['role'] ?? '') !== 'superadmin') {
+                http_response_code($wgActor ? 403 : 401);
+                echo json_encode(["success" => false, "error" => "Forbidden: only a logged-in Super Admin can reset packages."]);
+                exit();
+            }
+            if (($payload['confirm'] ?? '') !== 'DELETE ALL PACKAGES') {
+                http_response_code(400);
+                echo json_encode(["success" => false, "error" => "Confirmation required: send confirm = 'DELETE ALL PACKAGES'."]);
+                exit();
+            }
+            $pdo->exec("DELETE FROM packages");
+            echo json_encode(["success" => true, "message" => "All packages deleted."]);
+            exit();
         } elseif ($action === 'clear_notifications' || $action === 'b2b_clear_notifications') {
-            $actor = authenticateRequest($pdo, false);
-            $actorId = $actor['id'] ?? ($payload['user_id'] ?? ($payload['userId'] ?? ''));
-            $role = strtolower($actor['role'] ?? ($payload['role'] ?? ''));
-            $partnerId = $payload['b2b_partner_id'] ?? '';
-            $phone = preg_replace('/\D/', '', $payload['phone'] ?? ($payload['mobile'] ?? ''));
+            // Security: only the logged-in account's own notifications (identity from the token only).
+            $actor = authenticateRequest($pdo, false) ?: getAuthenticatedB2BPartner($pdo, false);
+            if (!$actor) {
+                http_response_code(401);
+                echo json_encode(["success" => false, "error" => "Unauthorized: login required."]);
+                exit();
+            }
+            $actorId = strval($actor['id'] ?? '');
+            $role = strtolower($actor['role'] ?? '');
+            $partnerId = in_array($role, ['b2b', 'agent'], true) ? $actorId : '';
+            $phone = preg_replace('/\D/', '', $actor['phone'] ?? '');
 
             if ($role === 'admin' || $role === 'superadmin' || $actorId === 'admin') {
                 $stmt = $pdo->prepare("DELETE FROM notifications WHERE user_id = 'admin' OR role = 'admin' OR type LIKE 'b2b_%'");
@@ -7802,9 +8036,7 @@ HTML;
 
             $isValid = false;
             if ($partner) {
-                if (password_verify($password, $partner['password_hash']) ||
-                    $password === ($partner['plain_password'] ?? '') ||
-                    $password === 'b2b@2026' || $password === 'admin@2026') {
+                if (wgVerifyAndUpgradePassword($pdo, 'users', $partner, $password)) {
                     $isValid = true;
                 }
             }
@@ -7840,11 +8072,17 @@ HTML;
                 unset($partner['password_hash']);
                 unset($partner['plain_password']);
                 recordB2BAuditLog($pdo, $partner['id'], $partner['id'], null, 'B2B_LOGIN', null, ['login_time' => date('c')], "Partner agency logged in");
+                $b2bToken = generateAuthToken($partner);
+                if (!$b2bToken) {
+                    http_response_code(500);
+                    echo json_encode(["success" => false, "error" => "Login is temporarily unavailable: server authentication is not configured (AUTH_SECRET)."]);
+                    exit();
+                }
                 echo json_encode([
                     "success" => true,
                     "message" => "B2B Partner authentication successful.",
                     "user" => $partner,
-                    "token" => $partner['id']
+                    "token" => $b2bToken
                 ]);
                 exit();
             } else {
@@ -8686,7 +8924,7 @@ HTML;
         } elseif ($action === 'b2b_update_booking_markup') {
             $actor = authenticateRequest($pdo, false);
             $partner = getAuthenticatedB2BPartner($pdo, false);
-            $userRole = strtolower($_SERVER['HTTP_X_USER_ROLE'] ?? ($actor['role'] ?? ($partner['role'] ?? '')));
+            $userRole = strtolower($actor['role'] ?? ($partner['role'] ?? '')); // authenticated account only
             $isAdmin = ($userRole === 'admin' || $userRole === 'superadmin');
 
             $bookingId = trim($payload['booking_id'] ?? '');
@@ -8809,7 +9047,7 @@ HTML;
         } elseif ($action === 'save_pricing_rule') {
             // Strict RBAC: Super Admin and Admin only
             $actor = authenticateRequest($pdo, false);
-            $userRole = strtolower($_SERVER['HTTP_X_USER_ROLE'] ?? ($actor['role'] ?? ''));
+            $userRole = strtolower($actor['role'] ?? ''); // never from request headers
             $isSuperAdmin = ($userRole === 'superadmin' || ($actor && $actor['role'] === 'superadmin'));
             $isAdmin = ($userRole === 'admin' || ($actor && $actor['role'] === 'admin') || $isSuperAdmin);
 
@@ -8891,7 +9129,7 @@ HTML;
         } elseif ($action === 'delete_pricing_rule') {
             // Strict RBAC: Super Admin and Admin only
             $actor = authenticateRequest($pdo, false);
-            $userRole = strtolower($_SERVER['HTTP_X_USER_ROLE'] ?? ($actor['role'] ?? ''));
+            $userRole = strtolower($actor['role'] ?? ''); // never from request headers
             $isSuperAdmin = ($userRole === 'superadmin' || ($actor && $actor['role'] === 'superadmin'));
             $isAdmin = ($userRole === 'admin' || ($actor && $actor['role'] === 'admin') || $isSuperAdmin);
 
@@ -9657,6 +9895,10 @@ HTML;
                 mkdir($upload_dir, 0777, true);
             }
             $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+            // Security: documents may only be PDFs, images or Word files - never .php / .html etc.
+            if (!in_array(strtolower($ext), ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'doc', 'docx'], true)) {
+                throw new Exception("Unsupported document type. Allowed: PDF, JPG, PNG, WEBP, AVIF, GIF, DOC, DOCX.");
+            }
             $filename = uniqid('doc_') . '.' . $ext;
             if (move_uploaded_file($file['tmp_name'], $upload_dir . $filename)) {
                 $file_url = '/uploads/documents/' . $filename;
@@ -10032,7 +10274,7 @@ HTML;
             } elseif ($action === 'send_manual_vendor_reminder' || $action === 'send_manual_suspension_reminder') {
                 VendorWalletAlertService::ensureSchema($pdo);
                 $actor = authenticateRequest($pdo, false);
-                $actorRole = strtolower(trim($actor['role'] ?? ($payload['user_role'] ?? ($_SERVER['HTTP_X_USER_ROLE'] ?? 'admin'))));
+                $actorRole = strtolower(trim($actor['role'] ?? '')); // authenticated account only (no 'admin' default)
                 if (!in_array($actorRole, ['admin', 'superadmin', 'subadmin'])) {
                     http_response_code(403);
                     echo json_encode(["success" => false, "error" => "Unauthorized. Only Admin and Super Admin can send manual vendor reminders."]);
@@ -10070,7 +10312,7 @@ HTML;
                 exit;
             } elseif ($action === 'update_hotel_booking_settings') {
                 $actor = authenticateRequest($pdo, false);
-                $userRole = strtolower(trim($actor['role'] ?? ($payload['user_role'] ?? ($_SERVER['HTTP_X_USER_ROLE'] ?? ''))));
+                $userRole = strtolower(trim($actor['role'] ?? '')); // authenticated account only
                 $isAuthorized = in_array($userRole, ['admin', 'superadmin']);
 
                 if (!$isAuthorized) {
@@ -14488,6 +14730,25 @@ HTML;
             $base_dir = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/api.php'), '/\\');
             $url_prefix = 'http://' . $host . ($base_dir ? $base_dir : '') . '/uploads/';
 
+            // Security: the extension sent by the uploader is no longer trusted (it could be .php).
+            // Only real image / PDF / video types are saved, and files whose content is text or
+            // script (PHP, HTML, JS) are refused even if they are named like an image.
+            $wgAllowedUploadExt = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'pdf', 'mp4', 'webm', 'mov'];
+            $wgSafeUploadExt = function ($name, $tmpPath) use ($wgAllowedUploadExt) {
+                $ext = strtolower(pathinfo((string)$name, PATHINFO_EXTENSION)) ?: 'jpg';
+                if (!in_array($ext, $wgAllowedUploadExt, true)) {
+                    return null;
+                }
+                if (function_exists('finfo_open') && is_string($tmpPath) && is_file($tmpPath)) {
+                    $fi = finfo_open(FILEINFO_MIME_TYPE);
+                    $mime = $fi ? (string)@finfo_file($fi, $tmpPath) : '';
+                    if ($mime !== '' && preg_match('#^text/|php|html|javascript|x-sh|xml#i', $mime)) {
+                        return null;
+                    }
+                }
+                return $ext;
+            };
+
             // 1. Check if $_FILES contains single or multiple files
             if (!empty($_FILES)) {
                 foreach ($_FILES as $fileKey => $fileData) {
@@ -14495,7 +14756,10 @@ HTML;
                         // Multi-file input like <input type="file" name="images[]" multiple>
                         for ($i = 0; $i < count($fileData['name']); $i++) {
                             if (isset($fileData['error'][$i]) && $fileData['error'][$i] === UPLOAD_ERR_OK && !empty($fileData['tmp_name'][$i])) {
-                                $ext = strtolower(pathinfo($fileData['name'][$i], PATHINFO_EXTENSION)) ?: 'jpg';
+                                $ext = $wgSafeUploadExt($fileData['name'][$i], $fileData['tmp_name'][$i]);
+                                if ($ext === null) {
+                                    continue; // not an allowed image / PDF / video type
+                                }
                                 $filename = uniqid('img_') . '.' . $ext;
                                 if (@move_uploaded_file($fileData['tmp_name'][$i], $target_dir . $filename)) {
                                     $uploaded_urls[] = $url_prefix . $filename;
@@ -14504,10 +14768,12 @@ HTML;
                         }
                     } else if (isset($fileData['error']) && $fileData['error'] === UPLOAD_ERR_OK && !empty($fileData['tmp_name'])) {
                         // Single file input
-                        $ext = strtolower(pathinfo($fileData['name'], PATHINFO_EXTENSION)) ?: 'jpg';
-                        $filename = uniqid('img_') . '.' . $ext;
-                        if (@move_uploaded_file($fileData['tmp_name'], $target_dir . $filename)) {
-                            $uploaded_urls[] = $url_prefix . $filename;
+                        $ext = $wgSafeUploadExt($fileData['name'], $fileData['tmp_name']);
+                        if ($ext !== null) { // only allowed image / PDF / video types
+                            $filename = uniqid('img_') . '.' . $ext;
+                            if (@move_uploaded_file($fileData['tmp_name'], $target_dir . $filename)) {
+                                $uploaded_urls[] = $url_prefix . $filename;
+                            }
                         }
                     }
                 }
@@ -14533,6 +14799,9 @@ HTML;
                 if (preg_match('/^data:image\/(\w+);base64,(.+)$/', $b64Str, $matches)) {
                     $ext = strtolower($matches[1]);
                     if ($ext === 'jpeg') $ext = 'jpg';
+                    if (!in_array($ext, ['jpg', 'png', 'webp', 'avif', 'gif'], true)) {
+                        continue; // e.g. "data:image/php;base64,..." is refused
+                    }
                     $decodedData = base64_decode($matches[2]);
                     if ($decodedData !== false) {
                         $filename = uniqid('img_') . '.' . $ext;
@@ -14937,8 +15206,7 @@ HTML;
 
             // 5. Vendor Access NOT Allowed: Vendors cannot submit reviews
             $actor = authenticateRequest($pdo, false);
-            $roleHeader = $_SERVER['HTTP_X_USER_ROLE'] ?? ($_GET['role'] ?? ($_POST['role'] ?? ($payload['role'] ?? '')));
-            $actorRole = strtolower($actor['role'] ?? $roleHeader);
+            $actorRole = strtolower($actor['role'] ?? ''); // role from the authenticated account only
             if ($actorRole === 'vendor' || $actorRole === 'hotel_vendor') {
                 http_response_code(403);
                 echo json_encode(["success" => false, "error" => "Vendors are not permitted to submit reviews."]);
@@ -15950,6 +16218,13 @@ HTML;
             echo json_encode(["success" => true, "id" => $id, "lead_id" => $id, "message" => "Lead created successfully."]);
             exit;
         } elseif ($action === 'update_lead') {
+            // Security: staff only (admin / superadmin / sub-admin / agent), identified by the login token.
+            $wgStaff = authenticateRequest($pdo, false);
+            if (!$wgStaff || !in_array(strtolower($wgStaff['role'] ?? ''), ['admin', 'superadmin', 'subadmin', 'sub_admin', 'agent'], true)) {
+                http_response_code($wgStaff ? 403 : 401);
+                echo json_encode(["success" => false, "error" => "Unauthorized: staff login required."]);
+                exit;
+            }
             $id = $payload['id'] ?? null;
             if (!$id) {
                 http_response_code(400);
@@ -15965,7 +16240,7 @@ HTML;
             $assigned_to = $payload['assigned_to'] ?? $payload['assignedTo'] ?? null;
             if ($assigned_to !== null) {
                 $actor = authenticateRequest($pdo, false);
-                $role = strtolower(trim($actor['role'] ?? ($payload['user_role'] ?? ($_SERVER['HTTP_X_USER_ROLE'] ?? ''))));
+                $role = strtolower(trim($actor['role'] ?? '')); // authenticated account only
                 if (!in_array($role, ['superadmin', 'super_admin'])) {
                     $assigned_to = null; // Strictly forbid non-superadmin from changing assignment in update_lead
                 }
@@ -15990,6 +16265,13 @@ HTML;
             echo json_encode(["success" => true, "message" => "Lead updated successfully."]);
             exit;
         } elseif ($action === 'update_lead_status') {
+            // Security: staff only (admin / superadmin / sub-admin / agent), identified by the login token.
+            $wgStaff = authenticateRequest($pdo, false);
+            if (!$wgStaff || !in_array(strtolower($wgStaff['role'] ?? ''), ['admin', 'superadmin', 'subadmin', 'sub_admin', 'agent'], true)) {
+                http_response_code($wgStaff ? 403 : 401);
+                echo json_encode(["success" => false, "error" => "Unauthorized: staff login required."]);
+                exit;
+            }
             $id = $payload['id'] ?? null;
             $status = $payload['status'] ?? 'New';
             if (!$id) {
@@ -16002,9 +16284,9 @@ HTML;
 
             // Save status update to existing lead_comments activity/history
             $actor = authenticateRequest($pdo, false);
-            $userId = $payload['user_id'] ?? ($actor['id'] ?? ($_SERVER['HTTP_X_USER_ID'] ?? 'user'));
-            $userName = $payload['user_name'] ?? ($actor['name'] ?? ($actor['username'] ?? ($_SERVER['HTTP_X_USER_IDENTIFIER'] ?? 'User')));
-            $userRole = $payload['user_role'] ?? ($actor['role'] ?? ($_SERVER['HTTP_X_USER_ROLE'] ?? 'user'));
+            $userId = $wgStaff['id'] ?? 'user'; // attribution from the login token only
+            $userName = (($wgStaff['name'] ?? '') ?: ($wgStaff['username'] ?? '')) ?: 'User';
+            $userRole = $wgStaff['role'] ?? 'user';
             $now = date('Y-m-d H:i:s');
             $commentId = 'comm_' . time() . '_' . rand(100, 999);
             $sysMsg = "Pipeline status updated to \"$status\" by $userName ($userRole).";
@@ -16026,9 +16308,16 @@ HTML;
             echo json_encode(["success" => true, "message" => "User status updated to $status."]);
             exit;
         } elseif ($action === 'assign_lead' || $action === 'update_lead_assignee') {
+            // Security: staff only (admin / superadmin / sub-admin / agent), identified by the login token.
+            $wgStaff = authenticateRequest($pdo, false);
+            if (!$wgStaff || !in_array(strtolower($wgStaff['role'] ?? ''), ['admin', 'superadmin', 'subadmin', 'sub_admin', 'agent'], true)) {
+                http_response_code($wgStaff ? 403 : 401);
+                echo json_encode(["success" => false, "error" => "Unauthorized: staff login required."]);
+                exit;
+            }
             $actor = authenticateRequest($pdo, false);
             // In Flow 2: STRICT RULE - ONLY Super Admin can assign, reassign, or unassign leads
-            $role = strtolower(trim($actor['role'] ?? ($payload['user_role'] ?? ($_SERVER['HTTP_X_USER_ROLE'] ?? ''))));
+            $role = strtolower(trim($actor['role'] ?? '')); // authenticated account only
             if (!in_array($role, ['superadmin', 'super_admin'])) {
                 http_response_code(403);
                 echo json_encode(["success" => false, "error" => "Forbidden: Only Super Admin can assign, reassign, or unassign leads in Flow 2."]);
@@ -16036,7 +16325,7 @@ HTML;
             }
             $id = $payload['id'] ?? $payload['lead_id'] ?? null;
             $assigned_to = trim($payload['assigned_to'] ?? ($payload['assignedTo'] ?? 'Unassigned'));
-            $assigned_by = trim($payload['assigned_by'] ?? ($payload['assignedBy'] ?? ($actor['name'] ?? ($actor['username'] ?? ($_SERVER['HTTP_X_USER_IDENTIFIER'] ?? 'Super Admin')))));
+            $assigned_by = trim((($wgStaff['name'] ?? '') ?: ($wgStaff['username'] ?? '')) ?: 'Super Admin'); // attribution from the login token only
             $now = date('Y-m-d H:i:s');
             
             if (!$id) {
@@ -16081,6 +16370,13 @@ HTML;
             ]);
             exit;
         } elseif ($action === 'update_next_action') {
+            // Security: staff only (admin / superadmin / sub-admin / agent), identified by the login token.
+            $wgStaff = authenticateRequest($pdo, false);
+            if (!$wgStaff || !in_array(strtolower($wgStaff['role'] ?? ''), ['admin', 'superadmin', 'subadmin', 'sub_admin', 'agent'], true)) {
+                http_response_code($wgStaff ? 403 : 401);
+                echo json_encode(["success" => false, "error" => "Unauthorized: staff login required."]);
+                exit;
+            }
             $id = $payload['id'] ?? $payload['lead_id'] ?? null;
             $next_action = trim($payload['next_action'] ?? ($payload['nextAction'] ?? ''));
             $now = date('Y-m-d H:i:s');
@@ -16094,9 +16390,9 @@ HTML;
 
             // Save next action update to existing lead_comments activity/history
             $actor = authenticateRequest($pdo, false);
-            $userId = $payload['user_id'] ?? ($actor['id'] ?? ($_SERVER['HTTP_X_USER_ID'] ?? 'user'));
-            $userName = $payload['user_name'] ?? ($actor['name'] ?? ($actor['username'] ?? ($_SERVER['HTTP_X_USER_IDENTIFIER'] ?? 'User')));
-            $userRole = $payload['user_role'] ?? ($actor['role'] ?? ($_SERVER['HTTP_X_USER_ROLE'] ?? 'user'));
+            $userId = $wgStaff['id'] ?? 'user'; // attribution from the login token only
+            $userName = (($wgStaff['name'] ?? '') ?: ($wgStaff['username'] ?? '')) ?: 'User';
+            $userRole = $wgStaff['role'] ?? 'user';
             $commentId = 'comm_' . time() . '_' . rand(100, 999);
             $sysMsg = "Next actionable step updated: \"$next_action\" by $userName ($userRole).";
             $stmtComm = $pdo->prepare("INSERT INTO lead_comments (id, lead_id, user_id, user_name, user_role, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
@@ -16105,11 +16401,18 @@ HTML;
             echo json_encode(["success" => true, "message" => "Next action updated.", "next_action" => $next_action]);
             exit;
         } elseif ($action === 'add_lead_comment') {
+            // Security: staff only (admin / superadmin / sub-admin / agent), identified by the login token.
+            $wgStaff = authenticateRequest($pdo, false);
+            if (!$wgStaff || !in_array(strtolower($wgStaff['role'] ?? ''), ['admin', 'superadmin', 'subadmin', 'sub_admin', 'agent'], true)) {
+                http_response_code($wgStaff ? 403 : 401);
+                echo json_encode(["success" => false, "error" => "Unauthorized: staff login required."]);
+                exit;
+            }
             $lead_id = $payload['lead_id'] ?? $payload['leadId'] ?? null;
             $comment = trim($payload['comment'] ?? '');
-            $user_id = $payload['user_id'] ?? ($_SERVER['HTTP_X_USER_ID'] ?? 'admin');
-            $user_name = $payload['user_name'] ?? ($_SERVER['HTTP_X_USER_IDENTIFIER'] ?? 'Admin');
-            $user_role = $payload['user_role'] ?? ($_SERVER['HTTP_X_USER_ROLE'] ?? 'admin');
+            $user_id = $wgStaff['id'] ?? 'admin'; // attribution from the login token only
+            $user_name = (($wgStaff['name'] ?? '') ?: ($wgStaff['username'] ?? '')) ?: 'Admin';
+            $user_role = $wgStaff['role'] ?? 'admin';
             $now = date('Y-m-d H:i:s');
 
             if (!$lead_id || !$comment) {
@@ -16141,6 +16444,13 @@ HTML;
             ]);
             exit;
         } elseif ($action === 'delete_lead_comment') {
+            // Security: staff only (admin / superadmin / sub-admin / agent), identified by the login token.
+            $wgStaff = authenticateRequest($pdo, false);
+            if (!$wgStaff || !in_array(strtolower($wgStaff['role'] ?? ''), ['admin', 'superadmin', 'subadmin', 'sub_admin', 'agent'], true)) {
+                http_response_code($wgStaff ? 403 : 401);
+                echo json_encode(["success" => false, "error" => "Unauthorized: staff login required."]);
+                exit;
+            }
             $id = $payload['id'] ?? $payload['comment_id'] ?? null;
             if (!$id) {
                 http_response_code(400);
@@ -16152,6 +16462,13 @@ HTML;
             echo json_encode(["success" => true, "message" => "Comment deleted."]);
             exit;
         } elseif ($action === 'delete_lead') {
+            // Security: staff only (admin / superadmin / sub-admin / agent), identified by the login token.
+            $wgStaff = authenticateRequest($pdo, false);
+            if (!$wgStaff || !in_array(strtolower($wgStaff['role'] ?? ''), ['admin', 'superadmin', 'subadmin', 'sub_admin', 'agent'], true)) {
+                http_response_code($wgStaff ? 403 : 401);
+                echo json_encode(["success" => false, "error" => "Unauthorized: staff login required."]);
+                exit;
+            }
             $id = $payload['id'] ?? $_GET['id'] ?? null;
             if (!$id) {
                 http_response_code(400);

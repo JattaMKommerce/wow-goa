@@ -197,4 +197,53 @@ CREATE TABLE IF NOT EXISTS `leads` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- --------------------------------------------------------
+-- Table structure for table `hotel_nearby_destinations`
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `hotel_nearby_destinations` (
+  `id` varchar(50) NOT NULL,
+  `hotel_id` varchar(50) NOT NULL,
+  `destination_name` varchar(255) NOT NULL,
+  `destination_category` varchar(100) NOT NULL,
+  `distance_value` decimal(10,2) NOT NULL,
+  `distance_unit` varchar(20) NOT NULL DEFAULT 'km',
+  `distance_meters` int(11) NOT NULL,
+  `travel_mode` varchar(50) NOT NULL DEFAULT 'Walking',
+  `walking_time_minutes` int(11) DEFAULT NULL,
+  `driving_time_minutes` int(11) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `image` text DEFAULT NULL,
+  `latitude` decimal(10,8) DEFAULT NULL,
+  `longitude` decimal(11,8) DEFAULT NULL,
+  `approval_status` varchar(30) NOT NULL DEFAULT 'DRAFT',
+  `rejection_reason` text DEFAULT NULL,
+  `pending_changes` text DEFAULT NULL,
+  `submitted_by` varchar(50) DEFAULT NULL,
+  `approved_by` varchar(50) DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_hdest_hotel_id` (`hotel_id`),
+  KEY `idx_hdest_approval` (`approval_status`),
+  KEY `idx_hdest_category` (`destination_category`),
+  KEY `idx_hdest_dist` (`distance_meters`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+-- Table structure for table `hotel_destination_audit_logs`
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `hotel_destination_audit_logs` (
+  `id` varchar(50) NOT NULL,
+  `destination_id` varchar(50) NOT NULL,
+  `action` varchar(50) NOT NULL,
+  `old_values` text DEFAULT NULL,
+  `new_values` text DEFAULT NULL,
+  `performed_by` varchar(50) NOT NULL,
+  `remarks` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_hdest_audit_dest` (`destination_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 COMMIT;

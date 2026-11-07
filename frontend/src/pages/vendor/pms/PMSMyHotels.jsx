@@ -30,6 +30,7 @@ function HotelCard({ hotel, onNavigate, onAction, vendorBookings }) {
 
   const actions = [
     { label: 'Edit Hotel', icon: <Edit size={14} />, action: 'edit' },
+    { label: 'Nearby Attractions & Distances', icon: <MapPin size={14} />, tab: 'nearby_destinations' },
     { label: 'Manage Rooms', icon: <BedDouble size={14} />, tab: 'room_types' },
     { label: 'Manage Pricing', icon: <DollarSign size={14} />, tab: 'rate_plans' },
     { label: 'Manage Availability', icon: <Calendar size={14} />, tab: 'availability' },
@@ -70,7 +71,7 @@ function HotelCard({ hotel, onNavigate, onAction, vendorBookings }) {
                     key={idx}
                     onClick={() => {
                       setMenuOpen(false);
-                      if (a.tab) onNavigate(a.tab);
+                      if (a.tab) onNavigate(a.tab, hotel.id);
                       else if (a.action) onAction(hotel, a.action);
                     }}
                     className="btn w-100 text-start d-flex align-items-center gap-2 px-3 py-2 border-0 rounded-0"
@@ -135,16 +136,25 @@ function HotelCard({ hotel, onNavigate, onAction, vendorBookings }) {
         )}
 
         {/* Quick Actions */}
-        <div className="d-flex gap-2">
-          <button onClick={() => onNavigate('room_types')} className="btn btn-sm flex-grow-1 rounded-pill fw-bold" style={{ background: '#0D1B2E', color: '#fff', fontSize: '0.78rem' }}>
-            Manage
+        <div className="d-flex flex-column gap-2">
+          <button
+            onClick={() => onNavigate('nearby_destinations', hotel.id)}
+            className="btn btn-sm rounded-pill fw-bold w-100 d-flex align-items-center justify-content-center gap-1.5 shadow-sm text-white"
+            style={{ background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)', fontSize: '0.78rem', border: 'none' }}
+          >
+            <MapPin size={13} /> Nearby Attractions &amp; Distances
           </button>
-          <button onClick={() => onNavigate('availability')} className="btn btn-sm rounded-pill" style={{ background: '#f0f2f5', color: '#2d3748', fontSize: '0.78rem' }}>
-            <Calendar size={13} />
-          </button>
-          <button onClick={() => onNavigate('all_bookings')} className="btn btn-sm rounded-pill" style={{ background: '#f0f2f5', color: '#2d3748', fontSize: '0.78rem' }}>
-            <BarChart2 size={13} />
-          </button>
+          <div className="d-flex gap-2">
+            <button onClick={() => onNavigate('room_types', hotel.id)} className="btn btn-sm flex-grow-1 rounded-pill fw-bold" style={{ background: '#0D1B2E', color: '#fff', fontSize: '0.78rem' }}>
+              Manage Rooms
+            </button>
+            <button onClick={() => onNavigate('availability', hotel.id)} className="btn btn-sm rounded-pill" style={{ background: '#f0f2f5', color: '#2d3748', fontSize: '0.78rem' }} title="Manage Availability">
+              <Calendar size={13} />
+            </button>
+            <button onClick={() => onNavigate('all_bookings', hotel.id)} className="btn btn-sm rounded-pill" style={{ background: '#f0f2f5', color: '#2d3748', fontSize: '0.78rem' }} title="View Bookings">
+              <BarChart2 size={13} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -189,14 +199,23 @@ export default function PMSMyHotels({ currentUser, vendorHotels, vendorBookings,
   return (
     <div className="p-4" style={{ background: '#f0f2f5', minHeight: '100%' }}>
       {/* Header */}
-      <div className="d-flex align-items-center justify-content-between mb-4">
+      <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
         <div>
           <h4 className="fw-bold mb-1" style={{ color: '#1a2b4a' }}>My Hotels</h4>
           <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>{vendorHotels.length} properties • {vendorHotels.filter(h => (h.hotel_status || 'Live') === 'Live').length} live</p>
         </div>
-        <button onClick={() => onNavigate('add_hotel')} className="btn d-flex align-items-center gap-2 rounded-pill fw-bold px-4" style={{ background: '#0D1B2E', color: '#fff' }}>
-          <PlusCircle size={16} /> Add Hotel
-        </button>
+        <div className="d-flex align-items-center gap-2">
+          <button
+            onClick={() => onNavigate('nearby_destinations')}
+            className="btn d-flex align-items-center gap-2 rounded-pill fw-bold px-3 py-2 text-white shadow-sm"
+            style={{ background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)', fontSize: '0.88rem' }}
+          >
+            <MapPin size={16} /> Nearby Destinations
+          </button>
+          <button onClick={() => onNavigate('add_hotel')} className="btn d-flex align-items-center gap-2 rounded-pill fw-bold px-4 py-2" style={{ background: '#0D1B2E', color: '#fff', fontSize: '0.88rem' }}>
+            <PlusCircle size={16} /> Add Hotel
+          </button>
+        </div>
       </div>
 
       {/* Status Filter */}

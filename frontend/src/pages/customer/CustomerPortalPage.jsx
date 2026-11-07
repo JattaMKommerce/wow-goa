@@ -594,30 +594,7 @@ export default function CustomerPortalPage({
         setOtpStep('phone');
         refreshCustomerBookings(phoneToSend || res.customer.phone);
       } else {
-        // Backup master code
-        if (entered === '1234') {
-          const match = await findMatchingBooking(phoneToSend, loginEmail.trim());
-          if (match) {
-            const userObj = {
-              id: match.customer_id || `c_${phoneToSend.replace(/\D/g, '')}`,
-              name: match.customer_name || match.name || 'Valued Traveler',
-              username: match.customer_name || match.name || phoneToSend,
-              phone: match.phone || phoneToSend,
-              email: loginEmail || match.customer_email || match.email || 'guest@wowgoa.com',
-              city: match.pickup_location || 'Goa',
-              role: 'customer'
-            };
-            setCustomerUser(userObj);
-            try {
-              localStorage.setItem('customerUser', JSON.stringify(userObj));
-              sessionStorage.removeItem('customer_login_phone');
-            } catch (err) {}
-            setLoginError('');
-            setOtpStep('phone');
-            refreshCustomerBookings(phoneToSend || userObj.phone);
-            return;
-          }
-        }
+        // Security: no browser-side backup code; only the server can verify a login code.
         setLoginError(res?.error || 'Incorrect verification code. Please check your Gmail.');
       }
     } catch (err) {

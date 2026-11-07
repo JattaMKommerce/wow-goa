@@ -3,7 +3,7 @@ import {
   Compass, LogOut, Box, Building, MessageSquare, CreditCard, Calendar,
   Plane, Hotel, Shield, LayoutDashboard, Globe, Users, Tag, BarChart2,
   ChevronDown, ChevronRight, Menu, Bell, Layers, FileText, Star, PlusCircle, Settings, X, UserPlus,
-  Briefcase, Gift, Clock, AlertCircle, Wallet, CheckCircle2, Map as MapIcon, DollarSign, Car
+  Briefcase, Gift, Clock, AlertCircle, Wallet, CheckCircle2, Map as MapIcon, DollarSign, Car, MapPin
 } from 'lucide-react';
 import * as api from '../../services/api';
 import AdminDashboard from './AdminDashboard';
@@ -11,6 +11,7 @@ import AdminDashboardOverview from './AdminDashboardOverview';
 import AdminB2BPortal from './b2b/AdminB2BPortal';
 import VisaApplicationsManager from '../../components/superadmin/VisaApplicationsManager';
 import TaxiOperationsHub from '../taxi/TaxiOperationsHub';
+import HotelDestinationsManagement from '../../components/admin/HotelDestinationsManagement';
 
 import AdminCMS from './AdminCMS';
 import AdminCustomerManagement from './AdminCustomerManagement';
@@ -71,6 +72,7 @@ const SIDEBAR_GROUPS = [
     items: [
       { id: 'packages', label: 'Manage Packages', icon: <Compass size={15} /> },
       { id: 'admin_hotels', label: 'Manage Hotel', icon: <Hotel size={15} /> },
+      { id: 'hotel_destinations', label: 'Nearby Destinations', icon: <MapPin size={15} /> },
       { id: 'admin_vehicles', label: 'Manage Vehicle', icon: <Shield size={15} /> },
       { id: 'admin_activities', label: 'Manage Sightseeing & Activity', icon: <MapIcon size={15} /> },
       { id: 'availability', label: 'Availability Calendar', icon: <Calendar size={15} /> },
@@ -259,42 +261,70 @@ function SidebarGroup({ group, activeTab, onSelect, defaultOpen }) {
   );
 }
 
-// ─── ADMIN HOTELS VIEW (with Add Hotel button) ───────────────────────────────
+// ─── ADMIN HOTELS VIEW (with Add Hotel button & Destinations tab) ───────────────────────────────
 function AdminHotelsView({ hotels, onAddHotel, onUpdateHotel, onDeleteHotel, bookings, currentUser }) {
   const [innerTab, setInnerTab] = React.useState('hotels');
+  const [targetHotelId, setTargetHotelId] = React.useState(null);
+
   return (
     <div className="p-4">
-      <div className="d-flex align-items-center justify-content-between mb-3">
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
           <h5 className="fw-bold mb-0" style={{ color: '#0D1B2E' }}>Manage Hotels</h5>
           <p className="text-muted mb-0" style={{ fontSize: '0.82rem' }}>{hotels.length} hotels in inventory</p>
         </div>
-        <button
-          className="btn fw-bold text-white d-flex align-items-center gap-2"
-          style={{ background: innerTab === 'add_hotel' ? '#64748b' : 'linear-gradient(90deg,#FF6333,#FF8A00)', borderRadius: '8px', fontSize: '0.85rem' }}
-          onClick={() => setInnerTab(innerTab === 'add_hotel' ? 'hotels' : 'add_hotel')}>
-          <PlusCircle size={16} /> {innerTab === 'add_hotel' ? 'Back to List' : 'Add Hotel'}
-        </button>
+        <div className="d-flex align-items-center gap-2">
+          <button
+            className={`btn btn-sm rounded-pill px-3.5 py-2 fw-bold d-flex align-items-center gap-1.5 shadow-sm text-white transition-all`}
+            style={{ background: innerTab === 'destinations' ? '#0D1B2E' : 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)', border: 'none' }}
+            onClick={() => {
+              setTargetHotelId(null);
+              setInnerTab(innerTab === 'destinations' ? 'hotels' : 'destinations');
+            }}
+          >
+            <MapPin size={15} /> {innerTab === 'destinations' ? '← Back to Hotel List' : '📍 Nearby Destinations & Attractions'}
+          </button>
+          <button
+            className="btn fw-bold text-white d-flex align-items-center gap-2"
+            style={{ background: innerTab === 'add_hotel' ? '#64748b' : 'linear-gradient(90deg,#FF6333,#FF8A00)', borderRadius: '8px', fontSize: '0.85rem' }}
+            onClick={() => setInnerTab(innerTab === 'add_hotel' ? 'hotels' : 'add_hotel')}>
+            <PlusCircle size={16} /> {innerTab === 'add_hotel' ? 'Back to List' : 'Add Hotel'}
+          </button>
+        </div>
       </div>
-      <div className="rounded-3 shadow-sm" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.07)' }}>
-        <HotelVendorDashboard
-          activeTab={innerTab}
+      {innerTab === 'destinations' ? (
+        <HotelDestinationsManagement
           hotels={hotels}
-          onAddHotel={async (data) => {
-            await onAddHotel(data);
-            setInnerTab('hotels');
-          }}
-          onUpdateHotel={async (hotelData, extraData) => {
-            const payload = (extraData && typeof extraData === 'object') ? { ...extraData, id: hotelData } : hotelData;
-            await onUpdateHotel(payload);
-            setInnerTab('hotels');
-          }}
-          onDeleteHotel={onDeleteHotel}
-          bookings={bookings}
           currentUser={currentUser}
-          onEditRequest={() => setInnerTab('add_hotel')}
+          portalTitle="Admin Portal"
+          initialHotelId={targetHotelId}
+          onBack={() => setInnerTab('hotels')}
         />
-      </div>
+      ) : (
+        <div className="rounded-3 shadow-sm" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.07)' }}>
+          <HotelVendorDashboard
+            activeTab={innerTab}
+            hotels={hotels}
+            onManageDestinations={(hotel) => {
+              setTargetHotelId(hotel?.id || null);
+              setInnerTab('destinations');
+            }}
+            onAddHotel={async (data) => {
+              await onAddHotel(data);
+              setInnerTab('hotels');
+            }}
+            onUpdateHotel={async (hotelData, extraData) => {
+              const payload = (extraData && typeof extraData === 'object') ? { ...extraData, id: hotelData } : hotelData;
+              await onUpdateHotel(payload);
+              setInnerTab('hotels');
+            }}
+            onDeleteHotel={onDeleteHotel}
+            bookings={bookings}
+            currentUser={currentUser}
+            onEditRequest={() => setInnerTab('add_hotel')}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -830,6 +860,8 @@ export default function AdminPortalPage({
         );
       case 'admin_hotels':
         return <AdminHotelsView hotels={hotels} onAddHotel={onAddHotel} onUpdateHotel={onUpdateHotel} onDeleteHotel={onDeleteHotel} bookings={liveBookings} currentUser={currentUser} />;
+      case 'hotel_destinations':
+        return <HotelDestinationsManagement hotels={hotels} currentUser={currentUser} portalTitle="Admin Portal" onBack={() => handleTabClick('admin_hotels')} />;
       case 'admin_vehicles':
         return (
           <div className="p-4">

@@ -1,14 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../services/taxiApi';
+import { loginUser, getAuthToken } from '../services/api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  // Same signed login as the rest of WOW GOA (the existing login screens issue it).
   const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
+    try {
+      const savedUser = localStorage.getItem('user') || localStorage.getItem('currentUser');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) { return null; }
   });
-  const [token, setToken] = useState(() => localStorage.getItem('access_token'));
+  const [token, setToken] = useState(() => getAuthToken() || null);
   const [loading, setLoading] = useState(false);
   const [activeRole, setActiveRoleState] = useState(() => {
     return localStorage.getItem('active_role') || user?.role || 'FLEET_ADMIN';
@@ -22,21 +25,19 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     setLoading(true);
     try {
-      const response = await api.post('auth/login/', { username, password });
-      const { access, refresh, user: userData } = response.data;
-      
-      localStorage.setItem('access_token', access);
-      localStorage.setItem('refresh_token', refresh);
+      // Verified by the WOW GOA server (registered credentials); a signed token is stored by loginUser().
+      const userData = await loginUser(username, password);
+      const role = String(userData?.role || '').toLowerCase();
+      const taxiRole = (role === 'driver' || role === 'chauffeur') ? 'DRIVER' : (role === 'dispatcher' ? 'DISPATCHER' : 'FLEET_ADMIN');
       localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('active_role', userData.role || 'FLEET_ADMIN');
-
-      setToken(access);
+      localStorage.setItem('active_role', taxiRole);
+      setToken(getAuthToken() || null);
       setUser(userData);
-      setActiveRoleState(userData.role || 'FLEET_ADMIN');
+      setActiveRoleState(taxiRole);
       return { success: true, user: userData };
     } catch (err) {
       console.error('Login error:', err);
-      const message = err.response?.data?.detail || 'Authentication failed. Please check credentials.';
+      const message = err?.message || 'Authentication failed. Please check credentials.';
       return { success: false, error: message };
     } finally {
       setLoading(false);

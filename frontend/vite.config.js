@@ -21,21 +21,8 @@ export default defineConfig({
             }
             return 'vendor-libs';
           }
-          if (id.includes('/pages/superadmin/') || id.includes('/pages/admin/') || id.includes('/pages/subadmin/')) {
-            return 'module-admin';
-          }
-          if (id.includes('/pages/vendor/')) {
-            return 'module-vendor';
-          }
-          if (id.includes('/pages/b2b/')) {
-            return 'module-b2b';
-          }
-          if (id.includes('/pages/taxi/')) {
-            return 'module-taxi';
-          }
-          if (id.includes('/pages/customer/')) {
-            return 'module-customer';
-          }
+          // App pages are NOT grouped here on purpose: App.jsx lazy-loads each page,
+          // and grouping whole folders would force them all to download up front.
         }
       }
     }

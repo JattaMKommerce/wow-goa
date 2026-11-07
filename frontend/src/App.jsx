@@ -1,5 +1,3 @@
-import TaxiServicesPage from './pages/customer/TaxiServicesPage';
-import TaxiOperationsHub from './pages/taxi/TaxiOperationsHub';
 
 import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import './App.css';
@@ -27,48 +25,60 @@ import FeaturesGrid from './components/widgets/FeaturesGrid';
 import SelfDriveCategoryShowcase from './components/widgets/SelfDriveCategoryShowcase';
 
 // Import Pages
-import {
-  ActivityDetailsPage,
-  FlightBookingFlow,
-  FlightDetailsPage,
-  AdminPortalPage,
-  VendorPortalPage,
-  FlightVendorPortalPage,
-  HotelVendorPortalPage,
-  SuperAdminPortalPage,
-  HotelsPage,
-  CarsPage,
-  CarDetailsPage,
-  BikeDetailsPage,
-  BikesPage,
-  FlightsPage,
-  HotelDetailsPage,
-  VehicleDetailsPage,
-  PackageDetailsPage,
-  ExplorePage,
-  SelfDrivePage,
-  PackageCustomizationPage,
-  CraftMyTripPage,
-  AIPlannerPage,
-  CustomerDashboard,
-  SubAdminPortalPage,
-  DriverPortalPage,
-  DriverLoginPage,
-  CustomerPortalPage
-} from './pages';
-import CustomTripEnquiryPage from './pages/customer/CustomTripEnquiryPage';
-import B2BPortalPage from './pages/b2b/B2BPortalPage';
-import CustomerActivitiesTab from './components/customer/CustomerActivitiesTab';
-import VendorLoginPage from './pages/vendor/VendorLoginPage';
+// The home page (Self Drive) loads immediately. Every other page is code-split
+// and only downloaded when first opened (see utils/lazyPage.jsx), so visitors
+// no longer download the admin / vendor / B2B / taxi portals just to see the home page.
+import SelfDrivePage from './pages/customer/SelfDrivePage';
+import { lazyPage, preloadWhenIdle } from './utils/lazyPage';
 import RoleAccessDeniedModal from './components/vendor/RoleAccessDeniedModal';
-import PublicVendorStorefrontPage from './pages/vendor/PublicVendorStorefrontPage';
-import TaxiVendorPortalPage from './pages/vendor/TaxiVendorPortalPage';
-import ChauffeurPortal from './pages/taxi/ChauffeurPortal';
 import { AuthProvider } from './context/TaxiAuthContext';
-import CustomerCabsPage from './pages/customer/CustomerCabsPage';
-import TaxiAppShell from './pages/customer/TaxiAppShell';
-import ApkDownloadPage from './pages/customer/ApkDownloadPage';
-import VisaSection from './components/visa/VisaSection';
+
+// Customer-facing pages (preloaded in the background after the home page appears)
+const CarsPage = lazyPage(() => import('./pages/customer/CarsPage'));
+const BikesPage = lazyPage(() => import('./pages/customer/BikesPage'));
+const HotelsPage = lazyPage(() => import('./pages/customer/HotelsPage'));
+const FlightsPage = lazyPage(() => import('./pages/customer/FlightsPage'));
+const CarDetailsPage = lazyPage(() => import('./pages/customer/CarDetailsPage'));
+const BikeDetailsPage = lazyPage(() => import('./pages/customer/BikeDetailsPage'));
+const HotelDetailsPage = lazyPage(() => import('./pages/customer/HotelDetailsPage'));
+const VehicleDetailsPage = lazyPage(() => import('./pages/customer/VehicleDetailsPage'));
+const PackageDetailsPage = lazyPage(() => import('./pages/customer/PackageDetailsPage'));
+const CustomerCabsPage = lazyPage(() => import('./pages/customer/CustomerCabsPage'));
+const VisaSection = lazyPage(() => import('./components/visa/VisaSection'));
+const ExplorePage = lazyPage(() => import('./pages/customer/ExplorePage'));
+const CustomerActivitiesTab = lazyPage(() => import('./components/customer/CustomerActivitiesTab'));
+const ActivityDetailsPage = lazyPage(() => import('./pages/customer/ActivityDetailsPage'));
+const FlightDetailsPage = lazyPage(() => import('./pages/customer/FlightDetailsPage'));
+const FlightBookingFlow = lazyPage(() => import('./pages/customer/FlightBookingFlow'));
+const PackageCustomizationPage = lazyPage(() => import('./pages/customer/PackageCustomizationPage'));
+const CraftMyTripPage = lazyPage(() => import('./pages/customer/CraftMyTripPage'));
+const AIPlannerPage = lazyPage(() => import('./pages/customer/AIPlannerPage'));
+const CustomTripEnquiryPage = lazyPage(() => import('./pages/customer/CustomTripEnquiryPage'));
+const CustomerDashboard = lazyPage(() => import('./pages/customer/CustomerDashboard'));
+const CustomerPortalPage = lazyPage(() => import('./pages/customer/CustomerPortalPage'));
+const ApkDownloadPage = lazyPage(() => import('./pages/customer/ApkDownloadPage'));
+const TaxiAppShell = lazyPage(() => import('./pages/customer/TaxiAppShell'));
+const PublicVendorStorefrontPage = lazyPage(() => import('./pages/vendor/PublicVendorStorefrontPage'));
+
+// Staff / partner portals (only downloaded when someone opens them)
+const AdminPortalPage = lazyPage(() => import('./pages/admin/AdminPortalPage'));
+const SuperAdminPortalPage = lazyPage(() => import('./pages/superadmin/SuperAdminPortalPage'));
+const SubAdminPortalPage = lazyPage(() => import('./pages/subadmin/SubAdminPortalPage'));
+const VendorPortalPage = lazyPage(() => import('./pages/vendor/VendorPortalPage'));
+const VendorLoginPage = lazyPage(() => import('./pages/vendor/VendorLoginPage'));
+const HotelVendorPortalPage = lazyPage(() => import('./pages/vendor/HotelVendorPortalPage'));
+const FlightVendorPortalPage = lazyPage(() => import('./pages/vendor/FlightVendorPortalPage'));
+const TaxiVendorPortalPage = lazyPage(() => import('./pages/vendor/TaxiVendorPortalPage'));
+const B2BPortalPage = lazyPage(() => import('./pages/b2b/B2BPortalPage'));
+const DriverPortalPage = lazyPage(() => import('./pages/driver/DriverPortalPage'));
+const DriverLoginPage = lazyPage(() => import('./pages/driver/DriverLoginPage'));
+const ChauffeurPortal = lazyPage(() => import('./pages/taxi/ChauffeurPortal'));
+const TaxiOperationsHub = lazyPage(() => import('./pages/taxi/TaxiOperationsHub'));
+
+const LIKELY_NEXT_PAGES = [
+  CarsPage, BikesPage, HotelsPage, CustomerCabsPage, VehicleDetailsPage, CarDetailsPage,
+  BikeDetailsPage, PackageDetailsPage, HotelDetailsPage, VisaSection, FlightsPage, ExplorePage,
+];
 import MobileBottomNav from './components/mobile/MobileBottomNav';
 import MobileInstallBanner from './components/mobile/MobileInstallBanner';
 import MobileVacationQuickBar from './components/mobile/MobileVacationQuickBar';
@@ -325,6 +335,8 @@ export default function App() {
     if (!dataLoaded || isAuthHydrating || window.__WG_APP_READY__) return;
     window.__WG_APP_READY__ = true;
     window.dispatchEvent(new Event('wg-app-ready'));
+    // Home page is on screen: quietly fetch the pages customers usually open next.
+    preloadWhenIdle(LIKELY_NEXT_PAGES);
   }, [dataLoaded, isAuthHydrating]);
 
   // Load backend data on mount

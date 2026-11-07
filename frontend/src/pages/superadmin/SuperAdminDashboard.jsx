@@ -441,8 +441,10 @@ function EditAdminModal({ editing, onClose, onUpdateUser }) {
 
   const handleEdit = (e) => {
     e.preventDefault();
-    const updatedPass = editForm.password || editing.plain_password || editing.password || 'admin@2026';
-    try {
+    // Only a newly typed password changes it; an empty field keeps the current password
+    // (the server ignores an empty password). Never fall back to a shared default.
+    const updatedPass = editForm.password || '';
+    if (updatedPass) try {
       const map = JSON.parse(localStorage.getItem('user_passwords') || '{}');
       if (editing.id) map[editing.id] = updatedPass;
       if (editing.username) map[editing.username] = updatedPass;
@@ -454,7 +456,7 @@ function EditAdminModal({ editing, onClose, onUpdateUser }) {
       ...editing,
       ...editForm,
       password: updatedPass,
-      plain_password: updatedPass
+      plain_password: updatedPass || editing.plain_password || ''
     });
     onClose();
   };
@@ -1456,6 +1458,28 @@ function BookingsTab({ bookings = [], type, vendors = [], allPackages = [], onRe
       title={`${typeLabel} Bookings`}
       subtitle={`Manage all platform ${typeLabel.toLowerCase()} reservations — view customer details, verify payments and update status`}
     >
+      {type === 'hotel' && (
+        <div className="alert alert-info py-2 px-3 mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2 rounded-3 shadow-xs" style={{ background: '#F0FDFA', borderColor: '#CCFBF1' }}>
+          <div className="d-flex align-items-center gap-2">
+            <span style={{ color: '#0D9488' }}><MapPin size={16} /></span>
+            <span className="text-xs text-dark fw-medium">
+              Want to manage or approve hotel nearby destinations (beaches, forts, landmarks)?
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (onNavigate) onNavigate('hotel_destinations');
+              else window.dispatchEvent(new CustomEvent('tripgalileo-navigate', { detail: { tab: 'hotel_destinations' } }));
+            }}
+            className="btn btn-sm rounded-pill px-3 py-1 text-white fw-bold d-flex align-items-center gap-1 shadow-xs"
+            style={{ background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)', border: 'none', fontSize: '0.78rem' }}
+          >
+            <MapPin size={13} /> Hotel Destinations &amp; Approvals Master
+          </button>
+        </div>
+      )}
+
       <div className="d-flex flex-wrap gap-2 mb-3">
         <div className="position-relative flex-grow-1" style={{ minWidth: '200px' }}>
           <Search size={15} className="position-absolute" style={{ top: '50%', left: '12px', transform: 'translateY(-50%)', color: '#94a3b8' }} />

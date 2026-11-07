@@ -24,6 +24,80 @@ try {
 }
 
 // ============================================================================
+// ACCESS CONTROL (security): identity and role come only from the login token.
+// - Booking a cab stays open to guests (public website flow).
+// - Guests may track / cancel / rate a ride only with the ride id AND the phone on it.
+// - Customers see only rides on their own phone; drivers only their own duties;
+//   fleet feeds, dispatch assignment and telematics are staff / taxi-operator only.
+// ============================================================================
+$wgTaxiActor = function_exists('authenticateRequest') ? authenticateRequest($pdo, false) : null;
+$wgTaxiRole = strtolower((string)($wgTaxiActor['role'] ?? ''));
+$wgTaxiStaff = in_array($wgTaxiRole, ['admin', 'superadmin', 'subadmin', 'sub_admin', 'taxi_vendor', 'dispatcher', 'vendor'], true);
+$wgTaxiPhone = substr(preg_replace('/\D/', '', (string)($wgTaxiActor['phone'] ?? '')), -10);
+if (!function_exists('wgTaxiDeny')) {
+    function wgTaxiDeny($code, $msg) { http_response_code($code); echo json_encode(['success' => false, 'error' => $msg]); exit; }
+    function wgTaxiLast10($p) { return substr(preg_replace('/\D/', '', (string)$p), -10); }
+    function wgTaxiDispatch($pdo, $id) {
+        if ($id === '' || $id === null) return null;
+        $s = $pdo->prepare("SELECT * FROM taxi_dispatches WHERE id = ? OR booking_id = ? LIMIT 1");
+        $s->execute([$id, $id]);
+        return $s->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+    // May this caller act on / see this ride?
+    function wgTaxiCanAccessRide($d, $actor, $role, $staff, $actorPhone, $claimedPhone) {
+        if (!$d) return false;
+        if ($staff) return true;
+        if ($role === 'driver') return (string)($d['assigned_driver_id'] ?? '') === (string)($actor['id'] ?? '');
+        $ridePhone = wgTaxiLast10($d['customer_phone'] ?? '');
+        if (strlen($ridePhone) < 10) return false;
+        if ($role === 'customer' && $actorPhone !== '') return hash_equals($ridePhone, $actorPhone);
+        $claimed = wgTaxiLast10($claimedPhone);
+        return strlen($claimed) >= 10 && hash_equals($ridePhone, $claimed); // guest: ride id + matching phone
+    }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $wgRes = $_GET['resource'] ?? ($_GET['action'] ?? '');
+    if (in_array($wgRes, ['vendor_dispatches', 'taxi_dispatches', 'dispatches', 'vendor_telematics', 'fleet_map'], true)) {
+        if (!$wgTaxiStaff) wgTaxiDeny($wgTaxiActor ? 403 : 401, 'Unauthorized: taxi operations login required.');
+    } elseif (in_array($wgRes, ['driver_active_duty', 'driver_duty', 'chauffeur_portal'], true)) {
+        if ($wgTaxiRole === 'driver') { $_GET['driver_id'] = (string)$wgTaxiActor['id']; }   // drivers: own duties only
+        elseif (!$wgTaxiStaff) wgTaxiDeny($wgTaxiActor ? 403 : 401, 'Unauthorized: driver login required.');
+    } elseif (in_array($wgRes, ['customer_trips', 'my_trips', 'customer_ride_history'], true)) {
+        if ($wgTaxiRole === 'customer' && $wgTaxiPhone !== '') { $_GET['phone'] = $wgTaxiPhone; }  // own rides only
+        elseif (!$wgTaxiStaff) wgTaxiDeny($wgTaxiActor ? 403 : 401, 'Unauthorized: please log in to see your trips.');
+        elseif (empty($_GET['phone'])) { $_GET['phone'] = $_GET['phone'] ?? ''; }
+    } elseif (in_array($wgRes, ['ride_live_track', 'track_ride', 'booking_live_status'], true)) {
+        $wgId = $_GET['id'] ?? ($_GET['dispatch_id'] ?? ($_GET['booking_id'] ?? ''));
+        if ($wgId === '' && !$wgTaxiStaff) {
+            if ($wgTaxiRole === 'customer' && $wgTaxiPhone !== '') { $_GET['phone'] = $wgTaxiPhone; }
+            else wgTaxiDeny(401, 'Unauthorized: ride id and phone required.');
+        } elseif (!$wgTaxiStaff && !wgTaxiCanAccessRide(wgTaxiDispatch($pdo, $wgId), $wgTaxiActor, $wgTaxiRole, $wgTaxiStaff, $wgTaxiPhone, $_GET['phone'] ?? '')) {
+            wgTaxiDeny(403, 'Forbidden: this ride does not belong to you.');
+        }
+    }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $wgBody = json_decode(file_get_contents('php://input'), true) ?: ($_POST ?: []);
+    $wgAct = $_GET['action'] ?? ($wgBody['action'] ?? '');
+    $wgId = trim((string)($wgBody['dispatch_id'] ?? ($wgBody['booking_id'] ?? ($wgBody['id'] ?? ''))));
+    $wgClaimed = $wgBody['phone'] ?? ($wgBody['customer_phone'] ?? ($wgBody['mobile'] ?? ''));
+    if (in_array($wgAct, ['vendor_assign_dispatch', 'assign_taxi_dispatch'], true)) {
+        if (!$wgTaxiStaff) wgTaxiDeny($wgTaxiActor ? 403 : 401, 'Unauthorized: taxi operations login required.');
+    } elseif (in_array($wgAct, ['driver_update_status', 'update_taxi_duty_status', 'driver_ping_gps', 'ping_gps'], true)) {
+        if (!$wgTaxiStaff && $wgTaxiRole !== 'driver') wgTaxiDeny($wgTaxiActor ? 403 : 401, 'Unauthorized: driver login required.');
+        if ($wgTaxiRole === 'driver') {
+            if ($wgId !== '' && !wgTaxiCanAccessRide(wgTaxiDispatch($pdo, $wgId), $wgTaxiActor, $wgTaxiRole, false, '', '')) wgTaxiDeny(403, 'Forbidden: this duty is not assigned to you.');
+            if (in_array($wgAct, ['driver_ping_gps', 'ping_gps'], true)) { $payload['driver_id'] = (string)$wgTaxiActor['id']; }
+        }
+    } elseif (in_array($wgAct, ['cancel_booking', 'cancel_trip', 'customer_cancel_ride', 'decline_duty', 'customer_rate_trip', 'rate_taxi_trip'], true)) {
+        if (!$wgTaxiStaff && !wgTaxiCanAccessRide(wgTaxiDispatch($pdo, $wgId), $wgTaxiActor, $wgTaxiRole, false, $wgTaxiPhone, $wgClaimed)) {
+            wgTaxiDeny($wgTaxiActor ? 403 : 401, 'Forbidden: ride id and the phone used for the booking are required.');
+        }
+    }
+    // cab_create_booking / create_taxi_booking stay public (guest website booking).
+}
+
+// ============================================================================
 // 1. GET REQUESTS (Live Tracking, Vendor Feed, Driver Queue, Fleet Telematics)
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {

@@ -213,7 +213,19 @@ export default function PMSAddHotelWizard({ currentUser, onAddHotel, onUpdateHot
           address: existing.address || '',
           pincode: existing.pincode || '',
           images: (() => { try { return existing.images_json ? JSON.parse(existing.images_json) : []; } catch { return []; } })(),
-          facilities: existing.amenities ? existing.amenities.split(',').map(s => s.trim()) : [],
+          facilities: (() => {
+            if (Array.isArray(existing.amenities)) return existing.amenities;
+            if (existing.facilities_json) {
+              try {
+                const parsed = JSON.parse(existing.facilities_json);
+                if (Array.isArray(parsed)) return parsed;
+              } catch(e) {}
+            }
+            if (typeof existing.amenities === 'string' && existing.amenities.trim()) {
+              return existing.amenities.split(',').map(s => s.trim()).filter(Boolean);
+            }
+            return [];
+          })(),
           checkin_time: existing.checkin_time || '14:00',
           checkout_time: existing.checkout_time || '12:00',
           base_price: existing.price || '',
@@ -248,7 +260,7 @@ export default function PMSAddHotelWizard({ currentUser, onAddHotel, onUpdateHot
         name: form.name || 'Draft Hotel',
         location: form.area || form.city || 'Goa',
         price: parseInt(form.selling_price || form.base_price || 0),
-        amenities: form.facilities.join(', '),
+        amenities: Array.isArray(form.facilities) ? form.facilities.join(', ') : (form.facilities || ''),
         images_json: form.images,
         stars: parseInt(form.stars),
         rating: 4.0,
@@ -301,7 +313,7 @@ export default function PMSAddHotelWizard({ currentUser, onAddHotel, onUpdateHot
         name: form.name,
         location: form.area || form.city || 'Goa',
         price: parseInt(form.selling_price || form.base_price || 0),
-        amenities: form.facilities.join(', '),
+        amenities: Array.isArray(form.facilities) ? form.facilities.join(', ') : (form.facilities || ''),
         images_json: form.images,
         stars: parseInt(form.stars),
         rating: 4.0,
@@ -397,8 +409,26 @@ export default function PMSAddHotelWizard({ currentUser, onAddHotel, onUpdateHot
           <div className="col-12 col-md-6">{fld('Latitude', 'latitude', 'text', '15.5477')}</div>
           <div className="col-12 col-md-6">{fld('Longitude', 'longitude', 'text', '73.7516')}</div>
           <div className="col-12">
-            <div className="alert alert-info py-2 px-3" style={{ fontSize: '0.8rem' }}>
+            <div className="alert alert-info py-2 px-3 mb-2" style={{ fontSize: '0.8rem' }}>
               💡 <strong>Tip:</strong> Enter lat/lng from Google Maps to pin your exact location. Guests will see your location on the map when browsing.
+            </div>
+            <div className="alert py-2.5 px-3 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-2" style={{ background: '#F0FDFA', border: '1px solid #CCFBF1' }}>
+              <div className="d-flex align-items-center gap-2">
+                <span style={{ color: '#0D9488' }}><MapPin size={16} /></span>
+                <span className="text-xs text-dark">
+                  <strong>Nearby Beaches &amp; Attractions:</strong> You can add verified distances to beaches, forts, and landmarks in the <strong>Nearby Destinations</strong> tab so guests see them highlighted on your hotel card.
+                </span>
+              </div>
+              {editingHotelId && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate && onNavigate('nearby_destinations', editingHotelId)}
+                  className="btn btn-xs rounded-pill px-3 py-1 text-white fw-bold shadow-xs border-0"
+                  style={{ background: '#0D9488', fontSize: '0.75rem' }}
+                >
+                  Manage Attractions Now →
+                </button>
+              )}
             </div>
           </div>
         </div>

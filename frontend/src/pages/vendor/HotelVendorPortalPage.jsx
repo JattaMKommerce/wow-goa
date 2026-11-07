@@ -5,7 +5,7 @@ import {
   Star, CreditCard, FileText, BarChart2, Bell, Headphones, UserCircle,
   Landmark, Settings, Activity, ChevronDown, ChevronRight, Menu, X,
   Compass, LogOut, Shield, Sparkles, Trash2, CheckCheck, ArrowRight, Check,
-  Globe
+  Globe, MapPin
 } from 'lucide-react';
 import * as api from '../../services/api';
 import VendorStorefrontWizard from '../../components/vendor/VendorStorefrontWizard';
@@ -15,6 +15,7 @@ import PMSDashboard from './pms/PMSDashboard';
 import PMSMyHotels from './pms/PMSMyHotels';
 import PMSAddHotelWizard from './pms/PMSAddHotelWizard';
 import PMSRoomTypes from './pms/PMSRoomTypes';
+import PMSNearbyDestinations from './pms/PMSNearbyDestinations';
 import PMSAvailabilityCalendar from './pms/PMSAvailabilityCalendar';
 import PMSRatePlans from './pms/PMSRatePlans';
 import PMSAllBookings from './pms/PMSAllBookings';
@@ -53,6 +54,7 @@ const SIDEBAR_GROUPS = [
       { id: 'my_hotels', label: 'My Hotels', icon: <Building size={16} /> },
       { id: 'add_hotel', label: 'Add Hotel', icon: <PlusCircle size={16} /> },
       { id: 'room_types', label: 'Rooms & Room Types', icon: <BedDouble size={16} /> },
+      { id: 'nearby_destinations', label: 'Nearby Destinations', icon: <MapPin size={16} /> },
       { id: 'availability', label: 'Availability Calendar', icon: <CalendarDays size={16} /> },
       { id: 'rate_plans', label: 'Rates & Offers', icon: <Tag size={16} /> },
       { id: 'restrictions', label: 'Booking Restrictions', icon: <Lock size={16} /> }
@@ -356,6 +358,7 @@ export default function HotelVendorPortalPage({
       case 'my_hotels': return <PMSMyHotels {...commonProps} />;
       case 'add_hotel': return <PMSAddHotelWizard {...commonProps} editingHotelId={editingHotelId} onComplete={() => handleNavigate('my_hotels')} />;
       case 'room_types': return <PMSRoomTypes {...commonProps} />;
+      case 'nearby_destinations': return <PMSNearbyDestinations vendorId={currentUser?.id || 'u-5'} myHotels={vendorHotels && vendorHotels.length > 0 ? vendorHotels : (hotels || [])} initialHotelId={editingHotelId} />;
       case 'availability': return <PMSAvailabilityCalendar {...commonProps} />;
       case 'rate_plans': return <PMSRatePlans {...commonProps} />;
       case 'restrictions': return <PMSRoomTypes mode="restrictions" {...commonProps} />;

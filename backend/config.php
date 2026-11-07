@@ -43,6 +43,16 @@ if (!defined('DB_NAME')) define('DB_NAME', $_ENV['DB_NAME'] ?? getenv('DB_NAME')
 if (!defined('DB_USER')) define('DB_USER', $_ENV['DB_USER'] ?? getenv('DB_USER') ?: 'root');
 if (!defined('DB_PASS')) define('DB_PASS', $_ENV['DB_PASS'] ?? (getenv('DB_PASS') !== false ? getenv('DB_PASS') : ''));
 
+// Token-signing secret: ONLY from backend/.env (never hard-coded). Must be at least 32 characters.
+// If it is missing or too short, no login token can be issued or accepted (fail closed - no bypass).
+if (!defined('AUTH_SECRET')) {
+    $wgAuthSecret = (string)($_ENV['AUTH_SECRET'] ?? (getenv('AUTH_SECRET') ?: ''));
+    if (strlen($wgAuthSecret) >= 32) {
+        define('AUTH_SECRET', $wgAuthSecret);
+    }
+    unset($wgAuthSecret);
+}
+
 // Ensure backend timezone is strictly UTC for consistent storage and serialization
 if (!date_default_timezone_get() || date_default_timezone_get() !== 'UTC') {
     date_default_timezone_set('UTC');

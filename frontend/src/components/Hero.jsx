@@ -941,13 +941,15 @@ export default function Hero({
         {/* Dynamic Ken Burns Destination Photos with smooth crossfade */}
         {GOA_DESTINATIONS.map((dest, idx) => {
           const isActive = destIdx === idx;
+          // Only download the current photo, the next one (so it's ready in time)
+          // and the previous one (still fading out) — not all 7 photos at page load.
+          const n = GOA_DESTINATIONS.length;
+          const isNear = isActive || idx === (destIdx + 1) % n || idx === (destIdx - 1 + n) % n;
           return (
             <div
               key={dest.id}
               className={`hero-bg-photo ${isActive ? 'active' : ''}`}
-              style={{
-                backgroundImage: `url(${dest.bgImage})`
-              }}
+              style={isNear ? { backgroundImage: `url(${dest.bgImage})` } : undefined}
             />
           );
         })}

@@ -12,10 +12,47 @@ import {
   Utensils, 
   Eye, 
   SlidersHorizontal,
-  RotateCcw
+  RotateCcw,
+  Waves,
+  Navigation,
+  Footprints,
+  Car
 } from 'lucide-react';
 import ImageCarousel from '../../components/common/ImageCarousel';
 import UnifiedGalleryViewer from '../../components/UnifiedGalleryViewer';
+
+// "Beaches" -> "Beach", "Restaurants" -> "Restaurant" (for the "Nearest ..." label)
+const singularCategory = (c = '') => {
+  const s = String(c).trim();
+  if (/(ches|shes|sses|xes)$/i.test(s)) return s.slice(0, -2);
+  if (/s$/i.test(s) && !/ss$/i.test(s)) return s.slice(0, -1);
+  return s;
+};
+
+// Distance highlight: soft glowing pulse + "live" dot + a slow light sweep (no hard blinking).
+// Everything stops for visitors who switched on "reduce motion".
+const PROXIMITY_CSS = `
+.wg-prox-badge{position:relative;overflow:hidden;background:linear-gradient(135deg,#047857 0%,#059669 55%,#10B981 100%);color:#fff;
+  border-radius:999px;padding:5px 12px 5px 10px;font-size:12px;font-weight:800;letter-spacing:.1px;display:inline-flex;align-items:center;gap:6px;
+  box-shadow:0 0 0 0 rgba(16,185,129,.55);animation:wgProxGlow 2.4s ease-out infinite;white-space:nowrap}
+.wg-prox-badge::after{content:"";position:absolute;top:0;left:-60%;width:45%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.38),transparent);transform:skewX(-20deg);animation:wgProxSweep 3.6s ease-in-out infinite}
+.wg-prox-dot{position:relative;width:8px;height:8px;border-radius:50%;background:#A7F3D0;flex-shrink:0}
+.wg-prox-dot::before{content:"";position:absolute;inset:0;border-radius:50%;background:#A7F3D0;animation:wgProxPing 1.8s cubic-bezier(0,0,.2,1) infinite}
+.wg-prox-time{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #A7F3D0;color:#065F46;border-radius:999px;
+  padding:4px 10px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.wg-prox-chip{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #D1FAE5;color:#1F2937;border-radius:999px;
+  padding:3px 10px;font-size:11.5px;font-weight:500;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.wg-prox-chip:hover{transform:translateY(-1px);border-color:#6EE7B7;box-shadow:0 3px 10px rgba(5,150,105,.12)}
+.wg-prox-chip{max-width:100%;min-width:0}
+.wg-prox-chip .wg-prox-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.wg-prox-chip b{color:#047857;font-weight:800;white-space:nowrap;flex-shrink:0}
+.wg-prox-chip svg{flex-shrink:0}
+@keyframes wgProxGlow{0%{box-shadow:0 0 0 0 rgba(16,185,129,.55)}70%{box-shadow:0 0 0 9px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
+@keyframes wgProxSweep{0%{left:-60%}55%,100%{left:130%}}
+@keyframes wgProxPing{0%{transform:scale(1);opacity:.85}75%,100%{transform:scale(2.4);opacity:0}}
+@media (prefers-reduced-motion: reduce){.wg-prox-badge,.wg-prox-badge::after,.wg-prox-dot::before{animation:none}}
+`;
 
 // Only these 3 approved hotels are allowed in the customer hotel inventory
 const APPROVED_HOTEL_IDS = ['hotel-3star', 'hotel-4star', 'hotel-5star'];
@@ -39,6 +76,8 @@ export default function HotelsPage({
 }) {
   // Local state for star filters
   const [selectedStars, setSelectedStars] = useState(() => appliedFilters?.hotelStars || []);
+  const [selectedDistanceFilter, setSelectedDistanceFilter] = useState('all');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [galleryHotel, setGalleryHotel] = useState(null);
   const [mapHotel, setMapHotel] = useState(null);
 
@@ -64,6 +103,8 @@ export default function HotelsPage({
 
   const handleResetAllFilters = () => {
     setSelectedStars([]);
+    setSelectedDistanceFilter('all');
+    setSelectedCategoryFilter('all');
     if (setHotelPriceRange) setHotelPriceRange('All');
     if (setAppliedFilters) {
       setAppliedFilters(old => ({ ...(old || {}), hotelStars: [], priceRanges: [] }));
@@ -172,15 +213,52 @@ export default function HotelsPage({
                    cleanLoc.includes('goa');
       }
 
-      return searchMatch && starsMatch && priceMatch && locMatch;
+      // Proximity Distance Filter
+      let distanceMatch = true;
+      if (selectedDistanceFilter !== 'all') {
+        const dests = hotel.nearby_destinations || [];
+        if (selectedDistanceFilter === 'beachfront') {
+          distanceMatch = dests.some(d => (d.destination_category || '').toLowerCase() === 'beaches' && d.distance_meters <= 200);
+        } else if (selectedDistanceFilter === 'within_200m') {
+          distanceMatch = dests.some(d => d.distance_meters <= 200);
+        } else if (selectedDistanceFilter === 'within_500m') {
+          distanceMatch = dests.some(d => d.distance_meters <= 500);
+        } else if (selectedDistanceFilter === 'within_1km') {
+          distanceMatch = dests.some(d => d.distance_meters <= 1000);
+        } else if (selectedDistanceFilter === 'within_3km') {
+          distanceMatch = dests.some(d => d.distance_meters <= 3000);
+        } else if (selectedDistanceFilter === 'within_5km') {
+          distanceMatch = dests.some(d => d.distance_meters <= 5000);
+        }
+      }
+
+      // Proximity Destination Category Filter
+      let categoryMatch = true;
+      if (selectedCategoryFilter !== 'all') {
+        const dests = hotel.nearby_destinations || [];
+        categoryMatch = dests.some(d => {
+          const c = (d.destination_category || '').toLowerCase();
+          const target = selectedCategoryFilter.toLowerCase();
+          if (target === 'beaches' || target === 'beach') return c.includes('beach');
+          if (target === 'historical places' || target === 'historical') return c.includes('historical') || c.includes('fort') || c.includes('church');
+          if (target === 'shopping areas' || target === 'shopping') return c.includes('shopping') || c.includes('market');
+          if (target === 'restaurants') return c.includes('restaurant') || c.includes('food');
+          if (target === 'water sports') return c.includes('water sports');
+          if (target === 'entertainment') return c.includes('entertainment');
+          return c.includes(target);
+        });
+      }
+
+      return searchMatch && starsMatch && priceMatch && locMatch && distanceMatch && categoryMatch;
     });
-  }, [displayHotels, searchQuery, selectedStars, hotelPriceRange, appliedFilters, pickupLoc]);
+  }, [displayHotels, searchQuery, selectedStars, hotelPriceRange, appliedFilters, pickupLoc, selectedDistanceFilter, selectedCategoryFilter]);
 
   const hotelsToRender = filteredHotels;
 
   return (
     <div className="wowgoa-hotels-container animate-fade-in-up pb-5" style={{ maxWidth: '1240px', margin: '0 auto' }}>
-      
+      <style>{PROXIMITY_CSS}</style>
+
       {/* ─── 1. PAGE HEADER & QUICK FILTER CHIPS ─── */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 pt-2 pb-4 mb-4 border-bottom">
         <div>
@@ -260,6 +338,76 @@ export default function HotelsPage({
               <RotateCcw size={12} /> Clear
             </button>
           )}
+        </div>
+
+        {/* Nearby Proximity & Attraction Filters */}
+        <div className="w-100 d-flex flex-wrap align-items-center justify-content-between gap-2 pt-3 mt-1 border-top">
+          <div className="d-flex flex-wrap align-items-center gap-1.5">
+            <span className="text-muted text-xxs fw-bold text-uppercase d-flex align-items-center gap-1 me-1">
+              <Waves size={13} className="text-primary" /> Proximity:
+            </span>
+            {[
+              { id: 'all', label: 'All Distances' },
+              { id: 'beachfront', label: '🏖️ Beachfront (≤ 200m)' },
+              { id: 'within_500m', label: 'Within 500m' },
+              { id: 'within_1km', label: 'Within 1 km' },
+              { id: 'within_3km', label: 'Within 3 km' },
+              { id: 'within_5km', label: 'Within 5 km' }
+            ].map(df => (
+              <button
+                key={df.id}
+                type="button"
+                className={`btn btn-sm rounded-pill px-2.5 py-1 text-xxs fw-bold transition-all ${
+                  selectedDistanceFilter === df.id
+                    ? 'btn-success text-white shadow-xs'
+                    : 'btn-light border bg-white text-secondary'
+                }`}
+                onClick={() => setSelectedDistanceFilter(df.id)}
+              >
+                {df.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="d-flex flex-wrap align-items-center gap-1.5">
+            <span className="text-muted text-xxs fw-bold text-uppercase d-flex align-items-center gap-1 me-1">
+              <Compass size={13} className="text-warning" /> Attraction:
+            </span>
+            {[
+              { id: 'all', label: 'All' },
+              { id: 'Beaches', label: '🏖️ Beach' },
+              { id: 'Historical Places', label: '🏰 Forts & History' },
+              { id: 'Water Sports', label: '🏄 Water Sports' },
+              { id: 'Markets', label: '🛍️ Markets' },
+              { id: 'Restaurants', label: '🍽️ Dining' }
+            ].map(cf => (
+              <button
+                key={cf.id}
+                type="button"
+                className={`btn btn-sm rounded-pill px-2.5 py-1 text-xxs fw-bold transition-all ${
+                  selectedCategoryFilter === cf.id
+                    ? 'btn-dark text-white shadow-xs'
+                    : 'btn-light border bg-white text-secondary'
+                }`}
+                onClick={() => setSelectedCategoryFilter(cf.id)}
+              >
+                {cf.label}
+              </button>
+            ))}
+
+            {(selectedDistanceFilter !== 'all' || selectedCategoryFilter !== 'all') && (
+              <button
+                type="button"
+                className="btn btn-sm btn-link p-0 text-danger text-xxs fw-bold text-decoration-none d-flex align-items-center gap-1 ms-1"
+                onClick={() => {
+                  setSelectedDistanceFilter('all');
+                  setSelectedCategoryFilter('all');
+                }}
+              >
+                <RotateCcw size={11} /> Reset
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -407,7 +555,7 @@ export default function HotelsPage({
                       </h3>
 
                       {/* Location with Map Trigger */}
-                      <div className="d-flex align-items-center flex-wrap text-muted text-xs mb-3">
+                      <div className="d-flex align-items-center flex-wrap text-muted text-xs mb-2.5">
                         <MapPin size={14} className="text-warning me-1 flex-shrink-0" />
                         <span className="fw-semibold text-dark">{hotel.area || hotel.location || 'Goa, India'}</span>
                         <span className="mx-2 text-muted">·</span>
@@ -422,6 +570,73 @@ export default function HotelsPage({
                           <Compass size={13} /> View on Map
                         </button>
                       </div>
+
+                      {/* ─── Nearby Destinations & Distance Highlights Block ─── */}
+                      {hotel.nearest_destination && (
+                        <div
+                          className="rounded-3 mb-3 border transition-all"
+                          style={{
+                            background: 'linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)',
+                            borderColor: '#A7F3D0',
+                            padding: '10px 12px'
+                          }}
+                        >
+                          <div className="d-flex flex-wrap align-items-center" style={{ gap: '8px' }}>
+                            {/* Nearest Proximity Highlight Badge (soft glow + live dot) */}
+                              <span className="wg-prox-badge">
+                                <span className="wg-prox-dot" aria-hidden="true" />
+                                <Waves size={13} />
+                                {hotel.nearest_destination.distance_value} {hotel.nearest_destination.distance_unit} from {hotel.nearest_destination.destination_name}
+                              </span>
+                              {hotel.nearest_destination.travel_mode === 'Walking' ? (
+                                <span className="wg-prox-time">
+                                  <Footprints size={12} /> ~{hotel.nearest_destination.walking_time_minutes || 2} min walk
+                                </span>
+                              ) : (
+                                <span className="wg-prox-time">
+                                  <Car size={12} /> ~{hotel.nearest_destination.driving_time_minutes || 5} min drive
+                                </span>
+                              )}
+                            {hotel.nearest_destination.destination_category && (
+                              <span className="badge bg-white border rounded-pill px-2.5 py-1 text-xxs fw-bold ms-auto" style={{ color: '#047857', borderColor: '#A7F3D0' }}>
+                                Nearest {singularCategory(hotel.nearest_destination.destination_category)}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Secondary Attractions List */}
+                          {hotel.nearby_destinations && hotel.nearby_destinations.length > 1 && (
+                            <div className="d-flex flex-wrap align-items-center pt-2 mt-2 border-top" style={{ gap: '6px', borderColor: 'rgba(5, 150, 105, 0.2)' }}>
+                              <span className="text-xxs fw-bold text-uppercase me-1" style={{ fontSize: '10px', color: '#047857', letterSpacing: '.4px' }}>
+                                Nearby:
+                              </span>
+                              {hotel.nearby_destinations.slice(1, 4).map((nd, idx) => (
+                                <span
+                                  key={idx}
+                                  className="wg-prox-chip"
+                                  title={nd.description || `${nd.destination_name} (${nd.distance_value} ${nd.distance_unit})`}
+                                >
+                                  <MapPin size={11} style={{ color: '#E11D48' }} />
+                                  <span className="wg-prox-name">{nd.destination_name}</span>
+                                  <b>· {nd.distance_value} {nd.distance_unit}</b>
+                                </span>
+                              ))}
+                              {hotel.nearby_destinations.length > 4 && (
+                                <button 
+                                  type="button"
+                                  className="btn btn-link p-0 text-primary text-xxs fw-bold text-decoration-none ms-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onViewDetails(hotel);
+                                  }}
+                                >
+                                  +{hotel.nearby_destinations.length - 4} more
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Key Amenities Badges */}
                       <div className="d-flex flex-wrap gap-1.5 mb-3">
@@ -442,7 +657,7 @@ export default function HotelsPage({
                       </div>
 
                       {/* Value Guarantees / Reassurance */}
-                      <div className="d-flex flex-wrap gap-x-4 gap-y-1 text-xs mb-3 pt-2 border-top">
+                      <div className="d-flex flex-wrap text-xs mb-3 pt-2 border-top" style={{ columnGap: '18px', rowGap: '4px' }}>
                         <span className="text-success fw-semibold d-flex align-items-center gap-1">
                           <Check size={13} /> Free Cancellation Available
                         </span>
@@ -457,16 +672,16 @@ export default function HotelsPage({
 
                     {/* Bottom Row: Price & Action CTA */}
                     <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-end gap-3 pt-3 border-top">
-                      <div>
+                      <div className="flex-shrink-0">
                         <span className="text-muted text-xxs text-uppercase fw-bold d-block">Starting from</span>
-                        <div className="d-flex align-items-baseline gap-2">
+                        <div className="d-flex align-items-baseline gap-2 text-nowrap">
                           <span className="text-muted text-decoration-line-through text-xs">
                             ₹{getOriginalPrice(hotel.price).toLocaleString('en-IN')}
                           </span>
                           <span className="fw-black text-dark font-heading" style={{ fontSize: '26px', lineHeight: '1' }}>
                             ₹{hotel.price.toLocaleString('en-IN')}
                           </span>
-                          <span className="text-muted text-xs">/ night</span>
+                          <span className="text-muted text-xs text-nowrap">/ night</span>
                         </div>
                         <span className="text-muted text-xxs d-block mt-0.5">
                           + ₹{Math.round(hotel.price * 0.18).toLocaleString('en-IN')} (18% GST &amp; fees)

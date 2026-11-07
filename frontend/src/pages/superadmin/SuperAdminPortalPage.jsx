@@ -4,12 +4,13 @@ import {
   Building, Car, Hotel, Plane, CalendarDays, Wallet, CreditCard,
   Percent, BarChart2, Globe, ChevronDown, ChevronRight,
   Bell, Menu, X, UserCog, CheckCircle, Map as MapIcon,
-  Briefcase, Clock, Gift, Tag, AlertCircle, FileText, Star
+  Briefcase, Clock, Gift, Tag, AlertCircle, FileText, Star, MapPin
 } from 'lucide-react';
 import SuperAdminDashboard from './SuperAdminDashboard';
 import AdminReviewsManagement from '../admin/AdminReviewsManagement';
 import AdminStorefrontLeadsTab from '../admin/AdminStorefrontLeadsTab';
 import TaxiOperationsHub from '../taxi/TaxiOperationsHub';
+import HotelDestinationsManagement from '../../components/admin/HotelDestinationsManagement';
 import * as api from '../../services/api';
 import { 
   aiLeadsData as defaultAiLeads, 
@@ -74,6 +75,7 @@ const SIDEBAR_GROUPS = [
       { id: 'vehicle_bookings', label: 'Vehicle Booking', icon: <Car size={15} /> },
       { id: 'hotel_bookings', label: 'Hotel Booking', icon: <Hotel size={15} /> },
       { id: 'hotel_booking_settings', label: 'Hotel Booking Settings', icon: <Hotel size={15} /> },
+      { id: 'hotel_destinations', label: 'Hotel Destinations & Approvals', icon: <MapPin size={15} /> },
       { id: 'flight_bookings', label: 'Flight Booking', icon: <Plane size={15} /> },
       { id: 'trip_bookings', label: 'Trip Booking', icon: <CalendarDays size={15} /> },
       { id: 'activity_bookings', label: 'Sightseeing & Activity Booking', icon: <MapIcon size={15} /> },
@@ -127,6 +129,7 @@ const PAGE_TITLES = {
   lead_management: 'Lead Management',
   hotel_bookings: 'Hotel Booking',
   hotel_booking_settings: 'Hotel Booking Settings',
+  hotel_destinations: 'Hotel Nearby Destinations & Proximity Approvals',
   trip_bookings: 'Trip Booking',
   vehicle_bookings: 'Vehicle Booking',
   flight_bookings: 'Flight Booking',
@@ -475,6 +478,7 @@ export default function SuperAdminPortalPage({
   }, [superToasts]);
 
   const handlePortalAddUser = async (newUser) => {
+    const initialPassword = newUser.password || newUser.plain_password || api.generateTempPassword();
     // 1. Instant optimistic update to local state so administrator shows immediately
     const optimisticUser = {
       id: newUser.id || `u-${Date.now()}`,
@@ -486,8 +490,8 @@ export default function SuperAdminPortalPage({
       role: (newUser.role || 'admin').toLowerCase().trim(),
       billing_price: Number(newUser.billing_price) || 0,
       status: newUser.status || 'active',
-      plain_password: newUser.password || newUser.plain_password || 'admin@2026',
-      password: newUser.password || newUser.plain_password || 'admin@2026',
+      plain_password: initialPassword,
+      password: initialPassword,
       created_at: new Date().toISOString().slice(0, 19).replace('T', ' ')
     };
 
@@ -1179,6 +1183,8 @@ export default function SuperAdminPortalPage({
         <div className="flex-grow-1 overflow-auto" style={{ background: '#f0f2f5', minWidth: 0, width: '100%' }}>
           {activeTab === 'reviews' ? (
             <AdminReviewsManagement portalTitle="Super Admin Portal" onSelectTab={handleTabChange} />
+          ) : activeTab === 'hotel_destinations' ? (
+            <HotelDestinationsManagement hotels={hotels || []} currentUser={currentUser} portalTitle="Super Admin Portal" onBack={() => handleTabChange('hotel_bookings')} />
           ) : activeTab === 'storefront_leads' ? (
             <AdminStorefrontLeadsTab />
           ) : activeTab === 'taxi_crm' || activeTab === 'taxi_operations' || activeTab === 'taxi_dispatch' ? (

@@ -840,7 +840,15 @@ const taxiApiClient = {
       }
 
       if (phpUrl) {
-        const token = localStorage.getItem('access_token');
+        // Signed WOW GOA login token (never the mock / Django access token).
+        const token = (() => {
+          try {
+            const direct = localStorage.getItem('auth_token') || localStorage.getItem('b2b_partner_token');
+            if (direct) return direct;
+            const cu = JSON.parse(localStorage.getItem('currentUser') || 'null');
+            return (cu && cu.token) || '';
+          } catch (e) { return ''; }
+        })();
         const res = await fetch(phpUrl, {
           method: phpMethod,
           headers: {
