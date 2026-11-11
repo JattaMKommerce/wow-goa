@@ -1,9 +1,29 @@
 <?php
 // Comprehensive Review & Rating End-to-End Backend Verification
 
+error_reporting(E_ALL & ~E_DEPRECATED);
+require_once __DIR__ . '/config.php';
+
 $baseUrl = 'http://localhost:8000/api.php';
 $testsPassed = 0;
 $testsFailed = 0;
+
+function makeTestToken($user) {
+    $secret = (defined('AUTH_SECRET') && is_string(AUTH_SECRET) && strlen(AUTH_SECRET) >= 32) ? AUTH_SECRET : 'wowgoa_production_super_secret_jwt_key_2026_antigravity';
+    $payload = [
+        'id' => $user['id'],
+        'username' => $user['username'] ?? $user['id'],
+        'role' => $user['role'],
+        'phone' => $user['phone'] ?? '',
+        'tenant_id' => 'admin',
+        'time' => time(),
+        'exp' => time() + 86400
+    ];
+    $json = json_encode($payload);
+    $b64 = rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
+    $sig = hash_hmac('sha256', $b64, $secret);
+    return $b64 . '.' . $sig;
+}
 
 function assertTest($condition, $message) {
     global $testsPassed, $testsFailed;
@@ -53,12 +73,31 @@ function apiCall($url, $method = 'GET', $data = null, $headers = []) {
     ];
 }
 
-$pdo = new PDO("sqlite:" . __DIR__ . '/database.sqlite');
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$dbTargets = [__DIR__ . '/database.sqlite', 'D:/wow goa/Tripgalileo (2)/Tripgalileo/backend/database.sqlite'];
+$allPdos = [];
+foreach ($dbTargets as $targetPath) {
+    if (file_exists($targetPath)) {
+        try {
+            $p = new PDO("sqlite:$targetPath");
+            $p->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $allPdos[$targetPath] = $p;
+        } catch (Exception $e) {}
+    }
+}
+$pdo = reset($allPdos);
 
 echo "====================================================\n";
 echo "WOW GOA REVIEW SYSTEM — END-TO-END QA TEST SUITE\n";
 echo "====================================================\n\n";
+
+function dbExecAll($pdos, $sql, $params = []) {
+    foreach ($pdos as $db) {
+        try {
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+        } catch (Exception $e) {}
+    }
+}
 
 // Setup test fixtures in database
 $testPendingId = 'BK-TEST-PENDING-' . time();
@@ -72,27 +111,27 @@ $customerPhone = '9991112233';
 $customerEmail = 'alice@example.com';
 $otherPhone = '8880001122';
 
-$pdo->prepare("INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
-    ->execute([$testPendingId, 'Alice Tester', $customerPhone, $customerEmail, 'Test Scooter', 'bike', 'Pending', 1200]);
+dbExecAll($allPdos, "INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+    [$testPendingId, 'Alice Tester', $customerPhone, $customerEmail, 'Test Scooter', 'bike', 'Pending', 1200]);
 
-$pdo->prepare("INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
-    ->execute([$testConfirmedId, 'Alice Tester', $customerPhone, $customerEmail, 'Test Sedan', 'car', 'Confirmed', 2500]);
+dbExecAll($allPdos, "INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+    [$testConfirmedId, 'Alice Tester', $customerPhone, $customerEmail, 'Test Sedan', 'car', 'Confirmed', 2500]);
 
-$pdo->prepare("INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
-    ->execute([$testCancelledId, 'Alice Tester', $customerPhone, $customerEmail, 'Test SUV', 'car', 'Cancelled', 3500]);
+dbExecAll($allPdos, "INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+    [$testCancelledId, 'Alice Tester', $customerPhone, $customerEmail, 'Test SUV', 'car', 'Cancelled', 3500]);
 
-$pdo->prepare("INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
-    ->execute([$testCompleted1, 'Alice Tester', $customerPhone, $customerEmail, 'Mahindra Thar 4x4', 'vehicle', 'Completed', 4500]);
+dbExecAll($allPdos, "INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+    [$testCompleted1, 'Alice Tester', $customerPhone, $customerEmail, 'Mahindra Thar 4x4', 'vehicle', 'Completed', 4500]);
 
-$pdo->prepare("INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
-    ->execute([$testCompleted2, 'Alice Tester', $customerPhone, $customerEmail, 'Royal Enfield GT 650', 'vehicle', 'Completed', 1800]);
+dbExecAll($allPdos, "INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+    [$testCompleted2, 'Alice Tester', $customerPhone, $customerEmail, 'Royal Enfield GT 650', 'vehicle', 'Completed', 1800]);
 
-$pdo->prepare("INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
-    ->execute([$testCompleted3, 'Alice Tester', $customerPhone, $customerEmail, 'Goa Beach Resort Package', 'package', 'Completed', 15000]);
+dbExecAll($allPdos, "INSERT INTO bookings (id, name, phone, email, item_name, type, status, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+    [$testCompleted3, 'Alice Tester', $customerPhone, $customerEmail, 'Goa Beach Resort Package', 'package', 'Completed', 15000]);
 
 // Clean up any test reviews if any existed
-$pdo->prepare("DELETE FROM customer_reviews WHERE booking_id IN (?, ?, ?, ?, ?, ?)")
-    ->execute([$testPendingId, $testConfirmedId, $testCancelledId, $testCompleted1, $testCompleted2, $testCompleted3]);
+dbExecAll($allPdos, "DELETE FROM customer_reviews WHERE booking_id IN (?, ?, ?, ?, ?, ?)",
+    [$testPendingId, $testConfirmedId, $testCancelledId, $testCompleted1, $testCompleted2, $testCompleted3]);
 
 // 1. Check eligible bookings for Alice
 $resEligible = apiCall($baseUrl . "?resource=eligible_review_bookings&phone=$customerPhone");
@@ -234,14 +273,17 @@ foreach ($pubList as $rev) {
 assertTest(!$hasLeakedData, "Public reviews strictly NEVER expose customer phone or email");
 
 // 14. Vendor Access Restriction: Vendor cannot access reviews
-$resVendor = apiCall($baseUrl . "?resource=admin_reviews", 'GET', null, ['X-User-Role' => 'vendor']);
+$vTok = makeTestToken(['id' => 'u-4', 'role' => 'vendor']);
+$resVendor = apiCall($baseUrl . "?resource=admin_reviews", 'GET', null, ['Authorization' => 'Bearer ' . $vTok]);
 assertTest($resVendor['code'] === 403, "Vendor access to review dashboard rejected with HTTP 403");
 
-$resHotelVendor = apiCall($baseUrl . "?resource=admin_reviews", 'GET', null, ['X-User-Role' => 'hotel_vendor']);
+$hvTok = makeTestToken(['id' => 'u-5', 'role' => 'hotel_vendor']);
+$resHotelVendor = apiCall($baseUrl . "?resource=admin_reviews", 'GET', null, ['Authorization' => 'Bearer ' . $hvTok]);
 assertTest($resHotelVendor['code'] === 403, "Hotel vendor access to review dashboard rejected with HTTP 403");
 
 // 15. Admin & Super Admin Dynamic Dashboard: Real dynamic counts
-$resAdmin = apiCall($baseUrl . "?resource=admin_reviews", 'GET', null, ['X-User-Role' => 'admin']);
+$admTok = makeTestToken(['id' => 'admin', 'role' => 'admin']);
+$resAdmin = apiCall($baseUrl . "?resource=admin_reviews", 'GET', null, ['Authorization' => 'Bearer ' . $admTok]);
 assertTest($resAdmin['code'] === 200, "Admin access to review dashboard returns HTTP 200");
 $stats = $resAdmin['body']['stats'] ?? [];
 assertTest(isset($stats['total_reviews']) && $stats['total_reviews'] >= 3, "Admin stats total_reviews is dynamic count (>= 3, got: {$stats['total_reviews']})");
@@ -251,14 +293,15 @@ assertTest(isset($stats['star_1']) && $stats['star_1'] >= 1, "Admin stats star_1
 assertTest(isset($stats['average_rating']), "Admin stats average_rating dynamically calculated: {$stats['average_rating']} ⭐");
 
 // 16. Immutability: Verify no action exists to edit reviews or change ratings
-$resEdit = apiCall($baseUrl . "?action=update_review", 'POST', ['id' => $resSubmit1['body']['review_id'], 'rating' => 1]);
+$revIdToEdit = $resSubmit1['body']['review_id'] ?? ($resSubmit1['body']['id'] ?? 'test-rev-id');
+$resEdit = apiCall($baseUrl . "?action=update_review", 'POST', ['id' => $revIdToEdit, 'rating' => 1]);
 assertTest($resEdit['code'] !== 200 || !isset($resEdit['body']['success']) || $resEdit['body']['success'] !== true, "Editing reviews is not supported (immutability preserved)");
 
 // Clean up test data
-$pdo->prepare("DELETE FROM customer_reviews WHERE booking_id IN (?, ?, ?, ?, ?, ?)")
-    ->execute([$testPendingId, $testConfirmedId, $testCancelledId, $testCompleted1, $testCompleted2, $testCompleted3]);
-$pdo->prepare("DELETE FROM bookings WHERE id IN (?, ?, ?, ?, ?, ?)")
-    ->execute([$testPendingId, $testConfirmedId, $testCancelledId, $testCompleted1, $testCompleted2, $testCompleted3]);
+dbExecAll($allPdos, "DELETE FROM customer_reviews WHERE booking_id IN (?, ?, ?, ?, ?, ?)",
+    [$testPendingId, $testConfirmedId, $testCancelledId, $testCompleted1, $testCompleted2, $testCompleted3]);
+dbExecAll($allPdos, "DELETE FROM bookings WHERE id IN (?, ?, ?, ?, ?, ?)",
+    [$testPendingId, $testConfirmedId, $testCancelledId, $testCompleted1, $testCompleted2, $testCompleted3]);
 
 echo "\n====================================================\n";
 echo "TEST RESULTS: $testsPassed Passed, $testsFailed Failed\n";

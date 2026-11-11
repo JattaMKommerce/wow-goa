@@ -5,6 +5,7 @@ import {
   Compass, Car, Hotel, Check, Info, Clock, ArrowRight, ShieldCheck
 } from 'lucide-react';
 import { getTodayDateStr, getNextDayDateStr } from '../utils/dateUtils';
+import { useIntroDone } from '../utils/introGate';
 import { GOA_DESTINATIONS, TYPEWRITER_WORDS } from '../data/goaDestinations';
 
 // ─── HIGH-PRECISION TYPEWRITER ENGINE ─────────────────────────────────────────
@@ -137,6 +138,9 @@ export default function Hero({
   }, [activeTab]);
 
   const videoRef = useRef(null);
+  // The background beach video is hidden behind the brand intro anyway, so only start
+  // downloading it once the intro has gone (keeps the intro smooth on slower devices).
+  const introDone = useIntroDone();
   const activeDest = GOA_DESTINATIONS[destIdx] || GOA_DESTINATIONS[0];
 
   // Video playback sync
@@ -148,7 +152,7 @@ export default function Hero({
         videoRef.current.pause();
       }
     }
-  }, [isPlaying]);
+  }, [isPlaying, introDone]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -930,7 +934,7 @@ export default function Hero({
         <video
           ref={videoRef}
           className="hero-video-bg"
-          src="/beach.mp4"
+          src={introDone ? '/beach.mp4' : undefined}
           autoPlay
           muted={isMuted}
           loop

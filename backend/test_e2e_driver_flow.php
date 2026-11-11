@@ -66,12 +66,16 @@ foreach ($bookingTypes as $st) {
         'end_date' => date('Y-m-d', strtotime('+3 days')),
         'booking_days' => 2,
         'total_amount' => 6000,
+        'dob' => '1995-05-15',
+        'driving_license' => 'DL1420110012345',
         'driver_service_type' => $st,
         'customer' => [
             'name' => 'Sanjay Verma',
             'phone' => $testPhone,
             'email' => $testEmail,
-            'city' => 'Mumbai'
+            'city' => 'Mumbai',
+            'dob' => '1995-05-15',
+            'driving_license' => 'DL1420110012345'
         ],
         'payment' => [
             'method' => 'card',
@@ -178,7 +182,7 @@ $b2bPayload = [
     ]
 ];
 
-$b2bRes = BookingService::createBooking($db, $b2bPayload, ['id' => $b2bPartnerId, 'name' => 'Goa Travels B2B', 'tenant_id' => 'admin'], 'B2B');
+$b2bRes = BookingService::createBooking($db, $b2bPayload, ['id' => $b2bPartnerId, 'name' => 'Goa Travels B2B', 'role' => 'b2b', 'tenant_id' => 'admin'], 'B2B');
 if (empty($b2bRes['success'])) {
     echo "FAILED to create B2B booking: " . json_encode($b2bRes) . "\n";
     exit(1);
@@ -367,9 +371,28 @@ if (!$foundInCust) {
 }
 echo "  PASS: Driver Name and Mobile verified in Customer Portal API.\n\n";
 
-// B. B2B Portal (resource=b2b_bookings with X-B2B-Partner-ID header)
-$b2bRes = httpGetJson('http://localhost:8000/api.php?resource=b2b_bookings', ["X-B2B-Partner-ID: {$b2bPartnerId}"]);
-$b2bList = json_decode($b2bRes['body'], true);
+function makeFlowToken($id, $role) {
+    $secret = (defined('AUTH_SECRET') && is_string(AUTH_SECRET) && strlen(AUTH_SECRET) >= 32) ? AUTH_SECRET : 'wowgoa_production_super_secret_jwt_key_2026_antigravity';
+    $payload = [
+        'id' => $id,
+        'username' => $id,
+        'role' => $role,
+        'phone' => '',
+        'tenant_id' => 'admin',
+        'time' => time(),
+        'exp' => time() + 86400
+    ];
+    $json = json_encode($payload);
+    $b64 = rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
+    $sig = hash_hmac('sha256', $b64, $secret);
+    return $b64 . '.' . $sig;
+}
+
+// B. B2B Portal (resource=b2b_bookings with authenticated Bearer token)
+$b2bToken = makeFlowToken($b2bPartnerId, 'b2b');
+$b2bRes = httpGetJson('http://localhost:8000/api.php?resource=b2b_bookings', ["Authorization: Bearer {$b2bToken}"]);
+$b2bRaw = json_decode($b2bRes['body'], true);
+$b2bList = isset($b2bRaw['bookings']) ? $b2bRaw['bookings'] : (is_array($b2bRaw) ? $b2bRaw : []);
 $foundInB2B = false;
 foreach ($b2bList as $b) {
     if ($b['id'] == $b2bBookingId) {
@@ -392,12 +415,13 @@ if (!$foundInB2B) {
 echo "  PASS: Driver Name and Mobile verified in B2B Portal API.\n\n";
 
 // C. Admin Portal (resource=bookings with admin auth)
-$chkAdmin = $db->query("SELECT * FROM users WHERE (id = 'admin' OR username = 'admin') AND (role = 'admin' OR role = 'superadmin') LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-if (!$chkAdmin) {
-    $db->prepare("INSERT OR REPLACE INTO users (id, username, name, email, phone, role, status) VALUES ('admin', 'admin', 'Super Admin', 'admin@tripgalileo.com', '9999999999', 'admin', 'active')")->execute();
-}
-$adminRes = httpGetJson('http://localhost:8000/api.php?resource=bookings', ['X-Auth-Token: admin']);
-$adminList = json_decode($adminRes['body'], true);
+$chkAdmin = $db->query("SELECT * FROM users WHERE role IN ('admin', 'superadmin') AND status = 'active' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+$adminId = $chkAdmin ? $chkAdmin['id'] : 'u-2';
+$adminRole = $chkAdmin ? $chkAdmin['role'] : 'admin';
+$adminToken = makeFlowToken($adminId, $adminRole);
+$adminRes = httpGetJson('http://localhost:8000/api.php?resource=bookings', ["Authorization: Bearer {$adminToken}"]);
+$adminRaw = json_decode($adminRes['body'], true);
+$adminList = isset($adminRaw['bookings']) ? $adminRaw['bookings'] : (is_array($adminRaw) ? $adminRaw : []);
 $foundInAdmin = false;
 foreach ($adminList as $b) {
     if ($b['id'] == $testBookingId) {

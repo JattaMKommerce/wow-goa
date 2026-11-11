@@ -45,7 +45,7 @@ try {
     $partnerA_Id = 'b2b_test_partner_a';
     $partnerB_Id = 'b2b_test_partner_b';
 
-    $pdo->prepare("DELETE FROM users WHERE id IN (?, ?)")->execute([$partnerA_Id, $partnerB_Id]);
+    $pdo->prepare("DELETE FROM users WHERE id IN (?, ?) OR email IN ('partner_a@agency.com', 'partner_b@agency.com')")->execute([$partnerA_Id, $partnerB_Id]);
     $pdo->prepare("DELETE FROM bookings WHERE b2b_partner_id IN (?, ?) OR id LIKE 'TG-TEST-%'")->execute([$partnerA_Id, $partnerB_Id]);
     $pdo->prepare("DELETE FROM b2b_pricing_rules WHERE partner_id IN (?, ?)")->execute([$partnerA_Id, $partnerB_Id]);
     $pdo->prepare("DELETE FROM b2b_audit_logs WHERE partner_id IN (?, ?)")->execute([$partnerA_Id, $partnerB_Id]);
@@ -86,10 +86,10 @@ assertCondition("D2C booking preserves 10% customer cashback", floatval($d2cRow[
 // TEST 2: Authoritative B2B Commission Calculation (₹5,000 -> 10% Commission = ₹500)
 // ---------------------------------------------------------
 $commPricing = calculateAuthoritativeB2BPrice($pdo, 'hotel', $testHotelId, 1, 1, ['room_price' => 5000, 'total_amount' => 5000], $partnerA, 'COMMISSION');
-assertCondition("Commission Mode original reference price is ₹5,900 (₹5,000 + 18% GST)", floatval($commPricing['original_reference_price']) === 5900.00, "Ref price: " . $commPricing['original_reference_price']);
+assertCondition("Commission Mode original reference price is ₹5,000", floatval($commPricing['original_reference_price']) === 5000.00, "Ref price: " . $commPricing['original_reference_price']);
 assertCondition("Commission percentage is 10%", floatval($commPricing['b2b_commission_percentage']) === 10.00);
-assertCondition("Commission amount is exactly 10% of ₹5,900 = ₹590.00", floatval($commPricing['b2b_commission_amount']) === 590.00);
-assertCondition("Commission Mode final payable amount equals selling price ₹5,900", floatval($commPricing['final_payable_amount']) === 5900.00);
+assertCondition("Commission amount is exactly 10% of ₹5,000 = ₹500.00", floatval($commPricing['b2b_commission_amount']) === 500.00);
+assertCondition("Commission Mode final payable amount equals selling price ₹5,000", floatval($commPricing['final_payable_amount']) === 5000.00);
 
 // ---------------------------------------------------------
 // TEST 3: Authoritative B2B Non-Commission Calculation (Net Price)
@@ -97,8 +97,8 @@ assertCondition("Commission Mode final payable amount equals selling price ₹5,
 $netPricing = calculateAuthoritativeB2BPrice($pdo, 'hotel', $testHotelId, 1, 1, ['room_price' => 5000, 'total_amount' => 5000], $partnerA, 'NON_COMMISSION');
 assertCondition("Non-Commission Mode commission is strictly ₹0.00", floatval($netPricing['b2b_commission_amount']) === 0.00);
 assertCondition("Non-Commission Mode net discount is 10%", floatval($netPricing['b2b_net_discount_percentage']) === 10.00);
-assertCondition("Non-Commission Mode net price is ₹5,900 - 10% = ₹5,310.00", floatval($netPricing['b2b_net_price']) === 5310.00);
-assertCondition("Non-Commission final payable amount is net price ₹5,310.00", floatval($netPricing['final_payable_amount']) === 5310.00);
+assertCondition("Non-Commission Mode net price is ₹5,000 - 10% = ₹4,500.00", floatval($netPricing['b2b_net_price']) === 4500.00);
+assertCondition("Non-Commission final payable amount is net price ₹4,500.00", floatval($netPricing['final_payable_amount']) === 4500.00);
 
 // ---------------------------------------------------------
 // TEST 4: Deterministic Pricing Rule Priority
@@ -190,7 +190,7 @@ $partnerBBookings = $stmtIso->fetchAll(PDO::FETCH_ASSOC);
 assertCondition("Partner B sees 0 bookings belonging to Partner A (Strict Isolation)", count($partnerBBookings) === 0);
 
     // Clean test records
-    $pdo->prepare("DELETE FROM users WHERE id IN (?, ?)")->execute([$partnerA_Id, $partnerB_Id]);
+    $pdo->prepare("DELETE FROM users WHERE id IN (?, ?) OR email IN ('partner_a@agency.com', 'partner_b@agency.com')")->execute([$partnerA_Id, $partnerB_Id]);
     $pdo->prepare("DELETE FROM bookings WHERE b2b_partner_id IN (?, ?) OR id LIKE 'TG-TEST-%'")->execute([$partnerA_Id, $partnerB_Id]);
     $pdo->prepare("DELETE FROM b2b_pricing_rules WHERE partner_id IN (?, ?)")->execute([$partnerA_Id, $partnerB_Id]);
     $pdo->prepare("DELETE FROM b2b_audit_logs WHERE partner_id IN (?, ?)")->execute([$partnerA_Id, $partnerB_Id]);

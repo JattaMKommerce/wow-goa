@@ -8,16 +8,19 @@ echo "====================================================================\n\n";
 
 function runEndpoint($method, $queryParams = [], $postData = null) {
     $queryString = http_build_query($queryParams);
-    $cmd = "php -r '";
-    $cmd .= "parse_str(\"" . addslashes($queryString) . "\", \$_GET);";
-    $cmd .= "\$_SERVER[\"REQUEST_METHOD\"] = \"{$method}\";";
+    $script = "<?php\n";
+    $script .= "parse_str(" . var_export($queryString, true) . ", \$_GET);\n";
+    $script .= "\$_SERVER['REQUEST_METHOD'] = " . var_export($method, true) . ";\n";
     if ($postData !== null) {
-        $json = addslashes(json_encode($postData));
-        $cmd .= "\$payload = json_decode(\"{$json}\", true);";
+        $script .= "\$payload = " . var_export($postData, true) . ";\n";
     }
-    $cmd .= "ob_start(); include \"backend/taxi_dispatch_actions.php\"; \$out = ob_get_clean(); echo \$out;'";
-    
-    $output = shell_exec($cmd);
+    $targetFile = str_replace('\\', '/', __DIR__ . '/taxi_dispatch_actions.php');
+    $script .= "include " . var_export($targetFile, true) . ";\n";
+
+    $tmp = tempnam(sys_get_temp_dir(), 'taxi_') . '.php';
+    file_put_contents($tmp, $script);
+    $output = shell_exec('php ' . escapeshellarg($tmp));
+    @unlink($tmp);
     return json_decode($output, true);
 }
 

@@ -11,6 +11,7 @@ import chatbotAnimationWebm from '../assets/chatbot-animation-hd.webm';
 import tara3dAvatar from '../assets/tara-concierge-3d.webp';
 import { chatWithAI, createAiLead, updateAiLeadChat, getAIChatbotSettings } from '../services/api';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
+import { useIntroDone } from '../utils/introGate';
 
 const aiMessages = [
   "Hi! I'm Luzia 👋",
@@ -55,6 +56,9 @@ export default function AIChatbot() {
   const [dragDeltaY, setDragDeltaY] = useState(0);
 
   const avatarVideoRef = useRef(null);
+  // The animated avatar (2+ MB) is fetched ~2s after the brand intro has gone; the still
+  // avatar picture is shown until then, so the first page load stays light and smooth.
+  const avatarVideoAllowed = useIntroDone(2000);
   const canvasRef = useRef(null);
   const chatWindowRef = useRef(null);
   const chatBodyRef = useRef(null);
@@ -385,6 +389,13 @@ export default function AIChatbot() {
       video.removeEventListener('loadeddata', startPlayback);
     };
   }, []);
+
+  // Sources are added a little after page load (see avatarVideoAllowed): ask the
+  // browser to pick them up now; the 'canplay' listener above then starts playback.
+  useEffect(() => {
+    if (!avatarVideoAllowed || !avatarVideoRef.current) return;
+    try { avatarVideoRef.current.load(); } catch (e) { /* ignore */ }
+  }, [avatarVideoAllowed]);
 
   // Cycling speech pill text every 4 seconds
   useEffect(() => {
@@ -1231,8 +1242,8 @@ export default function AIChatbot() {
               background: 'transparent'
             }}
           >
-            <source src={chatbotAnimationWebm} type="video/webm" />
-            <source src={chatbotAnimationVideo} type="video/mp4" />
+            {avatarVideoAllowed && <source src={chatbotAnimationWebm} type="video/webm" />}
+            {avatarVideoAllowed && <source src={chatbotAnimationVideo} type="video/mp4" />}
           </video>
           {!videoLoaded && (
             <img

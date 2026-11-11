@@ -113,14 +113,23 @@
         var root = document.documentElement;
         if (!root.classList.contains('wg-intro')) return;
 
+        // Pick the lightest video that still looks sharp on this screen:
+        // 720p for phones / small or low-power devices, 1080p for laptops and desktops.
+        var n = window.navigator || {};
+        var portrait = window.innerHeight > window.innerWidth;
+        var cssW = portrait ? window.innerWidth * 1.08 : Math.min(window.innerWidth, window.innerHeight * 16 / 9);
+        var devW = cssW * (window.devicePixelRatio || 1);
+        var lowPower = (n.deviceMemory && n.deviceMemory <= 4) || (n.hardwareConcurrency && n.hardwareConcurrency <= 4);
+        var q = (devW <= 1400 || lowPower) ? '720' : '1080';
+
         var box = document.createElement('div');
         box.id = 'wg-intro';
         box.setAttribute('role', 'presentation');
         box.innerHTML =
           '<video muted playsinline autoplay preload="auto" disablepictureinpicture disableremoteplayback' +
           ' aria-hidden="true" tabindex="-1" poster="/intro/intro-poster.jpg?v=2">' +
-          '<source src="/intro/intro.webm?v=2" type="video/webm">' +
-          '<source src="/intro/intro.mp4?v=2" type="video/mp4">' +
+          '<source src="/intro/intro-' + q + '.webm?v=3" type="video/webm">' +
+          '<source src="/intro/intro-' + q + '.mp4?v=3" type="video/mp4">' +
           '</video>' +
           '<button type="button">Skip <span aria-hidden="true">&rsaquo;</span></button>' +
           '<div class="wg-intro-dots" aria-hidden="true"><i></i><i></i><i></i></div>';
@@ -143,6 +152,10 @@
           setTimeout(function () {
             try { video.pause(); video.removeAttribute('src'); video.load(); } catch (e) {}
             if (box.parentNode) box.parentNode.removeChild(box);
+            // Tell the site the intro is fully gone, so heavy extras (hero video,
+            // chatbot animation) start only now and don't make the intro stutter.
+            window.__WG_INTRO_DONE__ = true;
+            try { window.dispatchEvent(new Event('wg-intro-done')); } catch (e) {}
           }, 700);
         }
 

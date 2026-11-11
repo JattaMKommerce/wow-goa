@@ -43,6 +43,7 @@ jobs:
           rm -f deploy_staging/backend/*.log
           rm -f deploy_staging/backend/*.zip
           rm -f deploy_staging/backend/test_*.php
+          rm -f deploy_staging/backend/scratch_*.php
           cd deploy_staging
           zip -r ../deploy_bundle.zip .
           cd ..

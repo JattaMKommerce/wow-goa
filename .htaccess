@@ -44,6 +44,19 @@
 </FilesMatch>
 
 # -------------------------------------------------------------
+# Videos: correct type (the server sent .webm as "text/plain", which made it get
+# compressed like text and stream badly), and let browsers keep media for a week
+# so the intro / hero videos are not downloaded again on every visit.
+# -------------------------------------------------------------
+AddType video/webm .webm
+AddType video/mp4 .mp4
+<FilesMatch "\.(webm|mp4|jpe?g|png|webp|avif|woff2?)$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "public, max-age=604800"
+  </IfModule>
+</FilesMatch>
+
+# -------------------------------------------------------------
 # Enable GZIP / DEFLATE Compression
 # -------------------------------------------------------------
 <IfModule mod_deflate.c>

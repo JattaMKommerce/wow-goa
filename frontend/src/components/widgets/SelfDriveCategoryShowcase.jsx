@@ -363,11 +363,29 @@ function CategoryRow({
     let lastTime = performance.now();
     const speed = 0.55; // buttery smooth steady glide
 
+    // Performance: only animate while the row is actually on screen (and not hidden behind
+    // the brand intro). Off-screen it does no work at all, so the rest of the page stays smooth.
+    let onScreen = typeof IntersectionObserver === 'undefined';
+    let running = false;
+    const start = () => {
+      if (running) return;
+      running = true;
+      lastTime = performance.now();
+      animId = requestAnimationFrame(step);
+    };
+    const io = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver((entries) => {
+      onScreen = entries.some((en) => en.isIntersecting);
+      if (onScreen) start();
+    });
+    if (io) io.observe(el);
+
     const step = (now) => {
+      if (!onScreen) { running = false; return; }
       const delta = now - lastTime;
       lastTime = now;
+      const introShowing = document.documentElement.classList.contains('wg-intro');
 
-      if (!isInteractingRef.current && !isDraggingRef.current && el && el.scrollWidth > el.clientWidth) {
+      if (!introShowing && !isInteractingRef.current && !isDraggingRef.current && el && el.scrollWidth > el.clientWidth) {
         const factor = Math.min(delta / 16.67, 2.0);
         el.scrollLeft += speed * factor;
 
@@ -384,10 +402,12 @@ function CategoryRow({
       animId = requestAnimationFrame(step);
     };
 
-    animId = requestAnimationFrame(step);
+    start();
 
     return () => {
       clearTimeout(initTimer);
+      if (io) io.disconnect();
+      running = false;
       if (animId) cancelAnimationFrame(animId);
       if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
     };
