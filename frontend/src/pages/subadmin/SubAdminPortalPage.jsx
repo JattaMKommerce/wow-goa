@@ -317,17 +317,30 @@ export default function SubAdminPortalPage({ currentUser: propCurrentUser, onLog
                 {loading ? 'Authenticating...' : 'Login to Sub-Admin Portal'}
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername('rahul_subadmin');
-                  setPassword('admin@2026');
-                }}
-                className="btn btn-sm btn-outline-secondary w-100 py-1.5 rounded-3 d-flex align-items-center justify-content-center gap-2"
-                style={{ fontSize: '0.78rem', background: '#f8fafc' }}
-              >
-                <span>⚡ Fill Demo: <b>rahul_subadmin</b> / <b>admin@2026</b></span>
-              </button>
+              <div className="d-flex gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUsername('aaaa');
+                    setPassword('aaaa@2004');
+                  }}
+                  className="btn btn-sm btn-outline-secondary flex-fill py-1.5 rounded-3 d-flex align-items-center justify-content-center gap-1"
+                  style={{ fontSize: '0.75rem', background: '#f8fafc' }}
+                >
+                  <span>⚡ <b>aaaa</b> / <b>aaaa@2004</b></span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUsername('rahul_subadmin');
+                    setPassword('admin@2026');
+                  }}
+                  className="btn btn-sm btn-outline-secondary flex-fill py-1.5 rounded-3 d-flex align-items-center justify-content-center gap-1"
+                  style={{ fontSize: '0.75rem', background: '#f8fafc' }}
+                >
+                  <span>⚡ <b>rahul_subadmin</b></span>
+                </button>
+              </div>
             </form>
 
             <div className="text-center mt-3 pt-3 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.75rem', color: '#64748b' }}>

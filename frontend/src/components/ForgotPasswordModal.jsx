@@ -201,7 +201,8 @@ export default function ForgotPasswordModal({
 
   return createPortal(
     <div 
-      className="modal-backdrop-custom d-flex align-items-center justify-content-center p-3"
+      className="modal-backdrop-custom"
+      data-scrollable="true"
       style={{ 
         position: 'fixed', 
         top: 0, 
@@ -216,9 +217,11 @@ export default function ForgotPasswordModal({
     >
       <div 
         className="card border-0 rounded-4 shadow-2xl overflow-hidden animate-fade-in-up"
+        data-scrollable="true"
         style={{ 
           maxWidth: '460px', 
           width: '100%', 
+          margin: 'auto',
           background: '#ffffff',
           boxShadow: '0 25px 50px -12px rgba(11, 25, 44, 0.35)'
         }}

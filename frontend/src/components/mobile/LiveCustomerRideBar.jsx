@@ -503,7 +503,7 @@ export default function LiveCustomerRideBar() {
                 {/* 1-Tap Contact Action Buttons */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <a
-                    href={`tel:${activeRide.phone || '+919822144510'}`}
+                    href={`tel:${activeRide.phone || '+917676573476'}`}
                     style={{
                       padding: '11px',
                       borderRadius: '12px',
@@ -523,7 +523,7 @@ export default function LiveCustomerRideBar() {
                   </a>
 
                   <a
-                    href={`https://wa.me/${String(activeRide.phone || '919822144510').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi Suresh, I am your passenger for WOW GOA booking (${activeRide.id}). Pickup at: ${pickup}.`)}`}
+                    href={`https://wa.me/${((d) => (d.length === 10 ? '91' + d : d))(String(activeRide.phone || '917676573476').replace(/[^0-9]/g, ''))}?text=${encodeURIComponent(`Hi Suresh, I am your passenger for WOW GOA booking (${activeRide.id}). Pickup at: ${pickup}.`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{

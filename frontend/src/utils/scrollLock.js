@@ -17,18 +17,40 @@ let previousBodyStyles = null;
 let previousHtmlStyles = null;
 let isCurrentlyLocked = false;
 
+// Helper to check if an element or any of its ancestors is an intended scrollable container
+function isScrollAllowed(target) {
+  if (!target || typeof target.closest !== 'function') return false;
+
+  // Explicit selectors for all modal, overlay, drawer, and document scroll containers
+  const scrollable = target.closest(
+    '.checkout-body, .modal-body, .activity-modal-body, .overflow-y-auto, .overflow-auto, ' +
+    '.ai-chatbot-body, .custom-scrollbar, [data-scrollable="true"], .modal-dialog-scrollable .modal-content, ' +
+    '.modal-voucher-scroll-body, .custom-voucher-scrollbar, .voucher-modal-backdrop, .booking-voucher-document, ' +
+    '.modal-backdrop-custom, .login-split-card, .login-right-form, .login-demo-accounts-scroll'
+  );
+  if (scrollable) return true;
+
+  // Traversal fallback for dynamically styled scrollable elements
+  let el = target;
+  while (el && el !== document.body && el !== document.documentElement) {
+    try {
+      const style = window.getComputedStyle(el);
+      const oy = style.overflowY;
+      const ox = style.overflowX;
+      if (['auto', 'scroll'].includes(oy) || ['auto', 'scroll'].includes(ox)) {
+        return true;
+      }
+    } catch (err) {}
+    el = el.parentElement;
+  }
+  return false;
+}
+
 // Event listeners to completely isolate wheel/touch outside scrollable overlay containers
 function handleWindowWheel(e) {
   if (!isCurrentlyLocked) return;
   const target = e.target;
-  if (!target || typeof target.closest !== 'function') return;
-
-  // If the wheel event is inside an active scrollable container, permit normal scrolling
-  const scrollable = target.closest(
-    '.checkout-body, .modal-body, .activity-modal-body, .overflow-y-auto, .overflow-auto, .ai-chatbot-body, .custom-scrollbar, [data-scrollable="true"], .modal-dialog-scrollable .modal-content, .modal-voucher-scroll-body, .custom-voucher-scrollbar, .voucher-modal-backdrop, .booking-voucher-document'
-  );
-
-  if (!scrollable) {
+  if (!isScrollAllowed(target)) {
     if (e.cancelable) e.preventDefault();
   }
 }
@@ -36,14 +58,7 @@ function handleWindowWheel(e) {
 function handleWindowTouch(e) {
   if (!isCurrentlyLocked) return;
   const target = e.target;
-  if (!target || typeof target.closest !== 'function') return;
-
-  // If the touch event is inside an active scrollable container, permit normal scrolling
-  const scrollable = target.closest(
-    '.checkout-body, .modal-body, .activity-modal-body, .overflow-y-auto, .overflow-auto, .ai-chatbot-body, .custom-scrollbar, [data-scrollable="true"], .modal-dialog-scrollable .modal-content, .modal-voucher-scroll-body, .custom-voucher-scrollbar, .voucher-modal-backdrop, .booking-voucher-document'
-  );
-
-  if (!scrollable) {
+  if (!isScrollAllowed(target)) {
     if (e.cancelable) e.preventDefault();
   }
 }

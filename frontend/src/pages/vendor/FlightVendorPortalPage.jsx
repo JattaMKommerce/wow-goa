@@ -772,7 +772,7 @@ function AddRouteForm({ onAdd, onUpdate, editingFlight, onCancelEdit, onNavigate
   );
 }
 
-function FlightBookings({ bookings, onUpdateStatus }) {
+function FlightBookings({ bookings, onUpdateStatus, currentUser }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [updatingId, setUpdatingId] = useState(null);
@@ -1699,7 +1699,7 @@ export default function FlightVendorPortalPage({
       case 'pricing':
         return <PricingFares flights={myFlights} />;
       case 'all_bookings':
-        return <FlightBookings bookings={myBookings} onUpdateStatus={handleUpdateBookingStatus} />;
+        return <FlightBookings bookings={myBookings} onUpdateStatus={handleUpdateBookingStatus} currentUser={currentUser} />;
       case 'passengers':
         return <PassengerDirectory bookings={myBookings} />;
       case 'wallet':

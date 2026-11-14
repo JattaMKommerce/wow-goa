@@ -472,14 +472,26 @@ export default function PackageDetailsPage({
   const payableAmount = paymentMode === 'full' ? finalPayableTotal : finalPayableAdvance;
 
   // ─── Actions & Step Transitions ─────────────────────────────────────────
-  const handleStartBooking = () => {
-    if (document.activeElement?.blur) document.activeElement.blur();
+  const handleStartBooking = (e) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
     setStep('travellers');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      const el = document.getElementById('traveller-details-section') || document.querySelector('.traveller-details-page');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 30);
   };
 
   const handleProceedToPayment = (e) => {
     if (e?.preventDefault) e.preventDefault();
+    if (e?.stopPropagation) e.stopPropagation();
     const lead = travellers[0];
     if (!lead || !lead.firstName?.trim() || !lead.lastName?.trim()) {
       alert('Please enter First and Last Name for the Lead Traveller.');
@@ -494,7 +506,14 @@ export default function PackageDetailsPage({
       return;
     }
     setStep('payment');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      const el = document.getElementById('payment-details-section') || document.querySelector('.booking-summary-payment-page');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 30);
   };
 
   const handleConfirmAndPay = async (e) => {
@@ -574,7 +593,14 @@ export default function PackageDetailsPage({
       setConfirmedBooking(createdRecord);
       onConfirmBooking(createdRecord);
       setStep('confirmation');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => {
+        const el = document.getElementById('confirmation-details-section') || document.querySelector('.booking-confirmation-page');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 30);
     } catch (err) {
       console.warn('Direct booking fallback used:', err);
       const fallbackRecord = {
@@ -586,7 +612,14 @@ export default function PackageDetailsPage({
       setConfirmedBooking(fallbackRecord);
       onConfirmBooking(fallbackRecord);
       setStep('confirmation');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => {
+        const el = document.getElementById('confirmation-details-section') || document.querySelector('.booking-confirmation-page');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 30);
     } finally {
       setIsSubmitting(false);
     }
@@ -731,14 +764,17 @@ export default function PackageDetailsPage({
   // ══════════════════════════════════════════════════════════════════════════
   if (step === 'travellers') {
     return (
-      <div className="traveller-details-page pb-5" style={{ background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
+      <div id="traveller-details-section" className="traveller-details-page pb-5" style={{ background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
         {renderStepIndicator()}
 
         <div className="container py-2">
           {/* Back Action */}
           <button 
             type="button" 
-            onClick={() => setStep('details')} 
+            onClick={() => {
+              setStep('details');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }} 
             className="btn btn-link text-dark text-decoration-none p-0 mb-3 d-inline-flex align-items-center gap-1.5 fw-bold"
             style={{ fontSize: '0.88rem' }}
           >
@@ -1038,13 +1074,16 @@ export default function PackageDetailsPage({
   // ══════════════════════════════════════════════════════════════════════════
   if (step === 'payment') {
     return (
-      <div className="booking-summary-payment-page pb-5" style={{ background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
+      <div id="payment-details-section" className="booking-summary-payment-page pb-5" style={{ background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
         {renderStepIndicator()}
 
         <div className="container py-2">
           <button 
             type="button" 
-            onClick={() => setStep('travellers')} 
+            onClick={() => {
+              setStep('travellers');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }} 
             className="btn btn-link text-dark text-decoration-none p-0 mb-3 d-inline-flex align-items-center gap-1.5 fw-bold"
             style={{ fontSize: '0.88rem' }}
           >
@@ -1338,7 +1377,7 @@ export default function PackageDetailsPage({
     const paidAmount = paymentMode === 'advance' ? finalPayableAdvance : finalPayableTotal;
 
     return (
-      <div className="booking-confirmation-page pb-5" style={{ background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
+      <div id="confirmation-details-section" className="booking-confirmation-page pb-5" style={{ background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
         {renderStepIndicator()}
 
         <div className="container py-2">

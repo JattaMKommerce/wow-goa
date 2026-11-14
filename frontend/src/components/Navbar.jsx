@@ -114,6 +114,7 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
                 className={`nav-link dropdown-toggle d-inline-flex align-items-center gap-1 ${isMoreActive ? 'active' : ''}`}
                 style={{ color: isMoreActive ? '#ff9f1c' : 'rgba(255,255,255,0.85)', fontWeight: isMoreActive ? 700 : 500 }}
                 href="#" 
+                onClick={(e) => e.preventDefault()}
                 id="moreServicesDropdown" 
                 role="button" 
                 data-bs-toggle="dropdown" 
@@ -325,7 +326,7 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, triggerOp
             {/* Conditional Authentication Display */}
             {currentUser ? (
               <li className="nav-item ms-lg-2 dropdown">
-                <a className="nav-link dropdown-toggle d-flex align-items-center gap-2 text-white py-1 px-2" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <a className="nav-link dropdown-toggle d-flex align-items-center gap-2 text-white py-1 px-2" href="#" onClick={(e) => e.preventDefault()} id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                   <div className="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px' }}>
                     <User size={15} />
                   </div>

@@ -1025,6 +1025,7 @@ export default function App() {
       const targetUrl = item?.id ? `/packages?package=${encodeURIComponent(item.id)}` : '/packages';
       window.history.pushState({}, '', targetUrl);
       setCurrentPath('/packages');
+      window.scrollTo({ top: 0, behavior: 'instant' });
     } else {
       let resolvedType = type;
       if (type === 'vehicle' || type === 'car' || type === 'bike') {
@@ -1040,6 +1041,7 @@ export default function App() {
         const targetUrl = item?.id ? `/hotels?hotel=${encodeURIComponent(item.id)}` : '/hotels';
         window.history.pushState({}, '', targetUrl);
         setCurrentPath('/hotels');
+        window.scrollTo({ top: 0, behavior: 'instant' });
       } else if (resolvedType === 'car') {
         setActiveTab('car-details');
         try {
@@ -1049,6 +1051,7 @@ export default function App() {
         const targetUrl = item?.id ? `/cars?car=${encodeURIComponent(item.id)}` : '/cars';
         window.history.pushState({}, '', targetUrl);
         setCurrentPath('/cars');
+        window.scrollTo({ top: 0, behavior: 'instant' });
       } else if (resolvedType === 'bike') {
         setActiveTab('bike-details');
         try {
@@ -1058,6 +1061,7 @@ export default function App() {
         const targetUrl = item?.id ? `/bikes?bike=${encodeURIComponent(item.id)}` : '/bikes';
         window.history.pushState({}, '', targetUrl);
         setCurrentPath('/bikes');
+        window.scrollTo({ top: 0, behavior: 'instant' });
       } else if (resolvedType === 'flight' || type === 'flight') {
         setActiveTab('flight-details');
         try {
@@ -1067,6 +1071,7 @@ export default function App() {
         const targetUrl = item?.id ? `/flights?flight=${encodeURIComponent(item.id)}` : '/flights';
         window.history.pushState({}, '', targetUrl);
         setCurrentPath('/flights');
+        window.scrollTo({ top: 0, behavior: 'instant' });
       } else {
         const rawType = String(type || item?.type || item?.item_type || '').trim().toLowerCase();
         const isActivityOrSightseeing = rawType === 'activity' || rawType === 'sightseeing' || rawType === 'addon' ||
@@ -1081,6 +1086,7 @@ export default function App() {
           const targetUrl = item?.id ? `/activities?activity=${encodeURIComponent(item.id)}` : '/activities';
           window.history.pushState({}, '', targetUrl);
           setCurrentPath('/activities');
+          window.scrollTo({ top: 0, behavior: 'instant' });
         }
       }
     }
@@ -2444,6 +2450,26 @@ export default function App() {
   }
 
   // ─── MAIN PUBLIC STOREFRONT VIEW ──────────────────────────────────────────
+  const isDetailOrSubpage = [
+    'package-details',
+    'hotel-details',
+    'car-details',
+    'bike-details',
+    'vehicle-details',
+    'flight-details',
+    'flight-booking',
+    'activity-details',
+    'customize',
+    'custom-trip',
+    'cabs',
+    'taxi',
+    'customer',
+    'driver',
+    'b2b'
+  ].includes(activeTab) || (typeof window !== 'undefined' && Boolean(
+    (window.location.search && (window.location.search.includes('package=') || window.location.search.includes('hotel=') || window.location.search.includes('car=') || window.location.search.includes('bike=')))
+  ));
+
   return (
     <div className="d-flex flex-column min-vh-100 bg-white">
       {/* Public Navbar */}
@@ -2454,11 +2480,11 @@ export default function App() {
         triggerOpenLogin={() => setShowLoginModal(true)}
         onOpenLogin={() => setShowLoginModal(true)}
         onLogout={handleLogout}
-        isOverHero={activeTab !== 'cabs' && activeTab !== 'taxi'}
+        isOverHero={!isDetailOrSubpage}
       />
 
-      {/* Hero and Search Widget Container - Only show on general portal tabs, NOT on dedicated Cabs tab */}
-      {activeTab !== 'cabs' && activeTab !== 'taxi' && (
+      {/* Hero and Search Widget Container - Only show on general discovery tabs, NOT on detail pages, booking funnels, cabs, or portal tabs */}
+      {!isDetailOrSubpage && (
         <>
           <Hero
             onNavigateTab={handleTabChange}
@@ -2536,8 +2562,8 @@ export default function App() {
       )}
 
       {/* Dynamic Results & Content Section */}
-      <main className={activeTab === 'cabs' || activeTab === 'taxi' || activeTab === 'visa' ? 'p-0 m-0 border-0' : 'py-5'} id="results-section" style={{ scrollMarginTop: '80px', minHeight: '80vh' }}>
-        <div className={activeTab === 'cabs' || activeTab === 'taxi' || activeTab === 'visa' ? 'w-100 p-0 m-0' : 'container'}>
+      <main className={isDetailOrSubpage || activeTab === 'visa' ? 'p-0 m-0 border-0' : 'py-5'} id="results-section" style={{ scrollMarginTop: '80px', minHeight: '80vh' }}>
+        <div className={isDetailOrSubpage || activeTab === 'visa' ? 'w-100 p-0 m-0' : 'container'}>
           <div className="tab-slide-enter">
           
           {activeTab === 'packages' && (

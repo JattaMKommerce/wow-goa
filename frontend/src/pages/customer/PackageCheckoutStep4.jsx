@@ -340,7 +340,7 @@ export default function PackageCheckoutStep4({
           {/* Action CTAs */}
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
             <a 
-              href={`https://wa.me/919822144510?text=${encodeURIComponent(`Hi Wow Goa Concierge, I just booked package #${bookingId} (${pkg?.name || ''}). Please guide me on arrival and trip coordination.`)}`}
+              href={`https://wa.me/917676573476?text=${encodeURIComponent(`Hi Wow Goa Concierge, I just booked package #${bookingId} (${pkg?.name || ''}). Please guide me on arrival and trip coordination.`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-outline-success rounded-pill px-4 py-2.5 fw-bold d-flex align-items-center gap-2"

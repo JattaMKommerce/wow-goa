@@ -17,6 +17,7 @@ const WG_DEMO_LOGINS = WG_IS_LOCAL ? [
   { label: 'Vehicle Vendor (Fleet Listings)', user: 'vendor@tripgalileo.com', pass: 'Vendor@Goa2026' },
   { label: 'Hotel Vendor (Hotel PMS)', user: 'hotel_vendor@tripgalileo.com', pass: 'Hotel@Goa2026' },
   { label: 'Flight Vendor (Flight PMS)', user: 'flight_vendor@tripgalileo.com', pass: 'Flight@Goa2026' },
+  { label: '🛡️ Sub-Admin Portal (Account: aaaa)', user: 'aaaa', pass: 'aaaa@2004' },
   { label: '🛡️ Sub-Admin Portal (Lead Operations)', user: 'subadmin@tripgalileo.com', pass: 'admin@2026' },
   { label: '💼 B2B Portal (Travel Partner Agency)', user: 'partner_a@agency.com', pass: 'Partner@Goa2026' },
   { label: '🚗 Driver Portal (WOW GOA Fleet)', user: 'driver@gmail.com', pass: 'Driver@2004' },
@@ -26,7 +27,9 @@ const WG_DEMO_LOGINS = WG_IS_LOCAL ? [
   { label: 'Vehicle Vendor (Fleet Listings)', user: 'vendor@tripgalileo.com', pass: 'Fleet@xmWp-hnjB-7LkC' },
   { label: 'Hotel Vendor (Hotel PMS)', user: 'hotel_vendor@tripgalileo.com', pass: 'Hotel@7mPE-yuFT-bVca' },
   { label: 'Flight Vendor (Flight PMS)', user: 'flight_vendor@tripgalileo.com', pass: 'Flight@swnh-Jfev-Rgzq' },
+  { label: '🛡️ Sub-Admin Portal (Account: aaaa)', user: 'aaaa', pass: 'aaaa@2004' },
   { label: '🛡️ Sub-Admin Portal (Lead Operations)', user: 'subadmin@tripgalileo.com', pass: 'SubAdmin@h7PY-daqL-P9bm' },
+  { label: '💼 B2B Portal (Travel Partner Agency)', user: 'partner_a@agency.com', pass: 'Partner@Goa2026' },
   { label: '🚗 Driver Portal (WOW GOA Fleet)', user: 'driver@gmail.com', pass: 'Driver@X6nM-d5Sb-GUnS' },
 ];
 function wgDemoPanelEnabled() {
@@ -41,7 +44,8 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const [showQuickDemo, setShowQuickDemo] = useState(true);
+  const [showQuickDemo, setShowQuickDemo] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
@@ -62,15 +66,22 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
       setErrorMsg("Please fill out all fields.");
       return;
     }
-    
-    const success = await onLogin(username, password);
-    if (!success) {
-      setErrorMsg("Invalid username or password. Check credentials.");
-    } else {
-      setErrorMsg('');
-      setUsername('');
-      setPassword('');
-      onClose();
+    setIsSubmitting(true);
+    setErrorMsg('');
+    try {
+      const success = await onLogin(username, password);
+      if (!success) {
+        setErrorMsg("Invalid username or password. Check credentials.");
+      } else {
+        setErrorMsg('');
+        setUsername('');
+        setPassword('');
+        onClose();
+      }
+    } catch (err) {
+      setErrorMsg(err?.message || "Invalid username or password. Check credentials.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -78,20 +89,46 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
     setUsername(u);
     setPassword(p);
     setErrorMsg('');
-    
-    const success = await onLogin(u, p);
-    if (success) {
-      setUsername('');
-      setPassword('');
-      onClose();
-    } else {
-      setErrorMsg("Invalid username or password. Check credentials.");
+    setIsSubmitting(true);
+    try {
+      const success = await onLogin(u, p);
+      if (success) {
+        setUsername('');
+        setPassword('');
+        onClose();
+      } else {
+        setErrorMsg("Invalid username or password. Check credentials.");
+      }
+    } catch (err) {
+      setErrorMsg(err?.message || "Invalid username or password. Check credentials.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return createPortal(
-    <div className="modal-backdrop-custom d-flex align-items-center justify-content-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(11, 25, 44, 0.6)', backdropFilter: 'blur(8px)', zIndex: 99999 }} onClick={onClose}>
-      <div className="login-split-card animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
+    <div 
+      className="modal-backdrop-custom" 
+      data-scrollable="true"
+      style={{ 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0, 
+        background: 'rgba(11, 25, 44, 0.65)', 
+        backdropFilter: 'blur(8px)', 
+        zIndex: 99999,
+        overflowY: 'auto',
+        overflowX: 'hidden'
+      }} 
+      onClick={onClose}
+    >
+      <div 
+        className="login-split-card animate-fade-in-up" 
+        data-scrollable="true"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* LEFT COLUMN: BRANDING & FEATURES */}
         <div className="login-left-banner d-none d-md-flex" style={{ position: 'relative', overflow: 'hidden', background: 'none' }}>
@@ -175,7 +212,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
         </div>
 
         {/* RIGHT COLUMN: LOGIN FORM */}
-        <div className="login-right-form">
+        <div className="login-right-form" data-scrollable="true">
           {/* Close Button */}
           <button type="button" className="login-close-btn" onClick={onClose} aria-label="Close">
             <X size={18} />
@@ -262,9 +299,22 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
               </a>
             </div>
 
-            <button type="submit" className="btn btn-amber-gradient w-100 py-2.5 rounded-pill fw-extrabold text-white shadow-sm mb-3 text-uppercase tracking-wider d-flex align-items-center justify-content-center gap-2">
-              <span>Sign In</span>
-              <span>→</span>
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="btn btn-amber-gradient w-100 py-2.5 rounded-pill fw-extrabold text-white shadow-sm mb-3 text-uppercase tracking-wider d-flex align-items-center justify-content-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  <span>Signing In...</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <span>→</span>
+                </>
+              )}
             </button>
           </form>
 
@@ -295,7 +345,11 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
             </div>
 
             {showQuickDemo && (
-              <div className="d-grid gap-1.5 mt-2 p-2 rounded-3 border border-dashed" style={{ background: '#fcfdfe' }}>
+              <div 
+                className="login-demo-accounts-scroll d-grid gap-1.5 mt-2 p-2 rounded-3 border border-dashed" 
+                data-scrollable="true"
+                style={{ background: '#fcfdfe' }}
+              >
                 {WG_DEMO_LOGINS.map((d) => (
                   <button
                     key={d.user}

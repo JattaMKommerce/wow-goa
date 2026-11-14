@@ -2,7 +2,7 @@ import React from 'react';
 import { MessageCircle } from 'lucide-react';
 
 export default function WhatsAppWidget() {
-  const whatsappUrl = "https://wa.me/919822144510?text=" + encodeURIComponent("Hi Wow Goa Concierge, I would like to inquire about holiday services, airport cabs, and vehicle rentals.");
+  const whatsappUrl = "https://wa.me/917676573476?text=" + encodeURIComponent("Hi Wow Goa Concierge, I would like to inquire about holiday services, airport cabs, and vehicle rentals.");
 
   return (
     <a 

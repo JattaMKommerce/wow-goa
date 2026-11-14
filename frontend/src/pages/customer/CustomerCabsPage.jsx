@@ -434,7 +434,7 @@ export default function CustomerCabsPage({ onBookCab, isNativeApp = false, cabUs
               chauffeur: {
                 ...prev?.chauffeur,
                 name: d.assigned_driver_name || prev?.chauffeur?.name || 'Suresh Naik',
-                phone: d.assigned_driver_phone || prev?.chauffeur?.phone || '+91 98221 44510',
+                phone: d.assigned_driver_phone || prev?.chauffeur?.phone || '+91 76765 73476',
                 vehiclePlate: d.assigned_vehicle_plate || prev?.chauffeur?.vehiclePlate || 'GA-03-Z-8899',
                 carName: d.assigned_vehicle_model || prev?.chauffeur?.carName || 'Toyota Innova Crysta'
               }
@@ -769,7 +769,7 @@ export default function CustomerCabsPage({ onBookCab, isNativeApp = false, cabUs
         trips: 1840,
         vehiclePlate: 'GA-03-Z-8899',
         carName: selectedVehicle.model.split('/')[0],
-        phone: '+91 98221 44510'
+        phone: '+91 76765 73476'
       }
     });
 
@@ -907,7 +907,7 @@ export default function CustomerCabsPage({ onBookCab, isNativeApp = false, cabUs
                 <Clock size={13} />
                 <span>Activity / Trips</span>
               </button>
-              <span style={{ fontSize: '13px', color: '#6b7280' }}>📞 +91 98221 44510</span>
+              <span style={{ fontSize: '13px', color: '#6b7280' }}>📞 +91 76765 73476</span>
               <span style={{ background: '#000', color: '#fff', borderRadius: '20px', padding: '4px 14px', fontSize: '12px', fontWeight: 600 }}>Zero Surge</span>
             </div>
           </div>
@@ -1743,7 +1743,7 @@ export default function CustomerCabsPage({ onBookCab, isNativeApp = false, cabUs
               {/* Action Buttons: Call & WhatsApp */}
               <div style={{ display: 'flex', gap: '10px' }}>
                 <a
-                  href={`tel:${activeConfirmedRide.chauffeur?.phone || '+919822144510'}`}
+                  href={`tel:${activeConfirmedRide.chauffeur?.phone || '+917676573476'}`}
                   style={{
                     flex: 1,
                     display: 'flex',
@@ -1762,7 +1762,7 @@ export default function CustomerCabsPage({ onBookCab, isNativeApp = false, cabUs
                   <Phone size={15} /> Call Driver
                 </a>
                 <a
-                  href={`https://wa.me/919822144510?text=Hi%20driver,%20my%20Goa%20cab%20booking%20is%20${activeConfirmedRide.refId}`}
+                  href={`https://wa.me/${((d) => (d.length === 10 ? '91' + d : d))(String(activeConfirmedRide.chauffeur?.phone || '917676573476').replace(/\D/g, ''))}?text=Hi%20driver,%20my%20Goa%20cab%20booking%20is%20${activeConfirmedRide.refId}`}
                   target="_blank"
                   rel="noreferrer"
                   style={{
