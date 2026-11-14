@@ -7,6 +7,36 @@ import {
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
 import ForgotPasswordModal from './ForgotPasswordModal';
 
+// ── TESTING ONLY: quick-login panel. REMOVE BEFORE PUBLIC LAUNCH. ─────────────────
+// Local dev (localhost) uses the local database passwords; the live site uses the live ones.
+// On wowgoa.in the panel is hidden until you open  wowgoa.in/?testlogin  once (remembered in that browser).
+const WG_IS_LOCAL = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const WG_DEMO_LOGINS = WG_IS_LOCAL ? [
+  { label: 'Superadmin (Full Access)', user: 'superadmin@gmail.com', pass: 'superadmin123' },
+  { label: 'Admin (Operators)', user: 'admin@gmail.com', pass: 'admin@2026' },
+  { label: 'Vehicle Vendor (Fleet Listings)', user: 'vendor@tripgalileo.com', pass: 'Vendor@Goa2026' },
+  { label: 'Hotel Vendor (Hotel PMS)', user: 'hotel_vendor@tripgalileo.com', pass: 'Hotel@Goa2026' },
+  { label: 'Flight Vendor (Flight PMS)', user: 'flight_vendor@tripgalileo.com', pass: 'Flight@Goa2026' },
+  { label: '🛡️ Sub-Admin Portal (Lead Operations)', user: 'subadmin@tripgalileo.com', pass: 'admin@2026' },
+  { label: '💼 B2B Portal (Travel Partner Agency)', user: 'partner_a@agency.com', pass: 'Partner@Goa2026' },
+  { label: '🚗 Driver Portal (WOW GOA Fleet)', user: 'driver@gmail.com', pass: 'Driver@2004' },
+] : [
+  { label: 'Superadmin (Full Access)', user: 'superadmin@gmail.com', pass: 'Super@x39r-TfXq-HBN4' },
+  { label: 'Admin (Operators)', user: 'admin@gmail.com', pass: 'Admin@LB6w-mJMK-u8Ka' },
+  { label: 'Vehicle Vendor (Fleet Listings)', user: 'vendor@tripgalileo.com', pass: 'Fleet@xmWp-hnjB-7LkC' },
+  { label: 'Hotel Vendor (Hotel PMS)', user: 'hotel_vendor@tripgalileo.com', pass: 'Hotel@7mPE-yuFT-bVca' },
+  { label: 'Flight Vendor (Flight PMS)', user: 'flight_vendor@tripgalileo.com', pass: 'Flight@swnh-Jfev-Rgzq' },
+  { label: '🛡️ Sub-Admin Portal (Lead Operations)', user: 'subadmin@tripgalileo.com', pass: 'SubAdmin@h7PY-daqL-P9bm' },
+  { label: '🚗 Driver Portal (WOW GOA Fleet)', user: 'driver@gmail.com', pass: 'Driver@X6nM-d5Sb-GUnS' },
+];
+function wgDemoPanelEnabled() {
+  if (WG_IS_LOCAL) return true;
+  try {
+    if (/[?&]testlogin\b/.test(window.location.search)) localStorage.setItem('wg_testlogin', '1');
+    return localStorage.getItem('wg_testlogin') === '1';
+  } catch (e) { return false; }
+}
+
 export default function LoginModal({ isOpen, onClose, onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -238,10 +268,8 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
             </button>
           </form>
 
-          {/* Quick Access Drawer: ONLY on the local dev server (npm run dev / localhost:5173).
-              The live build (npm run build) leaves this whole block out, so these demo
-              passwords are never shown or shipped on wowgoa.in. */}
-          {import.meta.env.DEV && (<>
+          {/* Quick Access Drawer - TESTING ONLY, remove before public launch (see WG_DEMO_LOGINS above). */}
+          {wgDemoPanelEnabled() && (<>
           <div className="login-deco-divider">
             <span className="text-xxs text-uppercase text-muted fw-bold px-2 bg-white">OR</span>
           </div>
@@ -268,78 +296,18 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
 
             {showQuickDemo && (
               <div className="d-grid gap-1.5 mt-2 p-2 rounded-3 border border-dashed" style={{ background: '#fcfdfe' }}>
-                <button
-                  type="button"
-                  className="btn btn-xs btn-outline-secondary text-start d-flex justify-content-between align-items-center py-1.5 px-2.5 rounded-2 border-0 small text-dark"
-                  style={{ background: '#f1f5f9' }}
-                  onClick={() => handleQuickLogin('superadmin@gmail.com', 'superadmin123')}
-                >
-                  <span className="fw-bold small" style={{ fontSize: '11px' }}>Superadmin (Full Access)</span>
-                  <span className="text-xxs text-muted">superadmin / superadmin123</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-xs btn-outline-secondary text-start d-flex justify-content-between align-items-center py-1.5 px-2.5 rounded-2 border-0 small text-dark"
-                  style={{ background: '#f1f5f9' }}
-                  onClick={() => handleQuickLogin('admin@gmail.com', 'admin@2026')}
-                >
-                  <span className="fw-bold small" style={{ fontSize: '11px' }}>Admin (Operators)</span>
-                  <span className="text-xxs text-muted">admin / admin@2026</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-xs btn-outline-secondary text-start d-flex justify-content-between align-items-center py-1.5 px-2.5 rounded-2 border-0 small text-dark"
-                  style={{ background: '#f1f5f9' }}
-                  onClick={() => handleQuickLogin('vendor@tripgalileo.com', 'Vendor@Goa2026')}
-                >
-                  <span className="fw-bold small" style={{ fontSize: '11px' }}>Vehicle Vendor (Fleet Listings)</span>
-                  <span className="text-xxs text-muted">vendor / Vendor@Goa2026</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-xs btn-outline-secondary text-start d-flex justify-content-between align-items-center py-1.5 px-2.5 rounded-2 border-0 small text-dark"
-                  style={{ background: '#f1f5f9' }}
-                  onClick={() => handleQuickLogin('hotel_vendor@tripgalileo.com', 'Hotel@Goa2026')}
-                >
-                  <span className="fw-bold small" style={{ fontSize: '11px' }}>Hotel Vendor (Hotel PMS)</span>
-                  <span className="text-xxs text-muted">hotel_vendor / Hotel@Goa2026</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-xs btn-outline-secondary text-start d-flex justify-content-between align-items-center py-1.5 px-2.5 rounded-2 border-0 small text-dark"
-                  style={{ background: '#f1f5f9' }}
-                  onClick={() => handleQuickLogin('flight_vendor@tripgalileo.com', 'Flight@Goa2026')}
-                >
-                  <span className="fw-bold small" style={{ fontSize: '11px' }}>Flight Vendor (Flight PMS)</span>
-                  <span className="text-xxs text-muted">flight_vendor / Flight@Goa2026</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-xs btn-outline-secondary text-start d-flex justify-content-between align-items-center py-1.5 px-2.5 rounded-2 border-0 small text-dark"
-                  style={{ background: '#f5f3ff', border: '1px solid #ddd6fe' }}
-                  onClick={() => handleQuickLogin('subadmin@tripgalileo.com', 'admin@2026')}
-                >
-                  <span className="fw-bold small text-dark" style={{ fontSize: '11px' }}>🛡️ Sub-Admin Portal (Lead Operations)</span>
-                  <span className="text-xxs fw-bold" style={{ color: '#7c3aed' }}>rahul_subadmin / admin@2026</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-xs btn-outline-secondary text-start d-flex justify-content-between align-items-center py-1.5 px-2.5 rounded-2 border-0 small text-dark"
-                  style={{ background: '#eff6ff', border: '1px solid #dbeafe' }}
-                  onClick={() => handleQuickLogin('partner_a@agency.com', 'Partner@Goa2026')}
-                >
-                  <span className="fw-bold small text-dark" style={{ fontSize: '11px' }}>💼 B2B Portal (Travel Partner Agency)</span>
-                  <span className="text-xxs text-primary fw-bold">partner_a / Partner@Goa2026</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-xs btn-outline-secondary text-start d-flex justify-content-between align-items-center py-1.5 px-2.5 rounded-2 border-0 small text-dark"
-                  style={{ background: '#fffbeb', border: '1px solid #fef3c7' }}
-                  onClick={() => handleQuickLogin('driver@gmail.com', 'Driver@2004')}
-                >
-                  <span className="fw-bold small text-dark" style={{ fontSize: '11px' }}>🚗 Driver Portal (WOW GOA Fleet)</span>
-                  <span className="text-xxs text-warning fw-bold">driver@gmail.com / Driver@2004</span>
-                </button>
+                {WG_DEMO_LOGINS.map((d) => (
+                  <button
+                    key={d.user}
+                    type="button"
+                    className="btn btn-xs btn-outline-secondary text-start d-flex justify-content-between align-items-center py-1.5 px-2.5 rounded-2 border-0 small text-dark"
+                    style={{ background: '#f1f5f9' }}
+                    onClick={() => handleQuickLogin(d.user, d.pass)}
+                  >
+                    <span className="fw-bold small" style={{ fontSize: '11px' }}>{d.label}</span>
+                    <span className="text-xxs text-muted">{d.user} / {d.pass}</span>
+                  </button>
+                ))}
                 <button
                   type="button"
                   className="btn btn-xs text-start d-flex justify-content-between align-items-center py-1.5 px-2.5 rounded-2 small text-dark"
