@@ -35,8 +35,19 @@ jobs:
           cp -r frontend/dist/* deploy_staging/
           if [ -f .htaccess ]; then cp .htaccess deploy_staging/; fi
           mkdir -p deploy_staging/backend
-          cp -r backend/* deploy_staging/backend/
+          # "backend/." (not "backend/*") so hidden files are included too - above all
+          # backend/.htaccess, which blocks direct web access to setup/migration/test scripts.
+          cp -r backend/. deploy_staging/backend/
+          # Never ship databases or old database copies: the live site keeps its own data.
           rm -f deploy_staging/backend/database.sqlite
+          rm -f deploy_staging/backend/*.sqlite deploy_staging/backend/*.sqlite.* deploy_staging/backend/*.sqlite-*
+          rm -rf deploy_staging/backend/backups
+          # Stray nested copy of the backend folder (old uploads), not used by the site.
+          rm -rf deploy_staging/backend/backend
+          # Never overwrite the server's own settings file.
+          rm -f deploy_staging/backend/.env
+          # Development-only script that re-creates tables (wipes accounts) - never on the server.
+          rm -f deploy_staging/backend/setup_sqlite.php
           rm -rf deploy_staging/backend/uploads
           rm -f deploy_staging/beach.mp4
           rm -f deploy_staging/assets/*.mp4

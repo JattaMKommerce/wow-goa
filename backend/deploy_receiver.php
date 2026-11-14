@@ -43,11 +43,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $zip = new ZipArchive();
     if ($zip->open($tempZip) === TRUE) {
         $targetDir = dirname(__DIR__); // Root public_html
-        $zip->extractTo($targetDir);
+        $fileCount = $zip->numFiles;
+        $extracted = $zip->extractTo($targetDir);
         $zip->close();
         @unlink($tempZip);
-        
-        echo json_encode(['success' => true, 'message' => 'Deployment deployed and extracted successfully!']);
+
+        if ($extracted !== true) {
+            // Report the failure so GitHub Actions shows a red X instead of a false "success".
+            $free = @disk_free_space($targetDir);
+            http_response_code(500);
+            echo json_encode([
+                'error' => 'Files could not be written to the server (disk full, file limit reached or a permission problem). The live site was NOT fully updated.',
+                'free_disk_mb' => ($free !== false && $free !== null) ? (int) round($free / 1048576) : null
+            ]);
+            exit;
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Deployment deployed and extracted successfully! (' . $fileCount . ' files)']);
         
         // Execute database migration if script exists
         $migrateScript = __DIR__ . '/migrate_taxi_dispatch_system.php';

@@ -23,6 +23,12 @@
     AddType application/vnd.android.package-archive .apk
   </FilesMatch>
 
+  # Security: repository / source files that were copied onto the server (e.g. by a git clone)
+  # must never be served: GitHub workflow (contains the deploy key), app source code, scratch files.
+  # The live site does not use any of these paths.
+  RewriteRule ^(\.github|frontend|scratch)(/.*)?$ - [R=404,L]
+  RewriteRule ^\.cpanel\.yml$ - [R=404,L]
+
   # Do not rewrite existing files or directories (allows /backend/api.php and static assets to load)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
