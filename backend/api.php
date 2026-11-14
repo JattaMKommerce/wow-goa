@@ -63,6 +63,29 @@ function getTenantId() {
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/BookingService.php';
 require_once __DIR__ . '/VendorWalletAlertService.php';
+require_once __DIR__ . '/AllInOne.php';
+
+/**
+ * ALL-IN-ONE hub login tracking. Reports logins to the company hub (who, when, city, device).
+ * Configured by ALLINONE_URL + ALLINONE_KEY in backend/.env; does nothing if they are empty.
+ * Never throws and never blocks a login, even if the hub is down.
+ */
+function wgHubTrack(string $type, array $u): void {
+    static $hub = null;
+    $url = $_ENV['ALLINONE_URL'] ?? getenv('ALLINONE_URL');
+    $key = $_ENV['ALLINONE_KEY'] ?? getenv('ALLINONE_KEY');
+    if (!$url || !$key) return;
+    try {
+        if ($hub === null) $hub = new AllInOne($url, $key, 1.5);
+        $hub->track($type, [
+            'id'    => $u['id'] ?? null,
+            'email' => $u['email'] ?? null,
+            'name'  => $u['name'] ?? ($u['username'] ?? null),
+        ], array_filter(['role' => $u['role'] ?? null]));
+    } catch (\Throwable $e) {
+        // tracking must never affect wow_goa
+    }
+}
 
 // 1. Database Configuration loaded from config.php / .env
 $sqlitePath = __DIR__ . '/database.sqlite';
@@ -2974,8 +2997,10 @@ function handleAuthoritativeLogin($pdo, $username, $password) {
             http_response_code(500);
             return ["success" => false, "error" => "Login is temporarily unavailable: server authentication is not configured (AUTH_SECRET)."];
         }
+        wgHubTrack('login', $user); // ALL-IN-ONE hub
         return ["success" => true, "message" => "Login successful", "user" => $user, "token" => $token];
     } else {
+        wgHubTrack('failed_login', strpos($username, '@') !== false ? ['email' => $username] : ['name' => $username]); // ALL-IN-ONE hub
         http_response_code(401);
         return ["success" => false, "error" => "Invalid username or password. Check credentials."];
     }
@@ -7160,6 +7185,7 @@ HTML;
                 echo json_encode(['success' => false, 'error' => 'Login is temporarily unavailable: server authentication is not configured (AUTH_SECRET).']);
                 exit();
             }
+            wgHubTrack('login', $wgCustomer); // ALL-IN-ONE hub (customer OTP login)
             echo json_encode([
                 'success' => true,
                 'message' => 'Login successful',
@@ -8122,6 +8148,7 @@ HTML;
                     echo json_encode(["success" => false, "error" => "Login is temporarily unavailable: server authentication is not configured (AUTH_SECRET)."]);
                     exit();
                 }
+                wgHubTrack('login', $partner); // ALL-IN-ONE hub (B2B partner login)
                 echo json_encode([
                     "success" => true,
                     "message" => "B2B Partner authentication successful.",
@@ -8130,6 +8157,7 @@ HTML;
                 ]);
                 exit();
             } else {
+                wgHubTrack('failed_login', strpos($username, '@') !== false ? ['email' => $username] : ['name' => $username]); // ALL-IN-ONE hub
                 http_response_code(401);
                 echo json_encode(["success" => false, "error" => "Invalid B2B agency credentials. Please check your username and password."]);
                 exit();
