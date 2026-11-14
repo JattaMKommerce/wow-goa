@@ -122,11 +122,28 @@ assertTest("Blocked booking fee was not deducted", $bkRow['wallet_deduction_stat
 
 // --- TEST 7 & 8: Wallet recharge validation (requires UTR and Screenshot) ---
 echo "\n--- TEST 7 & 8: Offline Recharge Validation ---\n";
+function getWalletStaffToken() {
+    $secret = defined('AUTH_SECRET') ? AUTH_SECRET : (getenv('AUTH_SECRET') ?: 'wowgoa_production_hmac_secret_key_2026_super_secure');
+    $payload = [
+        'id' => 'u-1',
+        'username' => 'superadmin',
+        'role' => 'superadmin',
+        'phone' => '9822114400',
+        'tenant_id' => 'admin',
+        'time' => time(),
+        'exp' => time() + 86400
+    ];
+    $json = json_encode($payload);
+    $b64 = rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
+    $sig = hash_hmac('sha256', $b64, $secret);
+    return $b64 . '.' . $sig;
+}
+
 function postApi(string $url, array $payload): array {
     $context = stream_context_create([
         'http' => [
             'method'  => 'POST',
-            'header'  => "Content-Type: application/json\r\n",
+            'header'  => "Content-Type: application/json\r\nAuthorization: Bearer " . getWalletStaffToken() . "\r\n",
             'content' => json_encode($payload),
             'ignore_errors' => true
         ]

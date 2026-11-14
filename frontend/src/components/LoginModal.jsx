@@ -238,7 +238,10 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
             </button>
           </form>
 
-          {/* Quick Access Drawer */}
+          {/* Quick Access Drawer: ONLY on the local dev server (npm run dev / localhost:5173).
+              The live build (npm run build) leaves this whole block out, so these demo
+              passwords are never shown or shipped on wowgoa.in. */}
+          {import.meta.env.DEV && (<>
           <div className="login-deco-divider">
             <span className="text-xxs text-uppercase text-muted fw-bold px-2 bg-white">OR</span>
           </div>
@@ -352,6 +355,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
               </div>
             )}
           </div>
+          </>)}
         </div>
 
       </div>

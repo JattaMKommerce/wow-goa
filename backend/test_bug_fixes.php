@@ -6,12 +6,31 @@
  * Bug 3: Approved Wallet Recharge Moving to Approved Section & Idempotency
  */
 
-$baseUrl = 'http://127.0.0.1:8000';
+require_once __DIR__ . '/config.php';
+
+$baseUrl = 'http://localhost:8000';
 $pdo = new PDO('sqlite:' . __DIR__ . '/database.sqlite');
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $passed = 0;
 $failed = 0;
+
+function getBugFixesToken() {
+    $secret = defined('AUTH_SECRET') ? AUTH_SECRET : (getenv('AUTH_SECRET') ?: 'wowgoa_production_hmac_secret_key_2026_super_secure');
+    $payload = [
+        'id' => 'u-1',
+        'username' => 'superadmin',
+        'role' => 'superadmin',
+        'phone' => '9822114400',
+        'tenant_id' => 'admin',
+        'time' => time(),
+        'exp' => time() + 86400
+    ];
+    $json = json_encode($payload);
+    $b64 = rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
+    $sig = hash_hmac('sha256', $b64, $secret);
+    return $b64 . '.' . $sig;
+}
 
 function assertCheck($desc, $cond, $extra = '') {
     global $passed, $failed;
@@ -28,7 +47,7 @@ function postReq($url, $data) {
     $opts = [
         'http' => [
             'method' => 'POST',
-            'header' => "Content-Type: application/json\r\n",
+            'header' => "Content-Type: application/json\r\nAuthorization: Bearer " . getBugFixesToken() . "\r\n",
             'content' => json_encode($data),
             'ignore_errors' => true
         ]
@@ -45,6 +64,7 @@ function getReq($url) {
     $opts = [
         'http' => [
             'method' => 'GET',
+            'header' => "Authorization: Bearer " . getBugFixesToken() . "\r\n",
             'ignore_errors' => true
         ]
     ];

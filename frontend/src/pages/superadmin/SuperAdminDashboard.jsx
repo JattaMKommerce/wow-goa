@@ -3538,7 +3538,7 @@ export default function SuperAdminDashboard({
     case 'taxi_crm':
     case 'taxi_dispatch':
     case 'taxi_operations':
-      return <TaxiOperationsHub initialTab="dispatch" onNavigateHome={() => onNavigate('dashboard')} />;
+      return <TaxiOperationsHub isEmbedded={true} initialTab="dispatch" onNavigateHome={() => onNavigate('dashboard')} />;
     case 'drivers':
       return <AdminDriverManagement currentUser={currentUser} bookings={bookings} />;
     case 'admin_management':

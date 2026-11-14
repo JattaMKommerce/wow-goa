@@ -205,13 +205,24 @@ const INITIAL_STARTER_DRIVERS = [
   }
 ];
 
-export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, onNavigateHome }) {
+export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, onNavigateHome, isEmbedded = false }) {
+  const isActuallyEmbedded = isEmbedded || (typeof window !== 'undefined' && Boolean(
+    window.location.pathname.startsWith('/superadmin') ||
+    window.location.pathname.startsWith('/admin') ||
+    new URLSearchParams(window.location.search).get('tab') === 'taxi_crm' ||
+    new URLSearchParams(window.location.search).get('tab') === 'taxi_operations' ||
+    new URLSearchParams(window.location.search).get('tab') === 'taxi_dispatch'
+  ));
+
   const [activeTab, setActiveTab] = useState(() => {
     const path = window.location.pathname;
     if (path === '/taxi-fleet' || path === '/taxi-vehicles') return 'vehicles';
     if (path === '/taxi-drivers') return 'drivers';
     if (path === '/taxi-trips' || path === '/taxi-bookings') return 'trips';
-    return initialTab === 'fleet' ? 'vehicles' : (initialTab === 'drivers' ? 'drivers' : (initialTab === 'trips' ? 'trips' : 'dashboard'));
+    if (initialTab === 'fleet' || initialTab === 'vehicles') return 'vehicles';
+    if (initialTab === 'drivers') return 'drivers';
+    if (initialTab === 'trips' || initialTab === 'bookings') return 'trips';
+    return 'dashboard';
   });
 
   // ── 1. Vehicles State ────────────────────────────────────────────────────────
@@ -1076,130 +1087,181 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: 'inherit' }}>
+    <div style={{
+      display: 'flex',
+      flexDirection: isActuallyEmbedded ? 'column' : 'row',
+      minHeight: isActuallyEmbedded ? 'auto' : '100vh',
+      width: '100%',
+      background: '#f8fafc',
+      fontFamily: 'inherit'
+    }}>
       
-      {/* ─── LEFT SIDEBAR (WOW GOA STYLE) ─────────────────────────────────── */}
-      <aside style={{
-        width: '265px',
-        background: '#081225',
-        color: '#ffffff',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        boxShadow: '4px 0 20px rgba(0,0,0,0.15)',
-        zIndex: 100
-      }}>
-        {/* Brand Header */}
-        <div style={{
-          padding: '22px 20px',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
+      {/* ─── LEFT SIDEBAR (WOW GOA STYLE) - ONLY IN STANDALONE MODE ────────── */}
+      {!isActuallyEmbedded && (
+        <aside style={{
+          width: '265px',
+          background: '#081225',
+          color: '#ffffff',
           display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
+          flexDirection: 'column',
+          flexShrink: 0,
+          boxShadow: '4px 0 20px rgba(0,0,0,0.15)',
+          zIndex: 100
         }}>
+          {/* Brand Header */}
           <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #FF6333 0%, #FF8A00 100%)',
+            padding: '22px 20px',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            boxShadow: '0 4px 12px rgba(255,99,51,0.35)'
+            gap: '12px'
           }}>
-            <Car size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.5px' }}>
-              WOW GOA
-            </div>
             <div style={{
-              fontSize: '10px',
-              fontWeight: 700,
-              color: '#FF8A00',
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
-              marginTop: '1px'
+              width: '40px',
+              height: '40px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #FF6333 0%, #FF8A00 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              boxShadow: '0 4px 12px rgba(255,99,51,0.35)'
             }}>
-              Cab Fleet & Dispatch
+              <Car size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.5px' }}>
+                WOW GOA
+              </div>
+              <div style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                color: '#FF8A00',
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                marginTop: '1px'
+              }}>
+                Cab Fleet & Dispatch
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Sidebar Nav Items */}
-        <div style={{ padding: '16px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          
-          {/* 1. Dashboard Overview */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('dashboard')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              padding: '12px 14px',
-              borderRadius: '10px',
-              border: 'none',
-              background: activeTab === 'dashboard' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
-              color: activeTab === 'dashboard' ? '#ffffff' : 'rgba(255,255,255,0.7)',
-              fontWeight: activeTab === 'dashboard' ? 700 : 500,
-              fontSize: '13.5px',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              textAlign: 'left'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <LayoutDashboard size={18} color={activeTab === 'dashboard' ? '#ffffff' : '#00B8D9'} />
-              <span>Dashboard</span>
-            </div>
-          </button>
-
-          {/* 2. Trips & Bookings */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('trips')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              padding: '11px 12px',
-              borderRadius: '10px',
-              border: 'none',
-              background: activeTab === 'trips' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
-              color: activeTab === 'trips' ? '#ffffff' : 'rgba(255,255,255,0.7)',
-              fontWeight: activeTab === 'trips' ? 700 : 500,
-              fontSize: '13px',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              textAlign: 'left',
-              gap: '6px'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0, overflow: 'hidden' }}>
-              <Navigation size={17} color={activeTab === 'trips' ? '#ffffff' : '#00B8D9'} style={{ flexShrink: 0 }} />
-              <span style={{ whiteSpace: 'nowrap' }}>Trips & Bookings</span>
-            </div>
-            {countNeedsDriver > 0 ? (
-              <span style={{
-                background: activeTab === 'trips' ? '#ffffff' : '#ef4444',
-                color: activeTab === 'trips' ? '#FF6333' : '#ffffff',
-                fontSize: '10.5px',
-                fontWeight: 800,
-                padding: '2.5px 8px',
-                borderRadius: '9999px',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                display: 'inline-flex',
+          {/* Sidebar Nav Items */}
+          <div style={{ padding: '16px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            
+            {/* 1. Dashboard Overview */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('dashboard')}
+              style={{
+                display: 'flex',
                 alignItems: 'center',
-                lineHeight: 1
-              }}>
-                {countNeedsDriver} New
-              </span>
-            ) : (
+                justifyContent: 'space-between',
+                width: '100%',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                border: 'none',
+                background: activeTab === 'dashboard' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
+                color: activeTab === 'dashboard' ? '#ffffff' : 'rgba(255,255,255,0.7)',
+                fontWeight: activeTab === 'dashboard' ? 700 : 500,
+                fontSize: '13.5px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                textAlign: 'left'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <LayoutDashboard size={18} color={activeTab === 'dashboard' ? '#ffffff' : '#00B8D9'} />
+                <span>Dashboard</span>
+              </div>
+            </button>
+
+            {/* 2. Trips & Bookings */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('trips')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                padding: '11px 12px',
+                borderRadius: '10px',
+                border: 'none',
+                background: activeTab === 'trips' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
+                color: activeTab === 'trips' ? '#ffffff' : 'rgba(255,255,255,0.7)',
+                fontWeight: activeTab === 'trips' ? 700 : 500,
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                textAlign: 'left',
+                gap: '6px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0, overflow: 'hidden' }}>
+                <Navigation size={17} color={activeTab === 'trips' ? '#ffffff' : '#00B8D9'} style={{ flexShrink: 0 }} />
+                <span style={{ whiteSpace: 'nowrap' }}>Trips & Bookings</span>
+              </div>
+              {countNeedsDriver > 0 ? (
+                <span style={{
+                  background: activeTab === 'trips' ? '#ffffff' : '#ef4444',
+                  color: activeTab === 'trips' ? '#FF6333' : '#ffffff',
+                  fontSize: '10.5px',
+                  fontWeight: 800,
+                  padding: '2.5px 8px',
+                  borderRadius: '9999px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  lineHeight: 1
+                }}>
+                  {countNeedsDriver} New
+                </span>
+              ) : (
+                <span style={{
+                  background: 'rgba(255,255,255,0.15)',
+                  fontSize: '10.5px',
+                  fontWeight: 700,
+                  padding: '2.5px 8px',
+                  borderRadius: '9999px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  lineHeight: 1
+                }}>
+                  {bookings.length} Total
+                </span>
+              )}
+            </button>
+
+            {/* 3. Vehicles (Add Cab & Fleet) */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('vehicles')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                padding: '11px 12px',
+                borderRadius: '10px',
+                border: 'none',
+                background: activeTab === 'vehicles' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
+                color: activeTab === 'vehicles' ? '#ffffff' : 'rgba(255,255,255,0.7)',
+                fontWeight: activeTab === 'vehicles' ? 700 : 500,
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                textAlign: 'left',
+                gap: '6px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0, overflow: 'hidden' }}>
+                <Car size={17} color={activeTab === 'vehicles' ? '#ffffff' : '#00B8D9'} style={{ flexShrink: 0 }} />
+                <span style={{ whiteSpace: 'nowrap' }}>My Vehicles ({countTotalVehicles})</span>
+              </div>
               <span style={{
                 background: 'rgba(255,255,255,0.15)',
                 fontSize: '10.5px',
@@ -1212,159 +1274,339 @@ export default function TaxiOperationsHub({ initialTab = 'dashboard', onLogout, 
                 alignItems: 'center',
                 lineHeight: 1
               }}>
-                {bookings.length} Total
+                {countActiveVehicles} Active
               </span>
-            )}
-          </button>
+            </button>
 
-          {/* 3. Vehicles (Add Cab & Fleet) */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('vehicles')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              padding: '11px 12px',
-              borderRadius: '10px',
-              border: 'none',
-              background: activeTab === 'vehicles' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
-              color: activeTab === 'vehicles' ? '#ffffff' : 'rgba(255,255,255,0.7)',
-              fontWeight: activeTab === 'vehicles' ? 700 : 500,
-              fontSize: '13px',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              textAlign: 'left',
-              gap: '6px'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0, overflow: 'hidden' }}>
-              <Car size={17} color={activeTab === 'vehicles' ? '#ffffff' : '#00B8D9'} style={{ flexShrink: 0 }} />
-              <span style={{ whiteSpace: 'nowrap' }}>My Vehicles ({countTotalVehicles})</span>
-            </div>
-            <span style={{
-              background: 'rgba(255,255,255,0.15)',
-              fontSize: '10.5px',
-              fontWeight: 700,
-              padding: '2.5px 8px',
-              borderRadius: '9999px',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
-              lineHeight: 1
-            }}>
-              {countActiveVehicles} Active
-            </span>
-          </button>
+            {/* 4. Drivers */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('drivers')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                padding: '11px 12px',
+                borderRadius: '10px',
+                border: 'none',
+                background: activeTab === 'drivers' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
+                color: activeTab === 'drivers' ? '#ffffff' : 'rgba(255,255,255,0.7)',
+                fontWeight: activeTab === 'drivers' ? 700 : 500,
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                textAlign: 'left',
+                gap: '6px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0, overflow: 'hidden' }}>
+                <Users size={17} color={activeTab === 'drivers' ? '#ffffff' : '#00B8D9'} style={{ flexShrink: 0 }} />
+                <span style={{ whiteSpace: 'nowrap' }}>Drivers ({countTotalDrivers})</span>
+              </div>
+              <span style={{
+                background: 'rgba(255,255,255,0.15)',
+                fontSize: '10.5px',
+                fontWeight: 700,
+                padding: '2.5px 8px',
+                borderRadius: '9999px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                lineHeight: 1
+              }}>
+                {countAvailableDrivers} Free
+              </span>
+            </button>
 
-          {/* 4. Drivers */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('drivers')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              padding: '11px 12px',
-              borderRadius: '10px',
-              border: 'none',
-              background: activeTab === 'drivers' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : 'transparent',
-              color: activeTab === 'drivers' ? '#ffffff' : 'rgba(255,255,255,0.7)',
-              fontWeight: activeTab === 'drivers' ? 700 : 500,
-              fontSize: '13px',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              textAlign: 'left',
-              gap: '6px'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0, overflow: 'hidden' }}>
-              <Users size={17} color={activeTab === 'drivers' ? '#ffffff' : '#00B8D9'} style={{ flexShrink: 0 }} />
-              <span style={{ whiteSpace: 'nowrap' }}>Drivers ({countTotalDrivers})</span>
-            </div>
-            <span style={{
-              background: 'rgba(255,255,255,0.15)',
-              fontSize: '10.5px',
-              fontWeight: 700,
-              padding: '2.5px 8px',
-              borderRadius: '9999px',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
-              lineHeight: 1
-            }}>
-              {countAvailableDrivers} Free
-            </span>
-          </button>
+            <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
 
-          <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
+            {/* Quick External Link to Customer Cab App */}
+            <a
+              href="/cabs"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '11px 14px',
+                borderRadius: '10px',
+                color: '#38bdf8',
+                textDecoration: 'none',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                background: 'rgba(56, 189, 248, 0.08)',
+                border: '1px solid rgba(56, 189, 248, 0.2)'
+              }}
+            >
+              <span>Customer Cab App ↗</span>
+              <ExternalLink size={13} />
+            </a>
+          </div>
 
-          {/* Quick External Link to Customer Cab App */}
-          <a
-            href="/cabs"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '11px 14px',
-              borderRadius: '10px',
-              color: '#38bdf8',
-              textDecoration: 'none',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              background: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.2)'
-            }}
-          >
-            <span>Customer Cab App ↗</span>
-            <ExternalLink size={13} />
-          </a>
-        </div>
-
-        {/* Sidebar Footer */}
-        <div style={{
-          padding: '16px 14px',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px'
-        }}>
-          <button
-            type="button"
-            onClick={onNavigateHome || (() => window.location.href = '/')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'transparent',
-              border: 'none',
-              color: 'rgba(255,255,255,0.6)',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              padding: '6px'
-            }}
-          >
-            <LogOut size={14} />
-            <span>Back to Main Website</span>
-          </button>
-        </div>
-      </aside>
+          {/* Sidebar Footer */}
+          <div style={{
+            padding: '16px 14px',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <button
+              type="button"
+              onClick={onNavigateHome || (() => window.location.href = '/')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'transparent',
+                border: 'none',
+                color: 'rgba(255,255,255,0.6)',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: '6px'
+              }}
+            >
+              <LogOut size={14} />
+              <span>Back to Main Website</span>
+            </button>
+          </div>
+        </aside>
+      )}
 
       {/* ─── MAIN CONTENT AREA ────────────────────────────────────────────── */}
-      <main style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-        
+      <main style={{
+        flex: 1,
+        width: '100%',
+        minWidth: 0,
+        overflowY: isActuallyEmbedded ? 'visible' : 'auto',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+
+        {/* ─── TOP SUBNAV PILLS (SHOWN WHEN EMBEDDED IN SUPERADMIN/ADMIN) ──── */}
+        {isActuallyEmbedded && (
+          <div style={{
+            background: '#ffffff',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '12px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+          }}>
+            {/* Left: Branded Module Badge + Horizontal Tab Pills */}
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 12px',
+                background: '#081225',
+                borderRadius: '10px',
+                color: '#ffffff',
+                marginRight: '6px'
+              }}>
+                <div style={{
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '7px',
+                  background: 'linear-gradient(135deg, #FF6333 0%, #FF8A00 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  fontSize: '13px'
+                }}>
+                  <Car size={15} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.5px', lineHeight: 1 }}>WOW GOA</div>
+                  <div style={{ fontSize: '9px', fontWeight: 700, color: '#FF8A00', letterSpacing: '0.5px', marginTop: '2px', lineHeight: 1 }}>FLEET & DISPATCH</div>
+                </div>
+              </div>
+
+              {/* 1. Dashboard */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('dashboard')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  border: activeTab === 'dashboard' ? '1px solid #FF6333' : '1px solid #e2e8f0',
+                  background: activeTab === 'dashboard' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : '#ffffff',
+                  color: activeTab === 'dashboard' ? '#ffffff' : '#334155',
+                  fontWeight: activeTab === 'dashboard' ? 700 : 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: activeTab === 'dashboard' ? '0 2px 8px rgba(255,99,51,0.25)' : 'none'
+                }}
+              >
+                <LayoutDashboard size={15} color={activeTab === 'dashboard' ? '#ffffff' : '#00B8D9'} />
+                <span>Dashboard</span>
+              </button>
+
+              {/* 2. Trips & Bookings */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('trips')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  border: activeTab === 'trips' ? '1px solid #FF6333' : '1px solid #e2e8f0',
+                  background: activeTab === 'trips' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : '#ffffff',
+                  color: activeTab === 'trips' ? '#ffffff' : '#334155',
+                  fontWeight: activeTab === 'trips' ? 700 : 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: activeTab === 'trips' ? '0 2px 8px rgba(255,99,51,0.25)' : 'none'
+                }}
+              >
+                <Navigation size={15} color={activeTab === 'trips' ? '#ffffff' : '#00B8D9'} />
+                <span>Trips & Bookings</span>
+                {countNeedsDriver > 0 ? (
+                  <span style={{
+                    background: activeTab === 'trips' ? '#ffffff' : '#ef4444',
+                    color: activeTab === 'trips' ? '#FF6333' : '#ffffff',
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    padding: '2px 7px',
+                    borderRadius: '9999px',
+                    lineHeight: 1
+                  }}>
+                    {countNeedsDriver} New
+                  </span>
+                ) : (
+                  <span style={{
+                    background: activeTab === 'trips' ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
+                    color: activeTab === 'trips' ? '#ffffff' : '#64748b',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: '9999px',
+                    lineHeight: 1
+                  }}>
+                    {bookings.length} Total
+                  </span>
+                )}
+              </button>
+
+              {/* 3. My Vehicles */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('vehicles')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  border: activeTab === 'vehicles' ? '1px solid #FF6333' : '1px solid #e2e8f0',
+                  background: activeTab === 'vehicles' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : '#ffffff',
+                  color: activeTab === 'vehicles' ? '#ffffff' : '#334155',
+                  fontWeight: activeTab === 'vehicles' ? 700 : 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: activeTab === 'vehicles' ? '0 2px 8px rgba(255,99,51,0.25)' : 'none'
+                }}
+              >
+                <Car size={15} color={activeTab === 'vehicles' ? '#ffffff' : '#00B8D9'} />
+                <span>My Vehicles ({countTotalVehicles})</span>
+                <span style={{
+                  background: activeTab === 'vehicles' ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
+                  color: activeTab === 'vehicles' ? '#ffffff' : '#64748b',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  padding: '2px 7px',
+                  borderRadius: '9999px',
+                  lineHeight: 1
+                }}>
+                  {countActiveVehicles} Active
+                </span>
+              </button>
+
+              {/* 4. Drivers */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('drivers')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  border: activeTab === 'drivers' ? '1px solid #FF6333' : '1px solid #e2e8f0',
+                  background: activeTab === 'drivers' ? 'linear-gradient(90deg, #FF6333, #FF8A00)' : '#ffffff',
+                  color: activeTab === 'drivers' ? '#ffffff' : '#334155',
+                  fontWeight: activeTab === 'drivers' ? 700 : 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: activeTab === 'drivers' ? '0 2px 8px rgba(255,99,51,0.25)' : 'none'
+                }}
+              >
+                <Users size={15} color={activeTab === 'drivers' ? '#ffffff' : '#00B8D9'} />
+                <span>Drivers ({countTotalDrivers})</span>
+                <span style={{
+                  background: activeTab === 'drivers' ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
+                  color: activeTab === 'drivers' ? '#ffffff' : '#64748b',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  padding: '2px 7px',
+                  borderRadius: '9999px',
+                  lineHeight: 1
+                }}>
+                  {countAvailableDrivers} Free
+                </span>
+              </button>
+            </div>
+
+            {/* Right: Quick Link to Customer Cab App */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <a
+                href="/cabs"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  color: '#0284c7',
+                  textDecoration: 'none',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  background: '#f0f9ff',
+                  border: '1px solid #bae6fd'
+                }}
+              >
+                <span>Customer Cab App</span>
+                <ExternalLink size={13} />
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Top Header Bar */}
         <header style={{
           background: '#ffffff',
           borderBottom: '1px solid #e2e8f0',
-          padding: '16px 28px',
+          padding: isActuallyEmbedded ? '14px 24px' : '16px 28px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',

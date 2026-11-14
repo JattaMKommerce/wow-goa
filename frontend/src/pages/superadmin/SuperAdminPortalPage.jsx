@@ -1188,7 +1188,7 @@ export default function SuperAdminPortalPage({
           ) : activeTab === 'storefront_leads' ? (
             <AdminStorefrontLeadsTab />
           ) : activeTab === 'taxi_crm' || activeTab === 'taxi_operations' || activeTab === 'taxi_dispatch' ? (
-            <TaxiOperationsHub initialTab="dispatch" onNavigateHome={() => handleTabChange('dashboard')} />
+            <TaxiOperationsHub isEmbedded={true} initialTab="dispatch" onNavigateHome={() => handleTabChange('dashboard')} />
           ) : (
             <SuperAdminDashboard
               activeTab={activeTab}

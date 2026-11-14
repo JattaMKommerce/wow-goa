@@ -809,7 +809,7 @@ export default function AdminPortalPage({
       case 'taxi_crm':
       case 'taxi_operations':
       case 'taxi_dispatch':
-        return <TaxiOperationsHub initialTab="dispatch" onNavigateHome={() => setAdminActiveTab('overview')} />;
+        return <TaxiOperationsHub isEmbedded={true} initialTab="dispatch" onNavigateHome={() => setAdminActiveTab('overview')} />;
 
       case 'drivers':
         return <AdminDriverManagement currentUser={currentUser} bookings={liveBookings} onRefresh={loadAllAdminData} />;

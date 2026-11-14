@@ -13,12 +13,29 @@ $pdo = new PDO("sqlite:$dbFile");
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // Helper for HTTP simulation against live PHP server on port 8000
+function getStaffToken() {
+    $secret = defined('AUTH_SECRET') ? AUTH_SECRET : (getenv('AUTH_SECRET') ?: 'wowgoa_production_hmac_secret_key_2026_super_secure');
+    $payload = [
+        'id' => 'u-1',
+        'username' => 'superadmin',
+        'role' => 'superadmin',
+        'phone' => '9822114400',
+        'tenant_id' => 'admin',
+        'time' => time(),
+        'exp' => time() + 86400
+    ];
+    $json = json_encode($payload);
+    $b64 = rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
+    $sig = hash_hmac('sha256', $b64, $secret);
+    return $b64 . '.' . $sig;
+}
+
 function testPost($action, $data) {
-    $url = "http://127.0.0.1:8000/api.php?action=" . urlencode($action);
+    $url = "http://localhost:8000/api.php?action=" . urlencode($action);
     $opts = [
         'http' => [
             'method' => 'POST',
-            'header' => "Content-Type: application/json\r\n",
+            'header' => "Content-Type: application/json\r\nAuthorization: Bearer " . getStaffToken() . "\r\n",
             'content' => json_encode($data),
             'timeout' => 5,
             'ignore_errors' => true
@@ -31,10 +48,11 @@ function testPost($action, $data) {
 
 function testGet($action, $params = []) {
     $qs = http_build_query(array_merge(['resource' => $action], $params));
-    $url = "http://127.0.0.1:8000/api.php?" . $qs;
+    $url = "http://localhost:8000/api.php?" . $qs;
     $opts = [
         'http' => [
             'method' => 'GET',
+            'header' => "Authorization: Bearer " . getStaffToken() . "\r\n",
             'timeout' => 5,
             'ignore_errors' => true
         ]
