@@ -8,10 +8,8 @@ import { lockScroll, unlockScroll } from '../utils/scrollLock';
 import ForgotPasswordModal from './ForgotPasswordModal';
 
 // ── TESTING ONLY: quick-login panel. REMOVE BEFORE PUBLIC LAUNCH. ─────────────────
-// Local dev (localhost) uses the local database passwords; the live site uses the live ones.
-// On wowgoa.in the panel is hidden until you open  wowgoa.in/?testlogin  once (remembered in that browser).
-const WG_IS_LOCAL = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const WG_DEMO_LOGINS = WG_IS_LOCAL ? [
+// Quick Access Demo Accounts — available on both local and live site
+const WG_DEMO_LOGINS = [
   { label: 'Superadmin (Full Access)', user: 'superadmin@gmail.com', pass: 'superadmin123' },
   { label: 'Admin (Operators)', user: 'admin@gmail.com', pass: 'admin@2026' },
   { label: 'Vehicle Vendor (Fleet Listings)', user: 'vendor@tripgalileo.com', pass: 'Vendor@Goa2026' },
@@ -21,23 +19,10 @@ const WG_DEMO_LOGINS = WG_IS_LOCAL ? [
   { label: '🛡️ Sub-Admin Portal (Lead Operations)', user: 'subadmin@tripgalileo.com', pass: 'admin@2026' },
   { label: '💼 B2B Portal (Travel Partner Agency)', user: 'partner_a@agency.com', pass: 'Partner@Goa2026' },
   { label: '🚗 Driver Portal (WOW GOA Fleet)', user: 'driver@gmail.com', pass: 'Driver@2004' },
-] : [
-  { label: 'Superadmin (Full Access)', user: 'superadmin@gmail.com', pass: 'Super@x39r-TfXq-HBN4' },
-  { label: 'Admin (Operators)', user: 'admin@gmail.com', pass: 'Admin@LB6w-mJMK-u8Ka' },
-  { label: 'Vehicle Vendor (Fleet Listings)', user: 'vendor@tripgalileo.com', pass: 'Fleet@xmWp-hnjB-7LkC' },
-  { label: 'Hotel Vendor (Hotel PMS)', user: 'hotel_vendor@tripgalileo.com', pass: 'Hotel@7mPE-yuFT-bVca' },
-  { label: 'Flight Vendor (Flight PMS)', user: 'flight_vendor@tripgalileo.com', pass: 'Flight@swnh-Jfev-Rgzq' },
-  { label: '🛡️ Sub-Admin Portal (Account: aaaa)', user: 'aaaa', pass: 'aaaa@2004' },
-  { label: '🛡️ Sub-Admin Portal (Lead Operations)', user: 'subadmin@tripgalileo.com', pass: 'SubAdmin@h7PY-daqL-P9bm' },
-  { label: '💼 B2B Portal (Travel Partner Agency)', user: 'partner_a@agency.com', pass: 'Partner@Goa2026' },
-  { label: '🚗 Driver Portal (WOW GOA Fleet)', user: 'driver@gmail.com', pass: 'Driver@X6nM-d5Sb-GUnS' },
 ];
+
 function wgDemoPanelEnabled() {
-  if (WG_IS_LOCAL) return true;
-  try {
-    if (/[?&]testlogin\b/.test(window.location.search)) localStorage.setItem('wg_testlogin', '1');
-    return localStorage.getItem('wg_testlogin') === '1';
-  } catch (e) { return false; }
+  return true;
 }
 
 export default function LoginModal({ isOpen, onClose, onLogin }) {
